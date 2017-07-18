@@ -1,0 +1,38 @@
+
+(defstruct MyInt
+  (object
+    (x Int32)
+    (y Int32)
+    (z Int32)))
+
+(defenum Option [T]
+  (enum
+    (Some T)
+    (None)))
+
+(defenum result [T E]
+  (enum
+    (Ok T)
+    (Error E)))
+
+@(the MyInt MyInt -> MyInt)
+(defn + [a b]
+  (MyInt :x (+ a.x b.x) :y (+ a.y b.y) :z (+ a.z b.z)))
+
+@(the MyInt MyInt -> MyInt)
+(defn - [a b]
+  (MyInt :x (- a.x b.x) :y (- a.y b.y) :z (- a.z b.z)))
+
+@(the [Option T] -> T)
+(defn unwrap [option]
+  (match option
+    [(Some value) value]
+    [None (panic)]))
+
+@(the Bool Untyped Untyped -> Untyped)
+(defmacro aif [cond tbody fbody]
+  `(progn
+    (var it ,cond)
+    (if it
+        ,tbody
+        ,fbody)))
