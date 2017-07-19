@@ -7,6 +7,8 @@ type
     line*: int
     linepos*: int
     pos*: int
+  Symbol* = object
+    hash*: string
   SExprKind* = enum
     sexprNil
     sexprList
@@ -14,6 +16,7 @@ type
     sexprInt
   SExpr* = ref object
     span*: Span
+    exprtype*: Symbol
     case kind*: SExprKind
     of sexprNil:
       discard

@@ -1,19 +1,16 @@
 
 (defstruct MyInt
-  (object
-    (x Int32)
-    (y Int32)
-    (z Int32)))
+  (x Int32)
+  (y Int32)
+  (z Int32)))
 
 (defenum Option [T]
-  (enum
-    (Some T)
-    (None)))
+  (Some T)
+  (None)))
 
 (defenum result [T E]
-  (enum
-    (Ok T)
-    (Error E)))
+  (Ok T)
+  (Error E)))
 
 @(the MyInt MyInt -> MyInt)
 (defn + [a b]
@@ -31,7 +28,7 @@
 
 @(the Bool Untyped Untyped -> Untyped)
 (defmacro aif [cond tbody fbody]
-  `(progn
+  `(do
     (var it ,cond)
     (if it
         ,tbody

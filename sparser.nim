@@ -71,8 +71,12 @@ proc parseSExpr*(context: var ParserContext): SExpr =
     context.inc
     let annot = parseSExpr(context)
     let body = parseSExpr(context)
-    annot.last = ast(body.span, newSList(body, newSNil()))
-    return annot
+    var ret = annot
+    if annot.kind == sexprList:
+      ret.last = ast(body.span, newSList(body, newSNil()))
+    else:
+      ret = ast(annot.span, newSList(annot, newSList(body, newSNil())))
+    return ret
   elif ('a' <= context.curchar and context.curchar <= 'z') or
        ('A' <= context.curchar and context.curchar <= 'Z') or
        context.curchar in SpecialSymbols:
