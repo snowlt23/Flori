@@ -1,5 +1,6 @@
 
 import strutils
+import options
 
 type
   SExprError* = object of Exception
@@ -16,7 +17,6 @@ type
     sexprInt
   SExpr* = ref object
     span*: Span
-    exprtype*: Symbol
     case kind*: SExprKind
     of sexprNil:
       discard
@@ -50,6 +50,28 @@ proc newSInt*(x: int64): SExpr =
   result.intval = x
 proc newSInt*(s: string): SExpr =
   newSInt(parseInt(s))
+
+proc `$`*(symbol: Symbol): string =
+  symbol.hash
+
+iterator items*(list: SExpr): SExpr =
+  if list.kind != sexprList:
+    raise newException(SExprError, "reverse: sexpr is not list")
+  var curexpr = list
+  while true:
+    yield(curexpr.first)
+    if curexpr.rest.kind == sexprNil:
+      break
+    curexpr = curexpr.rest
+iterator list*(list: SExpr): SExpr =
+  if list.kind != sexprList:
+    raise newException(SExprError, "reverse: sexpr is not list")
+  var curexpr = list
+  while true:
+    yield(curexpr)
+    if curexpr.rest.kind == sexprNil:
+      break
+    curexpr = curexpr.rest
 
 proc reverse*(list: SExpr): SExpr =
   if list.kind != sexprList:

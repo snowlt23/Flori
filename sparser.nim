@@ -22,6 +22,8 @@ proc newParserContext*(src: string): ParserContext =
   result.pos = 0
 proc curchar*(context: ParserContext): char =
   return context.src[context.pos]
+proc isEOF*(context: ParserContext): bool =
+  context.curchar == 0x1a.char or context.curchar == '\0'
 proc isNewline*(context: ParserContext): bool =
   let newline = "\n"
   for i in 0..<newline.len:
@@ -53,6 +55,9 @@ proc span*(context: ParserContext): Span =
 
 proc parseSExpr*(context: var ParserContext): SExpr =
   context.skipSpaces()
+
+  if context.isEOF():
+    return nil
 
   if context.curchar in StartList:
     let span = context.span()
@@ -102,3 +107,12 @@ proc parseSExpr*(context: var ParserContext): SExpr =
 proc parseSExpr*(src: string): SExpr =
   var context = newParserContext(src)
   return parseSExpr(context)
+proc parseToplevel*(src: string): seq[SExpr] =
+  var context = newParserContext(src)
+  result = @[]
+  while true:
+    let ret = parseSExpr(context)
+    if ret == nil:
+      break
+    else:
+      result.add(ret)
