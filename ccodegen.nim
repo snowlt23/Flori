@@ -4,6 +4,7 @@ import sast
 import semantic
 import ccodegen_primitives
 
+import os
 import strutils, sequtils
 import tables
 
@@ -33,11 +34,15 @@ proc getMainSrc*(context: CCodegenContext): string =
   result &= context.mainsrc
   result &= "}\n"
 
+proc preinclude*(module: CCodegenModule) =
+  module.src &= "#include <stdint.h>\n"
+
 proc newCCodegenModule*(): CCodegenModule =
   new result
   result.src = ""
   result.header = ""
   result.curindent = 0
+  result.preinclude()
 template indent*(module: CCodegenModule, body: untyped) =
   module.curindent += 1
   body
@@ -155,6 +160,3 @@ proc genModule*(context: CCodegenContext, sym: string, module: Module) =
 proc genContext*(context: CCodegenContext, semcontext: SemanticContext) =
   for sym, module in semcontext.modules.pairs:
     genModule(context, sym, module)
-
-proc writeToFiles*(context: CCodegenContext) =
-  discard

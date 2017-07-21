@@ -2,6 +2,8 @@
 nimcache/
 nimsuggest.log
 
+floricache/
+
 tester.exe
 tester
 semantic_test.exe

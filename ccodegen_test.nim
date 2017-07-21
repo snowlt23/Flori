@@ -3,6 +3,7 @@ import sast
 import sparser
 import semantic
 import ccodegen
+import compile
 
 import tables
 
@@ -20,7 +21,7 @@ semcontext.evalModule("top", sexpr)
 
 var cgencontext = newCCodegenContext()
 cgencontext.genContext(semcontext)
-# cgencontext.writeToFiles()
+cgencontext.compile("add")
 
-echo cgencontext.modules["top"].src
-echo cgencontext.getMainSrc()
+# echo cgencontext.modules["top"].src
+# echo cgencontext.getMainSrc()
