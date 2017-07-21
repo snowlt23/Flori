@@ -52,7 +52,7 @@ type
   Module* = ref object
     context*: SemanticContext
     name*: string
-    semanticexprs*: Table[Symbol, SemanticExpr]
+    semanticexprs*: OrderedTable[Symbol, SemanticExpr]
     toplevelcalls*: seq[SemanticExpr]
     exportedsymbols*: seq[Symbol]
   FuncCall* = ref object
@@ -60,7 +60,7 @@ type
     args*: seq[SemanticExpr]
   Scope* = object
     module*: Module
-    scopesymbols*: Table[Symbol, SemanticExpr]
+    scopesymbols*: OrderedTable[Symbol, SemanticExpr]
   SemanticContext* = ref object
     modules*: Table[string, Module]
     symcount*: int
@@ -114,23 +114,23 @@ proc defPrimitiveFunc*(module: Module, typename: string, primitivename: string, 
 proc predefined*(module: Module) =
   module.defPrimitiveValue("nil", "NULL")
   module.defPrimitiveType("Int32", "int32_t")
-  module.defPrimitiveFunc("+_x_Int32", "+", "Int32")
+  module.defPrimitiveFunc("+_Int32_Int32", "+", "Int32")
 proc newModule*(modulename: string): Module =
   new result
   result.name = modulename
-  result.semanticexprs = initTable[Symbol, SemanticExpr]()
+  result.semanticexprs = initOrderedTable[Symbol, SemanticExpr]()
   result.exportedsymbols = @[]
   result.predefined()
 
 proc newScope*(module: Module): Scope =
   result.module = module
-  result.scopesymbols = initTable[Symbol, SemanticExpr]()
+  result.scopesymbols = initOrderedTable[Symbol, SemanticExpr]()
 proc addArgSymbols*(scope: var Scope, argtypesyms: seq[Symbol], funcdef: SExpr) =
   for i, arg in funcdef.rest.rest.first:
     scope.scopesymbols.add(
       Symbol(hash: $arg),
       SemanticExpr(
-        typesym: notTypeSym,
+        typesym: argtypesyms[i],
         kind: semanticSymbol,
         symbol: argtypesyms[i]
       )
@@ -149,34 +149,34 @@ proc getSemanticExpr*(scope: Scope, sym: Symbol): SemanticExpr =
   else:
     return scope.module.semanticexprs[sym]
 
-proc getType*(scope: Scope, sexpr: SExpr): Symbol
+proc getType*(scope: Scope, semexpr: SemanticExpr): Symbol
 
-proc getHashFromFuncCall*(scope: Scope, sexpr: SExpr): string =
-  var types = newSeq[string]()
-  for arg in sexpr.rest:
-     types.add($getType(scope, arg))
-  return $sexpr.first & "_" & types.mapIt($it).join("_")
-proc getTypeFromFunctionCall*(scope: Scope, sexpr: SExpr): Symbol =
-  let hash = scope.getHashFromFuncCall(sexpr)
-  let sym = scope.getSymbol(hash)
-  let e = scope.getSemanticExpr(sym)
-  if e.kind == semanticFunction:
-    return e.function.rettype
-  elif e.kind == semanticPrimitiveFunc:
-    return scope.getSymbol(e.primitiverettype)
+proc getHashFromFuncCall*(scope: Scope, name: string, args: seq[SemanticExpr]): string =
+  var types = newSeq[Symbol]()
+  for arg in args:
+     types.add(scope.getType(arg))
+  return name & "_" & types.mapIt($it).join("_")
+# proc getTypeFromFuncCall*(scope: Scope, sexpr: SExpr): Symbol =
+#   let hash = scope.getHashFromFuncCall(sexpr)
+#   let sym = scope.getSymbol(hash)
+#   let e = scope.getSemanticExpr(sym)
+#   if e.kind == semanticFunction:
+#     return e.function.rettype
+#   elif e.kind == semanticPrimitiveFunc:
+#     return scope.getSymbol(e.primitiverettype)
+#   else:
+#     raise newException(SemanticError, "$# is not function: $#" % [$sym, $sexpr])
+
+proc getType*(scope: Scope, semexpr: SemanticExpr): Symbol =
+  return semexpr.typesym
+proc getRetType*(scope: Scope, sym: Symbol): Symbol =
+  let semexpr = scope.getSemanticExpr(sym)
+  if semexpr.kind == semanticFunction:
+    return semexpr.function.rettype
+  elif semexpr.kind == semanticPrimitiveFunc:
+    return scope.getSymbol(semexpr.primitiverettype)
   else:
-    raise newException(SemanticError, "$# is not function: $#" % [$sym, $sexpr])
-
-proc getType*(scope: Scope, sexpr: SExpr): Symbol =
-  case sexpr.kind
-  of sexprNil:
-    scope.getSymbol("nil")
-  of sexprList:
-    scope.getTypeFromFunctionCall(sexpr)
-  of sexprIdent:
-    scope.getSymbol($sexpr)
-  of sexprInt:
-    scope.getSymbol("Int32")
+    raise newException(SemanticError, "expression is not function")
 
 proc evalSExpr*(scope: Scope, sexpr: SExpr): SemanticExpr
 
@@ -199,14 +199,14 @@ proc evalFunction*(scope: Scope, sexpr: SExpr)  =
   if rettype == nil:
     rettype = ast(sexpr.span, newSIdent("void"))
   let funcname = funcdef.rest.first
-  let argtypesyms = argtypes.mapIt(scope.getType(it))
+  let argtypesyms = argtypes.mapIt(scope.getSymbol($it))
 
   var scope = scope
   scope.addArgSymbols(argtypesyms, funcdef)
   let f = Function(
     name: $funcname,
     argtypes: argtypesyms,
-    rettype: scope.getType(rettype),
+    rettype: scope.getSymbol($rettype),
     body: scope.evalFunctionBody(funcdef.rest.rest.rest),
   )
   scope.module.addFunction(f)
@@ -215,11 +215,12 @@ proc evalFuncCall*(scope: Scope, sexpr: SExpr): SemanticExpr =
   var args = newSeq[SemanticExpr]()
   for arg in sexpr.rest:
     args.add(scope.evalSExpr(arg))
+  let sym = scope.getSymbol(scope.getHashFromFuncCall($sexpr.first, args))
   return SemanticExpr(
-    typesym: scope.getType(sexpr),
+    typesym: scope.getRetType(sym),
     kind: semanticFuncCall,
     funccall: FuncCall(
-      callfunc: scope.getSymbol(scope.getHashFromFuncCall(sexpr)),
+      callfunc: sym,
       args: args,
     ),
   )
