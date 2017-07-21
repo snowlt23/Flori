@@ -1,6 +1,5 @@
 
 import strutils
-import options
 
 type
   SExprError* = object of Exception
@@ -63,6 +62,17 @@ iterator items*(list: SExpr): SExpr =
     if curexpr.rest.kind == sexprNil:
       break
     curexpr = curexpr.rest
+iterator pairs*(list: SExpr): tuple[i: int, e: SExpr] =
+  if list.kind != sexprList:
+    raise newException(SExprError, "reverse: sexpr is not list")
+  var curexpr = list
+  var i = 0
+  while true:
+    yield(i, curexpr.first)
+    if curexpr.rest.kind == sexprNil:
+      break
+    curexpr = curexpr.rest
+    i.inc
 iterator list*(list: SExpr): SExpr =
   if list.kind != sexprList:
     raise newException(SExprError, "reverse: sexpr is not list")

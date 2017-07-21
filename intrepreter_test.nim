@@ -2,7 +2,6 @@
 import sast
 import sparser
 import semantic
-import tables
 
 let fnsrc = """
 @(the Int32 -> Int32)
@@ -15,4 +14,3 @@ let fnsrc = """
 var context = newSemanticContext()
 let sexpr = parseToplevel(fnsrc)
 context.evalModule("top", sexpr)
-echo context.modules["top"].semanticexprs

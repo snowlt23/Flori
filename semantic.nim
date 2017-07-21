@@ -1,126 +1,191 @@
 
 import tables, hashes
-import options
 import strutils, sequtils
 import sast
 
 type
   SemanticError* = object of Exception
-  SymbolKind* = enum
-    symbolVariable
-    symbolFunction
-    symbolStruct
-    symbolPrimitiveType
-    symbolPrimitiveValue
-    symbolModule
-  SymbolValue* = object
-    case kind*: SymbolKind
-    of symbolVariable:
+  SemanticExprKind* = enum
+    semanticSymbol
+    semanticVariable
+    semanticFunction
+    semanticStruct
+    semanticPrimitiveType
+    semanticPrimitiveValue
+    semanticPrimitiveFunc
+    semanticModule
+    semanticFuncCall
+    semanticInt
+  SemanticExpr* = object
+    typesym*: Symbol
+    case kind*: SemanticExprKind
+    of semanticSymbol:
+      symbol*: Symbol
+    of semanticVariable:
       variable*: Variable
-    of symbolFunction:
+    of semanticFunction:
       function*: Function
-    of symbolStruct:
+    of semanticStruct:
       struct*: Struct
-    of symbolPrimitiveType:
+    of semanticPrimitiveType:
       primitivename*: string
-    of symbolPrimitiveValue:
+    of semanticPrimitiveValue:
       primitivevalue*: string
-    of symbolModule:
+    of semanticPrimitiveFunc:
+      primitivefuncname*: string
+      primitiverettype*: string
+    of semanticModule:
       module*: Module
+    of semanticFuncCall:
+      funccall*: FuncCall
+    of semanticInt:
+      intval*: int64
   Variable* = ref object
     name*: string
   Function* = ref object
     name*: string
     argtypes*: seq[Symbol]
     rettype*: Symbol
-    body*: SExpr
+    body*: seq[SemanticExpr]
   Struct* = ref object
     name*: string
   Module* = ref object
     context*: SemanticContext
     name*: string
-    symbolvalues*: Table[Symbol, SymbolValue]
+    semanticexprs*: Table[Symbol, SemanticExpr]
+    toplevelcalls*: seq[SemanticExpr]
     exportedsymbols*: seq[Symbol]
+  FuncCall* = ref object
+    callfunc*: Symbol
+    args*: seq[SemanticExpr]
+  Scope* = object
+    module*: Module
+    scopesymbols*: Table[Symbol, SemanticExpr]
   SemanticContext* = ref object
     modules*: Table[string, Module]
     symcount*: int
+
+let notTypeSym* = Symbol(hash: "not_type_symbol")
+let notTypeSemExpr* = SemanticExpr(typesym: notTypeSym, kind: semanticSymbol, symbol: notTypeSym)
 
 proc hash*(symbol: Symbol): Hash =
   hash(symbol.hash)
 proc `==`*(a, b: Symbol): bool =
   a.hash == b.hash
-proc `$`*(symbol: Symbol): string =
-  symbol.hash
 
+proc addSymbol*(module: Module, sym: Symbol, value: SemanticExpr) =
+  if module.semanticexprs.hasKey(sym):
+    raise newException(SemanticError, "couldn't redefine symbol: $#" % $sym)
+  module.semanticexprs[sym] = value
 proc addVariable*(module: Module, variable: Variable): Symbol =
   let sym = Symbol(hash: variable.name)
   module.context.symcount.inc
-  module.symbolvalues[sym] = SymbolValue(
-    kind: symbolVariable,
-    variable: variable,
-  )
+  module.addSymbol(sym, SemanticExpr(typesym: notTypeSym, kind: semanticVariable, variable: variable))
   return sym
 proc addFunction*(module: Module, function: Function) =
   let sym = Symbol(hash: function.name & "_" & function.argtypes.mapIt($it).join("_"))
-  module.symbolvalues[sym] = SymbolValue(
-    kind: symbolFunction,
-    function: function,
-  )
+  module.addSymbol(sym, SemanticExpr(typesym: notTypeSym, kind: semanticFunction, function: function))
   module.exportedsymbols.add(sym)
 proc addModule*(module: Module, importmodule: Module) =
   let sym = Symbol(hash: importmodule.name)
-  module.symbolvalues[sym] = SymbolValue(
-    kind: symbolModule,
-    module: importmodule,
-  )
-  # module.exportedsymbols.add(sym)
+  module.addSymbol(sym, SemanticExpr(kind: semanticModule, module: importmodule))
+proc addToplevelCall*(module: Module, funccall: FuncCall) =
+  module.toplevelcalls.add(SemanticExpr(typesym: notTypeSym, kind: semanticFuncCall, funccall: funccall))
 
 proc newSemanticContext*(): SemanticContext =
   new result
   result.modules = initTable[string, Module]()
 
 proc defPrimitiveType*(module: Module, typename: string, primitivename: string) =
-  module.symbolvalues[Symbol(hash: typename)] = SymbolValue(kind: symbolPrimitiveType, primitivename: primitivename)
+  module.addSymbol(
+    Symbol(hash: typename),
+    SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveType, primitivename: primitivename)
+  )
 proc defPrimitiveValue*(module: Module, typename: string, primitivename: string) =
-  module.symbolvalues[Symbol(hash: typename)] = SymbolValue(kind: symbolPrimitiveValue, primitivevalue: primitivename)
+  module.addSymbol(
+    Symbol(hash: typename),
+    SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveValue, primitivevalue: primitivename)
+  )
+proc defPrimitiveFunc*(module: Module, typename: string, primitivename: string, rettype: string) =
+  module.addSymbol(
+    Symbol(hash: typename),
+    SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveFunc, primitivefuncname: primitivename, primitiverettype: rettype)
+  )
 proc predefined*(module: Module) =
   module.defPrimitiveValue("nil", "NULL")
   module.defPrimitiveType("Int32", "int32_t")
-proc getSymbol*(module: Module, name: string): Symbol =
-  if not module.symbolvalues.hasKey(Symbol(hash: name)):
-    raise newException(SemanticError, "module hasn't symbol: $#" % name)
-  return Symbol(hash: name)
-proc getSymbolValue*(module: Module, sym: Symbol): SymbolValue =
-  module.symbolvalues[sym]
+  module.defPrimitiveFunc("+_x_Int32", "+", "Int32")
 proc newModule*(modulename: string): Module =
   new result
   result.name = modulename
-  result.symbolvalues = initTable[Symbol, SymbolValue]()
+  result.semanticexprs = initTable[Symbol, SemanticExpr]()
   result.exportedsymbols = @[]
   result.predefined()
 
-proc getType*(module: Module, sexpr: SExpr): Symbol
+proc newScope*(module: Module): Scope =
+  result.module = module
+  result.scopesymbols = initTable[Symbol, SemanticExpr]()
+proc addArgSymbols*(scope: var Scope, argtypesyms: seq[Symbol], funcdef: SExpr) =
+  for i, arg in funcdef.rest.rest.first:
+    scope.scopesymbols.add(
+      Symbol(hash: $arg),
+      SemanticExpr(
+        typesym: notTypeSym,
+        kind: semanticSymbol,
+        symbol: argtypesyms[i]
+      )
+    )
+proc getSymbol*(scope: Scope, name: string): Symbol =
+  let sym = Symbol(hash: name)
+  if scope.scopesymbols.hasKey(sym):
+    return sym
+  elif scope.module.semanticexprs.hasKey(sym):
+    return sym
+  else:
+    raise newException(SemanticError, "module hasn't symbol: $#" % name)
+proc getSemanticExpr*(scope: Scope, sym: Symbol): SemanticExpr =
+  if scope.scopesymbols.hasKey(sym):
+    return scope.scopesymbols[sym]
+  else:
+    return scope.module.semanticexprs[sym]
 
-proc getTypeFromFunctionCall*(module: Module, sexpr: SExpr): Symbol =
+proc getType*(scope: Scope, sexpr: SExpr): Symbol
+
+proc getHashFromFuncCall*(scope: Scope, sexpr: SExpr): string =
   var types = newSeq[string]()
   for arg in sexpr.rest:
-     types.add($getType(module, arg))
-  let hash = $sexpr.first & "_" & types.mapIt($it).join("_")
-  let sym = module.getSymbol(hash)
-  return getSymbolValue(module, sym).function.rettype
+     types.add($getType(scope, arg))
+  return $sexpr.first & "_" & types.mapIt($it).join("_")
+proc getTypeFromFunctionCall*(scope: Scope, sexpr: SExpr): Symbol =
+  let hash = scope.getHashFromFuncCall(sexpr)
+  let sym = scope.getSymbol(hash)
+  let e = scope.getSemanticExpr(sym)
+  if e.kind == semanticFunction:
+    return e.function.rettype
+  elif e.kind == semanticPrimitiveFunc:
+    return scope.getSymbol(e.primitiverettype)
+  else:
+    raise newException(SemanticError, "$# is not function: $#" % [$sym, $sexpr])
 
-proc getType*(module: Module, sexpr: SExpr): Symbol =
+proc getType*(scope: Scope, sexpr: SExpr): Symbol =
   case sexpr.kind
   of sexprNil:
-    module.getSymbol("nil")
+    scope.getSymbol("nil")
   of sexprList:
-    module.getTypeFromFunctionCall(sexpr)
+    scope.getTypeFromFunctionCall(sexpr)
   of sexprIdent:
-    module.getSymbol($sexpr)
+    scope.getSymbol($sexpr)
   of sexprInt:
-    module.getSymbol("Int32")
+    scope.getSymbol("Int32")
 
-proc evalFunction*(module: Module, sexpr: SExpr) =
+proc evalSExpr*(scope: Scope, sexpr: SExpr): SemanticExpr
+
+proc evalFunctionBody*(scope: Scope, sexpr: SExpr): seq[SemanticExpr] =
+  result = @[]
+  for e in sexpr:
+    result.add(scope.evalSExpr(e))
+
+proc evalFunction*(scope: Scope, sexpr: SExpr)  =
   var argtypes = newSeq[SExpr]()
   var rettype: SExpr
   var funcdef: SExpr
@@ -134,31 +199,56 @@ proc evalFunction*(module: Module, sexpr: SExpr) =
   if rettype == nil:
     rettype = ast(sexpr.span, newSIdent("void"))
   let funcname = funcdef.rest.first
+  let argtypesyms = argtypes.mapIt(scope.getType(it))
+
+  var scope = scope
+  scope.addArgSymbols(argtypesyms, funcdef)
   let f = Function(
     name: $funcname,
-    argtypes: argtypes.mapIt(module.getType(it)),
-    rettype: module.getType(rettype),
-    body: funcdef,
+    argtypes: argtypesyms,
+    rettype: scope.getType(rettype),
+    body: scope.evalFunctionBody(funcdef.rest.rest.rest),
   )
-  module.addFunction(f)
+  scope.module.addFunction(f)
 
-proc evalSExpr*(module: Module, sexpr: SExpr) =
+proc evalFuncCall*(scope: Scope, sexpr: SExpr): SemanticExpr =
+  var args = newSeq[SemanticExpr]()
+  for arg in sexpr.rest:
+    args.add(scope.evalSExpr(arg))
+  return SemanticExpr(
+    typesym: scope.getType(sexpr),
+    kind: semanticFuncCall,
+    funccall: FuncCall(
+      callfunc: scope.getSymbol(scope.getHashFromFuncCall(sexpr)),
+      args: args,
+    ),
+  )
+
+proc evalInt*(scope: Scope, sexpr: SExpr): SemanticExpr =
+  return SemanticExpr(typesym: scope.getSymbol("Int32"), kind: semanticInt, intval: sexpr.intval)
+
+proc evalSExpr*(scope: Scope, sexpr: SExpr): SemanticExpr =
   case sexpr.kind
   of sexprNil:
     discard
   of sexprList:
     if sexpr.first.kind == sexprIdent and $sexpr.first == "the":
-      module.evalFunction(sexpr)
+      scope.evalFunction(sexpr)
+      return notTypeSemExpr
     elif sexpr.first.kind == sexprIdent and $sexpr.first == "defn":
       raise newException(SemanticError, "($#:$#) defn requires `the` type annotation" % [$sexpr.span.line, $sexpr.span.linepos])
     else:
-      echo module.getType(sexpr)
+      return scope.evalFuncCall(sexpr)
+  of sexprIdent:
+    return scope.getSemanticExpr(scope.getSymbol($sexpr))
+  of sexprInt:
+    return scope.evalInt(sexpr)
   else:
     raise newException(SemanticError, "($#:$#) $# is can't eval: $#" % [$sexpr.span.line, $sexpr.span.linepos, $sexpr.kind, $sexpr])
-  echo module.symbolvalues
 
 proc evalModule*(context: SemanticContext, modulename: string, sexpr: seq[SExpr]) =
   var module = newModule(modulename)
+  var scope = newScope(module)
   context.modules[modulename] = module
   for e in sexpr:
-    module.evalSExpr(e)
+    discard scope.evalSExpr(e)
