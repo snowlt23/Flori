@@ -3,6 +3,7 @@ import sast
 import sparser
 
 let src = """
+@(: String)
 (defn hello (n)
   (print hello))
 """
@@ -13,12 +14,7 @@ let structsrc = """
   (z Int32)))
 """
 let fnsrc = """
-@(the Int32 -> Int32)
-(defn add5 (x)
-  (+ x 5))
-"""
-let annotsrc = """
-@route
+@(: Int32 -> Int32)
 (defn add5 (x)
   (+ x 5))
 """
@@ -34,7 +30,3 @@ echo debug(structexpr)
 let fnexpr = parseSExpr(fnsrc)
 echo fnexpr
 echo debug(fnexpr)
-
-let annotexpr = parseSExpr(annotsrc)
-echo annotexpr
-echo debug(annotexpr)

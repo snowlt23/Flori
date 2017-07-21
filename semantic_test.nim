@@ -5,8 +5,8 @@ import semantic
 import tables
 
 let fnsrc = """
-@(the Int32 -> Int32)
-(defn add5 (x)
+@(: Int32 -> Int32)
+(defn add5 [x]
   (+ x 5))
 
 (add5 1)

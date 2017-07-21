@@ -6,3 +6,5 @@ tester.exe
 tester
 semantic_test.exe
 semantic_test
+ccodegen_test.exe
+ccodegen_test

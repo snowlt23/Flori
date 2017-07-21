@@ -4,7 +4,7 @@ import sparser
 import semantic
 
 let fnsrc = """
-@(the Int32 -> Int32)
+@(: Int32 -> Int32)
 (defn add5 (x)
   (+ x 5))
 

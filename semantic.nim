@@ -28,11 +28,10 @@ type
     of semanticStruct:
       struct*: Struct
     of semanticPrimitiveType:
-      primitivename*: string
+      discard
     of semanticPrimitiveValue:
-      primitivevalue*: string
+      discard
     of semanticPrimitiveFunc:
-      primitivefuncname*: string
       primitiverettype*: string
     of semanticModule:
       module*: Module
@@ -44,6 +43,7 @@ type
     name*: string
   Function* = ref object
     name*: string
+    argnames*: seq[string]
     argtypes*: seq[Symbol]
     rettype*: Symbol
     body*: seq[SemanticExpr]
@@ -62,7 +62,7 @@ type
     module*: Module
     scopesymbols*: OrderedTable[Symbol, SemanticExpr]
   SemanticContext* = ref object
-    modules*: Table[string, Module]
+    modules*: OrderedTable[string, Module]
     symcount*: int
 
 let notTypeSym* = Symbol(hash: "not_type_symbol")
@@ -94,27 +94,27 @@ proc addToplevelCall*(module: Module, funccall: FuncCall) =
 
 proc newSemanticContext*(): SemanticContext =
   new result
-  result.modules = initTable[string, Module]()
+  result.modules = initOrderedTable[string, Module]()
 
-proc defPrimitiveType*(module: Module, typename: string, primitivename: string) =
+proc defPrimitiveType*(module: Module, typename: string) =
   module.addSymbol(
     Symbol(hash: typename),
-    SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveType, primitivename: primitivename)
+    SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveType)
   )
-proc defPrimitiveValue*(module: Module, typename: string, primitivename: string) =
+proc defPrimitiveValue*(module: Module, typename: string) =
   module.addSymbol(
     Symbol(hash: typename),
-    SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveValue, primitivevalue: primitivename)
+    SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveValue)
   )
-proc defPrimitiveFunc*(module: Module, typename: string, primitivename: string, rettype: string) =
+proc defPrimitiveFunc*(module: Module, typename: string, rettype: string) =
   module.addSymbol(
     Symbol(hash: typename),
-    SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveFunc, primitivefuncname: primitivename, primitiverettype: rettype)
+    SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveFunc, primitiverettype: rettype)
   )
 proc predefined*(module: Module) =
-  module.defPrimitiveValue("nil", "NULL")
-  module.defPrimitiveType("Int32", "int32_t")
-  module.defPrimitiveFunc("+_Int32_Int32", "+", "Int32")
+  module.defPrimitiveValue("nil")
+  module.defPrimitiveType("Int32")
+  module.defPrimitiveFunc("+_Int32_Int32", "Int32")
 proc newModule*(modulename: string): Module =
   new result
   result.name = modulename
@@ -132,7 +132,7 @@ proc addArgSymbols*(scope: var Scope, argtypesyms: seq[Symbol], funcdef: SExpr) 
       SemanticExpr(
         typesym: argtypesyms[i],
         kind: semanticSymbol,
-        symbol: argtypesyms[i]
+        symbol: Symbol(hash: $arg)
       )
     )
 proc getSymbol*(scope: Scope, name: string): Symbol =
@@ -190,11 +190,15 @@ proc evalFunction*(scope: Scope, sexpr: SExpr)  =
     rettype = ast(sexpr.span, newSIdent("void"))
   let funcname = funcdef.rest.first
   let argtypesyms = argtypes.mapIt(scope.getSymbol($it))
+  var argnames = newSeq[string]()
+  for arg in funcdef.rest.rest.first:
+    argnames.add($arg)
 
   var scope = scope
   scope.addArgSymbols(argtypesyms, funcdef)
   let f = Function(
     name: $funcname,
+    argnames: argnames,
     argtypes: argtypesyms,
     rettype: scope.getSymbol($rettype),
     body: scope.evalFunctionBody(funcdef.rest.rest.rest),
@@ -223,7 +227,7 @@ proc evalSExpr*(scope: Scope, sexpr: SExpr): SemanticExpr =
   of sexprNil:
     discard
   of sexprList:
-    if sexpr.first.kind == sexprIdent and $sexpr.first == "the":
+    if sexpr.first.kind == sexprIdent and $sexpr.first == ":":
       scope.evalFunction(sexpr)
       return notTypeSemExpr
     elif sexpr.first.kind == sexprIdent and $sexpr.first == "defn":
