@@ -156,16 +156,6 @@ proc getHashFromFuncCall*(scope: Scope, name: string, args: seq[SemanticExpr]): 
   for arg in args:
      types.add(scope.getType(arg))
   return name & "_" & types.mapIt($it).join("_")
-# proc getTypeFromFuncCall*(scope: Scope, sexpr: SExpr): Symbol =
-#   let hash = scope.getHashFromFuncCall(sexpr)
-#   let sym = scope.getSymbol(hash)
-#   let e = scope.getSemanticExpr(sym)
-#   if e.kind == semanticFunction:
-#     return e.function.rettype
-#   elif e.kind == semanticPrimitiveFunc:
-#     return scope.getSymbol(e.primitiverettype)
-#   else:
-#     raise newException(SemanticError, "$# is not function: $#" % [$sym, $sexpr])
 
 proc getType*(scope: Scope, semexpr: SemanticExpr): Symbol =
   return semexpr.typesym
