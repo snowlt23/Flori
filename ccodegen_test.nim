@@ -23,3 +23,4 @@ cgencontext.genContext(semcontext)
 # cgencontext.writeToFiles()
 
 echo cgencontext.modules["top"].src
+echo cgencontext.getMainSrc()

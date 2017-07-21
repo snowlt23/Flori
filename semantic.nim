@@ -42,6 +42,7 @@ type
   Variable* = ref object
     name*: string
   Function* = ref object
+    hash*: string
     name*: string
     argnames*: seq[string]
     argtypes*: seq[Symbol]
@@ -112,13 +113,14 @@ proc defPrimitiveFunc*(module: Module, typename: string, rettype: string) =
     SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveFunc, primitiverettype: rettype)
   )
 proc predefined*(module: Module) =
-  module.defPrimitiveValue("nil")
+  # module.defPrimitiveValue("nil")
   module.defPrimitiveType("Int32")
   module.defPrimitiveFunc("+_Int32_Int32", "Int32")
 proc newModule*(modulename: string): Module =
   new result
   result.name = modulename
   result.semanticexprs = initOrderedTable[Symbol, SemanticExpr]()
+  result.toplevelcalls = @[]
   result.exportedsymbols = @[]
   result.predefined()
 
@@ -151,6 +153,8 @@ proc getSemanticExpr*(scope: Scope, sym: Symbol): SemanticExpr =
 
 proc getType*(scope: Scope, semexpr: SemanticExpr): Symbol
 
+proc getHashFromTypes*(scope: Scope, name: string, argtypes: seq[Symbol]): string =
+  return name & "_" & argtypes.mapIt($it).join("_")
 proc getHashFromFuncCall*(scope: Scope, name: string, args: seq[SemanticExpr]): string =
   var types = newSeq[Symbol]()
   for arg in args:
@@ -197,6 +201,7 @@ proc evalFunction*(scope: Scope, sexpr: SExpr)  =
   var scope = scope
   scope.addArgSymbols(argtypesyms, funcdef)
   let f = Function(
+    hash: scope.getHashFromTypes($funcname, argtypesyms),
     name: $funcname,
     argnames: argnames,
     argtypes: argtypesyms,
@@ -246,4 +251,8 @@ proc evalModule*(context: SemanticContext, modulename: string, sexpr: seq[SExpr]
   var scope = newScope(module)
   context.modules[modulename] = module
   for e in sexpr:
-    discard scope.evalSExpr(e)
+    let semexpr = scope.evalSExpr(e)
+    if semexpr.kind == semanticSymbol and semexpr.symbol == notTypeSym:
+      discard
+    else:
+      module.toplevelcalls.add(semexpr)
