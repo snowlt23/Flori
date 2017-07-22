@@ -119,6 +119,15 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
     let callfunc = $semexpr.funccall.callfunc
     res &= "$#($#)" % [callfunc, args.mapIt($it).join(", ")]
 
+proc genCFFI*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
+  let funcname = semexpr.cffi.name
+  let argtypes = semexpr.cffi.argtypes.mapIt(genSym(it))
+  let rettype = genSym(semexpr.cffi.rettype)
+  var argsrcs = newSeq[string]()
+  for i in 0..<argtypes.len():
+    argsrcs.add("$# arg$#" % [argtypes[i], $i])
+  module.addSrc("$# $#($#);\n" % [rettype, funcname, argsrcs.join(",")])
+
 proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   case semexpr.kind
   of semanticSymbol:
@@ -133,8 +142,12 @@ proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRe
     discard
   of semanticFuncCall:
     genFuncCall(module, semexpr, res)
+  of semanticCFFI:
+    genCFFI(module, semexpr, res)
   of semanticInt:
     res &= $semexpr.intval
+  of semanticString:
+    res &= "\"" & semexpr.strval & "\""
   else:
     raise newException(CCodegenError, "$# is unsupport codegen kind" % $semexpr.kind)
 

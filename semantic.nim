@@ -15,7 +15,9 @@ type
     semanticPrimitiveFunc
     semanticModule
     semanticFuncCall
+    semanticCFFI
     semanticInt
+    semanticString
   SemanticExpr* = object
     typesym*: Symbol
     case kind*: SemanticExprKind
@@ -37,8 +39,12 @@ type
       module*: Module
     of semanticFuncCall:
       funccall*: FuncCall
+    of semanticCFFI:
+      cffi*: CFFI
     of semanticInt:
       intval*: int64
+    of semanticString:
+      strval*: string
   Variable* = ref object
     name*: string
   Function* = ref object
@@ -59,6 +65,10 @@ type
   FuncCall* = ref object
     callfunc*: Symbol
     args*: seq[SemanticExpr]
+  CFFI* = ref object
+    name*: string
+    argtypes*: seq[Symbol]
+    rettype*: Symbol
   Scope* = object
     module*: Module
     scopesymbols*: OrderedTable[Symbol, SemanticExpr]
@@ -92,6 +102,9 @@ proc addModule*(module: Module, importmodule: Module) =
   module.addSymbol(sym, SemanticExpr(kind: semanticModule, module: importmodule))
 proc addToplevelCall*(module: Module, funccall: FuncCall) =
   module.toplevelcalls.add(SemanticExpr(typesym: notTypeSym, kind: semanticFuncCall, funccall: funccall))
+proc addCFFI*(module: Module, cffi: CFFI) =
+  let sym = Symbol(hash: cffi.name)
+  module.addSymbol(sym, SemanticExpr(typesym: notTypeSym, kind: semanticCFFI, cffi: cffi))
 
 proc newSemanticContext*(): SemanticContext =
   new result
@@ -114,7 +127,9 @@ proc defPrimitiveFunc*(module: Module, typename: string, rettype: string) =
   )
 proc predefined*(module: Module) =
   # module.defPrimitiveValue("nil")
+  module.defPrimitiveType("Void")
   module.defPrimitiveType("Int32")
+  module.defPrimitiveType("String")
   module.defPrimitiveFunc("+_Int32_Int32", "Int32")
 proc newModule*(modulename: string): Module =
   new result
@@ -179,19 +194,24 @@ proc evalFunctionBody*(scope: Scope, sexpr: SExpr): seq[SemanticExpr] =
   for e in sexpr:
     result.add(scope.evalSExpr(e))
 
-proc evalFunction*(scope: Scope, sexpr: SExpr)  =
+proc parseTypeAnnotation*(sexpr: SExpr): tuple[argtypes: seq[SExpr], rettype: SExpr, body: SExpr] =
   var argtypes = newSeq[SExpr]()
   var rettype: SExpr
-  var funcdef: SExpr
+  let body = sexpr.last
   for arg in sexpr.rest.list:
     if $arg.first == "->":
       rettype = arg.rest.first
-      funcdef = arg.rest.rest.first
+      break
+    elif arg.rest.kind == sexprNil:
       break
     else:
       argtypes.add(arg.first)
   if rettype == nil:
-    rettype = ast(sexpr.span, newSIdent("void"))
+    rettype = ast(sexpr.span, newSIdent("Void"))
+  result = (argtypes, rettype, body)
+
+proc evalFunction*(scope: Scope, sexpr: SExpr)  =
+  let (argtypes, rettype, funcdef) = parseTypeAnnotation(sexpr)
   let funcname = funcdef.rest.first
   let argtypesyms = argtypes.mapIt(scope.getSymbol($it))
   var argnames = newSeq[string]()
@@ -210,6 +230,17 @@ proc evalFunction*(scope: Scope, sexpr: SExpr)  =
   )
   scope.module.addFunction(f)
 
+proc evalCFFI*(scope: Scope, sexpr: SExpr) =
+  let (argtypes, rettype, cffidef) = parseTypeAnnotation(sexpr)
+  let funcname = cffidef.rest.first
+  let argtypesyms = argtypes.mapIt(scope.getSymbol($it))
+  let cffi = CFFI(
+    name: $funcname,
+    argtypes: argtypesyms,
+    rettype: scope.getSymbol($rettype),
+  )
+  scope.module.addCFFI(cffi)
+
 proc evalFuncCall*(scope: Scope, sexpr: SExpr): SemanticExpr =
   var args = newSeq[SemanticExpr]()
   for arg in sexpr.rest:
@@ -226,6 +257,8 @@ proc evalFuncCall*(scope: Scope, sexpr: SExpr): SemanticExpr =
 
 proc evalInt*(scope: Scope, sexpr: SExpr): SemanticExpr =
   return SemanticExpr(typesym: scope.getSymbol("Int32"), kind: semanticInt, intval: sexpr.intval)
+proc evalString*(scope: Scope, sexpr: SExpr): SemanticExpr =
+  return SemanticExpr(typesym: scope.getSymbol("String"), kind: semanticString, strval: sexpr.strval)
 
 proc evalSExpr*(scope: Scope, sexpr: SExpr): SemanticExpr =
   case sexpr.kind
@@ -233,16 +266,25 @@ proc evalSExpr*(scope: Scope, sexpr: SExpr): SemanticExpr =
     discard
   of sexprList:
     if sexpr.first.kind == sexprIdent and $sexpr.first == ":":
-      scope.evalFunction(sexpr)
+      if sexpr.last.first.kind == sexprIdent and $sexpr.last.first == "defn":
+        scope.evalFunction(sexpr)
+      elif sexpr.last.first.kind == sexprIdent and $sexpr.last.first == "c-ffi":
+        scope.evalCFFI(sexpr)
+      else:
+        raise newException(SemanticError, "($#:$#) couldn't apply type annotation" % [$sexpr.span.line, $sexpr.span.linepos])
       return notTypeSemExpr
     elif sexpr.first.kind == sexprIdent and $sexpr.first == "defn":
-      raise newException(SemanticError, "($#:$#) defn requires `the` type annotation" % [$sexpr.span.line, $sexpr.span.linepos])
+      raise newException(SemanticError, "($#:$#) defn requires `:` type annotation" % [$sexpr.span.line, $sexpr.span.linepos])
+    elif sexpr.first.kind == sexprIdent and $sexpr.first == "c-ffi":
+      raise newException(SemanticError, "($#:$#) c-ffi requires `:` type annotation" % [$sexpr.span.line, $sexpr.span.linepos])
     else:
       return scope.evalFuncCall(sexpr)
   of sexprIdent:
     return scope.getSemanticExpr(scope.getSymbol($sexpr))
   of sexprInt:
     return scope.evalInt(sexpr)
+  of sexprString:
+    return scope.evalString(sexpr)
   else:
     raise newException(SemanticError, "($#:$#) $# is can't eval: $#" % [$sexpr.span.line, $sexpr.span.linepos, $sexpr.kind, $sexpr])
 

@@ -8,6 +8,9 @@ import compile
 import tables
 
 let fnsrc = """
+@(: Int32)
+(c-ffi abs)
+
 @(: Int32 -> Int32)
 (defn add5 [x]
   (+ x 5))

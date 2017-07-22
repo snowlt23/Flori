@@ -14,6 +14,7 @@ type
     sexprList
     sexprIdent
     sexprInt
+    sexprString
   SExpr* = ref object
     span*: Span
     case kind*: SExprKind
@@ -26,6 +27,8 @@ type
       id*: string
     of sexprInt:
       intval*: int64
+    of sexprString:
+      strval*: string
 
 template ast*(s: Span, sexpr: typed): untyped =
   let tmp = sexpr
@@ -49,6 +52,10 @@ proc newSInt*(x: int64): SExpr =
   result.intval = x
 proc newSInt*(s: string): SExpr =
   newSInt(parseInt(s))
+proc newSString*(s: string): SExpr =
+  new result
+  result.kind = sexprString
+  result.strval = s
 
 proc `$`*(symbol: Symbol): string =
   symbol.hash
@@ -94,6 +101,12 @@ proc reverse*(list: SExpr): SExpr =
       break
     curexpr = curexpr.rest
   return newexpr
+proc last*(list: SExpr): SExpr =
+  var curexpr = list
+  while true:
+    if curexpr.rest.kind == sexprNil:
+      return curexpr.first
+    curexpr = curexpr.rest
 proc `last=`*(list: SExpr, val: SExpr) =
   var curexpr = list
   while true:
@@ -120,6 +133,8 @@ proc debug*(sexpr: SExpr): string =
     "ident[$#:$#]($#)" % [$sexpr.span.line, $sexpr.span.linepos, sexpr.id]
   of sexprInt:
     "int[$#:$#]($#)" % [$sexpr.span.line, $sexpr.span.linepos, $sexpr.intval]
+  of sexprString:
+    "string[$#:$#]($#)" % [$sexpr.span.line, $sexpr.span.linepos, $sexpr.strval]
 
 proc `$`*(sexpr: SExpr): string =
   case sexpr.kind
@@ -138,3 +153,5 @@ proc `$`*(sexpr: SExpr): string =
     sexpr.id
   of sexprInt:
     $sexpr.intval
+  of sexprString:
+    "\"" & $sexpr.strval & "\""

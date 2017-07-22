@@ -1,0 +1,3 @@
+
+@(: CString Varargs)
+(c-ffi printf)

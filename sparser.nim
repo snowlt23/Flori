@@ -101,6 +101,16 @@ proc parseSExpr*(context: var ParserContext): SExpr =
       s &= context.curchar
       context.inc
     return newSInt(s)
+  elif context.curchar == '"':
+    var s = ""
+    context.inc
+    while true:
+      if context.curchar == '"':
+        context.inc
+        break
+      s &= context.curchar
+      context.inc
+    return newSString(s)
   else:
     raise newException(SParseError, "($#:$#) couldn't parse s expression" % [$context.line, $context.linepos])
 
