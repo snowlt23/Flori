@@ -20,6 +20,10 @@ type
     modules*: OrderedTable[string, CCodegenModule]
     mainsrc*: string
 
+const preincludesrc* = """
+#include <stdint.h>
+"""
+
 proc newCCodegenContext*(): CCodegenContext =
   new result
   result.modules = initOrderedTable[string, CCodegenModule]()
@@ -29,20 +33,18 @@ proc format*(context: CCodegenContext, s: string): string =
 proc addMainSrc*(context: CCodegenContext, s: string) =
   context.mainsrc &= context.format(s)
 proc getMainSrc*(context: CCodegenContext): string =
-  result = ""
+  result = preincludesrc
+  for cgenmodule in context.modules.values:
+    result &= cgenmodule.header & "\n"
   result &= "int main() {\n"
   result &= context.mainsrc
   result &= "}\n"
 
-proc preinclude*(module: CCodegenModule) =
-  module.src &= "#include <stdint.h>\n"
-
 proc newCCodegenModule*(): CCodegenModule =
   new result
-  result.src = ""
-  result.header = ""
+  result.src = preincludesrc
+  result.header = preincludesrc
   result.curindent = 0
-  result.preinclude()
 template indent*(module: CCodegenModule, body: untyped) =
   module.curindent += 1
   body
@@ -99,6 +101,7 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
       module.addSrc(";\n")
     module.addSrc("$$ireturn $#;\n" % $ress[^1])
   module.addSrc("}\n")
+  module.addHeader("$# $#($#);\n" % [rettype, funcname, argsrcs.join(",")])
 
 proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   var args = newSeq[CCodegenRes]()
@@ -126,7 +129,9 @@ proc genCFFI*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodeg
   var argsrcs = newSeq[string]()
   for i in 0..<argtypes.len():
     argsrcs.add("$# arg$#" % [argtypes[i], $i])
-  module.addSrc("$# $#($#);\n" % [rettype, primname, argsrcs.join(",")])
+  let declsrc = "$# $#($#);\n" % [rettype, primname, argsrcs.join(",")]
+  module.addSrc(declsrc)
+  module.addHeader(declsrc)
 
 proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   case semexpr.kind
@@ -160,6 +165,7 @@ proc genToplevelCalls*(context: CCodegenContext, cgenmodule: var CCodegenModule,
       gen(cgenmodule, semexpr, res)
       cgenmodule.addSrc("$$i$#;\n" % $res)
   cgenmodule.addSrc("}\n")
+  cgenmodule.addheader("void $#();\n" % initfuncname)
   context.addMainSrc("$$i$#();\n" % initfuncname)
 
 proc genModule*(context: CCodegenContext, sym: string, module: Module) =
