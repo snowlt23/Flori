@@ -1,5 +1,6 @@
 
 import strutils
+import options
 
 type
   SExprError* = object of Exception
@@ -13,6 +14,7 @@ type
     sexprNil
     sexprList
     sexprIdent
+    sexprAttr
     sexprInt
     sexprString
   SExpr* = ref object
@@ -25,6 +27,8 @@ type
       rest*: SExpr
     of sexprIdent:
       id*: string
+    of sexprAttr:
+      attr*: string
     of sexprInt:
       intval*: int64
     of sexprString:
@@ -46,6 +50,10 @@ proc newSIdent*(id: string): SExpr =
   new result
   result.kind = sexprIdent
   result.id = id
+proc newSAttr*(attr: string): SExpr =
+  new result
+  result.kind = sexprAttr
+  result.attr = attr
 proc newSInt*(x: int64): SExpr =
   new result
   result.kind = sexprInt
@@ -114,6 +122,14 @@ proc `last=`*(list: SExpr, val: SExpr) =
       curexpr.rest = val
       break
     curexpr = curexpr.rest
+proc getAttr*(list: SExpr, attr: string): Option[SExpr] =
+  var curexpr = list
+  while true:
+    if curexpr.first.kind == sexprAttr and curexpr.first.attr == attr:
+      return some(curexpr.rest.first)
+    if curexpr.rest.kind == sexprNil:
+      return none(SExpr)
+    curexpr = curexpr.rest
 
 proc debug*(sexpr: SExpr): string =
   case sexpr.kind
@@ -131,6 +147,8 @@ proc debug*(sexpr: SExpr): string =
     "list[$#:$#]($#)" % [$sexpr.span.line, $sexpr.span.linepos, strings.join(", ")]
   of sexprIdent:
     "ident[$#:$#]($#)" % [$sexpr.span.line, $sexpr.span.linepos, sexpr.id]
+  of sexprAttr:
+    "attr[$#:$#($#)" % [$sexpr.span.line, $sexpr.span.linepos, sexpr.attr]
   of sexprInt:
     "int[$#:$#]($#)" % [$sexpr.span.line, $sexpr.span.linepos, $sexpr.intval]
   of sexprString:
@@ -151,6 +169,8 @@ proc `$`*(sexpr: SExpr): string =
     "(" & strings.join(" ") & ")"
   of sexprIdent:
     sexpr.id
+  of sexprAttr:
+    ":" & sexpr.attr
   of sexprInt:
     $sexpr.intval
   of sexprString:

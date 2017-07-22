@@ -12,7 +12,7 @@ type
 
 const StartList* = {'(', '['}
 const EndList* = {')', ']'}
-const SpecialSymbols* = {'!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '/', ':', '<', '=', '>', '?'}
+const SpecialSymbols* = {'!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '/', '<', '=', '>', '?'}
 const SeparateSymbols* = {'(', '[', ')', ']', ' '}
 
 proc newParserContext*(src: string): ParserContext =
@@ -93,6 +93,16 @@ proc parseSExpr*(context: var ParserContext): SExpr =
       name &= context.curchar
       context.inc
     return ast(span, newSIdent(name))
+  elif ':' == context.curchar:
+    var name = ""
+    let span = context.span()
+    context.inc
+    while true:
+      if context.isSeparateSymbol:
+        break
+      name &= context.curchar
+      context.inc
+    return ast(span, newSAttr(name))
   elif '0' <= context.curchar and context.curchar <= '9':
     var s = ""
     while true:

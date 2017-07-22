@@ -278,15 +278,25 @@ proc evalFunction*(scope: Scope, sexpr: SExpr)  =
 proc evalCFFI*(scope: Scope, sexpr: SExpr) =
   let (argtypes, rettype, cffidef) = parseTypeAnnotation(sexpr)
   let funcname = cffidef.rest.first
-  let primname = cffidef.rest.rest.first.strval
+  let nameattr = cffidef.getAttr("name")
+  let headerattr = cffidef.getAttr("header")
   let argtypesyms = argtypes.mapIt(scope.getSymbol($it))
-  let cffi = CFFI(
-    name: $funcname,
-    primname: primname,
-    argtypes: argtypesyms,
-    rettype: scope.getSymbol($rettype),
-  )
-  scope.module.addCFFI(cffi)
+  let primname = if nameattr.isSome:
+                   $nameattr.get.strval
+                 else:
+                   $funcname
+  let hash = scope.getHashFromTypes($funcname, argtypesyms)
+  if headerattr.isSome:
+    scope.module.ccodegeninfo.addHeader(headerattr.get.strval)
+    scope.module.defPrimitiveFunc(hash, $rettype, primitiveCall, primname)
+  else:
+    let cffi = CFFI(
+      name: $funcname,
+      primname: primname,
+      argtypes: argtypesyms,
+      rettype: scope.getSymbol($rettype),
+    )
+    scope.module.addCFFI(cffi)
 
 proc evalFuncCall*(scope: Scope, sexpr: SExpr): SemanticExpr =
   let semexpr = scope.trySemanticExpr(Symbol(hash: $sexpr.first))
@@ -316,7 +326,7 @@ proc evalSExpr*(scope: Scope, sexpr: SExpr): SemanticExpr =
   of sexprNil:
     return notTypeSemExpr
   of sexprList:
-    if sexpr.first.kind == sexprIdent and $sexpr.first == ":":
+    if sexpr.first.kind == sexprAttr and $sexpr.first == ":":
       if sexpr.last.first.kind == sexprIdent and $sexpr.last.first == "defn":
         scope.evalFunction(sexpr)
       elif sexpr.last.first.kind == sexprIdent and $sexpr.last.first == "c-ffi":

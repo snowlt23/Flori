@@ -9,13 +9,11 @@ import tables
 import sequtils
 
 let fnsrc = """
-@(c-header "math.h")
 @(: Int32 -> Int32)
-(c-ffi abs "abs")
+(c-ffi abs :name "abs" :header "math.h")
 
-@(c-header "stdio.h")
 @(: String)
-(c-ffi print "printf")
+(c-ffi print :name "printf" :header "stdio.h")
 
 @(: Int32 -> Int32)
 (defn add5 [x]
