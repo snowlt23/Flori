@@ -9,15 +9,20 @@ import tables
 import sequtils
 
 let fnsrc = """
-@(header "math.h")
+@(c-header "math.h")
 @(: Int32 -> Int32)
 (c-ffi abs "abs")
+
+@(c-header "stdio.h")
+@(: String)
+(c-ffi print "printf")
 
 @(: Int32 -> Int32)
 (defn add5 [x]
   (abs (+ x 5)))
 
 (add5 1)
+(print "Hello Yukari!\n")
 """
 
 var semcontext = newSemanticContext()
@@ -27,7 +32,7 @@ semcontext.evalModule("top", sexpr)
 
 var cgencontext = newCCodegenContext()
 cgencontext.genContext(semcontext)
-cgencontext.compile("add")
+cgencontext.compile("hello")
 
 echo semcontext.modules["top"].semanticexprs
 # echo cgencontext.getMainSrc()

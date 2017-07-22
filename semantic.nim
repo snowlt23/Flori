@@ -173,7 +173,7 @@ proc getHashFromFuncCall*(scope: Scope, name: string, args: seq[SemanticExpr]): 
      types.add(scope.getType(arg))
   return name & "_" & types.mapIt($it).join("_")
 
-proc headerMacroExpand*(scope: Scope, sexpr: SExpr): SExpr =
+proc cheaderMacroExpand*(scope: Scope, sexpr: SExpr): SExpr =
   scope.module.ccodegeninfo.addHeader(sexpr.rest.first.strval)
   let (argtypes, rettype, funcdef) = parseTypeAnnotation(sexpr.rest.rest.first)
   let funcname = funcdef.rest.first
@@ -191,7 +191,7 @@ proc predefined*(module: Module) =
   module.defPrimitiveType("String")
   module.defPrimitiveType("SExpr")
   module.defPrimitiveFunc("+_Int32_Int32", "Int32")
-  module.defPrimitiveMacro("header", headerMacroExpand)
+  module.defPrimitiveMacro("c-header", cheaderMacroExpand)
 proc newModule*(modulename: string): Module =
   new result
   result.name = modulename
