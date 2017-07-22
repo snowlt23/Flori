@@ -120,13 +120,13 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
     res &= "$#($#)" % [callfunc, args.mapIt($it).join(", ")]
 
 proc genCFFI*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
-  let funcname = semexpr.cffi.name
+  let primname = semexpr.cffi.primname
   let argtypes = semexpr.cffi.argtypes.mapIt(genSym(it))
   let rettype = genSym(semexpr.cffi.rettype)
   var argsrcs = newSeq[string]()
   for i in 0..<argtypes.len():
     argsrcs.add("$# arg$#" % [argtypes[i], $i])
-  module.addSrc("$# $#($#);\n" % [rettype, funcname, argsrcs.join(",")])
+  module.addSrc("$# $#($#);\n" % [rettype, primname, argsrcs.join(",")])
 
 proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   case semexpr.kind
@@ -134,11 +134,7 @@ proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRe
     res &= genSym(semexpr.symbol)
   of semanticFunction:
     genFunction(module, semexpr, res)
-  of semanticPrimitiveValue:
-    discard
-  of semanticPrimitiveType:
-    discard
-  of semanticPrimitiveFunc:
+  of semanticPrimitiveValue, semanticPrimitiveType, semanticPrimitiveFunc, semanticPrimitiveMacro:
     discard
   of semanticFuncCall:
     genFuncCall(module, semexpr, res)
@@ -150,6 +146,10 @@ proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRe
     res &= "\"" & semexpr.strval & "\""
   else:
     raise newException(CCodegenError, "$# is unsupport codegen kind" % $semexpr.kind)
+
+proc genHeaders*(context: CCodegenContext, cgenmodule: var CCodegenModule, sym: string, module: Module) =
+  for header in module.ccodegeninfo.headers.keys:
+    cgenmodule.addSrc("#include \"$#\"\n" % header)
 
 proc genToplevelCalls*(context: CCodegenContext, cgenmodule: var CCodegenModule, sym: string, module: Module) =
   let initfuncname = sym & "_main"
@@ -165,6 +165,7 @@ proc genToplevelCalls*(context: CCodegenContext, cgenmodule: var CCodegenModule,
 proc genModule*(context: CCodegenContext, sym: string, module: Module) =
   var cgenmodule = newCCodegenModule()
   context.modules[sym] = cgenmodule
+  genHeaders(context, cgenmodule, sym, module)
   for semexpr in module.semanticexprs.values:
     var res = newCCodegenRes()
     gen(cgenmodule, semexpr, res)

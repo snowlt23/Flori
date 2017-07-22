@@ -2,6 +2,8 @@
 import tables, hashes
 import strutils, sequtils
 import sast
+import options
+import ccodegen_primitives
 
 type
   SemanticError* = object of Exception
@@ -13,6 +15,7 @@ type
     semanticPrimitiveType
     semanticPrimitiveValue
     semanticPrimitiveFunc
+    semanticPrimitiveMacro
     semanticModule
     semanticFuncCall
     semanticCFFI
@@ -34,7 +37,9 @@ type
     of semanticPrimitiveValue:
       discard
     of semanticPrimitiveFunc:
-      primitiverettype*: string
+      primFuncRetType*: string
+    of semanticPrimitiveMacro:
+      macroproc*: proc (scope: Scope, sexpr: SExpr): SExpr
     of semanticModule:
       module*: Module
     of semanticFuncCall:
@@ -56,17 +61,22 @@ type
     body*: seq[SemanticExpr]
   Struct* = ref object
     name*: string
+  CCodegenInfo* = object
+    headers*: OrderedTable[string, bool]
+    decls*: seq[string]
   Module* = ref object
     context*: SemanticContext
     name*: string
     semanticexprs*: OrderedTable[Symbol, SemanticExpr]
     toplevelcalls*: seq[SemanticExpr]
     exportedsymbols*: seq[Symbol]
+    ccodegenInfo*: CCodegenInfo
   FuncCall* = ref object
     callfunc*: Symbol
     args*: seq[SemanticExpr]
   CFFI* = ref object
     name*: string
+    primname*: string
     argtypes*: seq[Symbol]
     rettype*: Symbol
   Scope* = object
@@ -123,20 +133,72 @@ proc defPrimitiveValue*(module: Module, typename: string) =
 proc defPrimitiveFunc*(module: Module, typename: string, rettype: string) =
   module.addSymbol(
     Symbol(hash: typename),
-    SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveFunc, primitiverettype: rettype)
+    SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveFunc, primfuncrettype: rettype)
   )
+proc defPrimitiveMacro*(module: Module, macroname: string, macroproc: proc (scope: Scope, sexpr: SExpr): SExpr) =
+  module.addSymbol(
+    Symbol(hash: macroname),
+    SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveMacro, macroproc: macroproc)
+  )
+
+proc newCCodegenInfo*(): CCodegenInfo =
+  result.headers = initOrderedTable[string, bool]()
+  result.decls = @[]
+proc addHeader*(info: var CCodegenInfo, name: string) =
+  info.headers[name] = true
+
+proc getType*(scope: Scope, semexpr: SemanticExpr): Symbol
+proc getSymbol*(scope: Scope, name: string): Symbol
+
+proc parseTypeAnnotation*(sexpr: SExpr): tuple[argtypes: seq[SExpr], rettype: SExpr, body: SExpr] =
+  var argtypes = newSeq[SExpr]()
+  var rettype: SExpr
+  let body = sexpr.last
+  for arg in sexpr.rest.list:
+    if $arg.first == "->":
+      rettype = arg.rest.first
+      break
+    elif arg.rest.kind == sexprNil:
+      break
+    else:
+      argtypes.add(arg.first)
+  if rettype == nil:
+    rettype = ast(sexpr.span, newSIdent("Void"))
+  result = (argtypes, rettype, body)
+proc getHashFromTypes*(scope: Scope, name: string, argtypes: seq[Symbol]): string =
+  return name & "_" & argtypes.mapIt($it).join("_")
+proc getHashFromFuncCall*(scope: Scope, name: string, args: seq[SemanticExpr]): string =
+  var types = newSeq[Symbol]()
+  for arg in args:
+     types.add(scope.getType(arg))
+  return name & "_" & types.mapIt($it).join("_")
+
+proc headerMacroExpand*(scope: Scope, sexpr: SExpr): SExpr =
+  scope.module.ccodegeninfo.addHeader(sexpr.rest.first.strval)
+  let (argtypes, rettype, funcdef) = parseTypeAnnotation(sexpr.rest.rest.first)
+  let funcname = funcdef.rest.first
+  let primname = funcdef.rest.rest.first.strval
+  let argtypesyms = argtypes.mapIt(scope.getSymbol($it))
+  let hash = scope.getHashFromTypes($funcname, argtypesyms)
+  scope.module.defPrimitiveFunc(hash, $rettype)
+  primitives[hash] = CCodegenPrimitive(kind: primitiveCall, name: primname)
+  return newSNil()
+
 proc predefined*(module: Module) =
   # module.defPrimitiveValue("nil")
   module.defPrimitiveType("Void")
   module.defPrimitiveType("Int32")
   module.defPrimitiveType("String")
+  module.defPrimitiveType("SExpr")
   module.defPrimitiveFunc("+_Int32_Int32", "Int32")
+  module.defPrimitiveMacro("header", headerMacroExpand)
 proc newModule*(modulename: string): Module =
   new result
   result.name = modulename
   result.semanticexprs = initOrderedTable[Symbol, SemanticExpr]()
   result.toplevelcalls = @[]
   result.exportedsymbols = @[]
+  result.ccodegenInfo = newCCodegenInfo()
   result.predefined()
 
 proc newScope*(module: Module): Scope =
@@ -165,16 +227,13 @@ proc getSemanticExpr*(scope: Scope, sym: Symbol): SemanticExpr =
     return scope.scopesymbols[sym]
   else:
     return scope.module.semanticexprs[sym]
-
-proc getType*(scope: Scope, semexpr: SemanticExpr): Symbol
-
-proc getHashFromTypes*(scope: Scope, name: string, argtypes: seq[Symbol]): string =
-  return name & "_" & argtypes.mapIt($it).join("_")
-proc getHashFromFuncCall*(scope: Scope, name: string, args: seq[SemanticExpr]): string =
-  var types = newSeq[Symbol]()
-  for arg in args:
-     types.add(scope.getType(arg))
-  return name & "_" & types.mapIt($it).join("_")
+proc trySemanticExpr*(scope: Scope, sym: Symbol): Option[SemanticExpr] =
+  if scope.scopesymbols.hasKey(sym):
+    return some(scope.scopesymbols[sym])
+  elif scope.module.semanticexprs.hasKey(sym):
+    return some(scope.module.semanticexprs[sym])
+  else:
+    return none(SemanticExpr)
 
 proc getType*(scope: Scope, semexpr: SemanticExpr): Symbol =
   return semexpr.typesym
@@ -183,7 +242,7 @@ proc getRetType*(scope: Scope, sym: Symbol): Symbol =
   if semexpr.kind == semanticFunction:
     return semexpr.function.rettype
   elif semexpr.kind == semanticPrimitiveFunc:
-    return scope.getSymbol(semexpr.primitiverettype)
+    return scope.getSymbol(semexpr.primFuncRetType)
   else:
     raise newException(SemanticError, "expression is not function")
 
@@ -193,22 +252,6 @@ proc evalFunctionBody*(scope: Scope, sexpr: SExpr): seq[SemanticExpr] =
   result = @[]
   for e in sexpr:
     result.add(scope.evalSExpr(e))
-
-proc parseTypeAnnotation*(sexpr: SExpr): tuple[argtypes: seq[SExpr], rettype: SExpr, body: SExpr] =
-  var argtypes = newSeq[SExpr]()
-  var rettype: SExpr
-  let body = sexpr.last
-  for arg in sexpr.rest.list:
-    if $arg.first == "->":
-      rettype = arg.rest.first
-      break
-    elif arg.rest.kind == sexprNil:
-      break
-    else:
-      argtypes.add(arg.first)
-  if rettype == nil:
-    rettype = ast(sexpr.span, newSIdent("Void"))
-  result = (argtypes, rettype, body)
 
 proc evalFunction*(scope: Scope, sexpr: SExpr)  =
   let (argtypes, rettype, funcdef) = parseTypeAnnotation(sexpr)
@@ -233,27 +276,33 @@ proc evalFunction*(scope: Scope, sexpr: SExpr)  =
 proc evalCFFI*(scope: Scope, sexpr: SExpr) =
   let (argtypes, rettype, cffidef) = parseTypeAnnotation(sexpr)
   let funcname = cffidef.rest.first
+  let primname = cffidef.rest.rest.first.strval
   let argtypesyms = argtypes.mapIt(scope.getSymbol($it))
   let cffi = CFFI(
     name: $funcname,
+    primname: primname,
     argtypes: argtypesyms,
     rettype: scope.getSymbol($rettype),
   )
   scope.module.addCFFI(cffi)
 
 proc evalFuncCall*(scope: Scope, sexpr: SExpr): SemanticExpr =
-  var args = newSeq[SemanticExpr]()
-  for arg in sexpr.rest:
-    args.add(scope.evalSExpr(arg))
-  let sym = scope.getSymbol(scope.getHashFromFuncCall($sexpr.first, args))
-  return SemanticExpr(
-    typesym: scope.getRetType(sym),
-    kind: semanticFuncCall,
-    funccall: FuncCall(
-      callfunc: sym,
-      args: args,
-    ),
-  )
+  let semexpr = scope.trySemanticExpr(Symbol(hash: $sexpr.first))
+  if semexpr.isSome and semexpr.get.kind == semanticPrimitiveMacro:
+    return scope.evalSExpr(semexpr.get.macroproc(scope, sexpr))
+  else:
+    var args = newSeq[SemanticExpr]()
+    for arg in sexpr.rest:
+      args.add(scope.evalSExpr(arg))
+    let sym = scope.getSymbol(scope.getHashFromFuncCall($sexpr.first, args))
+    return SemanticExpr(
+      typesym: scope.getRetType(sym),
+      kind: semanticFuncCall,
+      funccall: FuncCall(
+        callfunc: sym,
+        args: args,
+      ),
+    )
 
 proc evalInt*(scope: Scope, sexpr: SExpr): SemanticExpr =
   return SemanticExpr(typesym: scope.getSymbol("Int32"), kind: semanticInt, intval: sexpr.intval)
@@ -263,7 +312,7 @@ proc evalString*(scope: Scope, sexpr: SExpr): SemanticExpr =
 proc evalSExpr*(scope: Scope, sexpr: SExpr): SemanticExpr =
   case sexpr.kind
   of sexprNil:
-    discard
+    return notTypeSemExpr
   of sexprList:
     if sexpr.first.kind == sexprIdent and $sexpr.first == ":":
       if sexpr.last.first.kind == sexprIdent and $sexpr.last.first == "defn":
