@@ -8,8 +8,6 @@ type
     line*: int
     linepos*: int
     pos*: int
-  Symbol* = object
-    hash*: string
   SExprKind* = enum
     sexprNil
     sexprList
@@ -64,9 +62,6 @@ proc newSString*(s: string): SExpr =
   new result
   result.kind = sexprString
   result.strval = s
-
-proc `$`*(symbol: Symbol): string =
-  symbol.hash
 
 iterator items*(list: SExpr): SExpr =
   if list.kind != sexprList:

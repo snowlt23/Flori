@@ -10,7 +10,7 @@ import sequtils
 
 let fnsrc = """
 @(: Int32 -> Int32)
-(c-ffi abs :name "abs" :header "math.h")
+(c-ffi abs :header "math.h")
 
 @(: String)
 (c-ffi print :name "printf" :header "stdio.h")

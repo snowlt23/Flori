@@ -96,7 +96,7 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
     var res = newCCodegenRes()
     gen(module, e, res)
     ress.add(res)
-  module.addSrc("$# $#($#) {\n" % [rettype, funcname, argsrcs.join(",")])
+  module.addSrc("$# $#_$#($#) {\n" % [rettype, module.scope.module.name, funcname, argsrcs.join(",")])
   module.indent:
     for i in 0..<ress.len-1:
       module.addSrc("$i")
@@ -104,7 +104,7 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
       module.addSrc(";\n")
     module.addSrc("$$ireturn $#;\n" % $ress[^1])
   module.addSrc("}\n")
-  module.addHeader("$# $#($#);\n" % [rettype, funcname, argsrcs.join(",")])
+  module.addHeader("$# $#_$#($#);\n" % [rettype, module.scope.module.name, funcname, argsrcs.join(",")])
 
 proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   var args = newSeq[CCodegenRes]()
@@ -120,8 +120,8 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
     of primitiveInfix:
       res &= "($# $# $#)" % [$args[0], funcsemexpr.primFuncName, $args[1]]
   else:
-    let callfunc = $semexpr.funccall.callfunc
-    res &= "$#($#)" % [callfunc, args.mapIt($it).join(", ")]
+    let callfunc = semexpr.funccall.callfunc
+    res &= "$#_$#($#)" % [callfunc.module.name, callfunc.hash, args.mapIt($it).join(", ")]
 
 proc genCFFI*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let primname = semexpr.cffi.primname

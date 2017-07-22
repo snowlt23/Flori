@@ -6,6 +6,9 @@ import options
 
 type
   SemanticError* = object of Exception
+  Symbol* = object
+    module*: Module
+    hash*: string
   PrimitiveFuncKind* = enum
     primitiveCall
     primitiveInfix
@@ -90,7 +93,13 @@ type
     modules*: OrderedTable[string, Module]
     symcount*: int
 
-let notTypeSym* = Symbol(hash: "not_type_symbol")
+proc `$`*(symbol: Symbol): string =
+  symbol.hash
+
+proc newModule*(modulename: string): Module
+
+let globalModule* = newModule("global")
+let notTypeSym* = Symbol(module: globalModule, hash: "not_type_symbol")
 let notTypeSemExpr* = SemanticExpr(typesym: notTypeSym, kind: semanticSymbol, symbol: notTypeSym)
 
 proc hash*(symbol: Symbol): Hash =
@@ -103,21 +112,21 @@ proc addSymbol*(module: Module, sym: Symbol, value: SemanticExpr) =
     raise newException(SemanticError, "couldn't redefine symbol: $#" % $sym)
   module.semanticexprs[sym] = value
 proc addVariable*(module: Module, variable: Variable): Symbol =
-  let sym = Symbol(hash: variable.name)
+  let sym = Symbol(module: module, hash: variable.name)
   module.context.symcount.inc
   module.addSymbol(sym, SemanticExpr(typesym: notTypeSym, kind: semanticVariable, variable: variable))
   return sym
 proc addFunction*(module: Module, function: Function) =
-  let sym = Symbol(hash: function.name & "_" & function.argtypes.mapIt($it).join("_"))
+  let sym = Symbol(module: module, hash: function.name & "_" & function.argtypes.mapIt($it).join("_"))
   module.addSymbol(sym, SemanticExpr(typesym: notTypeSym, kind: semanticFunction, function: function))
   module.exportedsymbols.add(sym)
 proc addModule*(module: Module, importmodule: Module) =
-  let sym = Symbol(hash: importmodule.name)
+  let sym = Symbol(module: module, hash: importmodule.name)
   module.addSymbol(sym, SemanticExpr(kind: semanticModule, module: importmodule))
 proc addToplevelCall*(module: Module, funccall: FuncCall) =
   module.toplevelcalls.add(SemanticExpr(typesym: notTypeSym, kind: semanticFuncCall, funccall: funccall))
 proc addCFFI*(module: Module, cffi: CFFI) =
-  let sym = Symbol(hash: cffi.name)
+  let sym = Symbol(module: module, hash: cffi.name)
   module.addSymbol(sym, SemanticExpr(typesym: notTypeSym, kind: semanticCFFI, cffi: cffi))
 
 proc newSemanticContext*(): SemanticContext =
@@ -126,22 +135,22 @@ proc newSemanticContext*(): SemanticContext =
 
 proc defPrimitiveType*(module: Module, typename: string, primname: string) =
   module.addSymbol(
-    Symbol(hash: typename),
+    Symbol(module: globalModule, hash: typename),
     SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveType, primTypeName: primname)
   )
 proc defPrimitiveValue*(module: Module, typename: string) =
   module.addSymbol(
-    Symbol(hash: typename),
+    Symbol(module: globalModule, hash: typename),
     SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveValue)
   )
 proc defPrimitiveFunc*(module: Module, typename: string, rettype: string, kind: PrimitiveFuncKind, primname: string) =
   module.addSymbol(
-    Symbol(hash: typename),
+    Symbol(module: globalModule, hash: typename),
     SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveFunc, primFuncKind: kind, primfuncname: primname, primfuncrettype: rettype)
   )
 proc defPrimitiveMacro*(module: Module, macroname: string, macroproc: proc (scope: Scope, sexpr: SExpr): SExpr) =
   module.addSymbol(
-    Symbol(hash: macroname),
+    Symbol(module: globalModule, hash: macroname),
     SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveMacro, macroproc: macroproc)
   )
 
@@ -209,15 +218,15 @@ proc newScope*(module: Module): Scope =
 proc addArgSymbols*(scope: var Scope, argtypesyms: seq[Symbol], funcdef: SExpr) =
   for i, arg in funcdef.rest.rest.first:
     scope.scopesymbols.add(
-      Symbol(hash: $arg),
+      Symbol(module: scope.module, hash: $arg),
       SemanticExpr(
         typesym: argtypesyms[i],
         kind: semanticSymbol,
-        symbol: Symbol(hash: $arg)
+        symbol: Symbol(module: scope.module, hash: $arg)
       )
     )
 proc getSymbol*(scope: Scope, name: string): Symbol =
-  let sym = Symbol(hash: name)
+  let sym = Symbol(module: scope.module, hash: name)
   if scope.scopesymbols.hasKey(sym):
     return sym
   elif scope.module.semanticexprs.hasKey(sym):
