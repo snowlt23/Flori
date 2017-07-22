@@ -3,10 +3,12 @@ import tables, hashes
 import strutils, sequtils
 import sast
 import options
-import ccodegen_primitives
 
 type
   SemanticError* = object of Exception
+  PrimitiveFuncKind* = enum
+    primitiveCall
+    primitiveInfix
   SemanticExprKind* = enum
     semanticSymbol
     semanticVariable
@@ -33,10 +35,12 @@ type
     of semanticStruct:
       struct*: Struct
     of semanticPrimitiveType:
-      discard
+      primTypeName*: string
     of semanticPrimitiveValue:
       discard
     of semanticPrimitiveFunc:
+      primFuncKind*: PrimitiveFuncKind
+      primFuncName*: string
       primFuncRetType*: string
     of semanticPrimitiveMacro:
       macroproc*: proc (scope: Scope, sexpr: SExpr): SExpr
@@ -120,20 +124,20 @@ proc newSemanticContext*(): SemanticContext =
   new result
   result.modules = initOrderedTable[string, Module]()
 
-proc defPrimitiveType*(module: Module, typename: string) =
+proc defPrimitiveType*(module: Module, typename: string, primname: string) =
   module.addSymbol(
     Symbol(hash: typename),
-    SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveType)
+    SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveType, primTypeName: primname)
   )
 proc defPrimitiveValue*(module: Module, typename: string) =
   module.addSymbol(
     Symbol(hash: typename),
     SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveValue)
   )
-proc defPrimitiveFunc*(module: Module, typename: string, rettype: string) =
+proc defPrimitiveFunc*(module: Module, typename: string, rettype: string, kind: PrimitiveFuncKind, primname: string) =
   module.addSymbol(
     Symbol(hash: typename),
-    SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveFunc, primfuncrettype: rettype)
+    SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveFunc, primFuncKind: kind, primfuncname: primname, primfuncrettype: rettype)
   )
 proc defPrimitiveMacro*(module: Module, macroname: string, macroproc: proc (scope: Scope, sexpr: SExpr): SExpr) =
   module.addSymbol(
@@ -180,17 +184,15 @@ proc cheaderMacroExpand*(scope: Scope, sexpr: SExpr): SExpr =
   let primname = funcdef.rest.rest.first.strval
   let argtypesyms = argtypes.mapIt(scope.getSymbol($it))
   let hash = scope.getHashFromTypes($funcname, argtypesyms)
-  scope.module.defPrimitiveFunc(hash, $rettype)
-  primitives[hash] = CCodegenPrimitive(kind: primitiveCall, name: primname)
+  scope.module.defPrimitiveFunc(hash, $rettype, primitiveCall, primname)
   return newSNil()
 
 proc predefined*(module: Module) =
   # module.defPrimitiveValue("nil")
-  module.defPrimitiveType("Void")
-  module.defPrimitiveType("Int32")
-  module.defPrimitiveType("String")
-  module.defPrimitiveType("SExpr")
-  module.defPrimitiveFunc("+_Int32_Int32", "Int32")
+  module.defPrimitiveType("Void", "void")
+  module.defPrimitiveType("Int32", "int32_t")
+  module.defPrimitiveType("String", "char*")
+  module.defPrimitiveFunc("+_Int32_Int32", "Int32", primitiveInfix, "+")
   module.defPrimitiveMacro("c-header", cheaderMacroExpand)
 proc newModule*(modulename: string): Module =
   new result

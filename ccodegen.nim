@@ -2,11 +2,11 @@
 import sparser
 import sast
 import semantic
-import ccodegen_primitives
 
 import os
 import strutils, sequtils
 import tables
+import options
 
 type
   CCodegenError* = object of Exception
@@ -16,6 +16,7 @@ type
     src*: string
     header*: string
     curindent*: int
+    scope*: Scope
   CCodegenContext* = ref object
     modules*: OrderedTable[string, CCodegenModule]
     mainsrc*: string
@@ -40,11 +41,12 @@ proc getMainSrc*(context: CCodegenContext): string =
   result &= context.mainsrc
   result &= "}\n"
 
-proc newCCodegenModule*(): CCodegenModule =
+proc newCCodegenModule*(scope: Scope): CCodegenModule =
   new result
   result.src = preincludesrc
   result.header = preincludesrc
   result.curindent = 0
+  result.scope = scope
 template indent*(module: CCodegenModule, body: untyped) =
   module.curindent += 1
   body
@@ -74,17 +76,18 @@ proc `$`*(res: CCodegenRes): string =
 
 proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes)
 
-proc genSym*(sym: Symbol): string =
-  if primitives.hasKey($sym):
-    return primitives[$sym].name
+proc genSym*(scope: Scope, sym: Symbol): string =
+  let semexpr = scope.trySemanticExpr(sym)
+  if semexpr.isSome and semexpr.get.kind == semanticPrimitiveType:
+    return semexpr.get.primTypeName
   else:
     return $sym
 
 proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let funcname = semexpr.function.hash
   let argnames = semexpr.function.argnames
-  let argtypes = semexpr.function.argtypes.mapIt(genSym(it))
-  let rettype = genSym(semexpr.function.rettype)
+  let argtypes = semexpr.function.argtypes.mapIt(genSym(module.scope, it))
+  let rettype = genSym(module.scope, semexpr.function.rettype)
   var argsrcs = newSeq[string]()
   for i in 0..<argnames.len:
     argsrcs.add("$# $#" % [argtypes[i], argnames[i]])
@@ -109,23 +112,21 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
     var res = newCCodegenRes()
     gen(module, arg, res)
     args.add(res)
-  if primitives.hasKey($semexpr.funccall.callfunc):
-    let primitive = primitives[$semexpr.funccall.callfunc]
-    case primitive.kind
+  let funcsemexpr = module.scope.getSemanticExpr(semexpr.funccall.callfunc)
+  if funcsemexpr.kind == semanticPrimitiveFunc:
+    case funcsemexpr.primFuncKind
     of primitiveCall:
-      res &= "$#($#)" % [primitive.name, args.mapIt($it).join(", ")]
+      res &= "$#($#)" % [funcsemexpr.primFuncName, args.mapIt($it).join(", ")]
     of primitiveInfix:
-      res &= "($# $# $#)" % [$args[0], primitive.name, $args[1]]
-    else:
-      raise newException(CCodegenError, "$# is couldn't apply to function argument" % $primitive.kind)
+      res &= "($# $# $#)" % [$args[0], funcsemexpr.primFuncName, $args[1]]
   else:
     let callfunc = $semexpr.funccall.callfunc
     res &= "$#($#)" % [callfunc, args.mapIt($it).join(", ")]
 
 proc genCFFI*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let primname = semexpr.cffi.primname
-  let argtypes = semexpr.cffi.argtypes.mapIt(genSym(it))
-  let rettype = genSym(semexpr.cffi.rettype)
+  let argtypes = semexpr.cffi.argtypes.mapIt(genSym(module.scope, it))
+  let rettype = genSym(module.scope, semexpr.cffi.rettype)
   var argsrcs = newSeq[string]()
   for i in 0..<argtypes.len():
     argsrcs.add("$# arg$#" % [argtypes[i], $i])
@@ -136,7 +137,7 @@ proc genCFFI*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodeg
 proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   case semexpr.kind
   of semanticSymbol:
-    res &= genSym(semexpr.symbol)
+    res &= genSym(module.scope, semexpr.symbol)
   of semanticFunction:
     genFunction(module, semexpr, res)
   of semanticPrimitiveValue, semanticPrimitiveType, semanticPrimitiveFunc, semanticPrimitiveMacro:
@@ -169,7 +170,7 @@ proc genToplevelCalls*(context: CCodegenContext, cgenmodule: var CCodegenModule,
   context.addMainSrc("$$i$#();\n" % initfuncname)
 
 proc genModule*(context: CCodegenContext, sym: string, module: Module) =
-  var cgenmodule = newCCodegenModule()
+  var cgenmodule = newCCodegenModule(newScope(module))
   context.modules[sym] = cgenmodule
   genHeaders(context, cgenmodule, sym, module)
   for semexpr in module.semanticexprs.values:
