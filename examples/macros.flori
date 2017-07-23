@@ -1,0 +1,8 @@
+
+@(: Bool Untyped Untyped -> Untyped)
+(defmacro aif [cond tbody fbody]
+  `(do
+    (var it ,cond)
+    (if it
+        ,tbody
+        ,fbody)))

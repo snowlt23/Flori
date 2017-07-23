@@ -1,0 +1,28 @@
+
+(defprotocol ResultContainer
+  (unwrap (: [ResultContainer a] -> a)))
+
+@(derive Debug)
+(defenum Option
+  (Some a)
+  (None))
+
+@(derive Debug)
+(defenum Result
+  (Ok a)
+  (Error a))
+
+@(: [Option a] -> a)
+(defn unwrap [option]
+  (match option
+    [(Option.Some value) value]
+    [Option.None (panic)]))
+
+@(: [Result a] -> a)
+(defn unwrap [result]
+  (match result
+    [(Result.Ok value) value]
+    [(Result.Error value) (panic value)]))
+
+(defextend Option ResultContainer)
+(defextend Result ResultContainer)
