@@ -396,6 +396,7 @@ proc evalSExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =
     raise newException(SemanticError, "($#:$#) $# is can't eval: $#" % [$sexpr.span.line, $sexpr.span.linepos, $sexpr.kind, $sexpr])
 
 proc evalModule*(context: SemanticContext, modulename: string, sexpr: seq[SExpr]) =
+  let modulename = modulename.replace("/", "_").replace("\\", "_")
   var module = newModule(modulename)
   var scope = newScope(module)
   context.modules[modulename] = module

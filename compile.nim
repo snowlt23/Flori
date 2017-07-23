@@ -1,5 +1,6 @@
 
 import sast
+import sparser
 import semantic
 import ccodegen
 
@@ -27,3 +28,11 @@ proc execCompileCmd*(context: CCodegenContext, outname: string) =
 proc compile*(context: CCodegenContext, outname: string) =
   context.writeToFiles()
   context.execCompileCmd(outname)
+
+proc compileFlori*(filename: string, outname: string) =
+  var semcontext = newSemanticContext()
+  let sexpr = parseToplevel(readFile(filename))
+  semcontext.evalModule(filename.replace(".flori"), sexpr)
+  var cgencontext = newCCodegenContext()
+  cgencontext.genContext(semcontext)
+  cgencontext.compile(outname)
