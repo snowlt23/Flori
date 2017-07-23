@@ -68,6 +68,7 @@ type
     body*: seq[SemanticExpr]
   Struct* = ref object
     name*: string
+    fields*: seq[tuple[name: string, typesym: Symbol]]
   CCodegenInfo* = object
     headers*: OrderedTable[string, bool]
     decls*: seq[string]
@@ -111,9 +112,11 @@ proc addSymbol*(module: Module, sym: Symbol, value: SemanticExpr) =
   if module.semanticexprs.hasKey(sym):
     raise newException(SemanticError, "couldn't redefine symbol: $#" % $sym)
   module.semanticexprs[sym] = value
+proc addStruct*(module: Module, struct: Struct) =
+  let sym = Symbol(module: module, hash: struct.name)
+  module.addSymbol(sym, SemanticExpr(typesym: notTypeSym, kind: semanticStruct, struct: struct))
 proc addVariable*(module: Module, variable: Variable): Symbol =
   let sym = Symbol(module: module, hash: variable.name)
-  module.context.symcount.inc
   module.addSymbol(sym, SemanticExpr(typesym: notTypeSym, kind: semanticVariable, variable: variable))
   return sym
 proc addFunction*(module: Module, function: Function) =
@@ -186,15 +189,15 @@ proc getHashFromFuncCall*(scope: Scope, name: string, args: seq[SemanticExpr]): 
      types.add(scope.getType(arg))
   return name & "_" & types.mapIt($it).join("_")
 
-proc cheaderMacroExpand*(scope: Scope, sexpr: SExpr): SExpr =
-  scope.module.ccodegeninfo.addHeader(sexpr.rest.first.strval)
-  let (argtypes, rettype, funcdef) = parseTypeAnnotation(sexpr.rest.rest.first)
-  let funcname = funcdef.rest.first
-  let primname = funcdef.rest.rest.first.strval
-  let argtypesyms = argtypes.mapIt(scope.getSymbol($it))
-  let hash = scope.getHashFromTypes($funcname, argtypesyms)
-  scope.module.defPrimitiveFunc(hash, $rettype, primitiveCall, primname)
-  return newSNil()
+# proc cheaderMacroExpand*(scope: Scope, sexpr: SExpr): SExpr =
+#   scope.module.ccodegeninfo.addHeader(sexpr.rest.first.strval)
+#   let (argtypes, rettype, funcdef) = parseTypeAnnotation(sexpr.rest.rest.first)
+#   let funcname = funcdef.rest.first
+#   let primname = funcdef.rest.rest.first.strval
+#   let argtypesyms = argtypes.mapIt(scope.getSymbol($it))
+#   let hash = scope.getHashFromTypes($funcname, argtypesyms)
+#   scope.module.defPrimitiveFunc(hash, $rettype, primitiveCall, primname)
+#   return newSNil()
 
 proc predefined*(module: Module) =
   # module.defPrimitiveValue("nil")
@@ -202,7 +205,7 @@ proc predefined*(module: Module) =
   module.defPrimitiveType("Int32", "int32_t")
   module.defPrimitiveType("String", "char*")
   module.defPrimitiveFunc("+_Int32_Int32", "Int32", primitiveInfix, "+")
-  module.defPrimitiveMacro("c-header", cheaderMacroExpand)
+  # module.defPrimitiveMacro("c-header", cheaderMacroExpand)
 proc newModule*(modulename: string): Module =
   new result
   result.name = modulename
@@ -258,6 +261,19 @@ proc getRetType*(scope: Scope, sym: Symbol): Symbol =
     raise newException(SemanticError, "expression is not function")
 
 proc evalSExpr*(scope: Scope, sexpr: SExpr): SemanticExpr
+
+proc evalStruct*(scope: Scope, sexpr: SExpr) =
+  let structname = $sexpr.rest.first
+  var fields = newSeq[tuple[name: string, typesym: Symbol]]()
+  for field in sexpr.rest.rest:
+    let fieldname = $field.first
+    let typesym = scope.getSymbol($field.rest.first)
+    fields.add((fieldname, typesym))
+  let struct = Struct(
+    name: structname,
+    fields: fields,
+  )
+  scope.module.addStruct(struct)
 
 proc evalFunctionBody*(scope: Scope, sexpr: SExpr): seq[SemanticExpr] =
   result = @[]
@@ -347,6 +363,9 @@ proc evalSExpr*(scope: Scope, sexpr: SExpr): SemanticExpr =
       raise newException(SemanticError, "($#:$#) defn requires `:` type annotation" % [$sexpr.span.line, $sexpr.span.linepos])
     elif sexpr.first.kind == sexprIdent and $sexpr.first == "c-ffi":
       raise newException(SemanticError, "($#:$#) c-ffi requires `:` type annotation" % [$sexpr.span.line, $sexpr.span.linepos])
+    elif sexpr.first.kind == sexprIdent and $sexpr.first == "defstruct":
+      scope.evalStruct(sexpr)
+      return notTypeSemExpr
     else:
       return scope.evalFuncCall(sexpr)
   of sexprIdent:

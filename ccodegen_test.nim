@@ -19,6 +19,11 @@ let fnsrc = """
 (defn add5 [x]
   (abs (+ x 5)))
 
+(defstruct MyInt
+  (x Int32)
+  (y Int32)
+  (z Int32))
+
 (add5 1)
 (print "Hello Yukari!\n")
 """

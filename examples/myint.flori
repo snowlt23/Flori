@@ -2,7 +2,7 @@
 (defstruct MyInt
   (x Int32)
   (y Int32)
-  (z Int32)))
+  (z Int32))
 
 @(: MyInt MyInt -> MyInt)
 (defn + [a b]

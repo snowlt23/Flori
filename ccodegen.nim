@@ -83,6 +83,15 @@ proc genSym*(scope: Scope, sym: Symbol): string =
   else:
     return $sym
 
+proc genStruct*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
+  let structname = semexpr.struct.name
+  let fields = semexpr.struct.fields
+  module.addCommon("typedef struct {\n")
+  module.indent:
+    for field in fields:
+      module.addCommon("$$i$# $#;\n" % [genSym(module.scope, field.typesym), field.name])
+  module.addCommon("} $#_$#;\n" % [module.scope.module.name, structname])
+
 proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let funcname = semexpr.function.hash
   let argnames = semexpr.function.argnames
@@ -138,6 +147,8 @@ proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRe
   case semexpr.kind
   of semanticSymbol:
     res &= genSym(module.scope, semexpr.symbol)
+  of semanticStruct:
+    genStruct(module, semexpr, res)
   of semanticFunction:
     genFunction(module, semexpr, res)
   of semanticPrimitiveValue, semanticPrimitiveType, semanticPrimitiveFunc, semanticPrimitiveMacro:
