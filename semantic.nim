@@ -59,6 +59,7 @@ type
       strval*: string
   Variable* = ref object
     name*: string
+    value*: SemanticExpr
   Function* = ref object
     hash*: string
     name*: string
@@ -115,10 +116,6 @@ proc addSymbol*(module: Module, sym: Symbol, value: SemanticExpr) =
 proc addStruct*(module: Module, struct: Struct) =
   let sym = Symbol(module: module, hash: struct.name)
   module.addSymbol(sym, SemanticExpr(typesym: notTypeSym, kind: semanticStruct, struct: struct))
-proc addVariable*(module: Module, variable: Variable): Symbol =
-  let sym = Symbol(module: module, hash: variable.name)
-  module.addSymbol(sym, SemanticExpr(typesym: notTypeSym, kind: semanticVariable, variable: variable))
-  return sym
 proc addFunction*(module: Module, function: Function) =
   let sym = Symbol(module: module, hash: function.name & "_" & function.argtypes.mapIt($it).join("_"))
   module.addSymbol(sym, SemanticExpr(typesym: notTypeSym, kind: semanticFunction, function: function))
@@ -218,6 +215,10 @@ proc newModule*(modulename: string): Module =
 proc newScope*(module: Module): Scope =
   result.module = module
   result.scopesymbols = initOrderedTable[Symbol, SemanticExpr]()
+proc addSymbol*(scope: var Scope, sym: Symbol, value: SemanticExpr) =
+  if scope.scopesymbols.hasKey(sym):
+    raise newException(SemanticError, "couldn't redefine $#" % $sym)
+  scope.scopesymbols[sym] = value
 proc addArgSymbols*(scope: var Scope, argtypesyms: seq[Symbol], funcdef: SExpr) =
   for i, arg in funcdef.rest.rest.first:
     scope.scopesymbols.add(
@@ -260,7 +261,7 @@ proc getRetType*(scope: Scope, sym: Symbol): Symbol =
   else:
     raise newException(SemanticError, "expression is not function")
 
-proc evalSExpr*(scope: Scope, sexpr: SExpr): SemanticExpr
+proc evalSExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr
 
 proc evalStruct*(scope: Scope, sexpr: SExpr) =
   let structname = $sexpr.rest.first
@@ -275,7 +276,21 @@ proc evalStruct*(scope: Scope, sexpr: SExpr) =
   )
   scope.module.addStruct(struct)
 
-proc evalFunctionBody*(scope: Scope, sexpr: SExpr): seq[SemanticExpr] =
+proc evalVariable*(scope: var Scope, sexpr: SExpr): SemanticExpr =
+  let name = $sexpr.rest.first
+  let value = scope.evalSExpr(sexpr.rest.rest.first)
+  let typesym = scope.getType(value)
+  scope.addSymbol(Symbol(module: scope.module, hash: name), value)
+  return SemanticExpr(
+    typesym: typesym,
+    kind: semanticVariable,
+    variable: Variable(
+      name: name,
+      value: value
+    )
+  )
+
+proc evalFunctionBody*(scope: var Scope, sexpr: SExpr): seq[SemanticExpr] =
   result = @[]
   for e in sexpr:
     result.add(scope.evalSExpr(e))
@@ -323,7 +338,7 @@ proc evalCFFI*(scope: Scope, sexpr: SExpr) =
     )
     scope.module.addCFFI(cffi)
 
-proc evalFuncCall*(scope: Scope, sexpr: SExpr): SemanticExpr =
+proc evalFuncCall*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let semexpr = scope.trySemanticExpr(Symbol(hash: $sexpr.first))
   if semexpr.isSome and semexpr.get.kind == semanticPrimitiveMacro:
     return scope.evalSExpr(semexpr.get.macroproc(scope, sexpr))
@@ -346,7 +361,7 @@ proc evalInt*(scope: Scope, sexpr: SExpr): SemanticExpr =
 proc evalString*(scope: Scope, sexpr: SExpr): SemanticExpr =
   return SemanticExpr(typesym: scope.getSymbol("String"), kind: semanticString, strval: sexpr.strval)
 
-proc evalSExpr*(scope: Scope, sexpr: SExpr): SemanticExpr =
+proc evalSExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   case sexpr.kind
   of sexprNil:
     return notTypeSemExpr
@@ -366,10 +381,13 @@ proc evalSExpr*(scope: Scope, sexpr: SExpr): SemanticExpr =
     elif sexpr.first.kind == sexprIdent and $sexpr.first == "defstruct":
       scope.evalStruct(sexpr)
       return notTypeSemExpr
+    elif sexpr.first.kind == sexprIdent and $sexpr.first == "var":
+      return scope.evalVariable(sexpr)
     else:
       return scope.evalFuncCall(sexpr)
   of sexprIdent:
-    return scope.getSemanticExpr(scope.getSymbol($sexpr))
+    let sym = scope.getSymbol($sexpr)
+    return SemanticExpr(typesym: scope.getSemanticExpr(sym).typesym, kind: semanticSymbol, symbol: sym)
   of sexprInt:
     return scope.evalInt(sexpr)
   of sexprString:

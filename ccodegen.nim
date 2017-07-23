@@ -92,6 +92,13 @@ proc genStruct*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCod
       module.addCommon("$$i$# $#;\n" % [genSym(module.scope, field.typesym), field.name])
   module.addCommon("} $#_$#;\n" % [module.scope.module.name, structname])
 
+proc genVariable*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
+  let varname = semexpr.variable.name
+  let value = semexpr.variable.value
+  let vartype = genSym(module.scope, semexpr.typesym)
+  res &= "$# $# = " % [vartype, varname]
+  gen(module, value, res)
+
 proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let funcname = semexpr.function.hash
   let argnames = semexpr.function.argnames
@@ -149,6 +156,8 @@ proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRe
     res &= genSym(module.scope, semexpr.symbol)
   of semanticStruct:
     genStruct(module, semexpr, res)
+  of semanticVariable:
+    genVariable(module, semexpr, res)
   of semanticFunction:
     genFunction(module, semexpr, res)
   of semanticPrimitiveValue, semanticPrimitiveType, semanticPrimitiveFunc, semanticPrimitiveMacro:

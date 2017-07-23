@@ -17,7 +17,8 @@ let fnsrc = """
 
 @(: Int32 -> Int32)
 (defn add5 [x]
-  (abs (+ x 5)))
+  (var res (+ x 5))
+  (abs res))
 
 (defstruct MyInt
   (x Int32)
