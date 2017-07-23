@@ -12,21 +12,21 @@
   (Ok T)
   (Error E)))
 
-@(the MyInt MyInt -> MyInt)
+@(: MyInt MyInt -> MyInt)
 (defn + [a b]
   (MyInt :x (+ a.x b.x) :y (+ a.y b.y) :z (+ a.z b.z)))
 
-@(the MyInt MyInt -> MyInt)
+@(: MyInt MyInt -> MyInt)
 (defn - [a b]
   (MyInt :x (- a.x b.x) :y (- a.y b.y) :z (- a.z b.z)))
 
-@(the [Option T] -> T)
+@(: [Option T] -> T)
 (defn unwrap [option]
   (match option
     [(Some value) value]
     [None (panic)]))
 
-@(the Bool Untyped Untyped -> Untyped)
+@(: Bool Untyped Untyped -> Untyped)
 (defmacro aif [cond tbody fbody]
   `(do
     (var it ,cond)

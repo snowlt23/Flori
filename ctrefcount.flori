@@ -7,12 +7,12 @@
   (y Int32)
   (z Int32)))
 
-@(the MyInt MyInt -> MyInt)
+@(: MyInt MyInt -> MyInt)
 (defn + [a b]
   (var mi1 = a) ; a.inc
   (var mi2 = mi1)) ; a.inc
 
-@(the File String)
+@(: File String)
 (defn write-file [filename s]
   (var file (open filename)) ; file.inc 1
   (var f file) ; file.inc 2
@@ -20,7 +20,7 @@
   ; file.dec 1
   ; file.dec 0 -> (close file)
 
-@(the File String Size)
+@(: File String Size)
 (defn repeat-write-file [filename s n]
   (var file (open filename)); file.inc 1
   (var f file) ; file.inc 2
@@ -32,15 +32,20 @@
 (defstruct Logger
   (file File))
 
-@(the File -> Logger)
+@(destructor Logger)
+@(: Logger)
+(defn close (logger)
+  (close (file logger))) ; actually not needed
+
+@(: File -> Logger)
 (defn new-logger [file]
   (Logger :file file)) ; file.inc +1
 
-@(the Logger String)
+@(: Logger String)
 (defn log [logger s]
   (write (file logger) s)) ; file.inc 2 -> file.inc 1
 
-@(the)
+@(:)
 (defn main []
   (var logger (new-logger (open "test.txt"))) ; file.inc 1
   (log logger "hello!")) ; file.inc 2 -> file.inc 1
