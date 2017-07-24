@@ -232,6 +232,8 @@ proc addSymbol*(scope: var Scope, sym: Symbol, value: SemanticExpr) =
     raise newException(SemanticError, "couldn't redefine $#" % $sym)
   scope.scopesymbols[sym] = value
 proc addArgSymbols*(scope: var Scope, argtypesyms: seq[Symbol], funcdef: SExpr) =
+  if funcdef.rest.rest.first.len != argtypesyms.len:
+    raise newException(SemanticError, "($#:$#) argument length is not equals type length" % [$funcdef.span.line, $funcdef.span.linepos])
   for i, arg in funcdef.rest.rest.first:
     scope.scopesymbols.add(
       Symbol(module: scope.module, hash: $arg),
@@ -253,7 +255,7 @@ proc getSymbol*(scope: Scope, name: string): Symbol =
   elif scope.module.semanticexprs.hasKey(globalsym):
     return globalsym
   else:
-    raise newException(SemanticError, "module hasn't symbol: $#" % name)
+    raise newException(SemanticError, "couldn't find symbol: $#" % name)
 proc getSemanticExpr*(scope: Scope, sym: Symbol): SemanticExpr =
   if scope.scopesymbols.hasKey(sym):
     return scope.scopesymbols[sym]

@@ -68,7 +68,6 @@ proc parseSExpr*(context: var ParserContext): SExpr =
       if context.curchar in EndList:
         context.inc
         break
-      let span = context.span()
       let res = parseSExpr(context)
       list = ast(span, newSList(res, list))
     return list.reverse()

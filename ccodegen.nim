@@ -78,7 +78,7 @@ proc newCCodegenRes*(): CCodegenRes =
   result.src = ""
 proc addPrev*(res: var CCodegenRes, s: string) =
   res.prev &= s
-proc add*(res: var CCodegenRes, s: string) =
+proc addSrc*(res: var CCodegenRes, s: string) =
   res.src &= s
 proc add*(res: var CCodegenRes, s: CCodegenRes) =
   res.prev &= s.prev
@@ -87,24 +87,24 @@ proc `$`*(res: CCodegenRes): string =
   res.prev & res.src
 proc toCCodegenRes*(s: string): CCodegenRes =
   result = newCCodegenRes()
-  result.add(s)
-proc toCCodegenResPrev*(s: string): CCodegenRes =
-  result = newCCodegenRes()
-  result.addPrev(s)
+  result.addSrc(s)
 proc toCCodegenRes*(res: CCodegenRes): CCodegenRes = res
-proc toCCodegenResPrev*(res: CCodegenRes): CCodegenRes = res
 proc format*(res: var CCodegenRes, s: string, args: varargs[CCodegenRes, toCCodegenRes]) =
   let splitted = s.split("$#")
   for i in 0..<splitted.len:
-    res.add(splitted[i])
+    res.addSrc(splitted[i])
     if i < args.len():
       res.add(args[i])
-proc formatPrev*(res: var CCodegenRes, s: string, args: varargs[CCodegenRes, toCCodegenResPrev]) =
+proc addPrevs*(res: var CCodegenRes, prevs: openArray[CCodegenRes]) =
+  for prev in prevs:
+    if prev.prev != "":
+      res.addPrev("$i" & prev.prev & ";\n")
+proc formatPrev*(res: var CCodegenRes, s: string, args: varargs[CCodegenRes, toCCodegenRes]) =
   let splitted = s.split("$#")
   for i in 0..<splitted.len:
     res.addPrev(splitted[i])
-    if i < args.len():
-      res.addPrev($args[i])
+    if i < args.len:
+      res.addPrev(args[i].src)
 
 proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes)
 
@@ -132,7 +132,7 @@ proc genVariable*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
   let varname = semexpr.variable.name
   let value = semexpr.variable.value
   let vartype = genSym(module.scope, semexpr.typesym)
-  res &= "$# $# = " % [vartype, varname]
+  res.addSrc("$# $# = " % [vartype, varname])
   gen(module, value, res)
 
 proc genIfExpr*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
@@ -147,6 +147,7 @@ proc genIfExpr*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCod
 
   if semexpr.typesym == notTypeSym:
     res.formatPrev("if ($#) {\n", condres)
+    res.addPrevs([condres, tbodyres, fbodyres])
     res.formatPrev("$i  $#;\n", tbodyres)
     res.formatPrev("$i} else {\n")
     res.formatPrev("$i  $#;\n", fbodyres)
@@ -154,11 +155,12 @@ proc genIfExpr*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCod
   else:
     res.formatPrev("$# $#;\n", rettype, tmpsym)
     res.formatPrev("$iif ($#) {\n", condres)
-    res.formatPrev("$i  $# = $#;\n", tmpsym ,tbodyres)
+    res.addPrevs([condres, tbodyres, fbodyres])
+    res.formatPrev("$i  $# = $#;\n", tmpsym, tbodyres)
     res.formatPrev("$i} else {\n")
     res.formatPrev("$i  $# = $#;\n", tmpsym, fbodyres)
     res.formatPrev("$i}")
-    res &= tmpsym
+    res.addSrc(tmpsym)
 
 proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let funcname = semexpr.function.hash
@@ -195,12 +197,12 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
   if funcsemexpr.kind == semanticPrimitiveFunc:
     case funcsemexpr.primFuncKind
     of primitiveCall:
-      res &= "$#($#)" % [funcsemexpr.primFuncName, args.mapIt($it).join(", ")]
+      res.addSrc("$#($#)" % [funcsemexpr.primFuncName, args.mapIt($it).join(", ")])
     of primitiveInfix:
-      res &= "($# $# $#)" % [$args[0], funcsemexpr.primFuncName, $args[1]]
+      res.addSrc("($# $# $#)" % [$args[0], funcsemexpr.primFuncName, $args[1]])
   else:
     let callfunc = semexpr.funccall.callfunc
-    res &= "$#_$#($#)" % [callfunc.module.name, callfunc.hash, args.mapIt($it).join(", ")]
+    res.addSrc("$#_$#($#)" % [callfunc.module.name, callfunc.hash, args.mapIt($it).join(", ")])
 
 proc genCFFI*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let primname = semexpr.cffi.primname
@@ -216,7 +218,7 @@ proc genCFFI*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodeg
 proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   case semexpr.kind
   of semanticSymbol:
-    res &= genSym(module.scope, semexpr.symbol)
+    res.addSrc(genSym(module.scope, semexpr.symbol))
   of semanticStruct:
     genStruct(module, semexpr, res)
   of semanticVariable:
@@ -232,9 +234,9 @@ proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRe
   of semanticCFFI:
     genCFFI(module, semexpr, res)
   of semanticInt:
-    res &= $semexpr.intval
+    res.addSrc($semexpr.intval)
   of semanticString:
-    res &= "\"" & semexpr.strval & "\""
+    res.addSrc("\"" & semexpr.strval & "\"")
   else:
     raise newException(CCodegenError, "$# is unsupport codegen kind" % $semexpr.kind)
 

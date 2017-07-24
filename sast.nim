@@ -93,6 +93,14 @@ iterator list*(list: SExpr): SExpr =
       break
     curexpr = curexpr.rest
 
+proc len*(list: SExpr): int =
+  result = 0
+  var curexpr = list
+  while true:
+    result.inc
+    if curexpr.rest.kind == sexprNil:
+      break
+    curexpr = curexpr.rest
 proc reverse*(list: SExpr): SExpr =
   if list.kind != sexprList:
     raise newException(SExprError, "reverse: sexpr is not list")
@@ -103,7 +111,7 @@ proc reverse*(list: SExpr): SExpr =
     if curexpr.rest.kind == sexprNil:
       break
     curexpr = curexpr.rest
-  return newexpr
+  return ast(list.span, newexpr)
 proc last*(list: SExpr): SExpr =
   var curexpr = list
   while true:
