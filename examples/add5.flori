@@ -10,6 +10,12 @@
   (var res (+ x 5))
   (abs res))
 
+@(: Int32 Bool -> Int32)
+(defn abstrue [x b]
+  (if b
+    (abs x)
+    x))
+
 (defstruct MyInt
   (x Int32)
   (y Int32)

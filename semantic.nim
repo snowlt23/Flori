@@ -15,6 +15,7 @@ type
   SemanticExprKind* = enum
     semanticSymbol
     semanticVariable
+    semanticIfExpr
     semanticFunction
     semanticStruct
     semanticPrimitiveType
@@ -33,6 +34,8 @@ type
       symbol*: Symbol
     of semanticVariable:
       variable*: Variable
+    of semanticIfExpr:
+      ifexpr*: IfExpr
     of semanticFunction:
       function*: Function
     of semanticStruct:
@@ -40,7 +43,7 @@ type
     of semanticPrimitiveType:
       primTypeName*: string
     of semanticPrimitiveValue:
-      discard
+      primValue*: string
     of semanticPrimitiveFunc:
       primFuncKind*: PrimitiveFuncKind
       primFuncName*: string
@@ -60,6 +63,10 @@ type
   Variable* = ref object
     name*: string
     value*: SemanticExpr
+  IfExpr* = ref object
+    cond*: SemanticExpr
+    tbody*: SemanticExpr
+    fbody*: SemanticExpr
   Function* = ref object
     hash*: string
     name*: string
@@ -95,19 +102,21 @@ type
     modules*: OrderedTable[string, Module]
     symcount*: int
 
-proc `$`*(symbol: Symbol): string =
-  symbol.hash
-
 proc newModule*(modulename: string): Module
+proc evalSExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr
 
 let globalModule* = newModule("global")
 let notTypeSym* = Symbol(module: globalModule, hash: "not_type_symbol")
 let notTypeSemExpr* = SemanticExpr(typesym: notTypeSym, kind: semanticSymbol, symbol: notTypeSym)
 
+proc `$`*(symbol: Symbol): string =
+  symbol.hash
 proc hash*(symbol: Symbol): Hash =
   hash(symbol.hash)
 proc `==`*(a, b: Symbol): bool =
-  a.hash == b.hash
+  a.module.name == b.module.name and a.hash == b.hash
+proc `==`*(symbol: Symbol, s: string): bool =
+  symbol == Symbol(module: globalModule, hash: s)
 
 proc addSymbol*(module: Module, sym: Symbol, value: SemanticExpr) =
   if module.semanticexprs.hasKey(sym):
@@ -138,10 +147,10 @@ proc defPrimitiveType*(module: Module, typename: string, primname: string) =
     Symbol(module: globalModule, hash: typename),
     SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveType, primTypeName: primname)
   )
-proc defPrimitiveValue*(module: Module, typename: string) =
+proc defPrimitiveValue*(module: Module, typename: string, value: string) =
   module.addSymbol(
     Symbol(module: globalModule, hash: typename),
-    SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveValue)
+    SemanticExpr(typesym: notTypeSym, kind: semanticPrimitiveValue, primValue: value)
   )
 proc defPrimitiveFunc*(module: Module, typename: string, rettype: string, kind: PrimitiveFuncKind, primname: string) =
   module.addSymbol(
@@ -198,6 +207,9 @@ proc getHashFromFuncCall*(scope: Scope, name: string, args: seq[SemanticExpr]): 
 
 proc predefined*(module: Module) =
   # module.defPrimitiveValue("nil")
+  module.defPrimitiveValue("true", "true")
+  module.defPrimitiveValue("false", "false")
+  module.defPrimitiveType("Bool", "bool")
   module.defPrimitiveType("Void", "void")
   module.defPrimitiveType("Int32", "int32_t")
   module.defPrimitiveType("String", "char*")
@@ -231,10 +243,15 @@ proc addArgSymbols*(scope: var Scope, argtypesyms: seq[Symbol], funcdef: SExpr) 
     )
 proc getSymbol*(scope: Scope, name: string): Symbol =
   let sym = Symbol(module: scope.module, hash: name)
+  let globalsym = Symbol(module: globalModule, hash: name)
   if scope.scopesymbols.hasKey(sym):
     return sym
   elif scope.module.semanticexprs.hasKey(sym):
     return sym
+  elif scope.scopesymbols.hasKey(globalsym):
+    return globalsym
+  elif scope.module.semanticexprs.hasKey(globalsym):
+    return globalsym
   else:
     raise newException(SemanticError, "module hasn't symbol: $#" % name)
 proc getSemanticExpr*(scope: Scope, sym: Symbol): SemanticExpr =
@@ -261,8 +278,6 @@ proc getRetType*(scope: Scope, sym: Symbol): Symbol =
   else:
     raise newException(SemanticError, "expression is not function")
 
-proc evalSExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr
-
 proc evalStruct*(scope: Scope, sexpr: SExpr) =
   let structname = $sexpr.rest.first
   var fields = newSeq[tuple[name: string, typesym: Symbol]]()
@@ -288,6 +303,25 @@ proc evalVariable*(scope: var Scope, sexpr: SExpr): SemanticExpr =
       name: name,
       value: value
     )
+  )
+
+proc evalIfExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =
+  let cond = scope.evalSExpr(sexpr.rest.first)
+  let tbody = scope.evalSExpr(sexpr.rest.rest.first)
+  let fbody = scope.evalSExpr(sexpr.rest.rest.rest.first)
+  let condtypesym = scope.getType(cond)
+  if condtypesym != scope.getSymbol("Bool"):
+    raise newException(SemanticError, "($#:$#) cond expression is not Bool type" % [$sexpr.span.line, $sexpr.span.linepos])
+  let ttypesym = scope.getType(tbody)
+  let ftypesym = scope.getType(fbody)
+  let typesym = if ttypesym == ftypesym:
+                  ttypesym
+                else:
+                  notTypeSym
+  return SemanticExpr(
+    typesym: typesym,
+    kind: semanticIfExpr,
+    ifexpr: IfExpr(cond: cond, tbody: tbody, fbody: fbody),
   )
 
 proc evalFunctionBody*(scope: var Scope, sexpr: SExpr): seq[SemanticExpr] =
@@ -383,6 +417,8 @@ proc evalSExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =
       return notTypeSemExpr
     elif sexpr.first.kind == sexprIdent and $sexpr.first == "var":
       return scope.evalVariable(sexpr)
+    elif sexpr.first.kind == sexprIdent and $sexpr.first == "if":
+      return scope.evalIfExpr(sexpr)
     else:
       return scope.evalFuncCall(sexpr)
   of sexprIdent:

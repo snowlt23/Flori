@@ -11,18 +11,21 @@ import options
 type
   CCodegenError* = object of Exception
   CCodegenRes* = object
+    prev*: string
     src*: string
   CCodegenModule* = ref object
     src*: string
     header*: string
     curindent*: int
     scope*: Scope
+    symcount*: int
   CCodegenContext* = ref object
     modules*: OrderedTable[string, CCodegenModule]
     mainsrc*: string
 
 const preincludesrc* = """
 #include <stdint.h>
+#include <stdbool.h>
 """
 
 proc newCCodegenContext*(): CCodegenContext =
@@ -47,6 +50,7 @@ proc newCCodegenModule*(scope: Scope): CCodegenModule =
   result.header = preincludesrc
   result.curindent = 0
   result.scope = scope
+  result.symcount = 0
 template indent*(module: CCodegenModule, body: untyped) =
   module.curindent += 1
   body
@@ -58,23 +62,55 @@ proc format*(module: CCodegenModule, s: string): string =
 proc addSrc*(module: var CCodegenModule, s: string) =
   module.src &= module.format(s)
 proc addSrc*(module: var CCodegenModule, res: CCodegenRes) =
-  module.src &= res.src
+  module.src &= module.format(res.prev)
+  module.src &= module.format(res.src)
 proc addHeader*(module: var CCodegenModule, s: string) =
   module.header &= module.format(s)
 proc addHeader*(module: var CCodegenModule, res: CCodegenRes) =
-  module.header &= res.src
+  module.header &= module.format(res.prev)
+  module.header &= module.format(res.src)
 proc addCommon*(module: var CCodegenModule, s: string) =
   module.addSrc(s)
   module.addHeader(s)
 
 proc newCCodegenRes*(): CCodegenRes =
+  result.prev = ""
   result.src = ""
+proc addPrev*(res: var CCodegenRes, s: string) =
+  res.prev &= s
 proc add*(res: var CCodegenRes, s: string) =
   res.src &= s
+proc add*(res: var CCodegenRes, s: CCodegenRes) =
+  res.prev &= s.prev
+  res.src &= s.src
 proc `$`*(res: CCodegenRes): string =
-  res.src
+  res.prev & res.src
+proc toCCodegenRes*(s: string): CCodegenRes =
+  result = newCCodegenRes()
+  result.add(s)
+proc toCCodegenResPrev*(s: string): CCodegenRes =
+  result = newCCodegenRes()
+  result.addPrev(s)
+proc toCCodegenRes*(res: CCodegenRes): CCodegenRes = res
+proc toCCodegenResPrev*(res: CCodegenRes): CCodegenRes = res
+proc format*(res: var CCodegenRes, s: string, args: varargs[CCodegenRes, toCCodegenRes]) =
+  let splitted = s.split("$#")
+  for i in 0..<splitted.len:
+    res.add(splitted[i])
+    if i < args.len():
+      res.add(args[i])
+proc formatPrev*(res: var CCodegenRes, s: string, args: varargs[CCodegenRes, toCCodegenResPrev]) =
+  let splitted = s.split("$#")
+  for i in 0..<splitted.len:
+    res.addPrev(splitted[i])
+    if i < args.len():
+      res.addPrev($args[i])
 
 proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes)
+
+proc genTmpSym*(module: CCodegenModule, name = "tmp"): string =
+  result = "__flori_" & name & $module.symcount
+  module.symcount.inc
 
 proc genSym*(scope: Scope, sym: Symbol): string =
   let semexpr = scope.trySemanticExpr(sym)
@@ -99,6 +135,31 @@ proc genVariable*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
   res &= "$# $# = " % [vartype, varname]
   gen(module, value, res)
 
+proc genIfExpr*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
+  let tmpsym = genTmpSym(module)
+  let rettype = genSym(module.scope, semexpr.typesym)
+  var condres = newCCodegenRes()
+  var tbodyres = newCCodegenRes()
+  var fbodyres = newCCodegenRes()
+  gen(module, semexpr.ifexpr.cond, condres)
+  gen(module, semexpr.ifexpr.tbody, tbodyres)
+  gen(module, semexpr.ifexpr.fbody, fbodyres)
+
+  if semexpr.typesym == notTypeSym:
+    res.formatPrev("if ($#) {\n", condres)
+    res.formatPrev("$i  $#;\n", tbodyres)
+    res.formatPrev("$i} else {\n")
+    res.formatPrev("$i  $#;\n", fbodyres)
+    res.formatPrev("$i}")
+  else:
+    res.formatPrev("$# $#;\n", rettype, tmpsym)
+    res.formatPrev("$iif ($#) {\n", condres)
+    res.formatPrev("$i  $# = $#;\n", tmpsym ,tbodyres)
+    res.formatPrev("$i} else {\n")
+    res.formatPrev("$i  $# = $#;\n", tmpsym, fbodyres)
+    res.formatPrev("$i}")
+    res &= tmpsym
+
 proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let funcname = semexpr.function.hash
   let argnames = semexpr.function.argnames
@@ -112,15 +173,17 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
     var res = newCCodegenRes()
     gen(module, e, res)
     ress.add(res)
-  module.addSrc("$# $#_$#($#) {\n" % [rettype, module.scope.module.name, funcname, argsrcs.join(",")])
+  module.addSrc("$# $#_$#($#) {\n" % [rettype, module.scope.module.name, funcname, argsrcs.join(", ")])
   module.indent:
     for i in 0..<ress.len-1:
       module.addSrc("$i")
       module.addSrc(ress[i])
       module.addSrc(";\n")
-    module.addSrc("$$ireturn $#;\n" % $ress[^1])
+    if ress[^1].prev != "":
+      module.addSrc("$$i$#;\n" % ress[^1].prev)
+    module.addSrc("$$ireturn $#;\n" % ress[^1].src)
   module.addSrc("}\n")
-  module.addHeader("$# $#_$#($#);\n" % [rettype, module.scope.module.name, funcname, argsrcs.join(",")])
+  module.addHeader("$# $#_$#($#);\n" % [rettype, module.scope.module.name, funcname, argsrcs.join(", ")])
 
 proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   var args = newSeq[CCodegenRes]()
@@ -158,6 +221,8 @@ proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRe
     genStruct(module, semexpr, res)
   of semanticVariable:
     genVariable(module, semexpr, res)
+  of semanticIfExpr:
+    genIfExpr(module, semexpr, res)
   of semanticFunction:
     genFunction(module, semexpr, res)
   of semanticPrimitiveValue, semanticPrimitiveType, semanticPrimitiveFunc, semanticPrimitiveMacro:
