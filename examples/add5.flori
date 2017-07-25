@@ -1,11 +1,11 @@
 
 @(: Int32 -> Int32)
-(c-ffi abs :header "math.h")
+(c-import abs :header "math.h")
 
 @(: String)
-(c-ffi print :name "printf" :header "stdio.h")
+(c-import print :name "printf" :header "stdio.h")
 @(: String Int32)
-(c-ffi printf-int :name "printf" :header "stdio.h")
+(c-import printf-int :name "printf" :header "stdio.h")
 
 @(: Int32)
 (defn print [x]

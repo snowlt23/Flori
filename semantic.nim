@@ -280,7 +280,7 @@ proc evalTypeAnnot*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let (_, _, funcdef) = parseTypeAnnotation(sexpr)
   if $funcdef.first == "defn":
     evalFunction(scope, sexpr)
-  elif $funcdef.first == "c-ffi":
+  elif $funcdef.first == "c-import":
     discard cffiMacroExpand(scope, sexpr)
   return notTypeSemExpr
 
@@ -343,7 +343,7 @@ proc predefined*(module: Module) =
   module.defPrimitiveType("String", "char*")
   module.defPrimitiveFunc("+_Int32_Int32", "Int32", primitiveInfix, "+")
   # module.defPrimitiveMacro("c-header", cheaderMacroExpand)
-  module.defPrimitiveMacro("c-ffi", cffiMacroExpand)
+  module.defPrimitiveMacro("c-import", cffiMacroExpand)
   module.defPrimitiveEval(":", evalTypeAnnot)
   module.defPrimitiveEval("defstruct", evalStruct)
   module.defPrimitiveEval("var", evalVariable)

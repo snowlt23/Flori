@@ -1,29 +1,48 @@
 
-(defprotocol RootValue)
-(defprotocol ResultContainer
-  (unwrap (: Self -> RootValue)))
+(ns flori.core.result)
+
+(defprotocol All)
+
+@(^ :a All)
+(defprotocol Resultable
+  (unwrap (: Self -> :a)))
+
 (defprotocol ErrorValue
-  (debug (: Self -> String)))
+  (debug (: Self -> String))
+  (panic (: Self)))
 
+@(^ :a All)
 (defenum Option
-  (Some RootValue)
-  (None))
+  (some :a)
+  none)
 
+@(^ :a All :b ErrorValue)
 (defenum Result
-  (Ok RootValue)
-  (Error ErrorValue))
+  (ok :a)
+  (error :b))
 
-@(: Option -> RootValue)
+@(^ :a All)
+@(: (Option :a) -> :a)
 (defn unwrap [option]
   (match option
-    [(Option.Some value) value]
-    [Option.None (panic)]))
+    [(Option/some value) value]
+    [Option/None (panic)]))
 
-@(: Result -> RootValue)
+@(: (Option Int32) -> Int32)
+(defn unwrap-int [option]
+  (match option
+    [(Option/some value) value]
+    [Option/None (panic)]))
+
+@(^ :a All :b ErrorType)
+@(: (Result :a :b) -> :a)
 (defn unwrap [result]
   (match result
-    [(Result.Ok value) value]
-    [(Result.Error value) (panic value)]))
+    [(Result/ok value) value]
+    [(Result/error err) (panic err)]))
 
-(defextend Option ResultContainer)
-(defextend Result ResultContainer)
+@(: (Result Int32) -> Int32)
+(defn unwrap-int [result]
+  (match result
+    [(Result/ok value) value]
+    [(Result/error err) (panic err)]))
