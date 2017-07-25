@@ -41,4 +41,10 @@
 (defn nth [vec index]
   (nth (vec .data)) index)
 
+@destructor
+@(^ a) @(: [Vec a])
+(defn destroy [vec]
+  (unsafe
+    (free (vec .data))))
+
 (defextend [Vec a] [Seqable a])

@@ -25,24 +25,24 @@
 @(: (Option :a) -> :a)
 (defn unwrap [option]
   (match option
-    [(Option/some value) value]
-    [Option/None (panic)]))
+    [(some value) value]
+    [none (panic)]))
 
 @(: (Option Int32) -> Int32)
 (defn unwrap-int [option]
   (match option
-    [(Option/some value) value]
-    [Option/None (panic)]))
+    [(some value) value]
+    [none (panic)]))
 
 @(^ :a All :b ErrorType)
 @(: (Result :a :b) -> :a)
 (defn unwrap [result]
   (match result
-    [(Result/ok value) value]
-    [(Result/error err) (panic err)]))
+    [(ok value) value]
+    [(error err) (panic err)]))
 
 @(: (Result Int32) -> Int32)
 (defn unwrap-int [result]
   (match result
-    [(Result/ok value) value]
-    [(Result/error err) (panic err)]))
+    [(ok value) value]
+    [(error err) (panic err)]))
