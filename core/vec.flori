@@ -1,0 +1,36 @@
+
+@(^ :a All)
+(defstruct Vec
+  (data (Ptr :a)
+  (len Size))
+
+@(^ :a All)
+@(: Size -> (Vec :a))
+(defn new-vec [len]
+  (unsafe
+    (var vec (cast Vec (malloc (* (sizeof :a) len))))
+    (set! (vec .len) len)
+    vec))
+@(^ :a All)
+@(: (Vec :a) :a)
+(defn push [vec value]
+  (unsafe
+    (realloc (vec .data) (* (sizeof a) (+ (vec .len) 1)))
+    (set! (nth (vec .data) (vec .len)) value))
+  (inc (vec .len)))
+@(^ :a All)
+@(: (Vec :a) -> Size)
+(defn len [vec]
+  (vec .len))
+
+@(^ :a All)
+@(: (Vec :a) Size -> :a)
+(defn nth [vec index]
+  (nth (vec .data)) index)
+
+@destructor
+@(^ :a All)
+@(: (Vec :a))
+(defn destroy [vec]
+  (unsafe
+    (dealloc (vec .data))))

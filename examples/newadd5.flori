@@ -1,0 +1,22 @@
+
+;; (require flori.core.prelude) ; implicit
+
+@(: Int32 -> Int32)
+(c-import abs :header "math.h")
+
+@(: Int32 -> Int32)
+(defn add5 [x]
+  (var res (+ x 5))
+  (abs res))
+
+@(: Int32 Bool Bool -> Int32)
+(defn abstrue [x b1 b2]
+  (if b1
+    (if b2
+      (abs x)
+      x)
+    x))
+
+(print "Hello Yukari!\n")
+(print (add5 4))
+(print "\n")

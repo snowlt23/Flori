@@ -1,0 +1,29 @@
+
+(defstruct String
+  (data (Ptr UInt8))
+  (len Size))
+@(: Size -> String)
+(defn new-string-cap (len)
+  (var str (String
+        :data (cast (Ptr Uint8) (malloc (* (sizeof :Uint8) (+ len 1))))
+        :len (strlen cstr)))
+  str)
+@(: CString -> String)
+(defn new-string (cstr)
+  (unsafe  
+    (var str (String
+        :data (cast (Ptr Uint8) (malloc (* (sizeof :Uint8) (+ (strlen cstr) 1))))
+        :len (strlen cstr)))
+    (memcpy (cast Pointer cstr) cstr (+ (strlen cstr) 1))
+    str))
+@(: String Size -> Uint8)
+(defn nth [str index]
+  (unsafe (nth (str .data) index)))
+@(: String -> Size)
+(defn len [str]
+  (str .len))
+@destructor
+@(: String)
+(defun destroy [str]
+  (unsafe
+    (dealloc (str .data))))

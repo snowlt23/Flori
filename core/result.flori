@@ -1,8 +1,4 @@
 
-(ns flori.core.result)
-
-(defprotocol All)
-
 @(^ :a All)
 (defprotocol Resultable
   (unwrap (: Self -> :a)))
