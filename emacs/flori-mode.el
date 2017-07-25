@@ -2,9 +2,11 @@
 (setq flori-separates "\\((\\|)\\|[\\|]\\|\s\\|\n\\|r\\)")
 
 (setq flori-keywords '("ns" "c-import" "c-export" "match" "if" "cond" "for" "while"))
+(setq flori-warnings '("unsafe"))
 
 (setq flori-def-regexp "\\(def.+?\\)\s+\\(.+?\\)\\(\s\\|\n\\)")
 (setq flori-keywords-regexp (regexp-opt flori-keywords 'words))
+(setq flori-warnings-regexp (regexp-opt flori-warnings 'words))
 (setq flori-funcname-regexp "\\(def.+\\)?\s+\\(.+?\\)]\s")
 (setq flori-type-regexp "[A-Z]\\([a-z]\\|[0-9]\\)*")
 (setq flori-attr-regexp "\:\\([a-z]\\|[A-Z]\\)+")
@@ -16,6 +18,7 @@
 
 (setq flori-font-lock-keywords
       `((,flori-keywords-regexp . font-lock-keyword-face)
+        (,flori-warnings-regexp . font-lock-warning-face)
         (,flori-def-regexp (1 font-lock-keyword-face) (2 font-lock-function-name-face))
         (,flori-funcname-regexp . font-lock-function-name-face)
         (,flori-type-regexp . font-lock-type-face)
