@@ -204,17 +204,6 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
     let callfunc = semexpr.funccall.callfunc
     res.addSrc("$#_$#($#)" % [callfunc.module.name, callfunc.hash, args.mapIt($it).join(", ")])
 
-proc genCFFI*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
-  let primname = semexpr.cffi.primname
-  let argtypes = semexpr.cffi.argtypes.mapIt(genSym(module.scope, it))
-  let rettype = genSym(module.scope, semexpr.cffi.rettype)
-  var argsrcs = newSeq[string]()
-  for i in 0..<argtypes.len():
-    argsrcs.add("$# arg$#" % [argtypes[i], $i])
-  let declsrc = "$# $#($#);\n" % [rettype, primname, argsrcs.join(",")]
-  module.addSrc(declsrc)
-  module.addHeader(declsrc)
-
 proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   case semexpr.kind
   of semanticSymbol:
@@ -227,12 +216,10 @@ proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRe
     genIfExpr(module, semexpr, res)
   of semanticFunction:
     genFunction(module, semexpr, res)
-  of semanticPrimitiveValue, semanticPrimitiveType, semanticPrimitiveFunc, semanticPrimitiveMacro:
+  of semanticPrimitiveValue, semanticPrimitiveType, semanticPrimitiveFunc, semanticPrimitiveMacro, semanticPrimitiveEval:
     discard
   of semanticFuncCall:
     genFuncCall(module, semexpr, res)
-  of semanticCFFI:
-    genCFFI(module, semexpr, res)
   of semanticInt:
     res.addSrc($semexpr.intval)
   of semanticString:
@@ -243,6 +230,18 @@ proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRe
 proc genHeaders*(context: CCodegenContext, cgenmodule: var CCodegenModule, sym: string, module: Module) =
   for header in module.ccodegeninfo.headers.keys:
     cgenmodule.addSrc("#include \"$#\"\n" % header)
+
+proc genCffis*(context: CCodegenContext, cgenmodule: var CCodegenModule, sym: string, module: Module) =
+  for cffi in module.ccodegeninfo.cffis:
+    let primname = cffi.primname
+    let argtypes = cffi.argtypes.mapIt(genSym(cgenmodule.scope, it))
+    let rettype = genSym(cgenmodule.scope, cffi.rettype)
+    var argsrcs = newSeq[string]()
+    for i in 0..<argtypes.len():
+      argsrcs.add("$# arg$#" % [argtypes[i], $i])
+    let declsrc = "$# $#($#);\n" % [rettype, primname, argsrcs.join(",")]
+    cgenmodule.addSrc(declsrc)
+    cgenmodule.addHeader(declsrc)
 
 proc genToplevelCalls*(context: CCodegenContext, cgenmodule: var CCodegenModule, sym: string, module: Module) =
   let initfuncname = sym & "_main"

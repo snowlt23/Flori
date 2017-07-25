@@ -1,24 +1,25 @@
 
+(defprotocol RootValue)
 (defprotocol ResultContainer
-  (unwrap (: [ResultContainer a] -> a)))
+  (unwrap (: Self -> RootValue)))
+(defprotocol ErrorValue
+  (debug (: Self -> String)))
 
-@(derive Debug)
 (defenum Option
-  (Some a)
+  (Some RootValue)
   (None))
 
-@(derive Debug)
 (defenum Result
-  (Ok a)
-  (Error a))
+  (Ok RootValue)
+  (Error ErrorValue))
 
-@(: [Option a] -> a)
+@(: Option -> RootValue)
 (defn unwrap [option]
   (match option
     [(Option.Some value) value]
     [Option.None (panic)]))
 
-@(: [Result a] -> a)
+@(: Result -> RootValue)
 (defn unwrap [result]
   (match result
     [(Result.Ok value) value]
