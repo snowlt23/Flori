@@ -183,7 +183,10 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
       module.addSrc(";\n")
     if ress[^1].prev != "":
       module.addSrc("$$i$#;\n" % ress[^1].prev)
-    module.addSrc("$$ireturn $#;\n" % ress[^1].src)
+    if semexpr.function.body[^1].typesym == module.scope.getSymbol("Void"):
+      module.addSrc("$$i$#;\n" % ress[^1].src)
+    else:
+      module.addSrc("$$ireturn $#;\n" % ress[^1].src)
   module.addSrc("}\n")
   module.addHeader("$# $#_$#($#);\n" % [rettype, module.scope.module.name, funcname, argsrcs.join(", ")])
 

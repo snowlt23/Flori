@@ -4,6 +4,12 @@
 
 @(: String)
 (c-ffi print :name "printf" :header "stdio.h")
+@(: String Int32)
+(c-ffi printf-int :name "printf" :header "stdio.h")
+
+@(: Int32)
+(defn print [x]
+  (printf-int "%d" x))
 
 @(: Int32 -> Int32)
 (defn add5 [x]
@@ -23,5 +29,6 @@
   (y Int32)
   (z Int32))
 
-(add5 1)
 (print "Hello Yukari!\n")
+(print (add5 4))
+(print "\n")
