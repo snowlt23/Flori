@@ -1,29 +1,30 @@
 
-(setq flori-keywords '("ns" "c-ffi" "match" "if" "cond" "for" "while"))
-(setq flori-annot-keywords '())
+(setq flori-separates "\\((\\|)\\|[\\|]\\|\s\\|\n\\|r\\)")
+
+(setq flori-keywords '("ns" "c-import" "c-export" "match" "if" "cond" "for" "while"))
 
 (setq flori-def-regexp "\\(def.+?\\)\s+\\(.+?\\)\\(\s\\|\n\\)")
 (setq flori-keywords-regexp (regexp-opt flori-keywords 'words))
 (setq flori-funcname-regexp "\\(def.+\\)?\s+\\(.+?\\)]\s")
 (setq flori-type-regexp "[A-Z]\\([a-z]\\|[0-9]\\)*")
-(setq flori-annot-keywords-regexp (regexp-opt flori-annot-keywords 'words))
 (setq flori-attr-regexp "\:\\([a-z]\\|[A-Z]\\)+")
-(setq flori-constant-regexp "[0-9]\\([0-9]\\|\.\\)*")
+(setq flori-constant-regexp (concat flori-separates "\\([0-9]\\([0-9]\\|\.\\)*?\\)" flori-separates))
 (setq flori-string-regexp "\".*\"")
 (setq flori-path-regexp "\\([a-z]\\|[A-Z]\\)+\\(\\.\\([a-z]\\|[A-Z]\\)+\\)+")
 (setq flori-comment-regexp ";.*\n")
+(setq flori-var-regexp "\\(var\\|let\\)\s+\\(.+?\\)\s+")
 
 (setq flori-font-lock-keywords
       `((,flori-keywords-regexp . font-lock-keyword-face)
         (,flori-def-regexp (1 font-lock-keyword-face) (2 font-lock-function-name-face))
         (,flori-funcname-regexp . font-lock-function-name-face)
         (,flori-type-regexp . font-lock-type-face)
-        (,flori-annot-keywords-regexp . font-lock-builtin-face)
         (,flori-attr-regexp . font-lock-preprocessor-face)
-        (,flori-constant-regexp . font-lock-constant-face)
+        (,flori-constant-regexp (2 font-lock-constant-face))
         (,flori-string-regexp . font-lock-string-face)
         (,flori-path-regexp . font-lock-preprocessor-face)
-        (,flori-comment-regexp . font-lock-comment-face)))
+        (,flori-comment-regexp . font-lock-comment-face)
+        (,flori-var-regexp (1 font-lock-keyword-face) (2 font-lock-variable-name-face))))
 
 (defun flori-indent-line ()
   (save-excursion
@@ -43,6 +44,8 @@
                         '((":\s" . font-lock-type-face)))
 (font-lock-add-keywords 'flori-mode
                         '(("\\^\s" . font-lock-type-face)))
+(font-lock-add-keywords 'flori-mode
+                        '(("\s->\s" . font-lock-builtin-face)))
 
 (provide 'flori-mode)
 (add-to-list 'auto-mode-alist '("\\.flori$" . flori-mode))
