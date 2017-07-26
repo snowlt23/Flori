@@ -23,11 +23,6 @@ type
     modules*: OrderedTable[string, CCodegenModule]
     mainsrc*: string
 
-const preincludesrc* = """
-#include <stdint.h>
-#include <stdbool.h>
-"""
-
 proc newCCodegenContext*(): CCodegenContext =
   new result
   result.modules = initOrderedTable[string, CCodegenModule]()
@@ -37,7 +32,7 @@ proc format*(context: CCodegenContext, s: string): string =
 proc addMainSrc*(context: CCodegenContext, s: string) =
   context.mainsrc &= context.format(s)
 proc getMainSrc*(context: CCodegenContext): string =
-  result = preincludesrc
+  result = ""
   for cgenmodule in context.modules.values:
     result &= cgenmodule.header & "\n"
   result &= "int main() {\n"
@@ -46,8 +41,8 @@ proc getMainSrc*(context: CCodegenContext): string =
 
 proc newCCodegenModule*(scope: Scope): CCodegenModule =
   new result
-  result.src = preincludesrc
-  result.header = preincludesrc
+  result.src = ""
+  result.header = ""
   result.curindent = 0
   result.scope = scope
   result.symcount = 0
@@ -232,7 +227,7 @@ proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRe
 
 proc genHeaders*(context: CCodegenContext, cgenmodule: var CCodegenModule, sym: string, module: Module) =
   for header in module.ccodegeninfo.headers.keys:
-    cgenmodule.addSrc("#include \"$#\"\n" % header)
+    cgenmodule.addCommon("#include \"$#\"\n" % header)
 
 proc genCffis*(context: CCodegenContext, cgenmodule: var CCodegenModule, sym: string, module: Module) =
   for cffi in module.ccodegeninfo.cffis:
