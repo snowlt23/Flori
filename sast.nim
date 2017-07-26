@@ -133,6 +133,14 @@ proc getAttr*(list: SExpr, attr: string): Option[SExpr] =
     if curexpr.rest.kind == sexprNil:
       return none(SExpr)
     curexpr = curexpr.rest
+proc hasAttr*(list: SExpr, attr: string): bool =
+  var curexpr = list
+  while true:
+    if curexpr.first.kind == sexprAttr and curexpr.first.attr == attr:
+      return true
+    if curexpr.rest.kind == sexprNil:
+      return false
+    curexpr = curexpr.rest
 
 proc debug*(sexpr: SExpr): string =
   case sexpr.kind

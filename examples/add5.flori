@@ -1,10 +1,22 @@
 
+(c-type UInt8 :name "uint8_t" :header "stdint.h")
+(c-type Int32 :name "int32_t" :header "stdint.h")
+(c-type Int64 :name "int64_t" :header "stdint.h")
+(c-type Float32 :name "float32_t" :header "stdint.h")
+(c-type Float64 :name "float64_t" :header "stdint.h")
+(c-type Bool :name "bool" :header "stdbool.h")
+(c-type Size :name "size_t" :header "stdlib.h")
+(c-type CString :name "char*" :nodecl)
+(c-type CInt :name "int" :nodecl)
+(c-type Pointer :name "void*" :nodecl)
+(c-type Void :name "void" :nodecl)
+
 @(: Int32 -> Int32)
 (c-import abs :header "math.h")
 
-@(: String)
+@(: CString)
 (c-import print :name "printf" :header "stdio.h")
-@(: String Int32)
+@(: CString Int32)
 (c-import printf-int :name "printf" :header "stdio.h")
 
 @(: Int32)

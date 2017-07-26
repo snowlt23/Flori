@@ -161,6 +161,8 @@ proc addToplevelCall*(module: Module, sexpr: SExpr, funccall: FuncCall) =
   module.toplevelcalls.add(newSemanticExpr(sexpr, semanticFuncCall, funccall: funccall))
 proc addCffi*(module: Module, cffi: Cffi) =
   module.ccodegeninfo.cffis.add(cffi)
+proc addDecl*(module: Module, decl: string) =
+  module.ccodegeninfo.decls.add(decl)
 
 proc newSemanticContext*(): SemanticContext =
   new result
@@ -228,7 +230,7 @@ proc getHashFromFuncCall*(scope: Scope, name: string, args: seq[SemanticExpr]): 
      types.add(scope.getType(arg))
   return name & "_" & types.mapIt($it).join("_")
 
-proc cffiMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
+proc cimportMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
   let (argtypes, rettype, cffidef) = parseTypeAnnotation(sexpr)
   let funcname = cffidef.rest.first
   let nameattr = cffidef.getAttr("name")
@@ -250,6 +252,24 @@ proc cffiMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
       rettype: scope.getSymbol($rettype),
     )
     scope.module.addCFFI(cffi)
+  return ast(sexpr.span, newSNil())
+proc ctypeMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
+  let typename = $sexpr.rest.first
+  let primattr = sexpr.getAttr("name")
+  let primname = if primattr.isSome:
+                   primattr.get.strval
+                 else:
+                   typename
+  let headerattr = sexpr.getAttr("header")
+  let nodeclattr = sexpr.hasAttr("nodecl")
+  if nodeclattr:
+    scope.module.defPrimitiveType(typename, primname)
+  elif headerattr.isSome:
+    scope.module.ccodegeninfo.addHeader(headerattr.get.strval)
+    scope.module.defPrimitiveType(typename, primname)
+  else:
+    scope.module.addDecl("extern $#;" % primname)
+    scope.module.defPrimitiveType(typename, primname)
   return ast(sexpr.span, newSNil())
 
 proc evalFunctionBody*(scope: var Scope, sexpr: SExpr): seq[SemanticExpr] =
@@ -281,7 +301,7 @@ proc evalTypeAnnot*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   if $funcdef.first == "defn":
     evalFunction(scope, sexpr)
   elif $funcdef.first == "c-import":
-    discard cffiMacroExpand(scope, sexpr)
+    discard cimportMacroExpand(scope, sexpr)
   return notTypeSemExpr
 
 proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
@@ -337,13 +357,13 @@ proc predefined*(module: Module) =
   # module.defPrimitiveValue("nil")
   module.defPrimitiveValue("true", "true")
   module.defPrimitiveValue("false", "false")
-  module.defPrimitiveType("Bool", "bool")
-  module.defPrimitiveType("Void", "void")
-  module.defPrimitiveType("Int32", "int32_t")
-  module.defPrimitiveType("String", "char*")
+  # module.defPrimitiveType("Bool", "bool")
+  # module.defPrimitiveType("Void", "void")
+  # module.defPrimitiveType("Int32", "int32_t")
+  # module.defPrimitiveType("CString", "char*")
   module.defPrimitiveFunc("+_Int32_Int32", "Int32", primitiveInfix, "+")
-  # module.defPrimitiveMacro("c-header", cheaderMacroExpand)
-  module.defPrimitiveMacro("c-import", cffiMacroExpand)
+  module.defPrimitiveMacro("c-import", cimportMacroExpand)
+  module.defPrimitiveMacro("c-type", ctypeMacroExpand)
   module.defPrimitiveEval(":", evalTypeAnnot)
   module.defPrimitiveEval("defstruct", evalStruct)
   module.defPrimitiveEval("var", evalVariable)
@@ -434,7 +454,7 @@ proc evalInt*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   result.typesym = scope.getSymbol("Int32")
 proc evalString*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   result = newSemanticExpr(sexpr, semanticString, strval: sexpr.strval)
-  result.typesym = scope.getSymbol("String")
+  result.typesym = scope.getSymbol("CString")
 
 proc evalSExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   case sexpr.kind

@@ -1,0 +1,10 @@
+
+(defstruct StringOption
+  (str String))
+
+@(: StringOption -> String)
+(defn unwrap [stropt]
+  (if (not (= ((stropt .str) .data) nil))
+    (stropt .str)
+    (panic)))
+

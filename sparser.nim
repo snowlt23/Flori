@@ -46,6 +46,15 @@ proc skipSpaces*(context: var ParserContext) =
       context.line += 1
       context.linepos = 1
       context.pos += "\n".len
+    elif context.curchar == ';':
+      context.inc
+      while true:
+        if context.isNewline:
+          context.line += 1
+          context.linepos = 1
+          context.pos += "\n".len
+          break
+        context.inc
     else:
       break
 proc span*(context: ParserContext): Span =

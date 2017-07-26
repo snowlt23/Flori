@@ -27,3 +27,4 @@
 (defun destroy [str]
   (unsafe
     (dealloc (str .data))))
+
