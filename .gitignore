@@ -3,16 +3,13 @@ nimcache/
 nimsuggest.log
 
 floricache/
-add5.exe
-add5
-hello.exe
-hello
+flori.exe
+flori
 
-tester.exe
-tester
+sparser_test.exe
+sparser_test
 semantic_test.exe
 semantic_test
-ccodegen_test.exe
-ccodegen_test
-compile_test.exe
-compile_test
+
+hello.exe
+hello

@@ -305,7 +305,7 @@ proc evalFunctionBody*(scope: var Scope, sexpr: SExpr): seq[SemanticExpr] =
   result = @[]
   for e in sexpr:
     result.add(scope.evalSExpr(e))
-proc evalFunction*(scope: var Scope, sexpr: SExpr) =
+proc evalFunction*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let (argtypes, rettype, funcdef) = parseTypeAnnotation(sexpr)
   let funcname = funcdef.rest.first
   let argtypesyms = argtypes.mapIt(scope.getSymbol($it))
@@ -315,8 +315,9 @@ proc evalFunction*(scope: var Scope, sexpr: SExpr) =
 
   var scope = scope
   scope.addArgSymbols(argtypesyms, funcdef)
+  let hash = scope.getHashFromTypes($funcname, argtypesyms)
   let f = Function(
-    hash: scope.getHashFromTypes($funcname, argtypesyms),
+    hash: hash,
     name: $funcname,
     argnames: argnames,
     argtypes: argtypesyms,
@@ -324,11 +325,12 @@ proc evalFunction*(scope: var Scope, sexpr: SExpr) =
     body: scope.evalFunctionBody(funcdef.rest.rest.rest),
   )
   scope.module.addFunction(sexpr, f)
+  return newSemanticExpr(sexpr, semanticSymbol, symbol: Symbol(module: scope.module, hash: hash))
 
 proc evalTypeAnnot*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let (argtypes, rettype, funcdef) = parseTypeAnnotation(sexpr)
   if $funcdef.first == "defn":
-    evalFunction(scope, sexpr)
+    discard evalFunction(scope, sexpr)
   elif $funcdef.first == "c-import":
     discard cimportMacroExpand(scope, sexpr)
   elif $funcdef.first == "c-value":
