@@ -160,7 +160,7 @@ proc genIfExpr*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCod
     res.addSrc(tmpsym)
 
 proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
-  let funcname = semexpr.function.hash
+  let funcname = semexpr.function.name
   let argnames = semexpr.function.argnames
   let argtypes = semexpr.function.argtypes.mapIt(genSym(module.scope, it))
   let rettype = genSym(module.scope, semexpr.function.rettype)
@@ -202,7 +202,7 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
       res.addSrc("($# $# $#)" % [$args[0], funcsemexpr.primFuncName, $args[1]])
   else:
     let callfunc = semexpr.funccall.callfunc
-    res.addSrc("$#_$#($#)" % [callfunc.module.name, callfunc.hash, args.mapIt($it).join(", ")])
+    res.addSrc("$#_$#($#)" % [callfunc.module.name, callfunc.name, args.mapIt($it).join(", ")])
 
 proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   case semexpr.kind
@@ -260,8 +260,9 @@ proc genModule*(context: CCodegenContext, sym: string, module: Module) =
   context.modules[sym] = cgenmodule
   genHeaders(context, cgenmodule, sym, module)
   for semexpr in module.semanticexprs.values:
-    var res = newCCodegenRes()
-    gen(cgenmodule, semexpr, res)
+    for gsym in semexpr.symbols:
+      var res = newCCodegenRes()
+      gen(cgenmodule, gsym.value, res)
   genToplevelCalls(context, cgenmodule, sym, module)
 
 proc genContext*(context: CCodegenContext, semcontext: SemanticContext) =

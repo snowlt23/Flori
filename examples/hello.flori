@@ -18,6 +18,9 @@
 @(: Bool)
 (c-value false :name "false")
 
+@(: Int32 Int32 -> Int32)
+(c-import + :infix :nodecl)
+
 @(: Int32 -> Int32)
 (c-import abs :header "math.h")
 
