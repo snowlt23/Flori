@@ -114,7 +114,7 @@ proc genSym*(scope: Scope, sym: Symbol): string =
   elif semexpr.isSome and semexpr.get.kind == semanticPrimitiveValue:
     return semexpr.get.primValue
   else:
-    return $sym
+    return sym.name
 
 proc genStruct*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let structname = semexpr.struct.name
@@ -180,7 +180,7 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
       module.addSrc(";\n")
     if ress[^1].prev != "":
       module.addSrc("$$i$#;\n" % ress[^1].prev)
-    if semexpr.function.body[^1].typesym == module.scope.getSymbol("Void"):
+    if semexpr.function.body[^1].typesym == module.scope.getSymbol(newSNil(), "Void"):
       module.addSrc("$$i$#;\n" % ress[^1].src)
     else:
       module.addSrc("$$ireturn $#;\n" % ress[^1].src)

@@ -29,7 +29,7 @@ proc cimportMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
         semanticPrimitiveFunc,
         primFuncKind: primtype,
         primFuncName: primname,
-        primFuncRetType: $rettypesym,
+        primFuncRetType: rettypesym,
       )
     )
   elif headerattr.isSome:
@@ -41,7 +41,7 @@ proc cimportMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
         semanticPrimitiveFunc,
         primFuncKind: primtype,
         primFuncName: primname,
-        primFuncRetType: $rettypesym,
+        primFuncRetType: rettypesym,
       )
     )
   else:
@@ -96,7 +96,7 @@ proc evalFunctionBody*(scope: var Scope, sexpr: SExpr): seq[SemanticExpr] =
 proc evalFunction*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let (argtypes, rettype, funcdef) = parseTypeAnnotation(sexpr)
   let funcname = funcdef.rest.first
-  let argtypesyms = argtypes.mapIt(scope.getSymbol($it))
+  let argtypesyms = argtypes.mapIt(scope.getSymbol(it, $it))
   var argnames = newSeq[string]()
   for arg in funcdef.rest.rest.first:
     argnames.add($arg)
@@ -108,7 +108,7 @@ proc evalFunction*(scope: var Scope, sexpr: SExpr): SemanticExpr =
     name: $funcname,
     argnames: argnames,
     argtypes: argtypesyms,
-    rettype: scope.getSymbol($rettype),
+    rettype: scope.getSymbol(rettype, $rettype),
     body: scope.evalFunctionBody(funcdef.rest.rest.rest),
   )
   scope.module.semanticexprs.addSymbol(sym, newSemanticExpr(sexpr, semanticFunction, function: f))
@@ -144,7 +144,7 @@ proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   var fields = newSeq[tuple[name: string, typesym: Symbol]]()
   for field in sexpr.rest.rest:
     let fieldname = $field.first
-    let typesym = scope.getSymbol($field.rest.first)
+    let typesym = scope.getSymbol(field, $field.rest.first)
     fields.add((fieldname, typesym))
   let sym = newSymbol(sexpr, scope.module, structname)
   let struct = Struct(
@@ -174,7 +174,7 @@ proc evalIfExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let tbody = scope.evalSExpr(sexpr.rest.rest.first)
   let fbody = scope.evalSExpr(sexpr.rest.rest.rest.first)
   let condtypesym = scope.getType(cond)
-  if not (condtypesym == scope.getSymbol("Bool")):
+  if not (condtypesym == scope.getSymbol(newSNil(), "Bool")):
     sexpr.raiseError("cond expression is not Bool type")
   let ttypesym = scope.getType(tbody)
   let ftypesym = scope.getType(fbody)
