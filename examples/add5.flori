@@ -11,6 +11,11 @@
 (c-type Pointer :name "void*" :nodecl)
 (c-type Void :name "void" :nodecl)
 
+@(: Bool)
+(c-value true :name "true")
+@(: Bool)
+(c-value false :name "false")
+
 @(: Int32 -> Int32)
 (c-import abs :header "math.h")
 

@@ -1,7 +1,7 @@
 
 (setq flori-separates "\\((\\|)\\|[\\|]\\|\s\\|\n\\|r\\)")
 
-(setq flori-keywords '("ns" "c-import" "c-export" "c-type" "match" "if" "cond" "for" "while" "destructor"))
+(setq flori-keywords '("ns" "c-import" "c-export" "c-type" "c-value" "match" "if" "cond" "for" "while" "destructor"))
 (setq flori-warnings '("unsafe"))
 
 (setq flori-def-regexp "\\(def.+?\\)\s+\\(.+?\\)\\(\s\\|\n\\)")
