@@ -111,6 +111,8 @@ proc genSym*(scope: Scope, sym: Symbol): string =
   let semexpr = scope.trySemanticExpr(sym)
   if semexpr.isSome and semexpr.get.kind == semanticPrimitiveType:
     return semexpr.get.primTypeName
+  elif semexpr.isSome and semexpr.get.kind == semanticPrimitiveValue:
+    return semexpr.get.primValue
   else:
     return $sym
 

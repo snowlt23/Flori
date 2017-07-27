@@ -12,7 +12,7 @@ type
 
 const StartList* = {'(', '['}
 const EndList* = {')', ']'}
-const SpecialSymbols* = {'!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '/', '<', '=', '>', '?'}
+const SpecialSymbols* = {'!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '/', '<', '=', '>', '?', '^'}
 const SeparateSymbols* = {'(', '[', ')', ']', ' '}
 
 proc newParserContext*(src: string): ParserContext =
