@@ -10,8 +10,8 @@
 (c-type CInt :name "int" :nodecl)
 (c-type Pointer :name "void*" :nodecl)
 (c-type Void :name "void" :nodecl)
-@(^ :a All)
-(c-type (Ptr :a) :name "$#*" :nodecl)
+;; @(^ :a All)
+;; (c-type (Ptr :a) :name "$#*" :nodecl)
 
 @(: Bool)
 (c-value true :name "true")
@@ -31,7 +31,13 @@
 ;; @(: :a -> (Ptr :a))
 ;; (c-import addr :name "&" :nodecl)
 
-@(^ :a All)
+(defprotocol All)
+
+@(^ (:a All))
+(defprotocol Number
+  (+ (: :a :a -> :a)))
+
+@(^ (:a All))
 @(: CString :a)
 (c-import printf :name "printf" :header "stdio.h")
 
@@ -44,7 +50,7 @@
 (defn print [x]
   (printf "%d" x))
 
-@(^ :a All)
+@(^ (:a Number))
 @(: :a -> :a)
 (defn square [x]
   (+ x x))
