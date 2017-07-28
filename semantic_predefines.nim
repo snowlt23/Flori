@@ -20,7 +20,7 @@ proc cimportMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
                    primitiveInfix
                  else:
                    primitiveCall
-  let sym = newSymbol(sexpr, scope, $funcname, argtypesyms.mapIt(scope.getSymbolArg(it)))
+  let sym = newSymbol(sexpr, scope, $funcname, argtypesyms.mapIt(getSymbolArg(it)))
   if nodeclattr:
     scope.module.semanticexprs.addSymbol(
       sym,
@@ -105,7 +105,7 @@ proc evalFunction*(scope: var Scope, sexpr: SExpr): SemanticExpr =
 
   var scope = scope
   scope.addArgSymbols(argtypesyms, funcdef)
-  let sym = newSymbol(sexpr, scope, $funcname, argtypesyms.mapIt(scope.getSymbolArg(it)))
+  let sym = newSymbol(sexpr, scope, $funcname, argtypesyms.mapIt(getSymbolArg(it)))
   let f = Function(
     isGenerics: false,
     name: $funcname,
@@ -143,7 +143,8 @@ proc evalGenericsAnnot*(scope: var Scope, sexpr: Sexpr): SEmanticExpr =
       semanticGenerics,
       generics: Generics(
         attr: $curexpr.first,
-        protocol: protocolsym
+        protocol: protocolsym,
+        spec: none(Symbol)
       )
     )
     scope.addSymbol(attrsym, semexpr)
@@ -151,7 +152,7 @@ proc evalGenericsAnnot*(scope: var Scope, sexpr: Sexpr): SEmanticExpr =
     let protocolsemexpr = getSemanticExpr(protocolsym)
     for fn in protocolsemexpr.protocol.funcs:
       scope.addSymbol(
-        newSymbol(sexpr, scope, fn.name, fn.fntype.argtypes.mapIt(scope.getSymbolArg(it))),
+        newSymbol(sexpr, scope, fn.name, fn.fntype.argtypes.mapIt(getSymbolArg(it))),
         newSemanticExpr(sexpr, semanticProtocolFunc, protocolfntype: fn.fntype)
       )
     if curexpr.rest.rest.kind == sexprNil:
@@ -163,6 +164,8 @@ proc evalGenericsAnnot*(scope: var Scope, sexpr: Sexpr): SEmanticExpr =
     var fnsemexpr = getSemanticExpr(fnsym.symbol)
     if fnsemexpr.kind == semanticFunction:
       fnsemexpr.function.isGenerics = true
+    elif fnsemexpr.kind == semanticProtocol:
+      fnsemexpr.protocol.isGenerics = true
   return notTypeSemExpr
 
 proc evalProtocol*(scope: var Scope, sexpr: SExpr): SemanticExpr =
@@ -171,7 +174,7 @@ proc evalProtocol*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   if sexpr.rest.rest.kind != sexprNil:
     for fn in sexpr.rest.rest:
       let name = fn.first
-      let (argtypes, rettype, _) = scope.getTypeAnnotation(fn.rest.first)
+      let (argtypes, rettype, _) = getTypeAnnotation(scope, fn.rest.first)
       funcs.add(($name, FuncType(returntype: rettype, argtypes: argtypes)))
   let protocol = Protocol(funcs: funcs)
   let sym = newSymbol(sexpr, scope, protocolname)
@@ -191,12 +194,12 @@ proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
     fields: fields,
   )
   scope.module.semanticexprs.addSymbol(sym, newSemanticExpr(sexpr, semanticStruct, struct: struct))
-  return notTypeSemExpr
+  return newSemanticExpr(sexpr, semanticSymbol, symbol: sym)
 
 proc evalVariable*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let name = $sexpr.rest.first
   let value = scope.evalSExpr(sexpr.rest.rest.first)
-  let typesym = scope.getType(value)
+  let typesym = getType(value)
   scope.addSymbol(newSymbol(sexpr, scope, name), value)
   result = newSemanticExpr(
     sexpr,
@@ -212,11 +215,11 @@ proc evalIfExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let cond = scope.evalSExpr(sexpr.rest.first)
   let tbody = scope.evalSExpr(sexpr.rest.rest.first)
   let fbody = scope.evalSExpr(sexpr.rest.rest.rest.first)
-  let condtypesym = scope.getType(cond)
+  let condtypesym = getType(cond)
   if not (condtypesym == scope.getSymbol(newSNil(), "Bool")):
     sexpr.raiseError("cond expression is not Bool type")
-  let ttypesym = scope.getType(tbody)
-  let ftypesym = scope.getType(fbody)
+  let ttypesym = getType(tbody)
+  let ftypesym = getType(fbody)
   let typesym = if ttypesym == ftypesym:
                   ttypesym
                 else:

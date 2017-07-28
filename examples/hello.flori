@@ -52,7 +52,7 @@
 
 @(^ (:a Number))
 @(: :a -> :a)
-(defn square [x]
+(defn mul2 [x]
   (+ x x))
 
 @(: Int32 -> Int32)
@@ -68,12 +68,13 @@
       x)
     x))
 
-(defstruct MyInt
-  (x Int32)
-  (y Int32)
-  (z Int32))
+;; (defstruct MyInt
+;;   (x Int32)
+;;   (y Int32)
+;;   (z Int32))
 
 ;; (addr "Hello Voiceroids!\n")
-(print "Hello Yukari!\n")
-(print (add5 4))
-(print "\n")
+(print (mul2 5))
+;; (print "Hello Yukari!\n")
+;; (print (add5 4))
+;; (print "\n")

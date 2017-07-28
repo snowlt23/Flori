@@ -15,9 +15,9 @@ type
   SymbolArg* = object
     case kind*: SymbolArgKind
     of symbolargName:
-      sym*: Symbol
+      namesym*: Symbol
     else:
-      discard
+      genericssym*: Symbol
   Symbol* = object
     sexpr*: SExpr
     scope*: Scope
@@ -103,7 +103,9 @@ type
   Generics* = ref object
     attr*: string
     protocol*: Symbol
+    spec*: Option[Symbol]
   Protocol* = ref object
+    isGenerics*: bool
     funcs*: seq[tuple[name: string, fntype: FuncType]]
   IfExpr* = ref object
     cond*: SemanticExpr
@@ -147,12 +149,12 @@ type
 proc newModule*(modulename: string): Module
 proc evalSExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr
 proc addSymbol*(scope: var Scope, sym: Symbol, value: SemanticExpr)
-proc getSymbol*(scope: Scope, sexpr: SExpr, name: string): Symbol
-proc getSemanticExpr*(sym: Symbol): SemanticExpr
+proc getSymbol*(scope: Scope, sexpr: SExpr, name: string, spec: set[SemanticExprKind] = {semanticSymbol..semanticString}): Symbol
+proc getSemanticExpr*(sym: Symbol, spec: set[SemanticExprKind] = {semanticSymbol..semanticString}): SemanticExpr
 proc trySemanticExpr*(sym: Symbol): Option[SemanticExpr]
 proc addArgSymbols*(scope: var Scope, argtypesyms: seq[Symbol], funcdef: SExpr)
 proc addSymbol*(semanticexprs: var OrderedTable[Symbol, SymbolGroup], symbol: Symbol, value: SemanticExpr)
-proc getSymbolArg*(scope: Scope, sym: Symbol): SymbolArg
+proc getSymbolArg*(sym: Symbol): SymbolArg
 proc newScope*(module: Module): Scope
 
 let globalModule* = newModule("global")
@@ -311,54 +313,77 @@ proc matchSymbol*(sym, gsym: Symbol): bool =
     let arg = sym.args[i]
     let garg = gsym.args[i]
     if arg.kind == symbolargName and garg.kind == symbolargName:
-      if arg.sym != garg.sym:
+      if arg.namesym != garg.namesym:
         return false
     elif garg.kind == symbolargGenerics:
       continue
     else:
       return false
   return true
-proc hasSymbol*(semanticexprs: OrderedTable[Symbol, SymbolGroup], symbol: Symbol): bool =
+proc equalSymbol*(sym, gsym: Symbol): bool =
+  for i in 0..<gsym.args.len:
+    let arg = sym.args[i]
+    let garg = gsym.args[i]
+    if arg.kind == symbolargName and garg.kind == symbolargName:
+      if arg.namesym != garg.namesym:
+        return false
+    else:
+      return false
+  return true
+proc hasSymbol*(semanticexprs: OrderedTable[Symbol, SymbolGroup], symbol: Symbol, spec: set[SemanticExprKind] = {semanticSymbol..semanticString}): bool =
   if semanticexprs.hasKey(symbol):
     let symgroup = semanticexprs[symbol]
     for gsym in symgroup.symbols:
       if gsym.sym.args.len != symbol.args.len:
         continue
-      elif matchSymbol(symbol, gsym.sym):
+      elif matchSymbol(symbol, gsym.sym) and gsym.value.kind in spec:
         return true
     return false
   else:
     return false
-proc getSemanticExpr*(semanticexprs: OrderedTable[Symbol, SymbolGroup], symbol: Symbol): SemanticExpr =
+proc hasEqualSymbol*(semanticexprs: OrderedTable[Symbol, SymbolGroup], symbol: Symbol): bool =
+  if semanticexprs.hasKey(symbol):
+    let symgroup = semanticexprs[symbol]
+    for gsym in symgroup.symbols:
+      if gsym.sym.args.len != symbol.args.len:
+        continue
+      elif equalSymbol(symbol, gsym.sym):
+        return true
+    return false
+  else:
+    return false
+proc getSemanticExpr*(semanticexprs: OrderedTable[Symbol, SymbolGroup], symbol: Symbol, spec: set[SemanticExprKind] = {semanticSymbol..semanticString}): SemanticExpr =
   if semanticexprs.hasSymbol(symbol):
     let symgroup = semanticexprs[symbol]
     for gsym in symgroup.symbols:
       if gsym.sym.args.len != symbol.args.len:
         continue
-      if matchSymbol(symbol, gsym.sym):
+      if matchSymbol(symbol, gsym.sym) and gsym.value.kind in spec:
         return gsym.value
   else:
     symbol.raiseError("couldn't find symbol: $#" % $symbol)
 proc addSymbol*(semanticexprs: var OrderedTable[Symbol, SymbolGroup], symbol: Symbol, value: SemanticExpr) =
-  if semanticexprs.hasSymbol(symbol):
-    symbol.raiseError("couldn't redefine symbol: $#" % [symbol.name])
+  # if semanticexprs.hasSymbol(symbol):
+  #   symbol.raiseError("couldn't redefine symbol: $#" % [symbol.name])
   if not semanticexprs.hasKey(symbol):
     semanticexprs[symbol] = newSymbolGroup(symbol.name)
   semanticexprs[symbol].addSemanticExpr(symbol, value)
 
-proc hasSymbol*(scope: Scope, sym: Symbol): bool =
-  scope.scopesymbols.hasSymbol(sym) or scope.module.semanticexprs.hasSymbol(sym)
+proc hasSymbol*(scope: Scope, sym: Symbol, spec: set[SemanticExprKind] = {semanticSymbol..semanticString}): bool =
+  scope.scopesymbols.hasSymbol(sym, spec) or scope.module.semanticexprs.hasSymbol(sym, spec)
+proc hasEqualSymbol*(scope: Scope, sym: Symbol): bool =
+  scope.scopesymbols.hasEqualSymbol(sym) or scope.module.semanticexprs.hasEqualSymbol(sym)
 proc newScope*(module: Module): Scope =
   result.module = module
   result.scopesymbols = initOrderedTable[Symbol, SymbolGroup]()
 proc addSymbol*(scope: var Scope, sym: Symbol, value: SemanticExpr) =
   scope.scopesymbols.addSymbol(sym, value)
-proc getSymbol*(scope: Scope, sexpr: SExpr, name: string): Symbol =
+proc getSymbol*(scope: Scope, sexpr: SExpr, name: string, spec: set[SemanticExprKind] = {semanticSymbol..semanticString}): Symbol =
   let sym = newSymbol(sexpr, scope, name)
   let globalsym = newSymbol(sexpr, globalScope, name)
-  if scope.hasSymbol(sym):
+  if scope.hasSymbol(sym, spec):
     return sym
-  elif scope.hasSymbol(globalsym):
+  elif scope.hasSymbol(globalsym, spec):
     return globalsym
   else:
     sexpr.raiseError("couldn't find symbol: $#" % name)
@@ -373,17 +398,17 @@ proc checkSymbol*(scope: Scope, sym: Symbol) =
     discard
   else:
     sym.raiseError("couldn't find symbol: $#" % $sym)
-proc getSemanticExpr*(sym: Symbol): SemanticExpr =
-  if sym.scope.scopesymbols.hasSymbol(sym):
-    return sym.scope.scopesymbols.getSemanticExpr(sym)
+proc getSemanticExpr*(sym: Symbol, spec: set[SemanticExprKind] = {semanticSymbol..semanticString}): SemanticExpr =
+  if sym.scope.scopesymbols.hasSymbol(sym, spec):
+    return sym.scope.scopesymbols.getSemanticExpr(sym, spec)
   else:
-    return sym.scope.module.semanticexprs.getSemanticExpr(sym)
-proc getSymbolArg*(scope: Scope, sym: Symbol): SymbolArg =
+    return sym.scope.module.semanticexprs.getSemanticExpr(sym, spec)
+proc getSymbolArg*(sym: Symbol): SymbolArg =
   let semexpr = getSemanticExpr(sym)
   if semexpr.kind == semanticGenerics:
-    return SymbolArg(kind: symbolargGenerics)
+    return SymbolArg(kind: symbolargGenerics, genericssym: sym)
   else:
-    return SymbolArg(kind: symbolargName, sym: sym)
+    return SymbolArg(kind: symbolargName, namesym: sym)
 
 proc trySymbol*(scope: Scope, sexpr: SExpr, name: string): Option[Symbol] =
   let sym = newSymbol(sexpr, scope, name)
@@ -413,19 +438,57 @@ proc addArgSymbols*(scope: var Scope, argtypesyms: seq[Symbol], funcdef: SExpr) 
     semexpr.typesym = argtypesyms[i]
     scope.addSymbol(newSymbol(funcdef.rest.rest, scope, $arg), semexpr)
 
-proc getType*(scope: Scope, semexpr: SemanticExpr): Symbol =
+proc getType*(semexpr: SemanticExpr): Symbol =
   return semexpr.typesym
+proc getType*(sym: Symbol): Symbol =
+  let semexpr = getSemanticExpr(sym)
+  if semexpr.kind == semanticGenerics:
+    if semexpr.generics.spec.isNone:
+      sym.raiseError("couldn't specialize generics param: $#" % sym.name)
+    return semexpr.generics.spec.get
+  else:
+    return sym
 proc getRetType*(scope: Scope, sym: Symbol): Symbol =
   let semexpr = getSemanticExpr(sym)
   if semexpr.kind == semanticFunction:
-    return semexpr.function.fntype.returntype
+    return semexpr.function.fntype.returntype.getType()
   elif semexpr.kind == semanticPrimitiveFunc:
-    return semexpr.primFuncRetType
+    return semexpr.primFuncRetType.getType()
   elif semexpr.kind == semanticProtocolFunc:
-    return semexpr.protocolfntype.returntype
+    return sym.getType() # TODO: getRetType
   else:
     sym.raiseError("expression is not function: $#" % $sym)
-    raise newException(SemanticError, "expression is not function")
+
+proc specGenericsFunc*(callsemexpr: SemanticExpr, funcsemexpr: SemanticExpr) =
+  if funcsemexpr.kind != semanticFunction:
+    return
+  for i, argtype in funcsemexpr.function.fntype.argtypes:
+    let argtypesemexpr = argtype.getSemanticExpr()
+    if argtypesemexpr.kind == semanticGenerics:
+      # TODO: on rewrite
+      argtypesemexpr.generics.spec = some(getType(callsemexpr.funccall.args[i]))
+
+proc genGenericsFunc*(scope: var Scope, callsemexpr: SemanticExpr, funcsemexpr: SemanticExpr) =
+  if funcsemexpr.kind != semanticFunction:
+    return
+  specGenericsFunc(callsemexpr, funcsemexpr)
+  let funcname = funcsemexpr.function.name
+  let argtypes = funcsemexpr.function.fntype.argtypes.mapIt(getType(it))
+  let rettype = funcsemexpr.function.fntype.returntype.getType()
+  let sym = newSymbol(funcsemexpr.sexpr, scope, funcname, argtypes.mapIt(getSymbolArg(it)))
+  if scope.hasEqualSymbol(sym):
+    return
+  let f = Function(
+    isGenerics: false,
+    name: funcname,
+    argnames: funcsemexpr.function.argnames,
+    fntype: FuncType(
+      returntype: rettype,
+      argtypes: argtypes
+    ),
+    body: funcsemexpr.function.body
+  )
+  scope.module.semanticexprs.addSymbol(sym, newSemanticExpr(funcsemexpr.sexpr, semanticFunction, function: f))
 
 proc evalFuncCall*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let trysym = scope.trySymbol(sexpr, $sexpr.first)
@@ -439,39 +502,49 @@ proc evalFuncCall*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   var args = newSeq[SemanticExpr]()
   for arg in sexpr.rest:
     args.add(scope.evalSExpr(arg))
-  let argtypes = args.mapIt(scope.getType(it))
+  let argtypes = args.mapIt(getType(it))
 
-  let callfuncsym = newSymbol(sexpr, scope, $sexpr.first, argtypes.mapIt(scope.getSymbolArg(it)))
+  let callfuncsym = newSymbol(sexpr, scope, $sexpr.first, argtypes.mapIt(getSymbolArg(it)))
   if not scope.hasSymbol(callfuncsym):
     sexpr.raiseError("couldn't find function symbol: $#($#)" % [$sexpr.first, argtypes.mapIt(it.name).join(", ")])
-  let callfuncsemexpr = getSemanticExpr(callfuncsym)
+  let funcsemexpr = getSemanticExpr(callfuncsym)
+  let callsemexpr = newSemanticExpr(
+    sexpr,
+    semanticFuncCall,
+    funccall: FuncCall(
+      callfunc: callfuncsym,
+      args: args,
+    ),
+  )
+  genGenericsFunc(scope, callsemexpr, funcsemexpr)
+  callsemexpr.typesym = scope.getRetType(callfuncsym)
+  return callsemexpr
+  # if callfuncsemexpr.kind == semanticFunction and callfuncsemexpr.function.isGenerics:
+  #   let specsym = newSymbol(sexpr, scope, $sexpr.first, argtypes.mapIt(scope.getSymbolArg(it)))
+  #   var f = callfuncsemexpr.function
+  #   f.fntype.argtypes = argtypes
+  #   let specsemexpr = newSemanticExpr(sexpr, semanticFunction, function: f)
+  #   scope.module.semanticexprs.addSymbol(specsym, specsemexpr)
 
-  if callfuncsemexpr.kind == semanticFunction and callfuncsemexpr.function.isGenerics:
-    let specsym = newSymbol(sexpr, scope, $sexpr.first, argtypes.mapIt(scope.getSymbolArg(it)))
-    var f = callfuncsemexpr.function
-    f.fntype.argtypes = argtypes
-    let specsemexpr = newSemanticExpr(sexpr, semanticFunction, function: f)
-    scope.module.semanticexprs.addSymbol(specsym, specsemexpr)
-
-    result = newSemanticExpr(
-      sexpr,
-      semanticFuncCall,
-      funccall: FuncCall(
-        callfunc: specsym,
-        args: args,
-      ),
-    )
-    result.typesym = scope.getRetType(specsym)
-  else:
-    result = newSemanticExpr(
-      sexpr,
-      semanticFuncCall,
-      funccall: FuncCall(
-        callfunc: callfuncsym,
-        args: args,
-      ),
-    )
-    result.typesym = scope.getRetType(callfuncsym)
+  #   result = newSemanticExpr(
+  #     sexpr,
+  #     semanticFuncCall,
+  #     funccall: FuncCall(
+  #       callfunc: specsym,
+  #       args: args,
+  #     ),
+  #   )
+  #   result.typesym = scope.getRetType(specsym)
+  # else:
+  #   result = newSemanticExpr(
+  #     sexpr,
+  #     semanticFuncCall,
+  #     funccall: FuncCall(
+  #       callfunc: callfuncsym,
+  #       args: args,
+  #     ),
+  #   )
+  #   result.typesym = scope.getRetType(callfuncsym)
 
 proc evalInt*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   result = newSemanticExpr(sexpr, semanticInt, intval: sexpr.intval)
@@ -508,7 +581,7 @@ proc evalModule*(context: SemanticContext, modulename: string, sexpr: seq[SExpr]
   context.modules[modulename] = module
   for e in sexpr:
     let semexpr = scope.evalSExpr(e)
-    if semexpr.kind == semanticSymbol and semexpr.symbol == notTypeSym:
+    if semexpr.kind == semanticSymbol:
       discard
     else:
       module.toplevelcalls.add(semexpr)
