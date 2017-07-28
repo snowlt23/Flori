@@ -108,7 +108,7 @@ proc genTmpSym*(module: CCodegenModule, name = "tmp"): string =
   module.symcount.inc
 
 proc replaceSpecialSymbols*(s: string): string =
-  s.replace("+", "add")
+  s.replace("+", "_add_").replace("-", "_minus_")
 
 proc genSym*(sym: Symbol): string =
   let semexpr = trySemanticExpr(sym)
@@ -117,7 +117,7 @@ proc genSym*(sym: Symbol): string =
   elif semexpr.isSome and semexpr.get.kind == semanticPrimitiveValue:
     return semexpr.get.primValue
   else:
-    return sym.name.replaceSpecialSymbols()
+    return ($sym).replaceSpecialSymbols()
 proc genSymbolArg*(symarg: SymbolArg): string =
   if symarg.kind == symbolargName:
     return $symarg.namesym
@@ -136,11 +136,16 @@ proc genStruct*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCod
       module.addCommon("$$i$# $#;\n" % [genSym(field.typesym), field.name])
   module.addCommon("} $#_$#;\n" % [module.scope.module.name, structname])
 
+proc genFieldAccess*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
+  let valuename = $semexpr.fieldaccess.valuesym
+  let fieldname = semexpr.fieldaccess.fieldname
+  res.addSrc("$#.$#" % [valuename, fieldname])
+
 proc genVariable*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let varname = semexpr.variable.name
   let value = semexpr.variable.value
   let vartype = genSym(semexpr.typesym)
-  res.addSrc("$# $# = " % [vartype, varname])
+  res.addSrc("$# $#_$# = " % [vartype, module.scope.module.name, varname])
   gen(module, value, res)
 
 proc genIfExpr*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
@@ -181,7 +186,7 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
   let rettype = genSym(semexpr.function.fntype.returntype)
   var argsrcs = newSeq[string]()
   for i in 0..<argnames.len:
-    argsrcs.add("$# $#" % [argtypes[i], argnames[i]])
+    argsrcs.add("$# $#_$#" % [argtypes[i], module.scope.module.name, argnames[i]])
   var ress = newSeq[CCodegenRes]()
   for e in semexpr.function.body:
     var res = newCCodegenRes()
@@ -230,12 +235,12 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
     else:
       let callfunc = semexpr.funccall.callfunc
       let funchash = callfunc.name & "_" & callfunc.args.mapIt(genSymbolArg(it)).join("_")
-      res.addSrc("$#_$#($#)" % [callfunc.scope.module.name, funchash, args.mapIt($it).join(", ")])
+      res.addSrc("$#_$#($#)" % [callfunc.scope.module.name.replaceSpecialSymbols(), funchash, args.mapIt($it).join(", ")])
   else:
     let callfunc = semexpr.funccall.callfunc
     let funchash = callfunc.name & "_" & callfunc.args.mapIt(genSymbolArg(it)).join("_")
     # TODO: Generics
-    res.addSrc("$#_$#($#)" % [callfunc.scope.module.name, funchash, args.mapIt($it).join(", ")])
+    res.addSrc("$#_$#($#)" % [callfunc.scope.module.name.replaceSpecialSymbols(), funchash, args.mapIt($it).join(", ")])
 
 proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   case semexpr.kind
@@ -245,6 +250,8 @@ proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRe
     discard
   of semanticStruct:
     genStruct(module, semexpr, res)
+  of semanticFieldAccess:
+    genFieldAccess(module, semexpr, res)
   of semanticVariable:
     genVariable(module, semexpr, res)
   of semanticIfExpr:

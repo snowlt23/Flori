@@ -159,13 +159,15 @@ proc evalGenericsAnnot*(scope: var Scope, sexpr: Sexpr): SEmanticExpr =
       break
     curexpr = curexpr.rest
   let typeannot = sexpr.last
-  var fnsym = scope.evalSExpr(typeannot)
-  if fnsym.kind == semanticSymbol and not (fnsym.symbol == notTypeSym):
-    var fnsemexpr = getSemanticExpr(fnsym.symbol)
-    if fnsemexpr.kind == semanticFunction:
-      fnsemexpr.function.isGenerics = true
-    elif fnsemexpr.kind == semanticProtocol:
-      fnsemexpr.protocol.isGenerics = true
+  var retsym = scope.evalSExpr(typeannot)
+  if retsym.kind == semanticSymbol and not (retsym.symbol == notTypeSym):
+    var retsemexpr = getSemanticExpr(retsym.symbol)
+    if retsemexpr.kind == semanticFunction:
+      retsemexpr.function.isGenerics = true
+    elif retsemexpr.kind == semanticProtocol:
+      retsemexpr.protocol.isGenerics = true
+    elif retsemexpr.kind == semanticStruct:
+      retsemexpr.struct.isGenerics = true
   return notTypeSemExpr
 
 proc evalProtocol*(scope: var Scope, sexpr: SExpr): SemanticExpr =
@@ -190,6 +192,7 @@ proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
     fields.add((fieldname, typesym))
   let sym = newSymbol(sexpr, scope, structname)
   let struct = Struct(
+    isGenerics: false,
     name: structname,
     fields: fields,
   )

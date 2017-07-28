@@ -44,6 +44,7 @@ type
     semanticFunction
     semanticMacro
     semanticStruct
+    semanticFieldAccess
     semanticPrimitiveType
     semanticPrimitiveValue
     semanticPrimitiveFunc
@@ -76,6 +77,8 @@ type
       discard
     of semanticStruct:
       struct*: Struct
+    of semanticFieldAccess:
+      fieldaccess*: FieldAccess
     of semanticPrimitiveType:
       primTypeGenerics*: seq[Symbol]
       primTypeName*: string
@@ -118,8 +121,12 @@ type
     fntype*: FuncType
     body*: seq[SemanticExpr]
   Struct* = ref object
+    isGenerics*: bool
     name*: string
     fields*: seq[tuple[name: string, typesym: Symbol]]
+  FieldAccess* = ref object
+    valuesym*: Symbol
+    fieldname*: string
   Cffi* = ref object
     name*: string
     primname*: string
@@ -496,8 +503,28 @@ proc evalFuncCall*(scope: var Scope, sexpr: SExpr): SemanticExpr =
     let semexpr = trySemanticExpr(trysym.get)
     if semexpr.isSome and semexpr.get.kind == semanticPrimitiveMacro:
       return scope.evalSExpr(semexpr.get.macroproc(scope, sexpr))
-    if semexpr.isSome and semexpr.get.kind == semanticPrimitiveEval:
+    elif semexpr.isSome and semexpr.get.kind == semanticPrimitiveEval:
       return semexpr.get.evalproc(scope, sexpr)
+    elif semexpr.isSome:
+      let typesemexpr = trySemanticExpr(semexpr.get.typesym)
+      if typesemexpr.isSome and typesemexpr.get.kind == semanticStruct:
+        let fieldname = $sexpr.rest.first
+        let callsemexpr = newSemanticExpr(
+          sexpr,
+          semanticFieldAccess,
+          fieldaccess: FieldAccess(
+            valuesym: trysym.get,
+            fieldname: fieldname,
+          ),
+        )
+        var rettype = notTypeSym
+        for field in typesemexpr.get.struct.fields:
+          if field.name == fieldname:
+            rettype = field.typesym
+            break
+        if rettype == notTypeSym:
+          sexpr.rest.first.raiseError("undeclared field: $#" % fieldname)
+        return callsemexpr
 
   var args = newSeq[SemanticExpr]()
   for arg in sexpr.rest:
@@ -519,32 +546,6 @@ proc evalFuncCall*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   genGenericsFunc(scope, callsemexpr, funcsemexpr)
   callsemexpr.typesym = scope.getRetType(callfuncsym)
   return callsemexpr
-  # if callfuncsemexpr.kind == semanticFunction and callfuncsemexpr.function.isGenerics:
-  #   let specsym = newSymbol(sexpr, scope, $sexpr.first, argtypes.mapIt(scope.getSymbolArg(it)))
-  #   var f = callfuncsemexpr.function
-  #   f.fntype.argtypes = argtypes
-  #   let specsemexpr = newSemanticExpr(sexpr, semanticFunction, function: f)
-  #   scope.module.semanticexprs.addSymbol(specsym, specsemexpr)
-
-  #   result = newSemanticExpr(
-  #     sexpr,
-  #     semanticFuncCall,
-  #     funccall: FuncCall(
-  #       callfunc: specsym,
-  #       args: args,
-  #     ),
-  #   )
-  #   result.typesym = scope.getRetType(specsym)
-  # else:
-  #   result = newSemanticExpr(
-  #     sexpr,
-  #     semanticFuncCall,
-  #     funccall: FuncCall(
-  #       callfunc: callfuncsym,
-  #       args: args,
-  #     ),
-  #   )
-  #   result.typesym = scope.getRetType(callfuncsym)
 
 proc evalInt*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   result = newSemanticExpr(sexpr, semanticInt, intval: sexpr.intval)

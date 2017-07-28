@@ -24,9 +24,6 @@
 @(: Int32 -> Int32)
 (c-import abs :header "math.h")
 
-;; @(: (Ptr Int32))
-;; (c-import printf :name "printf" :header "stdio.h")
-
 ;; @(^ :a All)
 ;; @(: :a -> (Ptr :a))
 ;; (c-import addr :name "&" :nodecl)
@@ -40,11 +37,8 @@
 @(^ (:a All))
 @(: CString :a)
 (c-import printf :name "printf" :header "stdio.h")
-
 @(: CString)
 (c-import print :name "printf" :header "stdio.h")
-;; @(: CString Int32)
-;; (c-import printf-int :name "printf" :header "stdio.h")
 
 @(: Int32)
 (defn print [x]
@@ -68,10 +62,14 @@
       x)
     x))
 
-;; (defstruct MyInt
-;;   (x Int32)
-;;   (y Int32)
-;;   (z Int32))
+(defstruct MyInt
+  (x Int32)
+  (y Int32)
+  (z Int32))
+
+@(: MyInt -> Int32)
+(defn get-x [mi]
+  (mi x))
 
 ;; (addr "Hello Voiceroids!\n")
 (print (mul2 5))
