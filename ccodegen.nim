@@ -163,6 +163,7 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
   let funcname = semexpr.function.name
   let argnames = semexpr.function.argnames
   let argtypes = semexpr.function.argtypes.mapIt(genSym(module.scope, it))
+  let funchash = funcname & "_" & semexpr.function.argtypes.mapIt($it).join("_")
   let rettype = genSym(module.scope, semexpr.function.rettype)
   var argsrcs = newSeq[string]()
   for i in 0..<argnames.len:
@@ -172,7 +173,7 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
     var res = newCCodegenRes()
     gen(module, e, res)
     ress.add(res)
-  module.addSrc("$# $#_$#($#) {\n" % [rettype, module.scope.module.name, funcname, argsrcs.join(", ")])
+  module.addSrc("$# $#_$#($#) {\n" % [rettype, module.scope.module.name, funchash, argsrcs.join(", ")])
   module.indent:
     for i in 0..<ress.len-1:
       module.addSrc("$i")
@@ -185,7 +186,7 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
     else:
       module.addSrc("$$ireturn $#;\n" % ress[^1].src)
   module.addSrc("}\n")
-  module.addHeader("$# $#_$#($#);\n" % [rettype, module.scope.module.name, funcname, argsrcs.join(", ")])
+  module.addHeader("$# $#_$#($#);\n" % [rettype, module.scope.module.name, funchash, argsrcs.join(", ")])
 
 proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   var args = newSeq[CCodegenRes]()
@@ -202,7 +203,9 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
       res.addSrc("($# $# $#)" % [$args[0], funcsemexpr.primFuncName, $args[1]])
   else:
     let callfunc = semexpr.funccall.callfunc
-    res.addSrc("$#_$#($#)" % [callfunc.module.name, callfunc.name, args.mapIt($it).join(", ")])
+    let funchash = callfunc.name & "_" & callfunc.args.mapIt($it.sym).join("_")
+    # TODO: Generics
+    res.addSrc("$#_$#($#)" % [callfunc.module.name, funchash, args.mapIt($it).join(", ")])
 
 proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   case semexpr.kind

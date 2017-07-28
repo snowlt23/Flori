@@ -53,6 +53,7 @@ proc cimportMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
     )
     scope.module.addCFFI(cffi)
   return ast(sexpr.span, newSNil())
+
 proc ctypeMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
   let typeexpr = sexpr.rest.first
   let typename = if typeexpr.kind == sexprIdent:
@@ -79,6 +80,7 @@ proc ctypeMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
     scope.module.addDecl("extern $#;" % primname)
     scope.defPrimitiveType(generics, typename, primname)
   return ast(sexpr.span, newSNil())
+
 proc cvalueMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
   let (argtypes, _, vardef) = parseTypeAnnotation(sexpr)
   let varname = $vardef.rest.first
@@ -105,6 +107,7 @@ proc evalFunction*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   scope.addArgSymbols(argtypesyms, funcdef)
   let sym = newSymbol(sexpr, scope.module, $funcname, argtypesyms.mapIt(scope.getSymbolArg(it)))
   let f = Function(
+    isGenerics: false,
     name: $funcname,
     argnames: argnames,
     argtypes: argtypesyms,
@@ -117,7 +120,7 @@ proc evalFunction*(scope: var Scope, sexpr: SExpr): SemanticExpr =
 proc evalTypeAnnot*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let (argtypes, rettype, funcdef) = parseTypeAnnotation(sexpr)
   if $funcdef.first == "defn":
-    discard evalFunction(scope, sexpr)
+    return evalFunction(scope, sexpr)
   elif $funcdef.first == "c-import":
     discard cimportMacroExpand(scope, sexpr)
   elif $funcdef.first == "c-value":
@@ -135,8 +138,11 @@ proc evalGenericsAnnot*(scope: var Scope, sexpr: Sexpr): SEmanticExpr =
       break
     curexpr = curexpr.rest.rest
   let typeannot = sexpr.last
-  discard scope.evalSExpr(typeannot)
-  # TODO:
+  var fnsym = scope.evalSExpr(typeannot)
+  if fnsym.kind == semanticSymbol and not (fnsym.symbol == notTypeSym):
+    var fnsemexpr = scope.getSemanticExpr(fnsym.symbol)
+    if fnsemexpr.kind == semanticFunction:
+      fnsemexpr.function.isGenerics = true
   return notTypeSemExpr
 
 proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =

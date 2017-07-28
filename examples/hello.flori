@@ -24,21 +24,30 @@
 @(: Int32 -> Int32)
 (c-import abs :header "math.h")
 
-@(: (Ptr Int32))
-(c-import printf :name "printf" :header "stdio.h")
-@(^ :a All)
+;; @(: (Ptr Int32))
+;; (c-import printf :name "printf" :header "stdio.h")
 
-@(: :a -> (Ptr :a))
-(c-import addr :name "&" :nodecl)
+;; @(^ :a All)
+;; @(: :a -> (Ptr :a))
+;; (c-import addr :name "&" :nodecl)
+
+@(^ :a All)
+@(: CString :a)
+(c-import printf :name "printf" :header "stdio.h")
 
 @(: CString)
 (c-import print :name "printf" :header "stdio.h")
-@(: CString Int32)
-(c-import printf-int :name "printf" :header "stdio.h")
+;; @(: CString Int32)
+;; (c-import printf-int :name "printf" :header "stdio.h")
 
 @(: Int32)
 (defn print [x]
-  (printf-int "%d" x))
+  (printf "%d" x))
+
+@(^ :a All)
+@(: :a -> :a)
+(defn square [x]
+  (+ x x))
 
 @(: Int32 -> Int32)
 (defn add5 [x]
@@ -58,7 +67,7 @@
   (y Int32)
   (z Int32))
 
-(addr "Hello Voiceroids!\n")
+;; (addr "Hello Voiceroids!\n")
 (print "Hello Yukari!\n")
 (print (add5 4))
 (print "\n")
