@@ -13,7 +13,6 @@
 (setq flori-constant-regexp (concat flori-separates "\\([0-9]\\([0-9]\\|\.\\)*?\\)" flori-separates))
 (setq flori-string-regexp "\".*\"")
 (setq flori-path-regexp "\\([a-z]\\|[A-Z]\\)+\\(\\.\\([a-z]\\|[A-Z]\\)+\\)+")
-(setq flori-comment-regexp ";.*\n")
 (setq flori-var-regexp "\\(var\\|let\\)\s+\\(.+?\\)\s+")
 
 (setq flori-font-lock-keywords
@@ -26,7 +25,6 @@
         (,flori-constant-regexp (2 font-lock-constant-face))
         (,flori-string-regexp . font-lock-string-face)
         (,flori-path-regexp . font-lock-preprocessor-face)
-        (,flori-comment-regexp . font-lock-comment-face)
         (,flori-var-regexp (1 font-lock-keyword-face) (2 font-lock-variable-name-face))))
 
 (defun flori-indent-line ()
@@ -37,6 +35,7 @@
   (indent-region beg end nil))
 
 (define-derived-mode flori-mode fundamental-mode "Flori"
+  :syntax-table emacs-lisp-mode-syntax-table
   (setq indent-tabs-mode nil)
   (setq indent-line-function #'flori-indent-line)
   (setq comment-start ";;")

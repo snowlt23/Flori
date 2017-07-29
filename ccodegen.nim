@@ -113,9 +113,16 @@ proc replaceSpecialSymbols*(s: string): string =
 proc genSym*(sym: Symbol): string =
   let semexpr = trySemanticExpr(sym)
   if semexpr.isSome and semexpr.get.kind == semanticPrimitiveType:
-    return semexpr.get.primTypeName
+    let splitted = semexpr.get.primTypeName.split("$#")
+    result = ""
+    for i in 0..<splitted.len:
+      result &= splitted[i]
+      if i < semexpr.get.primTypeGenerics.len:
+        result &= genSym(semexpr.get.primTypeGenerics[i])
   elif semexpr.isSome and semexpr.get.kind == semanticPrimitiveValue:
     return semexpr.get.primValue
+  elif semexpr.isSome and semexpr.get.kind == semanticGenerics:
+    return $semexpr.get.generics.spec.get
   else:
     return ($sym).replaceSpecialSymbols()
 proc genSymbolArg*(symarg: SymbolArg): string =
@@ -286,7 +293,7 @@ proc genCffis*(context: CCodegenContext, cgenmodule: var CCodegenModule, sym: st
     cgenmodule.addHeader(declsrc)
 
 proc genToplevelCalls*(context: CCodegenContext, cgenmodule: var CCodegenModule, sym: string, module: Module) =
-  let initfuncname = sym & "_main"
+  let initfuncname = sym & "_flori_main"
   cgenmodule.addSrc("void $#() {\n" % initfuncname)
   cgenmodule.indent:
     for semexpr in module.toplevelcalls:
