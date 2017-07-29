@@ -8,8 +8,6 @@ import macros
 type
   SemanticError* = object of Exception
   SymbolArgKind* = enum
-    symbolargUntyped
-    symbolargTyped
     symbolargGenerics
     symbolargName
   SymbolArg* = object
@@ -22,7 +20,7 @@ type
     sexpr*: SExpr
     scope*: Scope
     name*: string
-    args*: seq[Symbolarg]
+    args*: seq[SymbolArg]
   SymbolGroup* = object
     name*: string
     symbols*: seq[tuple[sym: Symbol, value: SemanticExpr]]
@@ -201,21 +199,24 @@ proc newSymbol*(sexpr: SExpr, scope: Scope, name: string, args = newSeq[SymbolAr
   Symbol(sexpr: sexpr, scope: scope, name: name, args: args)
 proc globalSymbol*(name: string): Symbol =
   newSymbol(newSNil(), newScope(globalModule), name)
-proc repr*(sa: SymbolArg): string =
-  case sa.kind
+proc `$`*(symbolarg: SymbolArg): string =
+  case symbolarg.kind
   of symbolargName:
-    $sa.namesym
+    symbolarg.namesym.name
   of symbolargGenerics:
-    $sa.genericssym
-# proc `$`*(sa: openArray[SymbolArg]): string =
-#   if sa.len == 0:
-#     return ""
-#   else:
-#     return 
+    symbolarg.genericssym.name
+proc `$`*(symbolargs: seq[SymbolArg]): string =
+  if symbolargs.len == 0:
+    return ""
+  else:
+    return "(" & symbolargs.mapIt($it).join(", ") & ")"
 proc `$`*(symbol: Symbol): string =
-  symbol.scope.module.name & "_" & symbol.name & "(" & symbol.args.mapIt(it.repr).join(", ") & ")"
+  symbol.scope.module.name & "_" & symbol.name
 proc repr*(symbol: Symbol): string =
-  symbol.scope.module.name.replace("_", ".") & "/" & symbol.name & "(" & $symbol.args.mapIt($it).join(", ") & ")"
+  if symbol.args.len == 0:
+    symbol.name
+  else:
+    "(" & symbol.name & " " & symbol.args.mapIt($it).join(" ") & ")"
 proc `==`*(a: Symbol, b: Symbol): bool =
   a.scope.module.name == b.scope.module.name and a.name == b.name
 proc hash*(sym: Symbol): Hash =
@@ -310,15 +311,16 @@ proc parseTypeAnnotation*(sexpr: SExpr): tuple[argtypes: seq[SExpr], rettype: SE
   result = (argtypes, rettype, body)
 proc getSpecType*(scope: var Scope, sexpr: SExpr): Symbol =
   let typesym = scope.getSymbol(sexpr.first, $sexpr.first)
-  var specs = newSeq[Symbol]()
-  for spec in sexpr.rest:
-    specs.add(scope.getSymbol(spec, $spec))
-  let sym = newSymbol(sexpr, scope, typesym.name, specs.mapIt(getSymbolArg(it)))
-  scope.addSymbol(sym, newSemanticExpr(sexpr, semanticType, semtype: SemType(
-    sym: typesym,
-    specs: specs,
-  )))
-  return sym
+  # var specs = newSeq[Symbol]()
+  # for spec in sexpr.rest:
+  #   specs.add(scope.getSymbol(spec, $spec))
+  # let sym = newSymbol(sexpr, scope, typesym.name, specs.mapIt(getSymbolArg(it)))
+  # scope.addSymbol(sym, newSemanticExpr(sexpr, semanticType, semtype: SemType(
+  #   sym: typesym,
+  #   specs: specs,
+  # )))
+  # echo sym.repr
+  return typesym
 
 proc getTypeAnnotation*(scope: var Scope, sexpr: SExpr): tuple[argtypes: seq[Symbol], rettype: Symbol, body: SExpr] =
   let (argtypes, rettype, body) = parseTypeAnnotation(sexpr)
