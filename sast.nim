@@ -32,7 +32,7 @@ type
     of sexprString:
       strval*: string
 
-let unknownSpan* = Span(line: 0, linepos: 0)
+let internalSpan* = Span(line: 0, linepos: 0)
 
 proc newSNil*(span: Span): SExpr =
   new result

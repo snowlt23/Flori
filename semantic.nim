@@ -187,7 +187,7 @@ proc evalSExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr
 
 let globalModule* = newModule("global")
 let globalScope* = newScope(globalModule)
-let notTypeSemExpr* = SemanticExpr(span: unknownSpan, kind: semanticIdent, ident: "not_type_ident")
+let notTypeSemExpr* = SemanticExpr(span: internalSpan, kind: semanticIdent, ident: "not_type_ident")
 let notTypeSym* = newSymbol(globalScope, "not_type_symbol", notTypeSemExpr)
 
 #
@@ -196,7 +196,7 @@ let notTypeSym* = newSymbol(globalScope, "not_type_symbol", notTypeSemExpr)
 
 proc raiseError*(span: Span, s: string) =
   if span.line == 0 and span.linepos == 0:
-    let msg = "(unknown) " & s
+    let msg = "(internal) " & s
     when not defined(release):
       raise newException(SemanticError, msg)
     else:
