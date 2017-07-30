@@ -227,7 +227,7 @@ proc newSemanticIdent*(scope: var Scope, sexpr: SExpr): SemanticIdent =
       args.add(scope.getSymbol(scope.newSemanticIdent(sexpr)))
     return newSemanticIdent(scope, sexpr.span, $sexpr.first, args.getSemanticTypeArgs())
   elif sexpr.kind == sexprIdent:
-    return newSemanticIdent(scope, sexpr.first.span, $sexpr, @[])
+    return newSemanticIdent(scope, sexpr.span, $sexpr, @[])
   else:
     sexpr.span.raiseError("can't use $# instead ident" % $sexpr.kind)
 proc newSemanticIdent*(symbol: Symbol): SemanticIdent =

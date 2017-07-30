@@ -108,31 +108,31 @@ proc genTmpSym*(module: CCodegenModule, name = "tmp"): string =
   module.symcount.inc
 
 proc replaceSpecialSymbols*(s: string): string =
-  s.replace("+", "_add_").replace("-", "_minus_")
+  s.replace("+", "_add_").replace("-", "_sub_").replace("*", "_mul_").replace("/", "_div_")
 
 proc genSym*(sym: Symbol): string =
-  let semexpr = trySemanticExpr(sym)
-  if semexpr.isSome and semexpr.get.kind == semanticPrimitiveType:
-    let splitted = semexpr.get.primTypeName.split("$#")
-    result = ""
-    for i in 0..<splitted.len:
-      result &= splitted[i]
-      if i < semexpr.get.primTypeGenerics.len:
-        result &= genSym(semexpr.get.primTypeGenerics[i])
-  elif semexpr.isSome and semexpr.get.kind == semanticPrimitiveValue:
-    return semexpr.get.primValue
-  elif semexpr.isSome and semexpr.get.kind == semanticGenerics:
-    return $semexpr.get.generics.spec.get
+  if sym.semexpr.kind == semanticPrimitiveType:
+    return sym.semexpr.primTypeName
+    # let splitted = sym.semexpr.primTypeName.split("$#")
+    # result = ""
+    # for i in 0..<splitted.len:
+    #   result &= splitted[i]
+    #   if i < sym.semexpr.primTypeGenerics.len:
+    #     result &= genSym(sym.semexpr.primTypeGenerics[i])
+  elif sym.semexpr.kind == semanticPrimitiveValue:
+    return sym.semexpr.primValue
+  elif sym.semexpr.kind == semanticGenerics:
+    return $sym.semexpr.generics.spec.get
   else:
     return ($sym).replaceSpecialSymbols()
-proc genSymbolArg*(symarg: SymbolArg): string =
-  if symarg.kind == symbolargName:
-    return $symarg.namesym
-  elif symarg.kind == symbolargGenerics:
-    let semexpr = symarg.genericssym.getSemanticExpr()
-    return $semexpr.generics.spec.get
-  else:
-    raise newException(CCodegenError, "couldn't genSymbolArg: $#" % $symarg.kind)
+# proc genSymbolArg*(symarg: SymbolArg): string =
+#   if symarg.kind == symbolargName:
+#     return $symarg.namesym
+#   elif symarg.kind == symbolargGenerics:
+#     let semexpr = symarg.genericssym.getSemanticExpr()
+#     return $semexpr.generics.spec.get
+#   else:
+#     raise newException(CCodegenError, "couldn't genSymbolArg: $#" % $symarg.kind)
 
 proc genStruct*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let structname = semexpr.struct.name
@@ -207,7 +207,7 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
       module.addSrc(";\n")
     if ress[^1].prev != "":
       module.addSrc("$$i$#;\n" % ress[^1].prev)
-    if semexpr.function.body[^1].typesym == module.scope.getSymbol(newSNil(semexpr.span), "Void"):
+    if semexpr.function.body[^1].typesym == module.scope.getSymbol(module.scope.newSemanticIdent(semexpr.span, "Void", @[])):
       module.addSrc("$$i$#;\n" % ress[^1].src)
     else:
       module.addSrc("$$ireturn $#;\n" % ress[^1].src)
@@ -215,39 +215,38 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
   module.addHeader("$# $#_$#($#);\n" % [rettype, module.scope.module.name, funchash, argsrcs.join(", ")])
 
 proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
-  var args = newSeq[CCodegenRes]()
+  var argress = newSeq[CCodegenRes]()
   for arg in semexpr.funccall.args:
     var res = newCCodegenRes()
     gen(module, arg, res)
-    args.add(res)
-  # for sym, value in module.scope.module.semanticexprs:
-  #   for value in value.symbols:
-  #     echo value.sym, ":", value.value.kind
-  let funcsemexpr = getSemanticExpr(semexpr.funccall.callfunc)
+    argress.add(res)
+
+  let funcsemexpr = semexpr.funccall.callfunc.semexpr
   if funcsemexpr.kind == semanticPrimitiveFunc:
     case funcsemexpr.primFuncKind
     of primitiveCall:
-      res.addSrc("$#($#)" % [funcsemexpr.primFuncName, args.mapIt($it).join(", ")])
+      res.addSrc("$#($#)" % [funcsemexpr.primFuncName, argress.mapIt($it).join(", ")])
     of primitiveInfix:
-      res.addSrc("($# $# $#)" % [$args[0], funcsemexpr.primFuncName, $args[1]])
+      res.addSrc("($# $# $#)" % [$argress[0], funcsemexpr.primFuncName, $argress[1]])
   elif funcsemexpr.kind == semanticProtocolFunc:
-    let sym = newSymbol(semexpr.sexpr, module.scope, semexpr.funccall.callfunc.name, semexpr.funccall.args.mapIt(getSymbolArg(it.getType.getType)))
-    let specsemexpr = getSemanticExpr(sym, {semanticFunction, semanticPrimitiveFunc})
-    if specsemexpr.kind == semanticPrimitiveFunc:
-      case specsemexpr.primFuncKind
-      of primitiveCall:
-        res.addSrc("$#($#)" % [specsemexpr.primFuncName, args.mapIt($it).join(", ")])
-      of primitiveInfix:
-        res.addSrc("($# $# $#)" % [$args[0], specsemexpr.primFuncName, $args[1]])
-    else:
-      let callfunc = semexpr.funccall.callfunc
-      let funchash = callfunc.name & "_" & callfunc.args.mapIt(genSymbolArg(it)).join("_")
-      res.addSrc("$#_$#($#)" % [callfunc.scope.module.name.replaceSpecialSymbols(), funchash, args.mapIt($it).join(", ")])
+    semexpr.raiseError("not supported semanticProtocolFunc in currently")
+    # let sym = newSymbol(semexpr.sexpr, module.scope, semexpr.funccall.callfunc.name, semexpr.funccall.args.mapIt(getSymbolArg(it.getType.getType)))
+    # let specsemexpr = getSemanticExpr(sym)
+    # if specsemexpr.kind == semanticPrimitiveFunc:
+    #   case specsemexpr.primFuncKind
+    #   of primitiveCall:
+    #     res.addSrc("$#($#)" % [specsemexpr.primFuncName, args.mapIt($it).join(", ")])
+    #   of primitiveInfix:
+    #     res.addSrc("($# $# $#)" % [$args[0], specsemexpr.primFuncName, $args[1]])
+    # else:
+    #   let callfunc = semexpr.funccall.callfunc
+    #   let funchash = callfunc.name & "_" & callfunc.args.mapIt(genSymbolArg(it)).join("_")
+    #   res.addSrc("$#_$#($#)" % [callfunc.scope.module.name.replaceSpecialSymbols(), funchash, args.mapIt($it).join(", ")])
   else:
     let callfunc = semexpr.funccall.callfunc
-    let funchash = callfunc.name & "_" & callfunc.args.mapIt(genSymbolArg(it)).join("_")
-    # TODO: Generics
-    res.addSrc("$#_$#($#)" % [callfunc.scope.module.name.replaceSpecialSymbols(), funchash, args.mapIt($it).join(", ")])
+    let argtypes = callfunc.semexpr.function.fntype.argtypes
+    let funchash = callfunc.name & "_" & argtypes.mapIt($it).join("_")
+    res.addSrc("$#_$#($#)" % [callfunc.scope.module.name.replaceSpecialSymbols(), funchash, argress.mapIt($it).join(", ")])
 
 proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   case semexpr.kind
@@ -308,10 +307,10 @@ proc genModule*(context: CCodegenContext, sym: string, module: Module) =
   var cgenmodule = newCCodegenModule(newScope(module))
   context.modules[sym] = cgenmodule
   genHeaders(context, cgenmodule, sym, module)
-  for semexpr in module.semanticexprs.values:
-    for gsym in semexpr.symbols:
+  for semidgroup in module.semanticidents.values:
+    for gsympair in semidgroup.idsymbols:
       var res = newCCodegenRes()
-      gen(cgenmodule, gsym.value, res)
+      gen(cgenmodule, gsympair.value.semexpr, res)
   genToplevelCalls(context, cgenmodule, sym, module)
 
 proc genContext*(context: CCodegenContext, semcontext: SemanticContext) =
