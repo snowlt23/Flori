@@ -8,6 +8,7 @@ type
     line*: int
     linepos*: int
     pos*: int
+    internal*: tuple[filename: string, line: int]
   SExprKind* = enum
     sexprNil
     sexprList
@@ -32,7 +33,10 @@ type
     of sexprString:
       strval*: string
 
-let internalSpan* = Span(line: 0, linepos: 0)
+template internalSpan*(): Span =
+  const internalname = instantiationInfo().filename
+  const internalline = instantiationInfo().line
+  Span(line: 0, linepos: 0, internal: (internalname, internalline))
 
 proc newSNil*(span: Span): SExpr =
   new result
