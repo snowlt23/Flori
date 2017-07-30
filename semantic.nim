@@ -40,6 +40,7 @@ type
     primitiveInfix
 
   SemanticExprKind* = enum
+    semanticNotType
     semanticSExpr
     semanticIdent
     semanticSymbol
@@ -67,6 +68,8 @@ type
     metadata*: Metadata
     typesym*: Symbol
     case kind*: SemanticExprKind
+    of semanticNotType:
+      discard
     of semanticSExpr:
       sexpr*: SExpr
     of semanticIdent:
@@ -187,7 +190,7 @@ proc evalSExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr
 
 let globalModule* = newModule("global")
 let globalScope* = newScope(globalModule)
-let notTypeSemExpr* = SemanticExpr(span: internalSpan, kind: semanticIdent, ident: "not_type_ident")
+let notTypeSemExpr* = SemanticExpr(span: internalSpan, kind: semanticNotType)
 let notTypeSym* = newSymbol(globalScope, "not_type_symbol", notTypeSemExpr)
 
 #
@@ -208,7 +211,7 @@ proc raiseError*(span: Span, s: string) =
     else:
       quit msg
 proc raiseError*(semexpr: SemanticExpr, s: string) =
-  semexpr.sexpr.span.raiseError(s)
+  semexpr.span.raiseError(s)
 proc raiseError*(sym: Symbol, s: string) =
   sym.semexpr.raiseError(s)
 proc raiseError*(semid: SemanticIdent, s: string) =
@@ -228,14 +231,16 @@ proc newSemanticIdent*(scope: var Scope, sexpr: SExpr): SemanticIdent =
     return newSemanticIdent(scope, sexpr.span, $sexpr.first, args.getSemanticTypeArgs())
   elif sexpr.kind == sexprIdent:
     return newSemanticIdent(scope, sexpr.span, $sexpr, @[])
+  elif sexpr.kind == sexprAttr:
+    return newSemanticIdent(scope, sexpr.span, $sexpr, @[])
   else:
     sexpr.span.raiseError("can't use $# instead ident" % $sexpr.kind)
 proc newSemanticIdent*(symbol: Symbol): SemanticIdent =
   newSemanticIdent(symbol.scope, symbol.semexpr.span, symbol.name, @[])
 proc newSemanticIdentGroup*(): SemanticIdentGroup =
   result.idsymbols = @[]
-proc addSymbol*(symgroup: var SemanticIdentGroup, symbol: Symbol) =
-  symgroup.idsymbols.add((newSemanticIdent(symbol), symbol))
+proc addSymbol*(symgroup: var SemanticIdentGroup, semid: SemanticIdent, symbol: Symbol) =
+  symgroup.idsymbols.add((semid, symbol))
 proc hash*(semid: SemanticIdent): Hash =
   hash(semid.name)
 proc `==`*(a, b: SemanticIdent): bool =
@@ -268,11 +273,21 @@ proc match*(semid, gsemid: SemanticIdent): bool =
     let arg = semid.args[i]
     let garg = gsemid.args[i]
     if arg.kind == semtypeName and garg.kind == semtypeName:
-      if arg.namesym == garg.namesym:
-        return true
+      if arg.namesym != garg.namesym:
+        return false
     elif garg.kind == semtypeGenerics:
-      return true
-  return false
+      continue
+  return true
+proc equal*(semid, gsemid: SemanticIdent): bool =
+  for i in 0..<gsemid.args.len:
+    let arg = semid.args[i]
+    let garg = gsemid.args[i]
+    if arg.kind == semtypeName and garg.kind == semtypeName:
+      if arg.namesym != garg.namesym:
+        return false
+    elif garg.kind == semtypeGenerics:
+      return false
+  return true
 proc hasSemId*(semids: OrderedTable[SemanticIdent, SemanticIdentGroup], semid: SemanticIdent): bool =
   if semids.hasKey(semid):
     let symgroup = semids[semid]
@@ -284,13 +299,23 @@ proc hasSemId*(semids: OrderedTable[SemanticIdent, SemanticIdentGroup], semid: S
     return false
   else:
     return false
+proc hasSpecSemId*(semids: OrderedTable[SemanticIdent, SemanticIdentGroup], semid: SemanticIdent): bool =
+  if semids.hasKey(semid):
+    let symgroup = semids[semid]
+    for gsemidpair in symgroup.idsymbols:
+      if gsemidpair.semid.args.len != semid.args.len:
+        continue
+      elif equal(semid, gsemidpair.semid):
+        return true
+    return false
+  else:
+    return false
 proc addSymbol*(semids: var OrderedTable[SemanticIdent, SemanticIdentGroup], semid: SemanticIdent, symbol: Symbol) =
-  if semids.hasSemId(semid):
+  if semids.hasSpecSemId(semid):
     symbol.raiseError("can't redefine symbol: $#" % [semid.name])
-  let semid = newSemanticIdent(symbol)
   if not semids.hasKey(semid):
     semids[semid] = newSemanticIdentGroup()
-  semids[semid].addSymbol(symbol)
+  semids[semid].addSymbol(semid, symbol)
 proc getSymbol*(semids: var OrderedTable[SemanticIdent, SemanticIdentGroup], semid: SemanticIdent): Symbol =
   if semids.hasKey(semid):
     let symgroup = semids[semid]
@@ -368,7 +393,7 @@ macro newSemanticExpr*(span: Span, kind: SemanticExprKind, body: varargs[untyped
   result.add(tmpid)
 proc expectSemantic*(semexpr: SemanticExpr, kind: SemanticExprKind) =
   if semexpr.kind != kind:
-    semexpr.raiseError("expression is not $#" % $kind)
+    semexpr.raiseError("expression is not $#, actually: $#" % [$kind, $semexpr.kind])
 
 #
 # CCodegenInfo
@@ -414,10 +439,12 @@ proc newScope*(module: Module): Scope =
   result.semanticidents = initOrderedTable[SemanticIdent, SemanticIdentGroup]()
 proc hasSemId*(scope: Scope, semid: SemanticIdent): bool =
   scope.semanticidents.hasSemId(semid) or scope.module.semanticidents.hasSemId(semid)
+proc hasSpecSemId*(scope: Scope, semid: SemanticIdent): bool =
+  scope.semanticidents.hasSpecSemId(semid) or scope.module.semanticidents.hasSpecSemId(semid)
 proc addSymbol*(scope: var Scope, semid: SemanticIdent, sym: Symbol) =
   scope.semanticidents.addSymbol(semid, sym)
 proc getSymbol*(scope: var Scope, semid: SemanticIdent): Symbol =
-  if scope.hasSemId(semid):
+  if scope.semanticidents.hasSemId(semid):
     return scope.semanticidents.getSymbol(semid)
   elif scope.module.semanticidents.hasSemId(semid):
     return scope.module.semanticidents.getSymbol(semid)
@@ -557,11 +584,11 @@ proc genGenericsFunc*(scope: var Scope, typesyms: seq[Symbol], funcsemexpr: Sema
     ),
     body: funcsemexpr.function.body
   )
-  let semexpr = newSemanticExpr(funcsemexpr.sexpr.span, semanticFunction, function: f)
+  let semexpr = newSemanticExpr(funcsemexpr.span, semanticFunction, function: f)
   let sym = newSymbol(scope, funcname, semexpr)
   let semid = newSemanticIdent(scope, typesyms[0].semexpr.span, funcname, argtypes.getSemanticTypeArgs)
-  if scope.hasSemId(semid):
-    return
+  if scope.hasSpecSemId(semid):
+    return sym
   scope.module.addSymbol(semid, sym)
   return sym
 
@@ -601,11 +628,10 @@ proc evalFuncCall*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let argtypes = args.mapIt(getType(it))
   let callfuncsemid = scope.newSemanticIdent(sexpr.first.span, $sexpr.first, argtypes.getSemanticTypeArgs)
   let callfuncsym = scope.getSymbol(callfuncsemid)
-  callfuncsym.semexpr.expectSemantic(semanticFunction)
-  let finalcallfuncsym = if callfuncsym.semexpr.function.isGenerics:
-                   genGenericsFunc(scope, argtypes, callfuncsym.semexpr)
-                 else:
-                    callfuncsym
+  let finalcallfuncsym = if callfuncsym.semexpr.kind == semanticFunction and callfuncsym.semexpr.function.isGenerics:
+                           genGenericsFunc(scope, argtypes, callfuncsym.semexpr)
+                         else:
+                           callfuncsym
 
   let semexpr = newSemanticExpr(
     sexpr.span,

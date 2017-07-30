@@ -250,6 +250,10 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
 
 proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   case semexpr.kind
+  of semanticNotType:
+    discard
+  of semanticIdent:
+    res.addSrc(semexpr.ident)
   of semanticSymbol:
     res.addSrc(genSym(semexpr.symbol))
   of semanticProtocol:
@@ -296,9 +300,10 @@ proc genToplevelCalls*(context: CCodegenContext, cgenmodule: var CCodegenModule,
   cgenmodule.addSrc("void $#() {\n" % initfuncname)
   cgenmodule.indent:
     for semexpr in module.toplevelcalls:
-      var res = newCCodegenRes()
-      gen(cgenmodule, semexpr, res)
-      cgenmodule.addSrc("$$i$#;\n" % $res)
+      if semexpr.kind != semanticNotType:
+        var res = newCCodegenRes()
+        gen(cgenmodule, semexpr, res)
+        cgenmodule.addSrc("$$i$#;\n" % $res)
   cgenmodule.addSrc("}\n")
   cgenmodule.addheader("void $#();\n" % initfuncname)
   context.addMainSrc("$$i$#();\n" % initfuncname)
