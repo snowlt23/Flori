@@ -99,9 +99,7 @@ type
     of semanticFieldAccess:
       fieldaccess*: FieldAccess
     of semanticPrimitiveType:
-      primTypeGenerics*: seq[Symbol]
-      primTypeName*: string
-      primTypeIsGenerics*: bool
+      primtype*: PrimitiveType
     of semanticPrimitiveValue:
       primValue*: string
     of semanticPrimitiveFunc:
@@ -158,6 +156,11 @@ type
     headers*: OrderedTable[string, bool]
     decls*: seq[string]
     cffis*: seq[Cffi]
+  PrimitiveType* = ref object
+    isGenerics*: bool
+    name*: string
+    primname*: string
+    argtypes*: seq[Symbol]
   PrimitiveFunc* = ref object
     isGenerics*: bool
     kind*: PrimitiveFuncKind
@@ -505,8 +508,12 @@ proc defPrimitiveType*(scope: var Scope, span: Span, generics: seq[string], type
     span,
     semanticPrimitiveType,
     notTypeSym,
-    primTypeGenerics: genericssyms,
-    primTypeName: primname
+    primtype: PrimitiveType(
+      isGenerics: false,
+      name: typename,
+      primname: primname,
+      argtypes: genericssyms
+    )
   )
   let sym = newSymbol(scope, typename, semexpr)
   semexpr.typesym = sym
@@ -619,7 +626,7 @@ proc specializeGenerics*(genericssym: Symbol, typesym: Symbol) =
 
 proc specializeGenericsPrimitiveType*(typesyms: seq[Symbol], primtypesemexpr: SemanticExpr) =
   primtypesemexpr.expectSemantic(semanticPrimitiveType)
-  for i, argtype in primtypesemexpr.primTypeGenerics:
+  for i, argtype in primtypesemexpr.primtype.argtypes:
     if argtype.semexpr.kind == semanticGenerics:
       specializeGenerics(argtype, typesyms[i])
 
@@ -665,16 +672,20 @@ proc genGenericsPrimitiveType*(scope: var Scope, typesyms: seq[Symbol], typeseme
   typesemexpr.expectSemantic(semanticPrimitiveType)
 
   specializeGenericsPrimitiveType(typesyms, typesemexpr)
-  let argtypes = typesemexpr.primTypeGenerics.mapIt(it.getType)
+  let argtypes = typesemexpr.primtype.argtypes.mapIt(it.getType)
   let semexpr = newSemanticExpr(
     typesemexpr.span,
     semanticPrimitiveType,
     notTypeSym,
-    primTypeGenerics: argtypes,
-    primTypeName: typesemexpr.primTypeName
+    primtype: PrimitiveType(
+      isGenerics: false,
+      name: typesemexpr.primtype.name,
+      primname: typesemexpr.primtype.primname,
+      argtypes: argtypes
+    )
   )
-  let sym = newSymbol(scope, typesemexpr.primTypeName, semexpr)
-  let semid = scope.newSemanticIdent(typesemexpr.span, typesemexpr.primTypeName, argtypes.getSemanticTypeArgs)
+  let sym = newSymbol(scope, typesemexpr.primtype.name, semexpr)
+  let semid = scope.newSemanticIdent(typesemexpr.span, typesemexpr.primtype.name, argtypes.getSemanticTypeArgs)
   if scope.hasSpecSemId(semid):
     return sym
   scope.module.addSymbol(semid, sym)
@@ -717,13 +728,15 @@ proc evalFuncCall*(scope: var Scope, sexpr: SExpr): SemanticExpr =
     args.add(scope.evalSExpr(arg))
   let argtypes = args.mapIt(getType(it))
   let callfuncsemid = scope.newSemanticIdent(sexpr.first.span, $sexpr.first, argtypes.getSemanticTypeArgs)
+  if not scope.hasSemId(callfuncsemid):
+    sexpr.first.span.raiseError("undeclared function $#($#)" % [$callfuncsemid, callfuncsemid.args.mapIt($it).join(", ")])
   let callfuncsym = scope.getSymbol(callfuncsemid)
 
   if callfuncsym.semexpr.kind == semanticPrimitiveFunc:
     specializeGenericsPrimitiveFunc(argtypes, callfuncsym.semexpr)
   let finalcallfuncsym = if callfuncsym.semexpr.kind == semanticFunction and callfuncsym.semexpr.function.isGenerics:
                            genGenericsFunc(scope, argtypes, callfuncsym.semexpr)
-                         elif callfuncsym.semexpr.kind == semanticPrimitiveType and callfuncsym.semexpr.primTypeIsGenerics:
+                         elif callfuncsym.semexpr.kind == semanticPrimitiveType and callfuncsym.semexpr.primtype.isGenerics:
                            genGenericsPrimitiveType(scope, argtypes, callfuncsym.semexpr)
                          else:
                            callfuncsym
@@ -738,6 +751,10 @@ proc evalFuncCall*(scope: var Scope, sexpr: SExpr): SemanticExpr =
     ),
   )
   return semexpr
+
+#
+# Eval
+#
 
 proc evalIdent*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let sym = scope.getSymbol(scope.newSemanticIdent(sexpr))

@@ -118,7 +118,7 @@ proc genPattern*(pattern: string, args: seq[string]): string =
 
 proc genSym*(sym: Symbol): string =
   if sym.semexpr.kind == semanticPrimitiveType:
-    return genPattern(sym.semexpr.primTypeName, sym.semexpr.primTypeGenerics.mapIt(genSym(it)))
+    return genPattern(sym.semexpr.primtype.primname, sym.semexpr.primtype.argtypes.mapIt(genSym(it)))
   elif sym.semexpr.kind == semanticPrimitiveValue:
     return sym.semexpr.primValue
   elif sym.semexpr.kind == semanticGenerics:

@@ -34,6 +34,14 @@
 @(: :a :b -> :a)
 (c-import cast :pattern "(($1)$2)" :nodecl)
 
+@(: Int32 -> Size)
+(defn size [x]
+  (cast Size x))
+
+@(^ (:a All))
+@(: (Ptr :a) Size -> :a)
+(c-import nth :pattern "$1[$2]" :nodecl)
+
 @(^ (:a All))
 (defprotocol Number
   (+ (: :a :a -> :a)))
@@ -47,6 +55,9 @@
 @(: Int32)
 (defn print [x]
   (printf "%d" x))
+@(: UInt8)
+(defn print [c]
+  (printf "%c" c))
 
 @(^ (:a Number))
 @(: :a -> :a)
@@ -75,8 +86,11 @@
 (defn get-x [mi]
   (mi x))
 
-(cast (Ptr Int32) (addr "Hello Voiceroids!\n"))
-(print (mul2 5))
+(print (nth (cast (Ptr UInt8) (addr "Hello Voiceroids!\n")) (size 6)))
+(print "\n")
 (print "Hello Yukari!\n")
+(print "\n")
+(print (mul2 5))
+(print "\n")
 ;; (print (add5 4))
 ;; (print "\n")

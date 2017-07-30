@@ -172,7 +172,7 @@ proc evalGenericsAnnot*(scope: var Scope, sexpr: Sexpr): SEmanticExpr =
     elif retsym.symbol.semexpr.kind == semanticPrimitiveFunc:
       retsym.symbol.semexpr.primfunc.isGenerics = true
     elif retsym.symbol.semexpr.kind == semanticPrimitiveType:
-      retsym.symbol.semexpr.primTypeIsGenerics = true
+      retsym.symbol.semexpr.primtype.isGenerics = true
   return newSemanticExpr(sexpr.span, semanticSymbol, notTypeSym, symbol: notTypeSym)
 
 proc evalProtocol*(scope: var Scope, sexpr: SExpr): SemanticExpr =
