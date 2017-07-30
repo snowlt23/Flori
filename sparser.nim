@@ -68,9 +68,9 @@ proc parseSExpr*(context: var ParserContext): SExpr =
   if context.isEOF():
     return nil
 
-  if context.curchar in StartList:
+  if context.curchar in StartList: # list
     let span = context.span()
-    var list = ast(span, newSNil())
+    var list = newSNil(span)
     context.inc
     while true:
       context.skipSpaces()
@@ -78,7 +78,7 @@ proc parseSExpr*(context: var ParserContext): SExpr =
         context.inc
         break
       let res = parseSExpr(context)
-      list = ast(span, newSList(res, list))
+      list = newSList(span, res, list)
     return list.reverse()
   elif context.curchar == '@': # @ annotation syntax
     context.inc
@@ -86,13 +86,13 @@ proc parseSExpr*(context: var ParserContext): SExpr =
     let body = parseSExpr(context)
     var ret = annot
     if annot.kind == sexprList:
-      ret.last = ast(body.span, newSList(body, newSNil()))
+      ret.last = newSList(body.span, body, newSNil(body.span))
     else:
-      ret = ast(annot.span, newSList(annot, newSList(body, newSNil())))
+      ret = newSList(annot.span, annot, newSList(body.span, body, newSNil(body.span)))
     return ret
   elif ('a' <= context.curchar and context.curchar <= 'z') or
        ('A' <= context.curchar and context.curchar <= 'Z') or
-       context.curchar in SpecialSymbols:
+       context.curchar in SpecialSymbols: # ident
     var name = ""
     let span = context.span()
     while true:
@@ -100,8 +100,8 @@ proc parseSExpr*(context: var ParserContext): SExpr =
         break
       name &= context.curchar
       context.inc
-    return ast(span, newSIdent(name))
-  elif ':' == context.curchar:
+    return newSIdent(span, name)
+  elif ':' == context.curchar: # attr
     var name = ""
     let span = context.span()
     context.inc
@@ -110,17 +110,19 @@ proc parseSExpr*(context: var ParserContext): SExpr =
         break
       name &= context.curchar
       context.inc
-    return ast(span, newSAttr(name))
-  elif '0' <= context.curchar and context.curchar <= '9':
+    return newSAttr(span, name)
+  elif '0' <= context.curchar and context.curchar <= '9': # digit
+    let span = context.span
     var s = ""
     while true:
       if not ('0' <= context.curchar and context.curchar <= '9'):
         break
       s &= context.curchar
       context.inc
-    return newSInt(s)
-  elif context.curchar == '"':
+    return newSInt(span, s)
+  elif context.curchar == '"': # string
     var s = ""
+    let span = context.span
     context.inc
     while true:
       if context.curchar == '"':
@@ -128,7 +130,7 @@ proc parseSExpr*(context: var ParserContext): SExpr =
         break
       s &= context.curchar
       context.inc
-    return newSString(s)
+    return newSString(span, s)
   else:
     raise newException(SParseError, "($#:$#) couldn't parse s expression" % [$context.line, $context.linepos])
 

@@ -13,7 +13,7 @@
 (c-type Pointer :name "void*" :nodecl)
 (c-type Void :name "void" :nodecl)
 @(^ (:a All))
-(c-type (Ptr :a) :name "$#*" :nodecl)
+(c-type (Ptr :a) :nodecl)
 
 @(: Bool)
 (c-value true :name "true")
@@ -29,6 +29,10 @@
 @(^ (:a All))
 @(: :a -> (Ptr :a))
 (c-import addr :name "&" :nodecl)
+
+@(^ (:a All) (:b All))
+@(: :a :b -> :a)
+(c-import cast :name "(($#)$#)" :nodecl)
 
 @(^ (:a All))
 (defprotocol Number
@@ -71,7 +75,7 @@
 (defn get-x [mi]
   (mi x))
 
-(addr "Hello Voiceroids!\n")
+(cast (Ptr Int32) (addr "Hello Voiceroids!\n"))
 (print (mul2 5))
 ;; (print "Hello Yukari!\n")
 ;; (print (add5 4))

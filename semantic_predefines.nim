@@ -5,7 +5,7 @@ import semantic
 import strutils, sequtils
 import options
 
-proc cimportMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
+proc evalCImport*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let (argtypesyms, rettypesym, cffidef) = getTypeAnnotation(scope, sexpr)
   let funcname = cffidef.rest.first
   let nameattr = cffidef.getAttr("name")
@@ -25,7 +25,7 @@ proc cimportMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
     scope.module.semanticexprs.addSymbol(
       sym,
       newSemanticExpr(
-        sexpr,
+        sexpr.span,
         semanticPrimitiveFunc,
         primFuncKind: primtype,
         primFuncName: primname,
@@ -37,7 +37,7 @@ proc cimportMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
     scope.module.semanticexprs.addSymbol(
       sym,
       newSemanticExpr(
-        sexpr,
+        sexpr.span,
         semanticPrimitiveFunc,
         primFuncKind: primtype,
         primFuncName: primname,
@@ -52,9 +52,9 @@ proc cimportMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
       rettype: rettypesym,
     )
     scope.module.addCFFI(cffi)
-  return ast(sexpr.span, newSNil())
+  return notTypeSemExpr
 
-proc ctypeMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
+proc evalCType*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let typeexpr = sexpr.rest.first
   let typename = if typeexpr.kind == sexprIdent:
                    $typeexpr
@@ -72,16 +72,16 @@ proc ctypeMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
     for gene in typeexpr.rest:
       generics.add($gene)
   if nodeclattr:
-    scope.defPrimitiveType(generics, typename, primname)
+    scope.defPrimitiveType(sexpr.span, generics, typename, primname)
   elif headerattr.isSome:
     scope.module.ccodegeninfo.addHeader(headerattr.get.strval)
-    scope.defPrimitiveType(generics, typename, primname)
+    scope.defPrimitiveType(sexpr.span, generics, typename, primname)
   else:
     scope.module.addDecl("extern $#;" % primname)
-    scope.defPrimitiveType(generics, typename, primname)
-  return ast(sexpr.span, newSNil())
+    scope.defPrimitiveType(sexpr.span, generics, typename, primname)
+  return notTypeSemExpr
 
-proc cvalueMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
+proc evalCValue*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let (argtypes, _, vardef) = parseTypeAnnotation(sexpr)
   let varname = $vardef.rest.first
   let primattr = vardef.getAttr("name")
@@ -89,7 +89,15 @@ proc cvalueMacroExpand*(scope: var Scope, sexpr: SExpr): SExpr =
                    primattr.get.strval
                  else:
                    varname
-  scope.defPrimitiveValue($argtypes[0], varname, primname)
+  scope.defPrimitiveValue(sexpr.span, $argtypes[0], varname, primname)
+  return notTypeSemExpr
+
+proc evalCEmit*(scope: var Scope, sexpr: SExpr): SemanticExpr =
+  let format = sexpr.rest.first.strval
+  var args = newSeq[SemanticExpr]()
+  for se in sexpr.rest.rest:
+    args.add(scope.evalSExpr(se))
+  return newSemanticExpr(sexpr.span, semanticCExpr, cexpr: CExpr(format: format, args: args))
 
 proc evalFunctionBody*(scope: var Scope, sexpr: SExpr): seq[SemanticExpr] =
   result = @[]
@@ -116,17 +124,17 @@ proc evalFunction*(scope: var Scope, sexpr: SExpr): SemanticExpr =
     ),
     body: scope.evalFunctionBody(funcdef.rest.rest.rest),
   )
-  scope.module.semanticexprs.addSymbol(sym, newSemanticExpr(sexpr, semanticFunction, function: f))
-  return newSemanticExpr(sexpr, semanticSymbol, symbol: sym)
+  scope.module.semanticexprs.addSymbol(sym, newSemanticExpr(sexpr.span, semanticFunction, function: f))
+  return newSemanticExpr(sexpr.span, semanticSymbol, symbol: sym)
 
 proc evalTypeAnnot*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let (argtypes, rettype, funcdef) = parseTypeAnnotation(sexpr)
   if $funcdef.first == "defn":
     return evalFunction(scope, sexpr)
   elif $funcdef.first == "c-import":
-    discard cimportMacroExpand(scope, sexpr)
+    discard evalCImport(scope, sexpr)
   elif $funcdef.first == "c-value":
-    discard cvalueMacroExpand(scope, sexpr)
+    discard evalCValue(scope, sexpr)
   else:
     sexpr.raiseError("couldn't apply type annotation: $#" % $sexpr)
   return notTypeSemExpr
@@ -139,7 +147,7 @@ proc evalGenericsAnnot*(scope: var Scope, sexpr: Sexpr): SEmanticExpr =
     let attrsym = newSymbol(curexpr, scope, $curexpr.first.first)
     let protocolsym = scope.getSymbol(curexpr.rest.first, $curexpr.first.rest.first)
     let semexpr = newSemanticExpr(
-      sexpr,
+      sexpr.span,
       semanticGenerics,
       generics: Generics(
         attr: $curexpr.first,
@@ -153,7 +161,7 @@ proc evalGenericsAnnot*(scope: var Scope, sexpr: Sexpr): SEmanticExpr =
     for fn in protocolsemexpr.protocol.funcs:
       scope.addSymbol(
         newSymbol(sexpr, scope, fn.name, fn.fntype.argtypes.mapIt(getSymbolArg(it))),
-        newSemanticExpr(sexpr, semanticProtocolFunc, protocolfntype: fn.fntype)
+        newSemanticExpr(sexpr.span, semanticProtocolFunc, protocolfntype: fn.fntype)
       )
     if curexpr.rest.rest.kind == sexprNil:
       break
@@ -180,7 +188,7 @@ proc evalProtocol*(scope: var Scope, sexpr: SExpr): SemanticExpr =
       funcs.add(($name, FuncType(returntype: rettype, argtypes: argtypes)))
   let protocol = Protocol(funcs: funcs)
   let sym = newSymbol(sexpr, scope, protocolname)
-  scope.module.semanticexprs.addSymbol(sym, newSemanticExpr(sexpr, semanticProtocol, protocol: protocol))
+  scope.module.semanticexprs.addSymbol(sym, newSemanticExpr(sexpr.span, semanticProtocol, protocol: protocol))
   return notTypeSemExpr
 
 proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
@@ -196,8 +204,8 @@ proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
     name: structname,
     fields: fields,
   )
-  scope.module.semanticexprs.addSymbol(sym, newSemanticExpr(sexpr, semanticStruct, struct: struct))
-  return newSemanticExpr(sexpr, semanticSymbol, symbol: sym)
+  scope.module.semanticexprs.addSymbol(sym, newSemanticExpr(sexpr.span, semanticStruct, struct: struct))
+  return newSemanticExpr(sexpr.span, semanticSymbol, symbol: sym)
 
 proc evalVariable*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let name = $sexpr.rest.first
@@ -205,7 +213,7 @@ proc evalVariable*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let typesym = getType(value)
   scope.addSymbol(newSymbol(sexpr, scope, name), value)
   result = newSemanticExpr(
-    sexpr,
+    sexpr.span,
     semanticVariable,
     variable: Variable(
       name: name,
@@ -219,7 +227,7 @@ proc evalIfExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let tbody = scope.evalSExpr(sexpr.rest.rest.first)
   let fbody = scope.evalSExpr(sexpr.rest.rest.rest.first)
   let condtypesym = getType(cond)
-  if not (condtypesym == scope.getSymbol(newSNil(), "Bool")):
+  if not (condtypesym == scope.getSymbol(newSNil(sexpr.span), "Bool")):
     sexpr.raiseError("cond expression is not Bool type")
   let ttypesym = getType(tbody)
   let ftypesym = getType(fbody)
@@ -228,18 +236,19 @@ proc evalIfExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =
                 else:
                   notTypeSym
   result = newSemanticExpr(
-    sexpr,
+    sexpr.span,
     semanticIfExpr,
     ifexpr: IfExpr(cond: cond, tbody: tbody, fbody: fbody),
   )
   result.typesym = typesym
 
 proc predefine*(scope: var Scope) =
-  scope.defPrimitiveMacro("c-import", cimportMacroExpand)
-  scope.defPrimitiveMacro("c-type", ctypeMacroExpand)
-  scope.defPrimitiveEval(":", evalTypeAnnot)
-  scope.defPrimitiveEval("^", evalGenericsAnnot)
-  scope.defPrimitiveEval("defprotocol", evalProtocol)
-  scope.defPrimitiveEval("defstruct", evalStruct)
-  scope.defPrimitiveEval("var", evalVariable)
-  scope.defPrimitiveEval("if", evalIfExpr)
+  scope.defPrimitiveEval(unknownSpan, "c-import", evalCImport)
+  scope.defPrimitiveEval(unknownSpan, "c-type", evalCType)
+  scope.defPrimitiveEval(unknownSpan, "c-emit", evalCEmit)
+  scope.defPrimitiveEval(unknownSpan, ":", evalTypeAnnot)
+  scope.defPrimitiveEval(unknownSpan, "^", evalGenericsAnnot)
+  scope.defPrimitiveEval(unknownSpan, "defprotocol", evalProtocol)
+  scope.defPrimitiveEval(unknownSpan, "defstruct", evalStruct)
+  scope.defPrimitiveEval(unknownSpan, "var", evalVariable)
+  scope.defPrimitiveEval(unknownSpan, "if", evalIfExpr)

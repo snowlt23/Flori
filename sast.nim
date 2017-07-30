@@ -32,129 +32,108 @@ type
     of sexprString:
       strval*: string
 
-template ast*(s: Span, sexpr: typed): untyped =
-  let tmp = sexpr
-  tmp.span = s
-  tmp
-proc newSNil*(): SExpr =
+let unknownSpan* = Span(line: 0, linepos: 0)
+
+proc newSNil*(span: Span): SExpr =
   new result
+  result.span = span
   result.kind = sexprNil
-proc newSList*(first, rest: SExpr): SExpr =
+proc newSList*(span: Span, first, rest: SExpr): SExpr =
   new result
+  result.span = span
   result.kind = sexprList
   result.first = first
   result.rest = rest
-proc newSIdent*(id: string): SExpr =
+proc newSIdent*(span: Span, id: string): SExpr =
   new result
+  result.span = span
   result.kind = sexprIdent
   result.id = id
-proc newSAttr*(attr: string): SExpr =
+proc newSAttr*(span: Span, attr: string): SExpr =
   new result
+  result.span = span
   result.kind = sexprAttr
   result.attr = attr
-proc newSInt*(x: int64): SExpr =
+proc newSInt*(span: Span, x: int64): SExpr =
   new result
+  result.span = span
   result.kind = sexprInt
   result.intval = x
-proc newSInt*(s: string): SExpr =
-  newSInt(parseInt(s))
-proc newSString*(s: string): SExpr =
+proc newSInt*(span: Span, s: string): SExpr =
+  newSInt(span, parseInt(s))
+proc newSString*(span: Span, s: string): SExpr =
   new result
+  result.span = span
   result.kind = sexprString
   result.strval = s
+
+template each*(list: SExpr, name: untyped, body: untyped) =
+  var curexpr = list
+  template next() =
+    curexpr = curexpr.rest
+  while true:
+    let name {.inject.} = curexpr
+    body
+    if curexpr.rest.kind == sexprNil:
+      break
+    next()
 
 iterator items*(list: SExpr): SExpr =
   if list.kind != sexprList:
     raise newException(SExprError, "reverse: sexpr is not list")
-  var curexpr = list
-  while true:
-    yield(curexpr.first)
-    if curexpr.rest.kind == sexprNil:
-      break
-    curexpr = curexpr.rest
+  list.each(e):
+    yield(e.first)
 iterator pairs*(list: SExpr): tuple[i: int, e: SExpr] =
   if list.kind != sexprList:
     raise newException(SExprError, "reverse: sexpr is not list")
-  var curexpr = list
   var i = 0
-  while true:
-    yield(i, curexpr.first)
-    if curexpr.rest.kind == sexprNil:
-      break
-    curexpr = curexpr.rest
+  list.each(e):
+    yield(i, e.first)
     i.inc
-iterator list*(list: SExpr): SExpr =
-  if list.kind != sexprList:
-    raise newException(SExprError, "reverse: sexpr is not list")
-  var curexpr = list
-  while true:
-    yield(curexpr)
-    if curexpr.rest.kind == sexprNil:
-      break
-    curexpr = curexpr.rest
 
 proc len*(list: SExpr): int =
   result = 0
-  var curexpr = list
-  while true:
+  list.each(e):
     result.inc
-    if curexpr.rest.kind == sexprNil:
-      break
-    curexpr = curexpr.rest
 proc reverse*(list: SExpr): SExpr =
   if list.kind != sexprList:
     raise newException(SExprError, "reverse: sexpr is not list")
-  var newexpr = newSNil()
-  var curexpr = list
-  while true:
-    newexpr = newSList(curexpr.first, newexpr)
-    if curexpr.rest.kind == sexprNil:
-      break
-    curexpr = curexpr.rest
-  return ast(list.span, newexpr)
+  var newexpr = newSNil(list.span)
+  list.each(e):
+    newexpr = newSList(e.span, e.first, newexpr)
+  return newexpr
 proc last*(list: SExpr): SExpr =
-  var curexpr = list
-  while true:
-    if curexpr.rest.kind == sexprNil:
-      return curexpr.first
-    curexpr = curexpr.rest
+  if list.kind != sexprList:
+    raise newException(SExprError, "last: sexpr is not list")
+  list.each(e):
+    if e.rest.kind == sexprNil:
+      return e.first
 proc `last=`*(list: SExpr, val: SExpr) =
-  var curexpr = list
-  while true:
-    if curexpr.rest.kind == sexprNil:
-      curexpr.rest = val
+  if list.kind != sexprList:
+    raise newException(SExprError, "last=: sexpr is not list")
+  list.each(e):
+    if e.rest.kind == sexprNil:
+      e.rest = val
       break
-    curexpr = curexpr.rest
 proc getAttr*(list: SExpr, attr: string): Option[SExpr] =
-  var curexpr = list
-  while true:
-    if curexpr.first.kind == sexprAttr and curexpr.first.attr == attr:
-      return some(curexpr.rest.first)
-    if curexpr.rest.kind == sexprNil:
-      return none(SExpr)
-    curexpr = curexpr.rest
+  list.each(e):
+    if e.first.kind == sexprAttr and e.first.attr == attr:
+      return some(e.rest.first)
+  return none(SExpr)
 proc hasAttr*(list: SExpr, attr: string): bool =
-  var curexpr = list
-  while true:
-    if curexpr.first.kind == sexprAttr and curexpr.first.attr == attr:
+  list.each(e):
+    if e.first.kind == sexprAttr and e.first.attr == attr:
       return true
-    if curexpr.rest.kind == sexprNil:
-      return false
-    curexpr = curexpr.rest
+  return false
 
 proc debug*(sexpr: SExpr): string =
   case sexpr.kind
   of sexprNil:
     "nil[$#:$#]" % [$sexpr.span.line, $sexpr.span.linepos]
   of sexprList:
-    var curexpr = sexpr
     var strings = newSeq[string]()
-    while true:
-      strings.add(curexpr.first.debug())
-      if curexpr.rest.kind == sexprNil:
-        strings.add(curexpr.rest.debug())
-        break
-      curexpr = curexpr.rest
+    sexpr.each(e):
+      strings.add(e.first.debug())
     "list[$#:$#]($#)" % [$sexpr.span.line, $sexpr.span.linepos, strings.join(", ")]
   of sexprIdent:
     "ident[$#:$#]($#)" % [$sexpr.span.line, $sexpr.span.linepos, sexpr.id]
@@ -170,13 +149,9 @@ proc `$`*(sexpr: SExpr): string =
   of sexprNil:
     "nil"
   of sexprList:
-    var curexpr = sexpr
     var strings = newSeq[string]()
-    while true:
-      strings.add($curexpr.first)
-      if curexpr.rest.kind == sexprNil:
-        break
-      curexpr = curexpr.rest
+    sexpr.each(e):
+      strings.add($e.first)
     "(" & strings.join(" ") & ")"
   of sexprIdent:
     sexpr.id

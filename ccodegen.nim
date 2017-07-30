@@ -207,7 +207,7 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
       module.addSrc(";\n")
     if ress[^1].prev != "":
       module.addSrc("$$i$#;\n" % ress[^1].prev)
-    if semexpr.function.body[^1].typesym == module.scope.getSymbol(newSNil(), "Void"):
+    if semexpr.function.body[^1].typesym == module.scope.getSymbol(newSNil(semexpr.span), "Void"):
       module.addSrc("$$i$#;\n" % ress[^1].src)
     else:
       module.addSrc("$$ireturn $#;\n" % ress[^1].src)
@@ -265,7 +265,7 @@ proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRe
     genIfExpr(module, semexpr, res)
   of semanticFunction:
     genFunction(module, semexpr, res)
-  of semanticPrimitiveValue, semanticPrimitiveType, semanticPrimitiveFunc, semanticPrimitiveMacro, semanticPrimitiveEval:
+  of semanticPrimitiveValue, semanticPrimitiveType, semanticPrimitiveFunc, semanticPrimitiveEval:
     discard
   of semanticFuncCall:
     genFuncCall(module, semexpr, res)
