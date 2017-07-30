@@ -229,19 +229,19 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
     of primitiveInfix:
       res.addSrc("($# $# $#)" % [$argress[0], funcsemexpr.primFuncName, $argress[1]])
   elif funcsemexpr.kind == semanticProtocolFunc:
-    semexpr.raiseError("not supported semanticProtocolFunc in currently")
-    # let sym = newSymbol(semexpr.sexpr, module.scope, semexpr.funccall.callfunc.name, semexpr.funccall.args.mapIt(getSymbolArg(it.getType.getType)))
-    # let specsemexpr = getSemanticExpr(sym)
-    # if specsemexpr.kind == semanticPrimitiveFunc:
-    #   case specsemexpr.primFuncKind
-    #   of primitiveCall:
-    #     res.addSrc("$#($#)" % [specsemexpr.primFuncName, args.mapIt($it).join(", ")])
-    #   of primitiveInfix:
-    #     res.addSrc("($# $# $#)" % [$args[0], specsemexpr.primFuncName, $args[1]])
-    # else:
-    #   let callfunc = semexpr.funccall.callfunc
-    #   let funchash = callfunc.name & "_" & callfunc.args.mapIt(genSymbolArg(it)).join("_")
-    #   res.addSrc("$#_$#($#)" % [callfunc.scope.module.name.replaceSpecialSymbols(), funchash, args.mapIt($it).join(", ")])
+    let semid = module.scope.newSemanticIdent(semexpr.span, semexpr.funccall.callfunc.name, semexpr.funccall.args.mapIt(it.getType).getSemanticTypeArgs)
+    let specfuncsym = module.scope.getSpecSymbol(semid)
+    if specfuncsym.semexpr.kind == semanticPrimitiveFunc:
+      case specfuncsym.semexpr.primFuncKind
+      of primitiveCall:
+        res.addSrc("$#($#)" % [specfuncsym.semexpr.primFuncName, argress.mapIt($it).join(", ")])
+      of primitiveInfix:
+        res.addSrc("($# $# $#)" % [$argress[0], specfuncsym.semexpr.primFuncName, $argress[1]])
+    else:
+      let callfunc = semexpr.funccall.callfunc
+      let argtypes = callfunc.semexpr.function.fntype.argtypes
+      let funchash = callfunc.name & "_" & argtypes.mapIt($it).join("_")
+      res.addSrc("$#_$#($#)" % [callfunc.scope.module.name.replaceSpecialSymbols(), funchash, argress.mapIt($it).join(", ")])
   else:
     let callfunc = semexpr.funccall.callfunc
     let argtypes = callfunc.semexpr.function.fntype.argtypes

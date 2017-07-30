@@ -325,6 +325,15 @@ proc getSymbol*(semids: var OrderedTable[SemanticIdent, SemanticIdentGroup], sem
       elif match(semid, gsemidpair.semid):
         return gsemidpair.value
   semid.raiseError("undeclared ident: $#" % $semid)
+proc getSpecSymbol*(semids: var OrderedTable[SemanticIdent, SemanticIdentGroup], semid: SemanticIdent): Symbol =
+  if semids.hasKey(semid):
+    let symgroup = semids[semid]
+    for gsemidpair in symgroup.idsymbols:
+      if gsemidpair.semid.args.len != semid.args.len:
+        continue
+      elif equal(semid, gsemidpair.semid):
+        return gsemidpair.value
+  semid.raiseError("undeclared ident: $#" % $semid)
 proc trySymbol*(semids: var OrderedTable[SemanticIdent, SemanticIdentGroup], semid: SemanticIdent): Option[Symbol] =
   if semids.hasKey(semid):
     let symgroup = semids[semid]
@@ -448,6 +457,13 @@ proc getSymbol*(scope: var Scope, semid: SemanticIdent): Symbol =
     return scope.semanticidents.getSymbol(semid)
   elif scope.module.semanticidents.hasSemId(semid):
     return scope.module.semanticidents.getSymbol(semid)
+  else:
+    semid.raiseError("couldn't find symbol: $#" % $semid)
+proc getSpecSymbol*(scope: var Scope, semid: SemanticIdent): Symbol =
+  if scope.semanticidents.hasSpecSemId(semid):
+    return scope.semanticidents.getSpecSymbol(semid)
+  elif scope.module.semanticidents.hasSpecSemId(semid):
+    return scope.module.semanticidents.getSpecSymbol(semid)
   else:
     semid.raiseError("couldn't find symbol: $#" % $semid)
 proc trySymbol*(scope: var Scope, semid: SemanticIdent): Option[Symbol] =
