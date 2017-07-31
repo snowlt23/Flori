@@ -210,7 +210,7 @@ proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
 proc evalVariable*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let name = $sexpr.rest.first
   let value = scope.evalSExpr(sexpr.rest.rest.first)
-  let typesym = getType(value)
+  let typesym = value.typesym
   let semexpr = newSemanticExpr(
     sexpr.span,
     semanticVariable,
@@ -229,11 +229,11 @@ proc evalIfExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let cond = scope.evalSExpr(sexpr.rest.first)
   let tbody = scope.evalSExpr(sexpr.rest.rest.first)
   let fbody = scope.evalSExpr(sexpr.rest.rest.rest.first)
-  let condtypesym = getType(cond)
+  let condtypesym = cond.typesym
   if not (condtypesym == scope.getSymbol(scope.newSemanticIdent(cond.span, "Bool", @[]))):
     sexpr.span.raiseError("cond expression is not Bool type")
-  let ttypesym = getType(tbody)
-  let ftypesym = getType(fbody)
+  let ttypesym = tbody.typesym
+  let ftypesym = fbody.typesym
   let typesym = if ttypesym == ftypesym:
                   ttypesym
                 else:

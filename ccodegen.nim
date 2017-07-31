@@ -231,7 +231,7 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
   if funcsemexpr.kind == semanticPrimitiveFunc:
     genPrimitiveFuncCall(module, funcsemexpr, res, argress)
   elif funcsemexpr.kind == semanticProtocolFunc:
-    let semid = module.scope.newSemanticIdent(semexpr.span, semexpr.funccall.callfunc.name, semexpr.funccall.args.mapIt(it.getType).getSemanticTypeArgs)
+    let semid = module.scope.newSemanticIdent(semexpr.span, semexpr.funccall.callfunc.name, semexpr.funccall.args.mapIt(it.typesym).getSemanticTypeArgs)
     let specfuncsym = module.scope.getSpecSymbol(semid)
     if specfuncsym.semexpr.kind == semanticPrimitiveFunc:
       genPrimitiveFuncCall(module, specfuncsym.semexpr, res, argress)
