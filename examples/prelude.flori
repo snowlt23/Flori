@@ -34,6 +34,14 @@
 
 @(: Int32 Int32 -> Int32)
 (c-import + :infix :nodecl)
+@(: Int64 Int64 -> Int64)
+(c-import + :infix :nodecl)
+@(: Float32 Float32 -> Float32)
+(c-import + :infix :nodecl)
+@(: Float64 Float64 -> Float64)
+(c-import + :infix :nodecl)
+@(: Size Size -> Size)
+(c-import + :infix :nodecl)
 
 @(: Int32 -> Int32)
 (c-import abs :header "math.h")
