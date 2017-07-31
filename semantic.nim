@@ -1,14 +1,17 @@
 
 import tables, hashes
 import strutils, sequtils
+import sparser
 import sast
 import options
 import macros
+import os
 
 type
   SemanticError* = object of Exception
 
   Symbol* = object
+    isImported*: bool
     scope*: Scope
     name*: string
     semexpr*: SemanticExpr
@@ -64,6 +67,7 @@ type
     semanticPrimitiveFunc
     semanticPrimitiveEval
     semanticModule
+    semanticRequire
     semanticFuncCall
     semanticInt
     semanticString
@@ -114,6 +118,8 @@ type
       evalproc*: proc (scope: var Scope, sexpr: SExpr): SemanticExpr
     of semanticModule:
       module*: Module
+    of semanticRequire:
+      requiremodule*: Module
     of semanticFuncCall:
       funccall*: FuncCall
     of semanticInt:
@@ -181,7 +187,6 @@ type
     name*: string
     semanticidents*: OrderedTable[SemanticIdent, SemanticIdentGroup]
     toplevelcalls*: seq[SemanticExpr]
-    exportedsymbols*: seq[Symbol]
     ccodegenInfo*: CCodegenInfo
   FuncCall* = ref object
     callfunc*: Symbol
@@ -190,22 +195,25 @@ type
     module*: Module
     semanticidents*: OrderedTable[SemanticIdent, SemanticIdentGroup]
   SemanticContext* = ref object
+    includepaths*: seq[string]
+    topmodule*: Module
     modules*: OrderedTable[string, Module]
     symcount*: int
 
 proc getSemanticTypeArgs*(syms: seq[Symbol]): seq[SemanticTypeArg]
-proc newModule*(modulename: string): Module
+proc newModule*(context: SemanticContext, modulename: string): Module
 proc newScope*(module: Module): Scope
-proc newSymbol*(scope: Scope, name: string, semexpr: SemanticExpr): Symbol
+proc newSymbol*(scope: Scope, name: string, semexpr: SemanticExpr, isImported = false): Symbol
 proc addSymbol*(scope: var Scope, semid: SemanticIdent, sym: Symbol)
 proc getSymbol*(scope: var Scope, semid: SemanticIdent): Symbol
 proc evalSExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr
+proc evalFile*(context: SemanticContext, modulepath: string): Module
 
 #
 # Consts
 #
 
-let globalModule* = newModule("global")
+let globalModule* = newModule(nil, "global")
 let globalScope* = newScope(globalModule)
 
 template notTypeSym*(): Symbol =
@@ -221,13 +229,13 @@ template notTypeSym*(): Symbol =
 
 proc raiseError*(span: Span, s: string) =
   if span.line == 0 and span.linepos == 0:
-    let msg = "(internal:$#:$#) " % [span.internal.filename, $span.internal.line] & s
+    let msg = "internal($#:$#) " % [span.internal.filename, $span.internal.line] & s
     when not defined(release):
       raise newException(SemanticError, msg)
     else:
       quit msg
   else:
-    let msg = "($#:$#) " % [$span.line, $span.linepos] & s
+    let msg = "$#($#:$#) " % [span.filename, $span.line, $span.linepos] & s
     when not defined(release):
       raise newException(SemanticError, msg)
     else:
@@ -300,6 +308,33 @@ proc debug*(symbolargs: seq[SemanticTypeArg]): string =
     return ""
   else:
     return "(" & symbolargs.mapIt(it.debug).join(", ") & ")"
+
+#
+# Symbol
+#
+
+proc newSymbol*(scope: Scope, name: string, semexpr: SemanticExpr, isImported = false): Symbol =
+  Symbol(isImported: isImported, scope: scope, name: name, semexpr: semexpr)
+proc globalSymbol*(name: string, semexpr: SemanticExpr): Symbol =
+  newSymbol(globalScope, name, semexpr)
+proc `$`*(symbol: Symbol): string =
+  symbol.scope.module.name & "_" & symbol.name
+proc `==`*(a: Symbol, b: Symbol): bool =
+  a.scope.module.name == b.scope.module.name and a.name == b.name
+proc isSpecType*(sym: Symbol): bool =
+  if sym.semexpr.kind == semanticPrimitiveType:
+    return not sym.semexpr.primtype.isGenerics
+  elif sym.semexpr.kind == semanticGenerics:
+    return false
+  elif sym.semexpr.kind == semanticTypeGenerics:
+    return false
+  else:
+    sym.raiseError("$# is not type" % $sym)
+proc isSpecTypes*(syms: seq[Symbol]): bool =
+  for sym in syms:
+    if not sym.isSpecType:
+      return false
+  return true
 
 #
 # Semantic Symbol Table
@@ -392,33 +427,6 @@ proc trySymbol*(semids: var OrderedTable[SemanticIdent, SemanticIdentGroup], sem
     return none(Symbol)
 
 #
-# Symbol
-#
-
-proc newSymbol*(scope: Scope, name: string, semexpr: SemanticExpr): Symbol =
-  Symbol(scope: scope, name: name, semexpr: semexpr)
-proc globalSymbol*(name: string, semexpr: SemanticExpr): Symbol =
-  newSymbol(globalScope, name, semexpr)
-proc `$`*(symbol: Symbol): string =
-  symbol.scope.module.name & "_" & symbol.name
-proc `==`*(a: Symbol, b: Symbol): bool =
-  a.scope.module.name == b.scope.module.name and a.name == b.name
-proc isSpecType*(sym: Symbol): bool =
-  if sym.semexpr.kind == semanticPrimitiveType:
-    return not sym.semexpr.primtype.isGenerics
-  elif sym.semexpr.kind == semanticGenerics:
-    return false
-  elif sym.semexpr.kind == semanticTypeGenerics:
-    return false
-  else:
-    sym.raiseError("$# is not type" % $sym)
-proc isSpecTypes*(syms: seq[Symbol]): bool =
-  for sym in syms:
-    if not sym.isSpecType:
-      return false
-  return true
-
-#
 # SemanticTypeArg from Symbol
 #
 
@@ -480,12 +488,12 @@ proc addHeader*(info: var CCodegenInfo, name: string) =
 # Module
 #
 
-proc newModule*(modulename: string): Module =
+proc newModule*(context: SemanticContext, modulename: string): Module =
   new result
+  result.context = context
   result.name = modulename
   result.semanticidents = initOrderedTable[SemanticIdent, SemanticIdentGroup]()
   result.toplevelcalls = @[]
-  result.exportedsymbols = @[]
   result.ccodegenInfo = newCCodegenInfo()
 
 proc addSymbol*(module: Module, semid: SemanticIdent, sym: Symbol) =
@@ -497,8 +505,14 @@ proc addCffi*(module: Module, cffi: Cffi) =
 proc addDecl*(module: Module, decl: string) =
   module.ccodegeninfo.decls.add(decl)
 
+iterator semidsymbols*(module: Module): tuple[semid: SemanticIdent, symbol: Symbol] =
+  for semidgroup in module.semanticidents.values:
+    for semidvalue in semidgroup.idsymbols:
+      yield(semidvalue.semid, semidvalue.value)
+
 proc newSemanticContext*(): SemanticContext =
   new result
+  result.includepaths = @[]
   result.modules = initOrderedTable[string, Module]()
 
 #
@@ -585,7 +599,7 @@ proc defPrimitiveFunc*(scope: var Scope, span: Span, isPattern: bool, funcname: 
   return sym
 proc defPrimitiveEval*(scope: var Scope, span: Span, macroname: string, evalproc: proc (scope: var Scope, sexpr: SExpr): SemanticExpr) =
   let semexpr = newSemanticExpr(span, semanticPrimitiveEval, notTypeSym, evalproc: evalproc)
-  let sym = newSymbol(scope, macroname, semexpr)
+  let sym = newSymbol(scope, macroname, semexpr, isImported = true)
   scope.module.semanticidents.addSymbol(newSemanticIdent(sym), sym)
 
 #
@@ -854,9 +868,9 @@ proc evalSExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =
 
 include semantic_predefines
 
-proc evalModule*(context: SemanticContext, modulename: string, sexpr: seq[SExpr]) =
+proc evalModule*(context: SemanticContext, modulename: string, sexpr: seq[SExpr]): Module =
   let modulename = modulename.replace("/", "_").replace("\\", "_")
-  var module = newModule(modulename)
+  var module = newModule(context, modulename)
   var scope = newScope(module)
   scope.predefine()
   context.modules[modulename] = module
@@ -866,3 +880,20 @@ proc evalModule*(context: SemanticContext, modulename: string, sexpr: seq[SExpr]
       discard
     else:
       module.toplevelcalls.add(semexpr)
+  return module
+
+proc evalFile*(context: SemanticContext, modulepath: string): Module =
+  let modulename = modulepath.replace("/", ".").replace(".flori")
+  var specfilepath = ""
+  for includepath in context.includepaths:
+    let filepath = includepath / modulename.replace(".", "/") & ".flori"
+    if existsFile(filepath):
+      specfilepath = filepath
+      break
+  if not existsFile(specfilepath):
+    raise newException(SemanticError, "couldn't find file: $#" % modulename)
+  let sexpr = parseToplevel(specfilepath, readFile(specfilepath))
+  return context.evalModule(modulename, sexpr)
+
+proc evalTopfile*(context: SemanticContext, modulepath: string) =
+  context.topmodule = context.evalFile(modulepath)

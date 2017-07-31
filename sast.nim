@@ -5,6 +5,7 @@ import options
 type
   SExprError* = object of Exception
   Span* = object
+    filename*: string
     line*: int
     linepos*: int
     pos*: int

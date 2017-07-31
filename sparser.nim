@@ -5,6 +5,7 @@ import strutils
 type
   SParseError* = object of Exception
   ParserContext* = object
+    filename*: string
     src*: string
     line*: int
     linepos*: int
@@ -15,7 +16,8 @@ const EndList* = {')', ']'}
 const SpecialSymbols* = {'!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '/', '<', '=', '>', '?', '^'}
 const SeparateSymbols* = {'(', '[', ')', ']', ' '}
 
-proc newParserContext*(src: string): ParserContext =
+proc newParserContext*(filename: string, src: string): ParserContext =
+  result.filename = filename
   result.src = src
   result.line = 1
   result.linepos = 1
@@ -25,11 +27,22 @@ proc curchar*(context: ParserContext): char =
 proc isEOF*(context: ParserContext): bool =
   context.curchar == 0x1a.char or context.curchar == '\0'
 proc isNewline*(context: ParserContext): bool =
-  let newline = "\n"
-  for i in 0..<newline.len:
-    if context.src[context.pos+i] != newline[i]:
-      return false
-  return true
+  let lf = 0x0a.char
+  let cr = 0x0d.char
+  if context.curchar == lf:
+    return true
+  elif context.src[context.pos] == cr and context.src[context.pos+1] == lf:
+    return true
+  else:
+    return false
+proc newlineLen*(context: ParserContext): int =
+  let lf = 0x0a.char
+  let cr = 0x0d
+  if context.curchar == lf:
+    return 1
+  else:
+    return 2
+
 proc isSeparateSymbol*(context: ParserContext): bool =
   if context.curchar in SeparateSymbols or context.isNewline:
     return true
@@ -45,19 +58,20 @@ proc skipSpaces*(context: var ParserContext) =
     elif context.isNewLine:
       context.line += 1
       context.linepos = 1
-      context.pos += "\n".len
+      context.pos += context.newlineLen()
     elif context.curchar == ';':
       context.inc
       while true:
         if context.isNewline:
           context.line += 1
           context.linepos = 1
-          context.pos += "\n".len
+          context.pos += context.newlineLen()
           break
         context.inc
     else:
       break
 proc span*(context: ParserContext): Span =
+  result.filename = context.filename
   result.line = context.line
   result.linepos = context.linepos
   result.pos = context.pos
@@ -134,11 +148,11 @@ proc parseSExpr*(context: var ParserContext): SExpr =
   else:
     raise newException(SParseError, "($#:$#) couldn't parse s expression" % [$context.line, $context.linepos])
 
-proc parseSExpr*(src: string): SExpr =
-  var context = newParserContext(src)
+proc parseSExpr*(filename: string, src: string): SExpr =
+  var context = newParserContext(filename, src)
   return parseSExpr(context)
-proc parseToplevel*(src: string): seq[SExpr] =
-  var context = newParserContext(src)
+proc parseToplevel*(filename: string, src: string): seq[SExpr] =
+  var context = newParserContext(filename, src)
   result = @[]
   while true:
     let ret = parseSExpr(context)

@@ -246,7 +246,28 @@ proc evalIfExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   )
   return semexpr
 
+proc evalRequire*(scope: var Scope, sexpr: SExpr): SemanticExpr =
+  let modulename = $sexpr.rest.first
+  let modulepath = modulename.replace(".", "/")
+  let module = scope.module.context.evalFile(modulepath)
+  let asattr = sexpr.getAttr("as")
+  let referattr = sexpr.getAttr("refer")
+  let prefixname = if referattr.isSome and referattr.get.attr == "all":
+                     ""
+                   elif asattr.isSome:
+                     asattr.get.strval & "."
+                   else:
+                     modulename & "."
+  for semid, sym in module.semidsymbols:
+    if not sym.isImported:
+      var importsym = sym.scope.newSymbol(sym.name, sym.semexpr, isImported = true)
+      let importname = prefixname & semid.name
+      var importsemid = sym.scope.newSemanticIdent(sexpr.rest.first.span, importname, semid.args)
+      scope.module.addSymbol(importsemid, importsym)
+  return newSemanticExpr(sexpr.span, semanticRequire, notTypeSym, requireModule: module)
+
 proc predefine*(scope: var Scope) =
+  scope.defPrimitiveEval(internalSpan, "require", evalRequire)
   scope.defPrimitiveEval(internalSpan, "c-import", evalCImport)
   scope.defPrimitiveEval(internalSpan, "c-type", evalCType)
   scope.defPrimitiveEval(internalSpan, "c-emit", evalCEmit)

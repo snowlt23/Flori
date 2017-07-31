@@ -14,7 +14,7 @@ proc writeToFiles*(context: CCodegenContext) =
   if not existsDir(cachedir):
     createDir(cachedir)
   for sym, module in context.modules:
-    writeFile(cachedir/sym & ".c", module.src)
+    writeFile(cachedir/sym & ".c", module.toplevel & "\n" & module.src)
   writeFile(cachedir/"main.c", context.getMainSrc())
 
 proc getFilenames*(context: CCodegenContext): seq[string] =
@@ -31,8 +31,9 @@ proc compile*(context: CCodegenContext, outname: string) =
 
 proc compileFlori*(filename: string, outname: string) =
   var semcontext = newSemanticContext()
-  let sexpr = parseToplevel(readFile(filename))
-  semcontext.evalModule(filename.replace(".flori"), sexpr)
+  semcontext.includepaths.add("./")
+  semcontext.includepaths.add(filename.splitFile().dir)
+  semcontext.evalTopfile(filename)
   var cgencontext = newCCodegenContext()
   cgencontext.genContext(semcontext)
   cgencontext.compile(outname)
