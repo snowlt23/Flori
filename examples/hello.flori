@@ -1,5 +1,6 @@
 
 (require prelude :refer :all)
+(require io :refer :all)
 
 @(^ (:a Number))
 @(: :a -> :a)
@@ -28,7 +29,7 @@
 (defn get-x [mi]
   (mi x))
 
-(print (nth (cast (Ptr CChar) (addr "Hello Voiceroids!\n")) (size 6)))
+(print (nth (cast (Ptr UInt8) (addr "Hello Voiceroids!\n")) (size 6)))
 (print "\n")
 (print "Hello Yukari!")
 (print "\n")

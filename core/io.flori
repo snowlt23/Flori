@@ -1,11 +1,15 @@
 
-@unsafe
-@(: CString CVarargs)
-(c-import printf :name "printf" :header "stdio.h")
+(require prelude :refer :all)
 
+@(^ (:a All))
+@(: CString :a)
+(c-import printf :name "printf" :header "stdio.h")
 @(: CString)
-(defn print [s]
-  (unsafe (printf s)))
+(c-import print :name "printf" :header "stdio.h")
+
+@(: UInt8)
+(defn print [x]
+  (printf "%c" x))
 @(: Int32)
 (defn print [x]
-  (unsafe (printf "%d" x)))
+  (printf "%d" x))

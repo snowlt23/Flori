@@ -38,7 +38,7 @@ proc addMainSrc*(context: CCodegenContext, s: string) =
 proc getMainSrc*(context: CCodegenContext): string =
   result = ""
   for cgenmodule in context.modules.values:
-    result = cgenmodule.header & "\n" & result
+    result &= cgenmodule.header & "\n"
   result &= "int main() {\n"
   result &= context.mainsrc
   result &= "}\n"
@@ -325,13 +325,13 @@ proc genToplevelCalls*(context: CCodegenContext, cgenmodule: var CCodegenModule,
 
 proc genModule*(context: CCodegenContext, sym: string, module: Module): CCodegenModule =
   var cgenmodule = newCCodegenModule(context, newScope(module))
-  context.modules[sym] = cgenmodule
   genHeaders(context, cgenmodule, sym, module)
   for semidgroup in module.semanticidents.values:
     for gsympair in semidgroup.idsymbols:
       var res = newCCodegenRes()
       gen(cgenmodule, gsympair.value.semexpr, res)
   genToplevelCalls(context, cgenmodule, sym, module)
+  context.modules[sym] = cgenmodule
   return cgenmodule
 
 proc genContext*(context: CCodegenContext, semcontext: SemanticContext) =

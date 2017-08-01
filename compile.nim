@@ -32,6 +32,7 @@ proc compile*(context: CCodegenContext, outname: string) =
 proc compileFlori*(filename: string, outname: string) =
   var semcontext = newSemanticContext()
   semcontext.includepaths.add("./")
+  semcontext.includepaths.add(getAppDir() / "core")
   semcontext.includepaths.add(filename.splitFile().dir)
   semcontext.evalTopfile(filename)
   var cgencontext = newCCodegenContext()
