@@ -1,30 +1,39 @@
 
+(require prelude :refer :all)
+(require io :refer :all)
+
 (defstruct String
-  (data (Ptr UInt8))
+  (data (Ptr CChar))
   (len Size))
+
 @(: Size -> String)
-(defn new-string-cap (len)
+(defn str-cap [len]
   (var str (String
-        :data (cast (Ptr Uint8) (malloc (* (sizeof :Uint8) (+ len 1))))
-        :len (strlen cstr)))
+      :data (cast (Ptr UInt8) (alloc (* (sizeof UInt8) (+ len (size 1)))))
+      :len len))
   str)
 @(: CString -> String)
-(defn new-string (cstr)
-  (unsafe  
-    (var str (String
-        :data (cast (Ptr Uint8) (malloc (* (sizeof :Uint8) (+ (strlen cstr) 1))))
-        :len (strlen cstr)))
-    (memcpy (cast Pointer cstr) cstr (+ (strlen cstr) 1))
-    str))
-@(: String Size -> Uint8)
-(defn nth [str index]
-  (unsafe (nth (str .data) index)))
-@(: String -> Size)
-(defn len [str]
-  (str .len))
-@destructor
-@(: String)
-(defun destroy [str]
-  (unsafe
-    (dealloc (str .data))))
+(defn str [cstr]
+  (var bytesize (* (sizeof CChar) (cast Size (+ (cast Int32 (strlen cstr)) 1))))
+  (var str (String
+      :data (cast (Ptr CChar) (alloc bytesize))
+      :len (strlen cstr)))
+  (memcpy (cast Pointer (str data)) (cast Pointer cstr) bytesize)
+  str)
 
+@(: String Size -> CChar)
+(defn nth [s index]
+  (nth (s data) index))
+
+@(: String -> Size)
+(defn len [s]
+  (s len))
+
+@(: String)
+(defn print [s]
+  (print (cast CString (s data))))
+
+;; @destructor
+@(: String)
+(defn destroy [s]
+  (dealloc (cast Pointer (s data))))

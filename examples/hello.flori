@@ -1,6 +1,7 @@
 
 (require prelude :refer :all)
 (require io :refer :all)
+(require string :refer :all)
 
 @(^ (:a Number))
 @(: :a -> :a)
@@ -34,6 +35,8 @@
 (print "Hello Yukari!")
 (print "\n")
 (print (mul2 5))
+(print "\n")
+(print (str "Hello IA!"))
 (print "\n")
 ;; (print (add5 4))
 ;; (print "\n")

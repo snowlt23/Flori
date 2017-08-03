@@ -13,7 +13,7 @@ type
   CCodegenRes* = object
     prev*: string
     src*: string
-  CCodegenModule* = ref object
+  CCodegenModule* = object
     context*: CCodegenContext
     toplevel*: string
     src*: string
@@ -44,7 +44,6 @@ proc getMainSrc*(context: CCodegenContext): string =
   result &= "}\n"
 
 proc newCCodegenModule*(context: CCodegenContext, scope: Scope): CCodegenModule =
-  new result
   result.context = context
   result.toplevel = ""
   result.src = ""
@@ -111,7 +110,7 @@ proc formatPrev*(res: var CCodegenRes, s: string, args: varargs[CCodegenRes, toC
 
 proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes)
 
-proc genTmpSym*(module: CCodegenModule, name = "tmp"): string =
+proc genTmpSym*(module: var CCodegenModule, name = "tmp"): string =
   result = "__flori_" & name & $module.symcount
   module.symcount.inc
 
@@ -146,6 +145,15 @@ proc genStruct*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCod
     for field in fields:
       module.addCommon("$$i$# $#;\n" % [genSym(module.scope, field.typesym), field.name])
   module.addCommon("} $#_$#;\n" % [module.scope.module.name, structname])
+
+proc genStructConstructor*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
+  let values = semexpr.structconstructor.values
+  res.addSrc("{")
+  for value in values:
+    res.addSrc(".$# = " % value.name)
+    gen(module, value.value, res)
+    res.addSrc(", ")
+  res.addSrc("}")
 
 proc genFieldAccess*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let valuename = $semexpr.fieldaccess.valuesym
@@ -270,6 +278,8 @@ proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRe
     discard
   of semanticStruct:
     genStruct(module, semexpr, res)
+  of semanticStructConstructor:
+    genStructConstructor(module, semexpr, res)
   of semanticFieldAccess:
     genFieldAccess(module, semexpr, res)
   of semanticVariable:
@@ -282,8 +292,6 @@ proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRe
     discard
   of semanticRequire:
     let retmodule = module.context.genModule(semexpr.requiremodule.name, semexpr.requiremodule)
-    # for header in semexpr.requiremodule.ccodegeninfo.headers.keys:
-    #   module.addToplevel("#include \"" & header & "\"\n")
     module.addToplevel(retmodule.header)
   of semanticFuncCall:
     genFuncCall(module, semexpr, res)
@@ -326,10 +334,10 @@ proc genToplevelCalls*(context: CCodegenContext, cgenmodule: var CCodegenModule,
 proc genModule*(context: CCodegenContext, sym: string, module: Module): CCodegenModule =
   var cgenmodule = newCCodegenModule(context, newScope(module))
   genHeaders(context, cgenmodule, sym, module)
-  for semidgroup in module.semanticidents.values:
-    for gsympair in semidgroup.idsymbols:
-      var res = newCCodegenRes()
-      gen(cgenmodule, gsympair.value.semexpr, res)
+  for symbol in module.symbols:
+    var res = newCCodegenRes()
+    if not symbol.isImported:
+      gen(cgenmodule, symbol.semexpr, res)
   genToplevelCalls(context, cgenmodule, sym, module)
   context.modules[sym] = cgenmodule
   return cgenmodule

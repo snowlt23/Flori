@@ -187,7 +187,7 @@ proc evalProtocol*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let semexpr = newSemanticExpr(sexpr.span, semanticProtocol, notTypeSym, protocol: protocol)
   let sym = newSymbol(scope, protocolname, semexpr)
   let semid = newSemanticIdent(sym)
-  scope.module.semanticidents.addSymbol(semid, sym)
+  scope.module.addSymbol(semid, sym)
   return newSemanticExpr(sexpr.span, semanticSymbol, notTypeSym, symbol: sym)
 
 proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
@@ -195,7 +195,7 @@ proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   var fields = newSeq[tuple[name: string, typesym: Symbol]]()
   for field in sexpr.rest.rest:
     let fieldname = $field.first
-    let typesym = scope.getSymbol(scope.newSemanticIdent(field.rest.first))
+    let typesym = scope.evalType(field.rest.first)
     fields.add((fieldname, typesym))
   let struct = Struct(
     isGenerics: false,
@@ -204,7 +204,7 @@ proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   )
   let semexpr = newSemanticExpr(sexpr.span, semanticStruct, notTypeSym, struct: struct)
   let sym = newSymbol(scope, structname, semexpr)
-  scope.module.semanticidents.addSymbol(newSemanticIdent(sym), sym)
+  scope.module.addSymbol(newSemanticIdent(sym), sym)
   return newSemanticExpr(sexpr.span, semanticSymbol, notTypeSym, symbol: sym)
 
 proc evalVariable*(scope: var Scope, sexpr: SExpr): SemanticExpr =
