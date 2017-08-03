@@ -3,7 +3,7 @@
 (require io :refer :all)
 
 (defstruct String
-  (data (Ptr CChar))
+  (data (Ptr UInt8))
   (len Size))
 
 @(: Size -> String)
@@ -14,14 +14,14 @@
   str)
 @(: CString -> String)
 (defn str [cstr]
-  (var bytesize (* (sizeof CChar) (cast Size (+ (cast Int32 (strlen cstr)) 1))))
+  (var bytesize (* (sizeof UInt8) (cast Size (+ (cast Int32 (strlen cstr)) 1))))
   (var str (String
-      :data (cast (Ptr CChar) (alloc bytesize))
+      :data (cast (Ptr UInt8) (alloc bytesize))
       :len (strlen cstr)))
   (memcpy (cast Pointer (str data)) (cast Pointer cstr) bytesize)
   str)
 
-@(: String Size -> CChar)
+@(: String Size -> UInt8)
 (defn nth [s index]
   (nth (s data) index))
 
