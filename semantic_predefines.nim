@@ -246,6 +246,34 @@ proc evalIfExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   )
   return semexpr
 
+proc evalWhileSyntax*(scope: var Scope, sexpr: SExpr): SemanticExpr =
+  let cond = scope.evalSExpr(sexpr.rest.first)
+  var body = newSeq[SemanticExpr]()
+  for e in sexpr.rest.rest:
+    body.add(scope.evalSExpr(e))
+  let semexpr = newSemanticExpr(
+    sexpr.span,
+    semanticWhileSyntax,
+    notTypeSym,
+    whilesyntax: WhileSyntax(cond: cond, body: body),
+  )
+  return semexpr
+
+proc evalSetSyntax*(scope: var Scope, sexpr: SExpr): SemanticExpr =
+  let variable = scope.evalSExpr(sexpr.rest.first)
+  if variable.kind != semanticSymbol:
+    sexpr.rest.first.span.raiseError("this is not variable")
+  let value = scope.evalSExpr(sexpr.rest.rest.first)
+  if not (variable.typesym == value.typesym):
+    value.raiseError("illegal set! $# = $#" % [$variable.typesym, $value.typesym])
+  let semexpr = newSemanticExpr(
+    sexpr.span,
+    semanticSetSyntax,
+    notTypeSym,
+    setsyntax: SetSyntax(variable: variable.symbol, value: value),
+  )
+  return semexpr
+
 proc evalRequire*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let modulename = $sexpr.rest.first
   let modulepath = modulename.replace(".", "/")
@@ -277,3 +305,5 @@ proc predefine*(scope: var Scope) =
   scope.defPrimitiveEval(internalSpan, "defstruct", evalStruct)
   scope.defPrimitiveEval(internalSpan, "var", evalVariable)
   scope.defPrimitiveEval(internalSpan, "if", evalIfExpr)
+  scope.defPrimitiveEval(internalSpan, "while", evalWhileSyntax)
+  scope.defPrimitiveEval(internalSpan, "set!", evalSetSyntax)

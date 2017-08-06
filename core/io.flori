@@ -13,3 +13,6 @@
 @(: Int32)
 (defn print [x]
   (printf "%d" x))
+@(: UInt32)
+(defn print [x]
+  (printf "%u" x))

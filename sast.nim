@@ -34,6 +34,8 @@ type
     of sexprString:
       strval*: string
 
+proc `$`*(sexpr: SExpr): string
+
 template internalSpan*(): Span =
   const internalname = instantiationInfo().filename
   const internalline = instantiationInfo().line
@@ -84,38 +86,47 @@ template each*(list: SExpr, name: untyped, body: untyped) =
     next()
 
 iterator items*(list: SExpr): SExpr =
-  if list.kind != sexprList:
-    raise newException(SExprError, "reverse: sexpr is not list")
-  list.each(e):
-    yield(e.first)
+  if list.kind == sexprNil:
+    discard
+  else:
+    if list.kind != sexprList:
+      raise newException(SExprError, "items: $# is not list" % $list)
+    list.each(e):
+      yield(e.first)
 iterator pairs*(list: SExpr): tuple[i: int, e: SExpr] =
-  if list.kind != sexprList:
-    raise newException(SExprError, "reverse: sexpr is not list")
-  var i = 0
-  list.each(e):
-    yield(i, e.first)
-    i.inc
+  if list.kind == sexprNil:
+    discard
+  else:
+    if list.kind != sexprList:
+      raise newException(SExprError, "pairs: $# is not list" % $list)
+    var i = 0
+    list.each(e):
+      yield(i, e.first)
+      i.inc
 
 proc len*(list: SExpr): int =
   result = 0
   list.each(e):
     result.inc
 proc reverse*(list: SExpr): SExpr =
-  if list.kind != sexprList:
-    raise newException(SExprError, "reverse: sexpr is not list")
-  var newexpr = newSNil(list.span)
-  list.each(e):
-    newexpr = newSList(e.span, e.first, newexpr)
-  return newexpr
+  if list.kind == sexprNil:
+    return list
+  else:
+    if list.kind != sexprList:
+      raise newException(SExprError, "reverse: $# is not list" % $list)
+    var newexpr = newSNil(list.span)
+    list.each(e):
+      newexpr = newSList(e.span, e.first, newexpr)
+    return newexpr
 proc last*(list: SExpr): SExpr =
   if list.kind != sexprList:
-    raise newException(SExprError, "last: sexpr is not list")
+    raise newException(SExprError, "last: $# is not list" % $list)
   list.each(e):
     if e.rest.kind == sexprNil:
       return e.first
 proc `last=`*(list: SExpr, val: SExpr) =
   if list.kind != sexprList:
-    raise newException(SExprError, "last=: sexpr is not list")
+    raise newException(SExprError, "last=: $# is not list" % $list)
   list.each(e):
     if e.rest.kind == sexprNil:
       e.rest = val

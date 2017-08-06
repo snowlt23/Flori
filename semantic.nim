@@ -56,7 +56,6 @@ type
     semanticTypeGenerics
     semanticType
     semanticProtocol
-    semanticIfExpr
     semanticProtocolFunc
     semanticFunction
     semanticMacro
@@ -67,6 +66,9 @@ type
     semanticPrimitiveValue
     semanticPrimitiveFunc
     semanticPrimitiveEval
+    semanticIfExpr
+    semanticWhileSyntax
+    semanticSetSyntax
     semanticModule
     semanticRequire
     semanticFuncCall
@@ -97,8 +99,6 @@ type
       semtype*: SemType
     of semanticProtocol:
       protocol*: Protocol
-    of semanticIfExpr:
-      ifexpr*: IfExpr
     of semanticProtocolFunc:
       protocolfntype*: FuncType
     of semanticFunction:
@@ -119,6 +119,12 @@ type
       primfunc*: PrimitiveFunc
     of semanticPrimitiveEval:
       evalproc*: proc (scope: var Scope, sexpr: SExpr): SemanticExpr
+    of semanticIfExpr:
+      ifexpr*: IfExpr
+    of semanticWhileSyntax:
+      whilesyntax*: WhileSyntax
+    of semanticSetSyntax:
+      setsyntax*: SetSyntax
     of semanticModule:
       module*: Module
     of semanticRequire:
@@ -148,10 +154,6 @@ type
   Protocol* = ref object
     isGenerics*: bool
     funcs*: seq[tuple[name: string, fntype: FuncType]]
-  IfExpr* = ref object
-    cond*: SemanticExpr
-    tbody*: SemanticExpr
-    fbody*: SemanticExpr
   Function* = ref object
     isGenerics*: bool
     name*: string
@@ -188,6 +190,16 @@ type
     pattern*: bool
     name*: string
     fntype*: FuncType
+  IfExpr* = ref object
+    cond*: SemanticExpr
+    tbody*: SemanticExpr
+    fbody*: SemanticExpr
+  WhileSyntax* = ref object
+    cond*: SemanticExpr
+    body*: seq[SemanticExpr]
+  SetSyntax* = ref object
+    variable*: Symbol
+    value*: SemanticExpr
   Module* = ref object
     context*: SemanticContext
     name*: string
@@ -663,6 +675,8 @@ proc getTypeAnnotation*(scope: var Scope, sexpr: SExpr): tuple[argtypes: seq[Sym
   result = (argtypesyms, rettypesym, body)
 
 proc addArgSymbols*(scope: var Scope, argtypesyms: seq[Symbol], funcdef: SExpr) =
+  if funcdef.rest.rest.first.kind == sexprNil:
+    return
   if funcdef.rest.rest.first.len != argtypesyms.len:
     raise newException(SemanticError, "($#:$#) argument length is not equals type length" % [$funcdef.span.line, $funcdef.span.linepos])
   for i, arg in funcdef.rest.rest.first:
@@ -873,12 +887,14 @@ proc evalCall*(scope: var Scope, sexpr: SExpr): SemanticExpr =
         return scope.evalSExpr(retsemexpr.sexpr)
       else:
         return retsemexpr
-    if trysym.get.semexpr.kind == semanticStruct: # struct constructor
+    elif trysym.get.semexpr.kind == semanticStruct: # struct constructor
       return scope.genStructConstructor(sexpr, trysym.get)
     else:
       let typesemexpr = trysym.get.semexpr.typesym.semexpr
       if typesemexpr.kind == semanticStruct: # callable struct
         return scope.genCallableStruct(sexpr, trysym.get, typesemexpr)
+      else: # normal call
+        return scope.evalFuncCall(sexpr)
   else:
     return scope.evalFuncCall(sexpr)
 

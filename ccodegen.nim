@@ -115,7 +115,7 @@ proc genTmpSym*(module: var CCodegenModule, name = "tmp"): string =
   module.symcount.inc
 
 proc replaceSpecialSymbols*(s: string): string =
-  s.replace("+", "_add_").replace("-", "_sub_").replace("*", "_mul_").replace("/", "_div_")
+  s.replace("+", "_add_").replace("-", "_sub_").replace("*", "_mul_").replace("/", "_div_").replace("!", "excl")
 
 proc genPattern*(pattern: string, args: seq[string]): string =
   var respat = pattern
@@ -193,6 +193,25 @@ proc genIfExpr*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCod
     res.formatPrev("$i  $# = $#;\n", tmpsym, fbodyres)
     res.formatPrev("$i}")
     res.addSrc(tmpsym)
+
+proc genWhileSyntax*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
+  var condres = newCCodegenRes()
+  gen(module, semexpr.whilesyntax.cond, condres)
+  var bodyress = newSeq[CCodegenRes]()
+  for b in semexpr.whilesyntax.body:
+    var bodyres = newCCodegenRes()
+    gen(module, b, bodyres)
+    bodyress.add(bodyres)
+  res.formatPrev("while ($#) {\n", condres)
+  for bres in bodyress:
+    res.formatPrev("$i  $#;\n", bres)
+  res.formatPrev("$i}")
+
+proc genSetSyntax*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
+  var varres = genSym(module.scope, semexpr.setsyntax.variable)
+  var valueres = newCCodegenRes()
+  gen(module, semexpr.setsyntax.value, valueres)
+  res.format("$# = $#", varres, valueres)
 
 proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   if semexpr.function.isGenerics:
@@ -286,6 +305,10 @@ proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRe
     genVariable(module, semexpr, res)
   of semanticIfExpr:
     genIfExpr(module, semexpr, res)
+  of semanticWhileSyntax:
+    genWhileSyntax(module, semexpr, res)
+  of semanticSetSyntax:
+    genSetSyntax(module, semexpr, res)
   of semanticFunction:
     genFunction(module, semexpr, res)
   of semanticPrimitiveValue, semanticPrimitiveType, semanticPrimitiveFunc, semanticPrimitiveEval:

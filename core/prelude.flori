@@ -80,18 +80,39 @@
 
 ;; Functions
 
+@(: Int32 Int32 -> Int32)
+(c-import + :infix :nodecl)
+
+@(: Int32 -> UInt32)
+(defn uint32 [x]
+  (cast UInt32 x))
+@(: UInt32 UInt32 -> UInt32)
+(c-import + :infix :nodecl)
+@(: UInt32 UInt32 -> UInt32)
+(c-import - :infix :nodecl)
+@(: UInt32 UInt32 -> UInt32)
+(c-import * :infix :nodecl)
+@(: UInt32 UInt32 -> UInt32)
+(c-import / :infix :nodecl)
+@(: UInt32 UInt32 -> UInt32)
+(c-import pow :name "^" :infix :nodecl)
+@(: UInt32 UInt32 -> UInt32)
+(c-import << :infix :nodecl)
+@(: UInt32 UInt32 -> UInt32)
+(c-import >> :infix :nodecl)
+
+@(: Int64 Int64 -> Int64)
+(c-import + :infix :nodecl)
+
+@(: Float32 Float32 -> Float32)
+(c-import + :infix :nodecl)
+
+@(: Float64 Float64 -> Float64)
+(c-import + :infix :nodecl)
+
 @(: Int32 -> Size)
 (defn size [x]
   (cast Size x))
-
-@(: Int32 Int32 -> Int32)
-(c-import + :infix :nodecl)
-@(: Int64 Int64 -> Int64)
-(c-import + :infix :nodecl)
-@(: Float32 Float32 -> Float32)
-(c-import + :infix :nodecl)
-@(: Float64 Float64 -> Float64)
-(c-import + :infix :nodecl)
 @(: Size Size -> Size)
 (c-import + :infix :nodecl)
 @(: Size Size -> Size)

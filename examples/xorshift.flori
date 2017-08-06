@@ -1,0 +1,19 @@
+
+(require prelude :refer :all)
+(require io :refer :all)
+
+@(: -> UInt32)
+(defn xor128 []
+  (var x (uint32 123456789))
+  (var y (uint32 362436069))
+  (var z (uint32 521288629))
+  (var w (uint32 88675123))
+  (var t (pow x (<< x (uint32 11))))
+  (set! x y)
+  (set! y z)
+  (set! z w)
+  (pow
+    (pow w (>> w (uint32 19)))
+    (pow t (>> t (uint32 8)))))
+
+(print (xor128))
