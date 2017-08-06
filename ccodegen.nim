@@ -325,6 +325,15 @@ proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRe
   else:
     raise newException(CCodegenError, "$# is unsupport codegen kind" % $semexpr.kind)
 
+proc genToplevelVariable*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
+  let varname = semexpr.variable.name
+  let value = semexpr.variable.value
+  let vartype = genSym(module.scope, semexpr.typesym)
+  module.addToplevel("$# $#_$#;\n" % [vartype, module.scope.module.name, varname])
+  module.addHeader("extern $# $#_$#;\n" % [vartype, module.scope.module.name, varname])
+  res.addSrc("$#_$# = " % [module.scope.module.name, varname])
+  gen(module, value, res)
+
 proc genHeaders*(context: CCodegenContext, cgenmodule: var CCodegenModule, sym: string, module: Module) =
   for header in module.ccodegeninfo.headers.keys:
     cgenmodule.addCommon("#include \"$#\"\n" % header)
@@ -346,7 +355,11 @@ proc genToplevelCalls*(context: CCodegenContext, cgenmodule: var CCodegenModule,
   cgenmodule.addSrc("void $#() {\n" % initfuncname)
   cgenmodule.indent:
     for semexpr in module.toplevelcalls:
-      if semexpr.kind != semanticNotType:
+      if semexpr.kind == semanticVariable:
+        var res = newCCodegenRes()
+        genToplevelVariable(cgenmodule, semexpr, res)
+        cgenmodule.addSrc("$$i$#;\n" % $res)
+      elif semexpr.kind != semanticNotType:
         var res = newCCodegenRes()
         gen(cgenmodule, semexpr, res)
         cgenmodule.addSrc("$$i$#;\n" % $res)
