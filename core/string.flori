@@ -33,7 +33,6 @@
 (defn print [s]
   (print (cast CString (s data))))
 
-;; @destructor
 @(: String)
-(defn destroy [s]
+(defn destructor [s]
   (dealloc (cast Pointer (s data))))

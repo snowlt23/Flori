@@ -181,7 +181,7 @@ proc genIfExpr*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCod
   gen(module, semexpr.ifexpr.tbody, tbodyres)
   gen(module, semexpr.ifexpr.fbody, fbodyres)
 
-  if semexpr.typesym == notTypeSym:
+  if semexpr.typesym == notTypeSym or rettype == "void":
     res.formatPrev("if ($#) {\n", condres)
     res.addPrevs([condres, tbodyres, fbodyres])
     res.formatPrev("$i  $#;\n", tbodyres)
@@ -257,7 +257,10 @@ proc genPrimitiveFuncCall*(module: var CCodegenModule, funcsemexpr: SemanticExpr
     else:
       res.addSrc("$#($#)" % [funcsemexpr.primfunc.name, argress.mapIt($it).join(", ")])
   of primitiveInfix:
-    res.addSrc("($# $# $#)" % [$argress[0], funcsemexpr.primfunc.name, $argress[1]])
+    var src = "($# $# $#)" % [$argress[0], funcsemexpr.primfunc.name, $argress[1]]
+    for i in 2..<argress.len:
+      src = "($# $# $#)" % [src, funcsemexpr.primfunc.name, $argress[i]]
+    res.addSrc(src)
 
 proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   var argress = newSeq[CCodegenRes]()

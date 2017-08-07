@@ -16,3 +16,8 @@
 @(: UInt32)
 (defn print [x]
   (printf "%u" x))
+@(: Bool)
+(defn print [x]
+  (if x
+    (print "true")
+    (print "false")))

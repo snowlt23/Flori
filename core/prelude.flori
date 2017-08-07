@@ -78,7 +78,18 @@
 @(: CString -> CInt)
 (c-import strlen :name "strlen" :header "string.h")
 
-;; Functions
+;; Bool functions
+
+@(: Bool -> Bool)
+(c-import not :name "!" :nodecl)
+@(: (Varargs Bool) -> Bool)
+(c-import and :name "&&" :infix :nodecl)
+@(: (Varargs Bool) -> Bool)
+(c-import or :name "||" :infix :nodecl)
+@(: Bool Bool -> Bool)
+(c-import eq? :name "==" :nodecl)
+
+;; Math operators
 
 @(: Int32 Int32 -> Int32)
 (c-import + :infix :nodecl)
@@ -100,6 +111,8 @@
 (c-import << :infix :nodecl)
 @(: UInt32 UInt32 -> UInt32)
 (c-import >> :infix :nodecl)
+@(: UInt32 UInt32 -> Bool)
+(c-import eq? :name "==" :infix :nodecl)
 
 @(: Int64 Int64 -> Int64)
 (c-import + :infix :nodecl)

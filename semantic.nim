@@ -27,9 +27,10 @@ type
     semexpr*: SemanticExpr
 
   SemanticTypeArdKind* = enum
+    semtypeName
     semtypeGenerics
     semtypeTypeGenerics
-    semtypeName
+    semtypeVarargs
   SemanticTypeArg* = object
     case kind*: SemanticTypeArdKind
     of semtypeName:
@@ -38,6 +39,8 @@ type
       genericssym*: Symbol
     of semtypeTypeGenerics:
       typegenericssym*: Symbol
+    of semtypeVarargs:
+      varargssym*: Symbol
   SemanticIdent* = ref object
     scope*: Scope
     span*: Span
@@ -72,6 +75,7 @@ type
     semanticStruct
     semanticStructConstructor
     semanticFieldAccess
+    semanticVarargsType
     semanticPrimitiveType
     semanticPrimitiveValue
     semanticPrimitiveFunc
@@ -122,6 +126,8 @@ type
       structconstructor*: StructConstructor
     of semanticFieldAccess:
       fieldaccess*: FieldAccess
+    of semanticVarargsType:
+      varargstype*: VarargsType
     of semanticPrimitiveType:
       primtype*: PrimitiveType
     of semanticPrimitiveValue:
@@ -190,6 +196,8 @@ type
     headers*: OrderedTable[string, bool]
     decls*: seq[string]
     cffis*: seq[Cffi]
+  VarargsType* = ref object
+    generics*: Symbol
   PrimitiveType* = ref object
     isGenerics*: bool
     name*: string
@@ -366,6 +374,8 @@ proc `$`*(semtypearg: SemanticTypeArg): string =
     semtypearg.genericssym.name
   of semtypeTypeGenerics:
     semtypearg.typegenericssym.name
+  of semtypeVarargs:
+    semtypearg.varargssym.name
 proc debug*(semtypearg: SemanticTypeArg): string =
   case semtypearg.kind
   of semtypeName:
@@ -374,6 +384,8 @@ proc debug*(semtypearg: SemanticTypeArg): string =
     $semtypearg.kind & ":" & semtypearg.genericssym.name
   of semtypeTypeGenerics:
     $semtypearg.kind & ":" & semtypearg.typegenericssym.name
+  of semtypeVarargs:
+    $semtypearg.kind & ":" & semtypearg.varargssym.name
 proc `$`*(symbolargs: seq[SemanticTypeArg]): string =
   if symbolargs.len == 0:
     return ""
@@ -418,23 +430,34 @@ proc isSpecTypes*(syms: seq[Symbol]): bool =
 # Semantic Symbol Table
 #
 
+proc match*(arg, garg: SemanticTypeArg): bool =
+  if arg.kind == semtypeName and garg.kind == semtypeName:
+    if arg.namesym != garg.namesym:
+      return false
+    else:
+      return true
+  elif garg.kind == semtypeGenerics:
+    return true
+  elif arg.kind == semtypeName and garg.kind == semtypeTypeGenerics:
+    return true
+  elif arg.kind == semtypeGenerics and garg.kind == semtypeTypeGenerics:
+    return true
+  elif arg.kind == semtypeTypeGenerics and garg.kind == semtypeTypeGenerics:
+    if arg.typegenericssym != garg.typegenericssym:
+      return false
+    else:
+      return true
+  elif arg.kind == semtypeName and garg.kind == semtypeVarargs:
+    if arg.namesym != garg.varargssym.semexpr.varargstype.generics:
+      return false
+    else:
+      return true
+  else:
+    return false
+
 proc match*(semid, gsemid: SemanticIdent): bool =
   for i in 0..<gsemid.args.len:
-    let arg = semid.args[i]
-    let garg = gsemid.args[i]
-    if arg.kind == semtypeName and garg.kind == semtypeName:
-      if arg.namesym != garg.namesym:
-        return false
-    elif garg.kind == semtypeGenerics:
-      continue
-    elif arg.kind == semtypeName and garg.kind == semtypeTypeGenerics:
-      continue
-    elif arg.kind == semtypeGenerics and garg.kind == semtypeTypeGenerics:
-      continue
-    elif arg.kind == semtypeTypeGenerics and garg.kind == semtypeTypeGenerics:
-      if arg.typegenericssym != garg.typegenericssym:
-        return false
-    else:
+    if not match(semid.args[i], gsemid.args[i]):
       return false
   return true
 proc equal*(semid, gsemid: SemanticIdent): bool =
@@ -450,12 +473,22 @@ proc equal*(semid, gsemid: SemanticIdent): bool =
       if arg.typegenericssym != garg.typegenericssym:
         return false
   return true
+proc matchVarargs*(semid, gsemid: SemanticIdent): bool =
+  for i in 0..<semid.args.len:
+    if i >= gsemid.args.len:
+      if not match(semid.args[i], gsemid.args[^1]):
+        return false
+    else:
+      if not match(semid.args[i], gsemid.args[i]):
+        return false
+  return true
+
 proc hasSemId*(semids: Table[SemanticIdent, SemanticIdentGroup], semid: SemanticIdent): bool =
   if semids.hasKey(semid):
     let symgroup = semids[semid]
     for gsemidpair in symgroup.idsymbols:
       if gsemidpair.semid.args.len != semid.args.len:
-        continue
+        return matchVarargs(semid, gsemidpair.semid)
       elif match(semid, gsemidpair.semid):
         return true
     return false
@@ -483,7 +516,8 @@ proc getSymbol*(semids: var Table[SemanticIdent, SemanticIdentGroup], semid: Sem
     let symgroup = semids[semid]
     for gsemidpair in symgroup.idsymbols:
       if gsemidpair.semid.args.len != semid.args.len:
-        continue
+        if matchVarargs(semid, gsemidpair.semid):
+          return gsemidpair.value
       elif match(semid, gsemidpair.semid):
         return gsemidpair.value
   semid.raiseError("undeclared ident: $#" % $semid)
@@ -516,6 +550,8 @@ proc getSemanticTypeArg*(sym: Symbol): SemanticTypeArg =
     return SemanticTypeArg(kind: semtypeGenerics, genericssym: sym)
   elif sym.semexpr.kind == semanticTypeGenerics:
     return SemanticTypeArg(kind: semtypeTypeGenerics, typegenericssym: sym)
+  elif sym.semexpr.kind == semanticVarargsType:
+    return SemanticTypeArg(kind: semtypeVarargs, varargssym: sym)
   else:
     return SemanticTypeArg(kind: semtypeName, namesym: sym)
 proc getSemanticTypeArgs*(syms: seq[Symbol]): seq[SemanticTypeArg] =
@@ -720,17 +756,30 @@ proc parseTypeAnnotation*(sexpr: SExpr): tuple[argtypes: seq[SExpr], rettype: SE
     rettype = newSIdent(sexpr.span, "Void")
   result = (argtypes, rettype, body)
 proc getTypeGenerics*(scope: var Scope, sexpr: SExpr): Symbol =
-  var generics = newSeq[Symbol]()
-  for e in sexpr.rest:
-    generics.add(scope.getSymbol(newSemanticIdent(scope, e)))
-  let typegenerics = TypeGenerics(
-    typ: scope.getSymbol(newSemanticIdent(scope, sexpr)),
-    generics: generics
-  )  
-  let semexpr = newSemanticExpr(sexpr.span, semanticTypeGenerics, notTypeSym, typegenerics: typegenerics)
-  let sym = newSymbol(scope, $sexpr.first, semexpr)
-  semexpr.typesym = sym
-  return sym
+  if $sexpr.first == "Varargs":
+    let semexpr = newSemanticExpr(
+      sexpr.span,
+      semanticVarargsType,
+      notTypeSym,
+      varargstype: VarargsType(
+        generics: scope.getSymbol(newSemanticIdent(scope, sexpr.rest.first))
+      )
+    )
+    let sym = newSymbol(scope, $sexpr.first, semexpr)
+    semexpr.typesym = sym
+    return sym
+  else:
+    var generics = newSeq[Symbol]()
+    for e in sexpr.rest:
+      generics.add(scope.getSymbol(newSemanticIdent(scope, e)))
+    let typegenerics = TypeGenerics(
+      typ: scope.getSymbol(newSemanticIdent(scope, sexpr)),
+      generics: generics
+    )  
+    let semexpr = newSemanticExpr(sexpr.span, semanticTypeGenerics, notTypeSym, typegenerics: typegenerics)
+    let sym = newSymbol(scope, $sexpr.first, semexpr)
+    semexpr.typesym = sym
+    return sym
 
 proc getTypeAnnotation*(scope: var Scope, sexpr: SExpr): tuple[argtypes: seq[Symbol], rettype: Symbol, body: SExpr] =
   let (argtypes, rettype, body) = parseTypeAnnotation(sexpr)
@@ -1011,7 +1060,7 @@ proc evalSExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =
 include semantic_predefines
 
 proc evalModule*(context: SemanticContext, modulename: string, sexpr: seq[SExpr]): Module =
-  let modulename = modulename.replace("/", "_").replace("\\", "_")
+  let modulename = modulename.replace("/", "_").replace("\\", "_").replace("-", "_")
   var module = newModule(context, modulename)
   var scope = newScope(module)
   scope.predefine()
