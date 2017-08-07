@@ -239,6 +239,8 @@ type
     modules*: OrderedTable[string, Module]
     symcount*: int
 
+proc `$`*(semtypearg: SemanticTypeArg): string
+proc getSemanticTypeArg*(sym: Symbol): SemanticTypeArg
 proc getSemanticTypeArgs*(syms: seq[Symbol]): seq[SemanticTypeArg]
 proc newModule*(context: SemanticContext, modulename: string): Module
 proc newScope*(module: Module): Scope
@@ -360,7 +362,7 @@ proc hash*(semid: SemanticIdent): Hash =
 proc `==`*(a, b: SemanticIdent): bool =
   a.name == b.name
 proc `$`*(semid: SemanticIdent): string =
-  semid.name
+  semid.name & "(" & semid.args.mapIt($it).join(", ") & ")"
 
 #
 # SemanticTypeArg
@@ -431,11 +433,9 @@ proc isSpecTypes*(syms: seq[Symbol]): bool =
 #
 
 proc match*(arg, garg: SemanticTypeArg): bool =
+  echo arg, ":", arg.kind, "  ", garg, ":", garg.kind
   if arg.kind == semtypeName and garg.kind == semtypeName:
-    if arg.namesym != garg.namesym:
-      return false
-    else:
-      return true
+    return arg.namesym == garg.namesym:
   elif garg.kind == semtypeGenerics:
     return true
   elif arg.kind == semtypeName and garg.kind == semtypeTypeGenerics:
@@ -443,15 +443,9 @@ proc match*(arg, garg: SemanticTypeArg): bool =
   elif arg.kind == semtypeGenerics and garg.kind == semtypeTypeGenerics:
     return true
   elif arg.kind == semtypeTypeGenerics and garg.kind == semtypeTypeGenerics:
-    if arg.typegenericssym != garg.typegenericssym:
-      return false
-    else:
-      return true
+    return match(getSemanticTypeArg(arg.typegenericssym), getSemanticTypeArg(garg.typegenericssym)):
   elif arg.kind == semtypeName and garg.kind == semtypeVarargs:
-    if arg.namesym != garg.varargssym.semexpr.varargstype.generics:
-      return false
-    else:
-      return true
+    return match(getSemanticTypeArg(arg.namesym), getSemanticTypeArg(garg.varargssym.semexpr.varargstype.generics))
   else:
     return false
 
@@ -1055,7 +1049,7 @@ proc evalSExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   of sexprString:
     return scope.evalString(sexpr)
   else:
-    sexpr.span.raiseError("couldnt't eval: $#" % $sexpr.kind)
+    sexpr.span.raiseError("couldn't eval: $#" % $sexpr.kind)
 
 include semantic_predefines
 

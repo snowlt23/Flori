@@ -1,0 +1,12 @@
+
+(require prelude :refer :all)
+(require io :refer :all)
+(require vec :refer :all)
+
+@(:)
+(defn main []
+  (vec 10)
+  (set! (nth vec 5) 9)
+  (print (nth vec 5)))
+
+(main)
