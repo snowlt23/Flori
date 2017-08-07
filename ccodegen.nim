@@ -148,12 +148,16 @@ proc genStruct*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCod
 
 proc genStructConstructor*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let values = semexpr.structconstructor.values
-  res.addSrc("{")
+  let tmpsym = genTmpSym(module)
+  res.addPrev("$# $# = {" % [genSym(module.scope, semexpr.typesym), tmpsym])
   for value in values:
-    res.addSrc(".$# = " % value.name)
-    gen(module, value.value, res)
-    res.addSrc(", ")
-  res.addSrc("}")
+    res.addPrev(".$# = " % value.name)
+    var fieldres = newCCodegenRes()
+    gen(module, value.value, fieldres)
+    res.formatPrev("$#", fieldres)
+    res.addPrev(", ")
+  res.addPrev("}")
+  res.addSrc("$#" % tmpsym)
 
 proc genFieldAccess*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let valuename = $semexpr.fieldaccess.valuesym
@@ -274,12 +278,12 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
       let callfunc = semexpr.funccall.callfunc
       let argtypes = callfunc.semexpr.function.fntype.argtypes
       let funchash = callfunc.name & "_" & argtypes.mapIt($it).join("_")
-      res.addSrc("$#_$#($#)" % [callfunc.scope.module.name.replaceSpecialSymbols(), funchash, argress.mapIt($it).join(", ")])
+      res.addSrc("$#_$#($#)" % [callfunc.scope.module.name.replaceSpecialSymbols(), funchash.replaceSpecialSymbols(), argress.mapIt($it).join(", ")])
   elif funcsemexpr.kind == semanticFunction:
     let callfunc = semexpr.funccall.callfunc
     let argtypes = callfunc.semexpr.function.fntype.argtypes
     let funchash = callfunc.name & "_" & argtypes.mapIt($it).join("_")
-    res.addSrc("$#_$#($#)" % [callfunc.scope.module.name.replaceSpecialSymbols(), funchash, argress.mapIt($it).join(", ")])
+    res.addSrc("$#_$#($#)" % [callfunc.scope.module.name.replaceSpecialSymbols(), funchash.replaceSpecialSymbols(), argress.mapIt($it).join(", ")])
   elif funcsemexpr.kind == semanticPrimitiveType:
     res.addSrc(genSym(module.scope, semexpr.funccall.callfunc))
   else:

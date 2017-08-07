@@ -10,6 +10,9 @@ import os
 type
   SemanticError* = object of Exception
 
+  CTRefCounter* = object
+    count*: int
+
   Symbol* = object
     isImported*: bool
     scope*: Scope
@@ -78,6 +81,7 @@ type
     span*: Span
     metadata*: Metadata
     typesym*: Symbol
+    refcounter*: CTRefCounter
     case kind*: SemanticExprKind
     of semanticNotType:
       discard
@@ -213,6 +217,7 @@ type
   Scope* = object
     module*: Module
     semanticidents*: Table[SemanticIdent, SemanticIdentGroup]
+    scopevalues*: seq[Symbol]
   SemanticContext* = ref object
     includepaths*: seq[string]
     topmodule*: Module
@@ -265,6 +270,20 @@ proc raiseError*(sym: Symbol, s: string) =
   sym.semexpr.raiseError(s)
 proc raiseError*(semid: SemanticIdent, s: string) =
   semid.span.raiseError(s)
+
+#
+# CTRefCounter
+#
+
+proc refinc*(semexpr: SemanticExpr) =
+  semexpr.refcounter.count.inc
+proc refdec*(semexpr: SemanticExpr) =
+  semexpr.refcounter.count.dec
+proc isGarbage*(semexpr: SemanticExpr): bool =
+  if semexpr.refcounter.count == 0:
+    return true
+  else:
+    return false
 
 #
 # SemanticIdent
@@ -484,7 +503,7 @@ proc getMetadata*(semexpr: SemanticExpr, name: string): SemanticExpr =
 macro newSemanticExpr*(span: Span, kind: SemanticExprKind, typesym: Symbol, body: varargs[untyped]): SemanticExpr =
   let tmpid= genSym(nskVar, "tmp")
   result = quote do:
-    var `tmpid` = SemanticExpr(kind: `kind`, span: `span`, typesym: `typesym`, metadata: newMetadata())
+    var `tmpid` = SemanticExpr(kind: `kind`, span: `span`, typesym: `typesym`, metadata: newMetadata(), refcounter: CTRefCounter(count: 0))
   for b in body:
     expectKind(b, nnkExprColonExpr)
     let name = b[0]
@@ -548,6 +567,7 @@ proc newSemanticContext*(): SemanticContext =
 proc newScope*(module: Module): Scope =
   result.module = module
   result.semanticidents = initTable[SemanticIdent, SemanticIdentGroup]()
+  result.scopevalues = @[]
 proc hasSemId*(scope: Scope, semid: SemanticIdent): bool =
   scope.semanticidents.hasSemId(semid) or scope.module.semanticidents.hasSemId(semid)
 proc hasSpecSemId*(scope: Scope, semid: SemanticIdent): bool =
@@ -574,6 +594,18 @@ proc trySymbol*(scope: var Scope, semid: SemanticIdent): Option[Symbol] =
     return opt
   else:
     return scope.module.semanticidents.trySymbol(semid)
+
+proc addScopeValue*(scope: var Scope, sym: Symbol) =
+  scope.scopevalues.add(sym)
+
+proc getScopeValues*(scope: Scope): tuple[survived: seq[Symbol], garbages: seq[Symbol]] =
+  result = (@[], @[])
+  for scopevalue in scope.scopevalues:
+    scopevalue.semexpr.refdec
+    if scopevalue.semexpr.isGarbage:
+      result.garbages.add(scopevalue)
+    else:
+      result.survived.add(scopevalue)
 
 #
 # define primitives
@@ -841,19 +873,7 @@ proc evalType*(scope: var Scope, sexpr: SExpr): Symbol =
   else:
     return scope.getSymbol(scope.newSemanticIdent(sexpr))
 
-proc evalFuncCall*(scope: var Scope, sexpr: SExpr): SemanticExpr =
-  var args = newSeq[SemanticExpr]()
-  for arg in sexpr.rest:
-    args.add(scope.evalSExpr(arg))
-  let argtypes = args.mapIt(it.typesym)
-  let callfuncsemid = scope.newSemanticIdent(sexpr.first.span, $sexpr.first, argtypes.getSemanticTypeArgs)
-  # echo argtypes
-  # echo argtypes.mapIt(it.semexpr.kind)
-  # echo argtypes.isSpecTypes()
-  if not scope.hasSemId(callfuncsemid):
-    sexpr.first.span.raiseError("undeclared function $#($#)" % [$callfuncsemid, callfuncsemid.args.mapIt($it).join(", ")])
-  let callfuncsym = scope.getSymbol(callfuncsemid)
-
+proc evalFuncCall*(scope: var Scope, span: Span, callfuncsym: Symbol, args: seq[SemanticExpr], argtypes: seq[Symbol]): SemanticExpr =
   if argtypes.isSpecTypes() and callfuncsym.semexpr.kind == semanticPrimitiveFunc:
     specializeGenericsPrimitiveFunc(callfuncsym.semexpr, argtypes)
   let speccallfuncsym = if argtypes.isSpecTypes() and callfuncsym.semexpr.kind == semanticFunction and callfuncsym.semexpr.function.isGenerics:
@@ -868,7 +888,7 @@ proc evalFuncCall*(scope: var Scope, sexpr: SExpr): SemanticExpr =
                   speccallfuncsym.semexpr.typesym
 
   let semexpr = newSemanticExpr(
-    sexpr.span,
+    span,
     semanticFuncCall,
     typesym,
     funccall: FuncCall(
@@ -877,6 +897,17 @@ proc evalFuncCall*(scope: var Scope, sexpr: SExpr): SemanticExpr =
     ),
   )
   return semexpr
+
+proc evalFuncCall*(scope: var Scope, sexpr: SExpr): SemanticExpr =
+  var args = newSeq[SemanticExpr]()
+  for arg in sexpr.rest:
+    args.add(scope.evalSExpr(arg))
+  let argtypes = args.mapIt(it.typesym)
+  let callfuncsemid = scope.newSemanticIdent(sexpr.first.span, $sexpr.first, argtypes.getSemanticTypeArgs)
+  if not scope.hasSemId(callfuncsemid):
+    sexpr.first.span.raiseError("undeclared function $#($#)" % [$callfuncsemid, callfuncsemid.args.mapIt($it).join(", ")])
+  let callfuncsym = scope.getSymbol(callfuncsemid)
+  return scope.evalFuncCall(sexpr.span, callfuncsym, args, argtypes)
 
 proc evalCall*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let trysym = scope.trySymbol(scope.newSemanticIdent(sexpr.first))

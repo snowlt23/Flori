@@ -1,52 +1,57 @@
 
-@resource @(importc "File")
-(defstruct File)
+(require prelude :refer :all)
 
-(defstruct MyInt
-  (x Int32)
-  (y Int32)
-  (z Int32)))
+(c-type File :name "FILE*" :header "stdio.h")
+@(: File CString)
+(c-import fprintf :header "stdio.h")
+@(: CString CString -> File)
+(c-import open :name "fopen" :header "stdio.h")
+@(: File)
+(c-import close :name "fclose" :header "stdio.h")
 
-@(: MyInt MyInt -> MyInt)
-(defn + [a b]
-  (var mi1 = a) ; a.inc
-  (var mi2 = mi1)) ; a.inc
+@(: File CString)
+(defn write [file s]
+  (fprintf file s))
 
-@(: File String)
+@(: CString CString)
 (defn write-file [filename s]
-  (var file (open filename)) ; file.inc 1
+  (var file (open filename "w")) ; file.inc 1
   (var f file) ; file.inc 2
   (write f s)) ; file.inc 3 -> file.dec 2
   ; file.dec 1
   ; file.dec 0 -> (close file)
 
-@(: File String Size)
-(defn repeat-write-file [filename s n]
-  (var file (open filename)); file.inc 1
-  (var f file) ; file.inc 2
-  (for i (countup 0 n)
-    (write f s))) ; file.inc 3 -> file.dec 2
-  ; file.dec 1
-  ; file.dec 0 -> (close file)
+;; @(: File String Size)
+;; (defn repeat-write-file [filename s n]
+;;   (var file (open filename)); file.inc 1
+;;   (var f file) ; file.inc 2
+;;   (for i (countup 0 n)
+;;     (write f s))) ; file.inc 3 -> file.dec 2
+;;   ; file.dec 1
+;;   ; file.dec 0 -> (close file)
 
 (defstruct Logger
   (file File))
 
-@(destructor Logger)
 @(: Logger)
-(defn close (logger)
-  (close (file logger))) ; actually not needed
+(defn destructor (logger)
+  (close (logger file))) ; actually not needed
 
 @(: File -> Logger)
 (defn new-logger [file]
   (Logger :file file)) ; file.inc +1
 
-@(: Logger String)
+@(: Logger CString)
 (defn log [logger s]
-  (write (file logger) s)) ; file.inc 2 -> file.inc 1
+  (write (logger file) s)) ; file.inc 2 -> file.inc 1
 
 @(:)
 (defn main []
-  (var logger (new-logger (open "test.txt"))) ; file.inc 1
-  (log logger "hello!")) ; file.inc 2 -> file.inc 1
+  (var logger (new-logger (open "voiceroids.txt" "w"))) ; file.inc 1
+  (log logger "Yukari\n")
+  (log logger "Maki\n")
+  (log logger "Akane\n")
+  (log logger "Aoi\n")) ; file.inc 2 -> file.inc 1
   ; file.dec 0 (close (file logger))
+
+(main)

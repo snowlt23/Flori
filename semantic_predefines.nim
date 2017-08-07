@@ -89,18 +89,27 @@ proc evalCEmit*(scope: var Scope, sexpr: SExpr): SemanticExpr =
     args.add(scope.evalSExpr(se))
   return newSemanticExpr(sexpr.span, semanticCExpr, notTypeSym, cexpr: CExpr(format: format, args: args))
 
-proc evalFunctionBody*(scope: var Scope, sexpr: SExpr): seq[SemanticExpr] =
+proc evalBody*(parentscope: var Scope, scope: var Scope, sexpr: SExpr): seq[SemanticExpr] =
   result = @[]
   for e in sexpr:
     result.add(scope.evalSExpr(e))
-proc evalFunction*(scope: var Scope, sexpr: SExpr): SemanticExpr =
-  let (argtypes, rettype, funcdef) = scope.getTypeAnnotation(sexpr)
+  let (survived, garbages) = scope.getScopeValues()
+  for survive in survived:
+    parentscope.addScopeValue(survive)
+  for garbage in garbages:
+    let trysym = scope.trySymbol(scope.newSemanticIdent(sexpr.span, "destructor", @[getSemanticTypeArg(garbage.semexpr.typesym)]))
+    let arg = newSemanticExpr(sexpr.span, semanticSymbol, garbage.semexpr.typesym, symbol: garbage)
+    if trysym.isSome:
+      result.add(scope.evalFuncCall(sexpr.span, trysym.get, @[arg], @[garbage.semexpr.typesym]))
+
+proc evalFunction*(parentscope: var Scope, sexpr: SExpr): SemanticExpr =
+  let (argtypes, rettype, funcdef) = parentscope.getTypeAnnotation(sexpr)
   let funcname = funcdef.rest.first
   var argnames = newSeq[string]()
   for arg in funcdef.rest.rest.first:
     argnames.add($arg)
 
-  var scope = scope
+  var scope = parentscope
   scope.addArgSymbols(argtypes, funcdef)
 
   let f = Function(
@@ -111,7 +120,7 @@ proc evalFunction*(scope: var Scope, sexpr: SExpr): SemanticExpr =
       returntype: rettype,
       argtypes: argtypes,
     ),
-    body: scope.evalFunctionBody(funcdef.rest.rest.rest),
+    body: evalBody(parentscope, scope, funcdef.rest.rest.rest),
   )
   let semexpr = newSemanticExpr(sexpr.span, semanticFunction, rettype, function: f)
   let sym = newSymbol(scope, $funcname, semexpr)
@@ -220,9 +229,11 @@ proc evalVariable*(scope: var Scope, sexpr: SExpr): SemanticExpr =
       value: value
     )
   )
+  semexpr.refinc
   let sym = newSymbol(scope, name, semexpr)
   let semid = newSemanticIdent(sym)
   scope.addSymbol(semid, sym)
+  scope.addScopeValue(sym)
   return semexpr
 
 proc evalIfExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =

@@ -28,7 +28,7 @@
 (defprotocol Number
   (+ (: :a :a -> :a)))
 
-@(^ (:a All)(:b All))
+@(^ (:a All) (:b All))
 (defprotocol Seqable
   (push (: :a :b))
   (nth (: :a Size -> :b))

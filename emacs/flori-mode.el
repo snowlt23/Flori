@@ -48,6 +48,8 @@
                         '(("\\^\s" . font-lock-type-face)))
 (font-lock-add-keywords 'flori-mode
                         '(("\s->\s" . font-lock-builtin-face)))
+(font-lock-add-keywords 'flori-mode
+                        '(("set!" . font-lock-keyword-face)))
 
 (provide 'flori-mode)
 (add-to-list 'auto-mode-alist '("\\.flori$" . flori-mode))
