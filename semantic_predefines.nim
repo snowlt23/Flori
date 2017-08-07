@@ -229,11 +229,18 @@ proc evalVariable*(scope: var Scope, sexpr: SExpr): SemanticExpr =
       value: value
     )
   )
-  semexpr.refinc
+
   let sym = newSymbol(scope, name, semexpr)
   let semid = newSemanticIdent(sym)
   scope.addSymbol(semid, sym)
+  
+  if value.canOwner:
+    semexpr.refcounter = CTRefCounter(kind: ctrefOwner, count: 0)
+  else:
+    semexpr.refcounter = CTRefCounter(kind: ctrefBorrow, owner: value.refcounter)
   scope.addScopeValue(sym)
+  semexpr.refinc
+
   return semexpr
 
 proc evalIfExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =

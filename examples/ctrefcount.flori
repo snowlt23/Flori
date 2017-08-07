@@ -9,6 +9,10 @@
 @(: File)
 (c-import close :name "fclose" :header "stdio.h")
 
+@(: File)
+(defn destructor [file]
+  (close file))
+
 @(: File CString)
 (defn write [file s]
   (fprintf file s))
@@ -34,7 +38,7 @@
   (file File))
 
 @(: Logger)
-(defn destructor (logger)
+(defn destructor [logger]
   (close (logger file))) ; actually not needed
 
 @(: File -> Logger)
@@ -51,7 +55,7 @@
   (log logger "Yukari\n")
   (log logger "Maki\n")
   (log logger "Akane\n")
-  (log logger "Aoi\n")) ; file.inc 2 -> file.inc 1
+  (log logger "Aoi\n")) ; file.inc 2 -> file.dec 1
   ; file.dec 0 (close (file logger))
 
 (main)

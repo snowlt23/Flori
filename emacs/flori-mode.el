@@ -30,7 +30,8 @@
 (defun flori-indent-line ()
   (save-excursion
     (beginning-of-line)
-    (indent-line-to (* 2 (car (syntax-ppss))))))
+    (indent-line-to (* 2 (car (syntax-ppss)))))
+  (forward-char (* 2 (car (syntax-ppss)))))
 (defun flori-indent-region (beg end)
   (indent-region beg end nil))
 

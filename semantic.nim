@@ -10,8 +10,15 @@ import os
 type
   SemanticError* = object of Exception
 
-  CTRefCounter* = object
-    count*: int
+  CTRefCounterKind* = enum
+    ctrefOwner
+    ctrefBorrow
+  CTRefCounter* = ref object
+    case kind*: CTRefCounterKind
+    of ctrefOwner:
+      count*: int
+    of ctrefBorrow:
+      owner*: CTRefCounter
 
   Symbol* = object
     isImported*: bool
@@ -275,12 +282,43 @@ proc raiseError*(semid: SemanticIdent, s: string) =
 # CTRefCounter
 #
 
+proc refinc*(refcounter: CTRefCounter) =
+  case refcounter.kind
+  of ctrefOwner:
+    refcounter.count.inc
+  of ctrefBorrow:
+    refcounter.owner.count.inc
+proc refdec*(refcounter: CTRefCounter) =
+  case refcounter.kind
+  of ctrefOwner:
+    refcounter.count.dec
+  of ctrefBorrow:
+    refcounter.owner.count.dec
+
 proc refinc*(semexpr: SemanticExpr) =
-  semexpr.refcounter.count.inc
+  if semexpr.kind == semanticSymbol:
+    semexpr.symbol.semexpr.refcounter.refinc
+  else:
+    semexpr.refcounter.refinc
 proc refdec*(semexpr: SemanticExpr) =
-  semexpr.refcounter.count.dec
+  if semexpr.kind == semanticSymbol:
+    semexpr.symbol.semexpr.refcounter.refdec
+  else:
+    semexpr.refcounter.refdec
+
+proc canOwner*(semexpr: SemanticExpr): bool =
+  if semexpr.kind == semanticSymbol:
+    if semexpr.symbol.semexpr.refcounter.kind == ctrefOwner and semexpr.symbol.semexpr.refcounter.count == 0:
+      return true
+    else:
+      return false
+  else:
+    if semexpr.refcounter.kind == ctrefOwner and semexpr.refcounter.count == 0:
+      return true
+    else:
+      return false
 proc isGarbage*(semexpr: SemanticExpr): bool =
-  if semexpr.refcounter.count == 0:
+  if semexpr.refcounter.kind == ctrefOwner and semexpr.refcounter.count == 0:
     return true
   else:
     return false
@@ -503,7 +541,7 @@ proc getMetadata*(semexpr: SemanticExpr, name: string): SemanticExpr =
 macro newSemanticExpr*(span: Span, kind: SemanticExprKind, typesym: Symbol, body: varargs[untyped]): SemanticExpr =
   let tmpid= genSym(nskVar, "tmp")
   result = quote do:
-    var `tmpid` = SemanticExpr(kind: `kind`, span: `span`, typesym: `typesym`, metadata: newMetadata(), refcounter: CTRefCounter(count: 0))
+    var `tmpid` = SemanticExpr(kind: `kind`, span: `span`, typesym: `typesym`, metadata: newMetadata(), refcounter: CTRefCounter(kind: ctrefOwner, count: 0))
   for b in body:
     expectKind(b, nnkExprColonExpr)
     let name = b[0]
@@ -604,6 +642,8 @@ proc getScopeValues*(scope: Scope): tuple[survived: seq[Symbol], garbages: seq[S
     scopevalue.semexpr.refdec
     if scopevalue.semexpr.isGarbage:
       result.garbages.add(scopevalue)
+    elif scopevalue.semexpr.refcounter.kind == ctrefBorrow:
+      discard
     else:
       result.survived.add(scopevalue)
 
