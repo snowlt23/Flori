@@ -1,7 +1,7 @@
 
 (setq flori-separates "\\((\\|)\\|[\\|]\\|\s\\|\n\\|r\\)")
 
-(setq flori-keywords '("ns" "c-import" "c-export" "c-type" "c-value" "match" "if" "cond" "for" "while" "destructor" "require"))
+(setq flori-keywords '("ns" "c-import" "c-export" "c-type" "c-value" "match" "if" "cond" "for" "while" "require"))
 (setq flori-warnings '("unsafe"))
 
 (setq flori-def-regexp "\\(def.+?\\)\s+\\(.+?\\)\\(\s\\|\n\\)")
@@ -50,6 +50,8 @@
                         '(("\s->\s" . font-lock-builtin-face)))
 (font-lock-add-keywords 'flori-mode
                         '(("set!" . font-lock-keyword-face)))
+(font-lock-add-keywords 'flori-mode
+                        '(("destructor" . font-lock-builtin-face)))
 
 (provide 'flori-mode)
 (add-to-list 'auto-mode-alist '("\\.flori$" . flori-mode))
