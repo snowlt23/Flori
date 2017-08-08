@@ -137,9 +137,14 @@ proc evalTypeAnnot*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   elif $funcdef.first == "c-value":
     return evalCValue(scope, sexpr)
   else:
-    sexpr.span.raiseError("couldn't apply type annotation: $#" % $sexpr)
-proc evalGenericsAnnot*(scope: var Scope, sexpr: Sexpr): SEmanticExpr =
-  var scope = scope
+    let (_, rettype, valuesexpr) = scope.getTypeAnnotation(sexpr)
+    result = scope.evalSExpr(valuesexpr)
+    result.typesym = rettype
+
+  # else:
+  #   sexpr.span.raiseError("couldn't apply type annotation: $#" % $sexpr)
+proc evalGenericsAnnot*(parentscope: var Scope, sexpr: Sexpr): SEmanticExpr =
+  var scope = parentscope
   sexpr.rest.each(e):
     if e.first.kind != sexprList and e.first.len < 2:
       sexpr.span.raiseError("generics parameter should be list")
@@ -200,7 +205,15 @@ proc evalProtocol*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   return newSemanticExpr(sexpr.span, semanticSymbol, notTypeSym, symbol: sym)
 
 proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
-  let structname = $sexpr.rest.first
+  let typeexpr = sexpr.rest.first
+  let structname = if typeexpr.kind == sexprIdent:
+                     $typeexpr
+                   else:
+                     $typeexpr.first
+  var generics = newSeq[Symbol]()
+  if typeexpr.kind == sexprList:
+    for gene in typeexpr.rest:
+      generics.add(scope.getSymbol(scope.newSemanticIdent(gene)))
   var fields = newSeq[tuple[name: string, typesym: Symbol]]()
   for field in sexpr.rest.rest:
     let fieldname = $field.first
@@ -208,12 +221,14 @@ proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
     fields.add((fieldname, typesym))
   let struct = Struct(
     isGenerics: false,
+    generics: generics,
     name: structname,
     fields: fields,
   )
   let semexpr = newSemanticExpr(sexpr.span, semanticStruct, notTypeSym, struct: struct)
   let sym = newSymbol(scope, structname, semexpr)
-  scope.module.addSymbol(newSemanticIdent(sym), sym)
+  let semid = scope.newSemanticIdent(sexpr.span, structname, generics.getSemanticTypeArgs())
+  scope.module.addSymbol(semid, sym)
   return newSemanticExpr(sexpr.span, semanticSymbol, notTypeSym, symbol: sym)
 
 proc evalVariable*(scope: var Scope, sexpr: SExpr): SemanticExpr =
@@ -279,16 +294,16 @@ proc evalWhileSyntax*(scope: var Scope, sexpr: SExpr): SemanticExpr =
 
 proc evalSetSyntax*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let variable = scope.evalSExpr(sexpr.rest.first)
-  if variable.kind != semanticSymbol:
-    sexpr.rest.first.span.raiseError("this is not variable")
+  # if variable.kind != semanticSymbol:
+  #   sexpr.rest.first.span.raiseError("this is not variable")
   let value = scope.evalSExpr(sexpr.rest.rest.first)
-  if not (variable.typesym == value.typesym):
-    value.raiseError("illegal set! $# = $#" % [$variable.typesym, $value.typesym])
+  # if not (variable.typesym == value.typesym):
+  #   value.raiseError("illegal set (set! $# $#)" % [$variable.typesym, $value.typesym])
   let semexpr = newSemanticExpr(
     sexpr.span,
     semanticSetSyntax,
     notTypeSym,
-    setsyntax: SetSyntax(variable: variable.symbol, value: value),
+    setsyntax: SetSyntax(variable: variable, value: value),
   )
   return semexpr
 

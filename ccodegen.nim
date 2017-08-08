@@ -138,6 +138,9 @@ proc genSym*(scope: Scope, sym: Symbol): string =
     return ("$#_$#" % [scope.module.name, sym.name]).replaceSpecialSymbols()
 
 proc genStruct*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
+  if semexpr.struct.isGenerics:
+    return
+
   let structname = semexpr.struct.name
   let fields = semexpr.struct.fields
   module.addCommon("typedef struct {\n")
@@ -212,7 +215,8 @@ proc genWhileSyntax*(module: var CCodegenModule, semexpr: SemanticExpr, res: var
   res.formatPrev("$i}")
 
 proc genSetSyntax*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
-  var varres = genSym(module.scope, semexpr.setsyntax.variable)
+  var varres = newCCodegenRes()
+  gen(module, semexpr.setsyntax.variable, varres)
   var valueres = newCCodegenRes()
   gen(module, semexpr.setsyntax.value, valueres)
   res.format("$# = $#", varres, valueres)

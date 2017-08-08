@@ -6,6 +6,8 @@ floricache/
 flori.exe
 flori
 
+tests/tester.exe
+tests/tester
 sparser_test.exe
 sparser_test
 semantic_test.exe
@@ -20,3 +22,5 @@ ctrefcount
 voiceroids.txt
 varargs-example.exe
 varargs-example
+vec-example.exe
+vec-example

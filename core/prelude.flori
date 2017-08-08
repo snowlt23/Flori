@@ -67,7 +67,7 @@
 
 @(: Size)
 (c-import alloc :name "malloc" :header "stdlib.h")
-@(: Pointer)
+@(: Pointer Size)
 (c-import realloc :name "realloc" :header "stdlib.h")
 @(: Pointer)
 (c-import dealloc :name "free" :header "stdlib.h")

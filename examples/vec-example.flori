@@ -5,8 +5,9 @@
 
 @(:)
 (defn main []
-  (vec 10)
-  (set! (nth vec 5) 9)
-  (print (nth vec 5)))
+  @(: -> (Vec Int32))
+  (vec (size 10)))
+  ;; (set! (nth vec (size 5)) 9))
+;;   (print (nth vec (size 5))))
 
 (main)
