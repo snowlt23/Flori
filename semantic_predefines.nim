@@ -210,24 +210,26 @@ proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
                      $typeexpr
                    else:
                      $typeexpr.first
-  var generics = newSeq[Symbol]()
+  var argtypes = newSeq[Symbol]()
   if typeexpr.kind == sexprList:
     for gene in typeexpr.rest:
-      generics.add(scope.getSymbol(scope.newSemanticIdent(gene)))
+      argtypes.add(scope.getSymbol(scope.newSemanticIdent(gene)))
   var fields = newSeq[tuple[name: string, typesym: Symbol]]()
   for field in sexpr.rest.rest:
     let fieldname = $field.first
-    let typesym = scope.evalType(field.rest.first)
-    fields.add((fieldname, typesym))
+    let typesym = scope.tryType(field.rest.first)
+    if typesym.isNone:
+      field.rest.first.span.raiseError("undeclared type: $#" % $field.rest.first)
+    fields.add((fieldname, typesym.get))
   let struct = Struct(
     isGenerics: false,
-    generics: generics,
+    argtypes: argtypes,
     name: structname,
     fields: fields,
   )
   let semexpr = newSemanticExpr(sexpr.span, semanticStruct, notTypeSym, struct: struct)
   let sym = newSymbol(scope, structname, semexpr)
-  let semid = scope.newSemanticIdent(sexpr.span, structname, generics.getSemanticTypeArgs())
+  let semid = scope.newSemanticIdent(sexpr.span, structname, argtypes.getSemanticTypeArgs())
   scope.module.addSymbol(semid, sym)
   return newSemanticExpr(sexpr.span, semanticSymbol, notTypeSym, symbol: sym)
 
