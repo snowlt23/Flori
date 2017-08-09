@@ -7,30 +7,30 @@
   (len Size))
 
 @(^ (:a All))
-@(: Size -> (Vec :a))
-(defn vec [len]
-  ((Vec :a)
-    :data (cast Vec (alloc (* (sizeof :a) len)))
+@(: (Typedesc :a) Size -> (Vec :a))
+(defn vec [T len]
+  (construct (Vec :a)
+    :data (cast (Ptr :a) (alloc (* (sizeof :a) len)))
     :len len))
 
 @(^ (:a All))
 @(: (Vec :a) :a)
 (defn push [vec value]
-  (realloc (cast Pointer (vec data)) (* (sizeof :a) (+ (vec len) (size 1))))
-  (set! (nth (vec data) (vec len)) value)
-  (set! (vec len) (+ (vec len) (size 1))))
+  (realloc (cast Pointer (vec .data)) (* (sizeof :a) (+ (vec .len) (size 1))))
+  (set! (nth (vec .data) (vec .len)) value)
+  (set! (vec .len) (+ (vec .len) (size 1))))
 
 @(^ (:a All))
 @(: (Vec :a) -> Size)
 (defn len [vec]
-  (vec len))
+  (vec .len))
 
 @(^ (:a All))
 @(: (Vec :a) Size -> :a)
 (defn nth [vec index]
-  (nth (vec data) index))
+  (nth (vec .data) index))
 
 @(^ (:a All))
 @(: (Vec :a))
 (defn destructor [vec]
-  (dealloc (cast Pointer (vec data))))
+  (dealloc (cast Pointer (vec .data))))

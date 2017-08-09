@@ -97,7 +97,8 @@ proc evalBody*(parentscope: var Scope, scope: var Scope, sexpr: SExpr): seq[Sema
   for survive in survived:
     parentscope.addScopeValue(survive)
   for garbage in garbages:
-    let trysym = scope.trySymbol(scope.newSemanticIdent(sexpr.span, "destructor", @[getSemanticTypeArg(garbage.semexpr.typesym)]))
+    let trysym = scope.tryType(sexpr.span, "destructor", @[garbage.semexpr.typesym])
+    # let trysym = scope.trySymbol(scope.newSemanticIdent(sexpr.span, "destructor", @[getSemanticTypeArg(garbage.semexpr.typesym)]))
     let arg = newSemanticExpr(sexpr.span, semanticSymbol, garbage.semexpr.typesym, symbol: garbage)
     if trysym.isSome:
       result.add(scope.evalFuncCall(sexpr.span, trysym.get, @[arg], @[garbage.semexpr.typesym]))
@@ -137,12 +138,12 @@ proc evalTypeAnnot*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   elif $funcdef.first == "c-value":
     return evalCValue(scope, sexpr)
   else:
-    let (_, rettype, valuesexpr) = scope.getTypeAnnotation(sexpr)
-    result = scope.evalSExpr(valuesexpr)
-    result.typesym = rettype
+    let typ = scope.tryType(sexpr.rest.first)
+    result = scope.evalSExpr(sexpr.last)
+    result.typesym = typ.get # FIXME:
+    if result.kind == semanticVariable:
+      result.variable.value.typesym = typ.get
 
-  # else:
-  #   sexpr.span.raiseError("couldn't apply type annotation: $#" % $sexpr)
 proc evalGenericsAnnot*(parentscope: var Scope, sexpr: Sexpr): SEmanticExpr =
   var scope = parentscope
   sexpr.rest.each(e):
@@ -229,9 +230,32 @@ proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   )
   let semexpr = newSemanticExpr(sexpr.span, semanticStruct, notTypeSym, struct: struct)
   let sym = newSymbol(scope, structname, semexpr)
+  semexpr.typesym = sym
   let semid = scope.newSemanticIdent(sexpr.span, structname, argtypes.getSemanticTypeArgs())
   scope.module.addSymbol(semid, sym)
   return newSemanticExpr(sexpr.span, semanticSymbol, notTypeSym, symbol: sym)
+
+proc evalStructConstructor*(scope: var Scope, sexpr: SExpr): SemanticExpr =
+  let sym = scope.tryType(sexpr.rest.first).get
+  var struct: SemanticExpr
+  if sym.semexpr.kind == semanticStruct:
+    struct = sym.semexpr
+  elif sym.semexpr.kind == semanticTypeGenerics:
+    struct = sym.semexpr.typegenerics.typ.semexpr
+  else:
+    sexpr.rest.first.span.raiseError("$# is not type, actually $#" % [$sexpr.rest.first, $sym.semexpr.kind])
+  let semexpr = newSemanticExpr(
+    sexpr.span,
+    semanticStructConstructor,
+    sym,
+    structconstructor: StructConstructor(structsym: sym, values: @[])
+  )
+  for field in struct.struct.fields:
+    let attr = sexpr.getAttr(field.name)
+    if attr.isNone:
+      sexpr.span.raiseError("needs initialzie $# field." % field.name)
+    semexpr.structconstructor.values.add((field.name, scope.evalSExpr(attr.get)))
+  return semexpr
 
 proc evalVariable*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let name = $sexpr.rest.first
@@ -295,7 +319,7 @@ proc evalWhileSyntax*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   return semexpr
 
 proc evalSetSyntax*(scope: var Scope, sexpr: SExpr): SemanticExpr =
-  let variable = scope.evalSExpr(sexpr.rest.first)
+  let variable = scope.evalSExpr(sexpr.rest.first) # FIXME: infinite loop?
   # if variable.kind != semanticSymbol:
   #   sexpr.rest.first.span.raiseError("this is not variable")
   let value = scope.evalSExpr(sexpr.rest.rest.first)
@@ -338,6 +362,7 @@ proc predefine*(scope: var Scope) =
   scope.defPrimitiveEval(internalSpan, "^", evalGenericsAnnot)
   scope.defPrimitiveEval(internalSpan, "defprotocol", evalProtocol)
   scope.defPrimitiveEval(internalSpan, "defstruct", evalStruct)
+  scope.defPrimitiveEval(internalSpan, "construct", evalStructConstructor)
   scope.defPrimitiveEval(internalSpan, "var", evalVariable)
   scope.defPrimitiveEval(internalSpan, "if", evalIfExpr)
   scope.defPrimitiveEval(internalSpan, "while", evalWhileSyntax)
