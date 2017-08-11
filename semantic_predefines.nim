@@ -136,7 +136,6 @@ proc evalFunction*(parentscope: var Scope, sexpr: SExpr): SemanticExpr =
 
   let f = Function(
     isGenerics: false,
-    name: $funcname,
     argnames: argnames,
     fntype: FuncType(
       returntype: rettype,
@@ -146,6 +145,7 @@ proc evalFunction*(parentscope: var Scope, sexpr: SExpr): SemanticExpr =
   )
   let semexpr = newSemanticExpr(sexpr.span, semanticFunction, rettype, function: f)
   let sym = newSymbol(scope, $funcname, semexpr)
+  f.sym = sym
   let semid = newSemanticIdent(scope, sexpr.span, $funcname, argtypes.getSemanticTypeArgs)
   scope.module.addSymbol(semid, sym)
   return newSemanticExpr(sexpr.span, semanticSymbol, rettype, symbol: sym)
@@ -340,19 +340,37 @@ proc evalWhileSyntax*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   return semexpr
 
 proc evalSetSyntax*(scope: var Scope, sexpr: SExpr): SemanticExpr =
-  let variable = scope.evalSExpr(sexpr.rest.first) # FIXME: infinite loop?
+  let leftval = scope.evalSExpr(sexpr.rest.first)
   # if variable.kind != semanticSymbol:
   #   sexpr.rest.first.span.raiseError("this is not variable")
   let value = scope.evalSExpr(sexpr.rest.rest.first)
   # if not (variable.typesym == value.typesym):
   #   value.raiseError("illegal set (set! $# $#)" % [$variable.typesym, $value.typesym])
-  let semexpr = newSemanticExpr(
-    sexpr.span,
-    semanticSetSyntax,
-    notTypeSym,
-    setsyntax: SetSyntax(variable: variable, value: value),
-  )
-  return semexpr
+  if leftval.kind == semanticFuncCall and leftval.funccall.callfunc.semexpr.kind == semanticFunction:
+    var args = leftval.funccall.args
+    args.add(value)
+    let argtypes = args.mapIt(it.typesym)
+    let setfuncsym = scope.tryType(leftval.span, "set-$#!" % leftval.funccall.callfunc.name, argtypes)
+    if setfuncsym.isNone:
+      sexpr.span.raiseError("undeclared (set-$#! $#) function" % [leftval.funccall.callfunc.name, argtypes.join(" ")])
+    let semexpr = newSemanticExpr(
+      leftval.span,
+      semanticFuncCall,
+      notTypeSym,
+      funccall: FuncCall(
+        callfunc: setfuncsym.get,
+        args: args
+      )
+    )
+    return semexpr
+  else:
+    let semexpr = newSemanticExpr(
+      sexpr.span,
+      semanticSetSyntax,
+      notTypeSym,
+      setsyntax: SetSyntax(variable: leftval, value: value),
+    )
+    return semexpr
 
 proc evalRequire*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let modulename = $sexpr.rest.first

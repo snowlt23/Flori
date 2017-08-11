@@ -29,6 +29,10 @@
 @(: (Vec :a) Size -> :a)
 (defn nth [vec index]
   (nth (vec .data) index))
+@(^ (:a All))
+@(: (Vec :a) Size :a)
+(defn set-nth! [vec index value]
+  (set! (nth (vec .data) index) value))
 
 @(^ (:a All))
 @(: (Vec :a))
