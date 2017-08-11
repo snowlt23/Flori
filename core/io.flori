@@ -3,9 +3,9 @@
 
 @(^ (:a All))
 @(: CString :a)
-(c-import printf :name "printf" :header "stdio.h")
+(c-func printf :name "printf" :header "stdio.h")
 @(: CString)
-(c-import print :name "printf" :header "stdio.h")
+(c-func print :name "printf" :header "stdio.h")
 
 @(: UInt8)
 (defn print [x]

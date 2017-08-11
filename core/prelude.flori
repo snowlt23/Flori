@@ -51,85 +51,85 @@
 
 @(^ (:a All))
 @(: :a -> Size)
-(c-import sizeof :name "sizeof" :nodecl)
+(c-func sizeof :name "sizeof" :nodecl)
 
 @(^ (:a All))
 @(: :a -> (Ptr :a))
-(c-import addr :name "&" :nodecl)
+(c-func addr :name "&" :nodecl)
 
 @(^ (:a All) (:b All))
 @(: :a :b -> :a)
-(c-import cast :pattern "(($1)$2)" :nodecl)
+(c-func cast :pattern "(($1)$2)" :nodecl)
 
 @(^ (:a All))
 @(: (Ptr :a) Size -> :a)
-(c-import nth :pattern "$1[$2]" :nodecl)
+(c-func nth :pattern "$1[$2]" :nodecl)
 
 @(: Size)
-(c-import alloc :name "malloc" :header "stdlib.h")
+(c-func alloc :name "malloc" :header "stdlib.h")
 @(: Pointer Size)
-(c-import realloc :name "realloc" :header "stdlib.h")
+(c-func realloc :name "realloc" :header "stdlib.h")
 @(: Pointer)
-(c-import dealloc :name "free" :header "stdlib.h")
+(c-func dealloc :name "free" :header "stdlib.h")
 
 @(: Pointer Pointer Size)
-(c-import memcpy :name "memcpy" :header "string.h")
+(c-func memcpy :name "memcpy" :header "string.h")
 
 @(: CString -> CInt)
-(c-import strlen :name "strlen" :header "string.h")
+(c-func strlen :name "strlen" :header "string.h")
 
 ;; Bool functions
 
 @(: Bool -> Bool)
-(c-import not :name "!" :nodecl)
+(c-func not :name "!" :nodecl)
 @(: (Varargs Bool) -> Bool)
-(c-import and :name "&&" :infix :nodecl)
+(c-func and :name "&&" :infix :nodecl)
 @(: (Varargs Bool) -> Bool)
-(c-import or :name "||" :infix :nodecl)
+(c-func or :name "||" :infix :nodecl)
 @(: Bool Bool -> Bool)
-(c-import eq? :name "==" :nodecl)
+(c-func eq? :name "==" :nodecl)
 
 ;; Math operators
 
 @(: Int32 Int32 -> Int32)
-(c-import + :infix :nodecl)
+(c-func + :infix :nodecl)
 
 @(: Int32 -> UInt32)
 (defn uint32 [x]
   (cast UInt32 x))
 @(: UInt32 UInt32 -> UInt32)
-(c-import + :infix :nodecl)
+(c-func + :infix :nodecl)
 @(: UInt32 UInt32 -> UInt32)
-(c-import - :infix :nodecl)
+(c-func - :infix :nodecl)
 @(: UInt32 UInt32 -> UInt32)
-(c-import * :infix :nodecl)
+(c-func * :infix :nodecl)
 @(: UInt32 UInt32 -> UInt32)
-(c-import / :infix :nodecl)
+(c-func / :infix :nodecl)
 @(: UInt32 UInt32 -> UInt32)
-(c-import pow :name "^" :infix :nodecl)
+(c-func pow :name "^" :infix :nodecl)
 @(: UInt32 UInt32 -> UInt32)
-(c-import << :infix :nodecl)
+(c-func << :infix :nodecl)
 @(: UInt32 UInt32 -> UInt32)
-(c-import >> :infix :nodecl)
+(c-func >> :infix :nodecl)
 @(: UInt32 UInt32 -> Bool)
-(c-import eq? :name "==" :infix :nodecl)
+(c-func eq? :name "==" :infix :nodecl)
 
 @(: Int64 Int64 -> Int64)
-(c-import + :infix :nodecl)
+(c-func + :infix :nodecl)
 
 @(: Float32 Float32 -> Float32)
-(c-import + :infix :nodecl)
+(c-func + :infix :nodecl)
 
 @(: Float64 Float64 -> Float64)
-(c-import + :infix :nodecl)
+(c-func + :infix :nodecl)
 
 @(: Int32 -> Size)
 (defn size [x]
   (cast Size x))
 @(: Size Size -> Size)
-(c-import + :infix :nodecl)
+(c-func + :infix :nodecl)
 @(: Size Size -> Size)
-(c-import * :infix :nodecl)
+(c-func * :infix :nodecl)
 
 @(: Int32 -> Int32)
-(c-import abs :header "math.h")
+(c-func abs :header "math.h")

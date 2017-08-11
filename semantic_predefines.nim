@@ -5,7 +5,7 @@ import semantic
 import strutils, sequtils
 import options
 
-proc evalCImport*(scope: var Scope, sexpr: SExpr): SemanticExpr =
+proc evalCFunc*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let (argtypes, rettype, cffidef) = getTypeAnnotation(scope, sexpr)
   let funcname = cffidef.rest.first
   let nameattr = cffidef.getAttr("name")
@@ -133,8 +133,8 @@ proc evalTypeAnnot*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let (_, _, funcdef) = parseTypeAnnotation(sexpr)
   if $funcdef.first == "defn":
     return evalFunction(scope, sexpr)
-  elif $funcdef.first == "c-import":
-    return evalCImport(scope, sexpr)
+  elif $funcdef.first == "c-func":
+    return evalCFunc(scope, sexpr)
   elif $funcdef.first == "c-value":
     return evalCValue(scope, sexpr)
   else:
@@ -355,7 +355,7 @@ proc evalRequire*(scope: var Scope, sexpr: SExpr): SemanticExpr =
 
 proc predefine*(scope: var Scope) =
   scope.defPrimitiveEval(internalSpan, "require", evalRequire)
-  scope.defPrimitiveEval(internalSpan, "c-import", evalCImport)
+  scope.defPrimitiveEval(internalSpan, "c-func", evalCFunc)
   scope.defPrimitiveEval(internalSpan, "c-type", evalCType)
   scope.defPrimitiveEval(internalSpan, "c-emit", evalCEmit)
   scope.defPrimitiveEval(internalSpan, ":", evalTypeAnnot)

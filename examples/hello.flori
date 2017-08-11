@@ -28,7 +28,7 @@
 
 @(: MyInt -> Int32)
 (defn get-x [mi]
-  (mi x))
+  (mi .x))
 
 (print (nth (cast (Ptr UInt8) (addr "Hello Voiceroids!\n")) (size 6)))
 (print "\n")

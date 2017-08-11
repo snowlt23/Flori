@@ -8,31 +8,33 @@
 
 @(: Size -> String)
 (defn str-cap [len]
-  (var str (String
+  (var str
+    (construct String
       :data (cast (Ptr UInt8) (alloc (* (sizeof UInt8) (+ len (size 1)))))
       :len len))
   str)
 @(: CString -> String)
 (defn str [cstr]
   (var bytesize (* (sizeof UInt8) (cast Size (+ (cast Int32 (strlen cstr)) 1))))
-  (var str (String
+  (var str
+    (construct String
       :data (cast (Ptr UInt8) (alloc bytesize))
       :len (strlen cstr)))
-  (memcpy (cast Pointer (str data)) (cast Pointer cstr) bytesize)
+  (memcpy (cast Pointer (str .data)) (cast Pointer cstr) bytesize)
   str)
 
 @(: String Size -> UInt8)
 (defn nth [s index]
-  (nth (s data) index))
+  (nth (s .data) index))
 
 @(: String -> Size)
 (defn len [s]
-  (s len))
+  (s .len))
 
 @(: String)
 (defn print [s]
-  (print (cast CString (s data))))
+  (print (cast CString (s .data))))
 
 @(: String)
 (defn destructor [s]
-  (dealloc (cast Pointer (s data))))
+  (dealloc (cast Pointer (s .data))))

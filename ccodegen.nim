@@ -160,7 +160,7 @@ proc genStructConstructor*(module: var CCodegenModule, semexpr: SemanticExpr, re
     gen(module, value.value, fieldres)
     res.formatPrev("$#", fieldres)
     res.addPrev(", ")
-  res.addPrev("}")
+  res.addPrev("};\n")
   res.addSrc("$#" % tmpsym)
 
 proc genFieldAccess*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
@@ -284,16 +284,6 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
   # TODO: Typedesc
   if funcsemexpr.kind == semanticPrimitiveFunc:
     genPrimitiveFuncCall(module, funcsemexpr, res, argress)
-  elif funcsemexpr.kind == semanticProtocolFunc:
-    let semid = module.scope.newSemanticIdent(semexpr.span, semexpr.funccall.callfunc.name, semexpr.funccall.args.mapIt(it.typesym).getSemanticTypeArgs)
-    let specfuncsym = module.scope.getSpecSymbol(semid)
-    if specfuncsym.semexpr.kind == semanticPrimitiveFunc:
-      genPrimitiveFuncCall(module, specfuncsym.semexpr, res, argress)
-    else:
-      let callfunc = semexpr.funccall.callfunc
-      let argtypes = callfunc.semexpr.function.fntype.argtypes
-      let funchash = callfunc.name & "_" & argtypes.mapIt($it).join("_")
-      res.addSrc("$#_$#($#)" % [callfunc.scope.module.name.replaceSpecialSymbols(), funchash.replaceSpecialSymbols(), argress.mapIt($it).join(", ")])
   elif funcsemexpr.kind == semanticFunction:
     let callfunc = semexpr.funccall.callfunc
     let argtypes = callfunc.semexpr.function.fntype.argtypes
