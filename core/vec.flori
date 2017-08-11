@@ -14,7 +14,7 @@
     :len len))
 
 @(^ (:a All))
-@(: (Vec :a) :a)
+@(: &(Vec :a) :a)
 (defn push [vec value]
   (realloc (cast Pointer (vec .data)) (* (sizeof :a) (+ (vec .len) (size 1))))
   (set! (nth (vec .data) (vec .len)) value)
@@ -30,7 +30,7 @@
 (defn nth [vec index]
   (nth (vec .data) index))
 @(^ (:a All))
-@(: (Vec :a) Size :a)
+@(: &(Vec :a) Size :a)
 (defn set-nth! [vec index value]
   (set! (nth (vec .data) index) value))
 

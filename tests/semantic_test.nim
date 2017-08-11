@@ -48,7 +48,7 @@ suite "Semantic":
     @(^ (:a All))
     @(: (Wrap :a) -> :a)
     (defn get [x]
-      (x data))
-    (get ((Wrap Int32) :data 1))
+      (x .data))
+    (get (construct (Wrap Int32) :data 1))
     """)
     check semexpr.typesym.name == "Int32"
