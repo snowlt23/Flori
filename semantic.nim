@@ -797,7 +797,10 @@ proc getTypeAnnotation*(scope: var Scope, sexpr: SExpr, isAnnot = true): tuple[a
   var argtypesyms = newSeq[Symbol]()
   for argtype in argtypes:
     if argtype.kind == sexprList:
-      argtypesyms.add(scope.tryType(argtype).get)
+      let tryargtype = scope.tryType(argtype)
+      if tryargtype.isNone:
+        argtype.span.raiseError("undeclared type: $#" % $argtype)
+      argtypesyms.add(tryargtype.get)
     else:
       argtypesyms.add(scope.getSymbol(scope.newSemanticIdent(argtype)))
   let rettypesym = if rettype.kind == sexprList:

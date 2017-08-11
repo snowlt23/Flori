@@ -104,6 +104,11 @@ proc parseSExpr*(context: var ParserContext): SExpr =
     else:
       ret = newSList(annot.span, annot, newSList(body.span, body, newSNil(body.span)))
     return ret
+  elif context.curchar == '&': # & Ref type syntax
+    let span = context.span
+    context.inc
+    let typ = parseSExpr(context)
+    return newSList(span, newSIdent(span, "Ref"), newSList(span, typ, newSNil(span)))
   elif ('a' <= context.curchar and context.curchar <= 'z') or
        ('A' <= context.curchar and context.curchar <= 'Z') or
        context.curchar in SpecialSymbols: # ident
