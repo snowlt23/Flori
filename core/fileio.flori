@@ -1,0 +1,33 @@
+
+(require prelude :refer :all)
+
+(c-type File :name "FILE*" :header "stdio.h")
+@(: File CString)
+(c-func fprintf :header "stdio.h")
+@(: CString CString -> File)
+(c-func fopen :name "fopen" :header "stdio.h")
+@(: File)
+(c-func fclose :name "fclose" :header "stdio.h")
+
+@(: File)
+(c-value stdio)
+@(: File)
+(c-value stdout)
+
+@(: File)
+(defn destructor [file]
+  (fclose file))
+
+@(: File CString)
+(defn write [file s]
+  (fprintf file s))
+
+@(: CString CString -> File)
+(defn open-file [filename mode]
+  (var file (fopen filename mode))
+  file)
+
+@(: CString CString)
+(defn write-file [filename s]
+  (var file (open-file filename "w"))
+  (write file s))

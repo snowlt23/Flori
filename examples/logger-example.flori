@@ -1,0 +1,16 @@
+
+(require prelude :refer :all)
+(require fileio :refer :all)
+(require logger :refer :all)
+
+@(:)
+(defn main []
+  (var l (logger))
+  (add-file l stdout)
+  (add-file l (open-file "voiceroids.txt" "w"))
+  (log l "Yukari\n")
+  (log l "Maki\n")
+  (log l "Akane\n")
+  (log l "Aoi\n"))
+
+(main)

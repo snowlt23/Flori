@@ -25,6 +25,10 @@
 (defprotocol All)
 
 @(^ (:a All))
+(defprotocol Destructable
+  (destructor (: :a)))
+
+@(^ (:a All))
 (defprotocol Number
   (+ (: :a :a -> :a)))
 
@@ -130,6 +134,14 @@
 (c-func + :infix :nodecl)
 @(: Size Size -> Size)
 (c-func * :infix :nodecl)
+@(: Size Size -> Bool)
+(c-func < :infix :nodecl)
+@(: Size Size -> Bool)
+(c-func > :infix :nodecl)
+@(: Size Size -> Bool)
+(c-func <= :infix :nodecl)
+@(: Size Size -> Bool)
+(c-func >= :infix :nodecl)
 
 @(: Int32 -> Int32)
 (c-func abs :header "math.h")

@@ -5,21 +5,26 @@
 @(: File CString)
 (c-func fprintf :header "stdio.h")
 @(: CString CString -> File)
-(c-func open :name "fopen" :header "stdio.h")
+(c-func fopen :name "fopen" :header "stdio.h")
 @(: File)
-(c-func close :name "fclose" :header "stdio.h")
+(c-func fclose :name "fclose" :header "stdio.h")
 
 @(: File)
 (defn destructor [file]
-  (close file))
+  (fclose file))
 
 @(: File CString)
 (defn write [file s]
   (fprintf file s))
 
+@(: CString CString -> File)
+(defn open-file [filename mode]
+  (var file (fopen filename mode))
+  file) ; return owner value
+
 @(: CString CString)
 (defn write-file [filename s]
-  (var file (open filename "w")) ; file.inc 1
+  (var file (open-file filename "w")) ; file.inc 1
   (var f file) ; file.inc 2
   (write f s)) ; file.inc 3 -> file.dec 2
   ; file.dec 1
@@ -51,7 +56,7 @@
 
 @(:)
 (defn main []
-  (var logger (new-logger (open "voiceroids.txt" "w"))) ; file.inc 1
+  (var logger (new-logger (open-file "voiceroids.txt" "w"))) ; file.inc 1
   (log logger "Yukari\n")
   (log logger "Maki\n")
   (log logger "Akane\n")

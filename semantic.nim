@@ -186,7 +186,7 @@ type
   Struct* = ref object
     isGenerics*: bool
     argtypes*: seq[Symbol]
-    name*: string
+    sym*: Symbol
     fields*: seq[tuple[name: string, typesym: Symbol]]
   StructConstructor* = ref object
     structsym*: Symbol
@@ -451,6 +451,15 @@ proc isSpecTypes*(syms: seq[Symbol]): bool =
     if not sym.isSpecType:
       return false
   return true
+proc isReturnType*(scope: var Scope, sym: Symbol, rettype: Symbol): bool =
+  if sym == notTypeSym:
+    return false
+  elif sym == scope.getSymbol(scope.newSemanticIdent(sym.semexpr.span, "Void", @[])):
+    return false
+  elif sym == rettype:
+    return true
+  else:
+    return false
 
 #
 # Semantic Symbol Table
@@ -767,7 +776,7 @@ proc defPrimitiveEval*(scope: var Scope, span: Span, macroname: string, evalproc
 # Type Specialize
 #
 
-proc parseTypeAnnotation*(sexpr: SExpr): tuple[argtypes: seq[SExpr], rettype: SExpr, body: SExpr] =
+proc parseTypeAnnotation*(sexpr: SExpr, isAnnot = true): tuple[argtypes: seq[SExpr], rettype: SExpr, body: SExpr] =
   var argtypes = newSeq[SExpr]()
   var rettype: SExpr
   let body = sexpr.last
@@ -775,7 +784,7 @@ proc parseTypeAnnotation*(sexpr: SExpr): tuple[argtypes: seq[SExpr], rettype: SE
     if $arg.first == "->":
       rettype = arg.rest.first
       break
-    elif arg.rest.kind == sexprNil:
+    elif isAnnot and arg.rest.kind == sexprNil:
       break
     else:
       argtypes.add(arg.first)
@@ -783,8 +792,8 @@ proc parseTypeAnnotation*(sexpr: SExpr): tuple[argtypes: seq[SExpr], rettype: SE
     rettype = newSIdent(sexpr.span, "Void")
   result = (argtypes, rettype, body)
 
-proc getTypeAnnotation*(scope: var Scope, sexpr: SExpr): tuple[argtypes: seq[Symbol], rettype: Symbol, body: SExpr] =
-  let (argtypes, rettype, body) = parseTypeAnnotation(sexpr)
+proc getTypeAnnotation*(scope: var Scope, sexpr: SExpr, isAnnot = true): tuple[argtypes: seq[Symbol], rettype: Symbol, body: SExpr] =
+  let (argtypes, rettype, body) = parseTypeAnnotation(sexpr, isAnnot)
   var argtypesyms = newSeq[Symbol]()
   for argtype in argtypes:
     if argtype.kind == sexprList:
@@ -1099,13 +1108,13 @@ proc genSpecGenericsStruct*(scope: var Scope, typesym: Symbol, typesyms: seq[Sym
     struct: Struct(
       isGenerics: false,
       argtypes: argtypes,
-      name: typesym.semexpr.struct.name,
+      sym: typesym.semexpr.struct.sym,
       fields: fields,
     )
   )
-  let sym = newSymbol(typesym.scope, typesym.semexpr.struct.name, semexpr)
+  let sym = newSymbol(typesym.scope, typesym.semexpr.struct.sym.name, semexpr)
   semexpr.typesym = sym
-  let semid = scope.newSemanticIdent(typesym.semexpr.span, typesym.semexpr.struct.name, argtypes.getSemanticTypeArgs)
+  let semid = scope.newSemanticIdent(typesym.semexpr.span, typesym.semexpr.struct.sym.name, argtypes.getSemanticTypeArgs)
   if scope.hasSpecSemId(semid):
     return sym
   scope.module.addSymbol(semid, sym)
@@ -1158,6 +1167,8 @@ proc tryType*(scope: var Scope, span: Span, typename: string, argtypes: seq[Symb
     let sym = newSymbol(scope, typename, semexpr)
     semexpr.typesym = sym
     return some(sym)
+  elif typename == "Ref":
+    discard # TODO: Ref Type
   else:
     let typesym = scope.trySymbol(scope.newSemanticIdent(span, typename, argtypes.getSemanticTypeArgs))
     if typesym.isNone:

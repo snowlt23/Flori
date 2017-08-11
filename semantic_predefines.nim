@@ -114,15 +114,27 @@ proc genDestructor*(scope: var Scope, span: Span, garbage: SemanticExpr, res: va
     if trysym.isSome:
       res.add(scope.evalFuncCall(span, trysym.get, @[garbage],  @[garbage.typesym]))
 
-proc evalBody*(parentscope: var Scope, scope: var Scope, sexpr: SExpr): seq[SemanticExpr] =
+proc evalBody*(parentscope: var Scope, scope: var Scope, rettype: Symbol, sexpr: SExpr): seq[SemanticExpr] =
   result = @[]
-  for e in sexpr:
-    result.add(scope.evalSExpr(e))
+  if sexpr.len > 1:
+    sexpr.each(e):
+      result.add(scope.evalSExpr(e.first))
+      if e.rest.rest.kind == sexprNil:
+        break
+  let lastsemexpr = scope.evalSExpr(sexpr.last)
+  if scope.isReturnType(lastsemexpr.typesym, rettype):
+    lastsemexpr.refinc
+  else:
+    result.add(lastsemexpr)
+  
   let (survived, garbages) = scope.getScopeValues()
   for survive in survived:
     parentscope.addScopeValue(survive)
   for garbage in garbages:
     scope.genDestructor(sexpr.span, newSemanticExpr(garbage), result)
+
+  if scope.isReturnType(lastsemexpr.typesym, rettype):
+    result.add(lastsemexpr)
 
 proc evalFunction*(parentscope: var Scope, sexpr: SExpr): SemanticExpr =
   let (argtypes, rettype, funcdef) = parentscope.getTypeAnnotation(sexpr)
@@ -131,6 +143,7 @@ proc evalFunction*(parentscope: var Scope, sexpr: SExpr): SemanticExpr =
   for arg in funcdef.rest.rest.first:
     argnames.add($arg)
 
+  var nullscope = newScope(parentscope.module) # FIXME: ctref transfer to parent to black hole
   var scope = parentscope
   scope.addArgSymbols(argtypes, funcdef)
 
@@ -141,7 +154,7 @@ proc evalFunction*(parentscope: var Scope, sexpr: SExpr): SemanticExpr =
       returntype: rettype,
       argtypes: argtypes,
     ),
-    body: evalBody(parentscope, scope, funcdef.rest.rest.rest),
+    body: evalBody(nullscope, scope, rettype, funcdef.rest.rest.rest),
   )
   let semexpr = newSemanticExpr(sexpr.span, semanticFunction, rettype, function: f)
   let sym = newSymbol(scope, $funcname, semexpr)
@@ -188,7 +201,7 @@ proc evalGenericsAnnot*(parentscope: var Scope, sexpr: Sexpr): SEmanticExpr =
       scope.addSymbol(semid, sym)
 
     for fn in protocolsym.semexpr.protocol.funcs:
-      let semexpr = newSemanticExpr(sexpr.span, semanticProtocolFunc, notTypeSym, protocolfntype: fn.fntype)
+      let semexpr = newSemanticExpr(sexpr.span, semanticProtocolFunc, fn.fntype.returntype, protocolfntype: fn.fntype)
       let sym = newSymbol(scope, fn.name, semexpr)
       let semid = newSemanticIdent(scope, sexpr.span, fn.name, fn.fntype.argtypes.getSemanticTypeArgs)
       scope.addSymbol(semid, sym)
@@ -217,7 +230,7 @@ proc evalProtocol*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   if sexpr.rest.rest.kind != sexprNil:
     for fn in sexpr.rest.rest:
       let name = fn.first
-      let (argtypes, rettype, _) = getTypeAnnotation(scope, fn.rest.first)
+      let (argtypes, rettype, _) = getTypeAnnotation(scope, fn.rest.first, isAnnot = false)
       funcs.add(($name, FuncType(returntype: rettype, argtypes: argtypes)))
   let protocol = Protocol(funcs: funcs)
   let semexpr = newSemanticExpr(sexpr.span, semanticProtocol, notTypeSym, protocol: protocol)
@@ -246,11 +259,11 @@ proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let struct = Struct(
     isGenerics: false,
     argtypes: argtypes,
-    name: structname,
     fields: fields,
   )
   let semexpr = newSemanticExpr(sexpr.span, semanticStruct, notTypeSym, struct: struct)
   let sym = newSymbol(scope, structname, semexpr)
+  struct.sym = sym
   semexpr.typesym = sym
   let semid = scope.newSemanticIdent(sexpr.span, structname, argtypes.getSemanticTypeArgs())
   scope.module.addSymbol(semid, sym)
@@ -298,9 +311,9 @@ proc evalVariable*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   
   if value.canOwner:
     semexpr.refcounter = CTRefCounter(kind: ctrefOwner, count: 0)
+    scope.addScopeValue(sym)
   else:
     semexpr.refcounter = CTRefCounter(kind: ctrefBorrow, owner: value.refcounter)
-  scope.addScopeValue(sym)
   semexpr.refinc
 
   return semexpr

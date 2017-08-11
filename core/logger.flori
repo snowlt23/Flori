@@ -1,0 +1,23 @@
+
+(require prelude :refer :all)
+(require io :refer :all)
+(require fileio :refer :all)
+(require vec :refer :all)
+
+(defstruct Logger
+  (files (Vec File)))
+
+@(: -> Logger)
+(defn logger []
+  (construct Logger :files (vec File (size 0)))) ; file.inc +1
+@(: Logger File)
+(defn add-file [logger file]
+  (push (logger .files) file))
+
+@(: Logger CString)
+(defn log [logger s]
+  (var i (size 0))
+  (print (cast Int32 (len (logger .files))))
+  (while (< i (len (logger .files)))
+    (write (nth (logger .files) i) s)
+    (set! i (+ i (size 1)))))

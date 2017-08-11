@@ -129,7 +129,7 @@ proc genSym*(scope: Scope, sym: Symbol): string =
   elif sym.semexpr.kind == semanticPrimitiveValue:
     return sym.semexpr.primValue
   elif sym.semexpr.kind == semanticStruct:
-    return "$#_$#_$#" % [scope.module.name, sym.semexpr.struct.name, sym.semexpr.struct.argtypes.mapIt($it).join("_")]
+    return "$#_$#" % [$sym, sym.semexpr.struct.argtypes.mapIt($it).join("_")]
   elif sym.semexpr.kind == semanticGenerics or sym.semexpr.kind == semanticTypeGenerics:
     sym.raiseError("couldn't specialize generics param: $#" % sym.name)
   elif sym.semexpr.kind == semanticNotType:
@@ -141,14 +141,13 @@ proc genStruct*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCod
   if semexpr.struct.isGenerics:
     return
 
-  let structname = semexpr.struct.name
-  let structhash = structname & "_" & semexpr.struct.argtypes.mapIt($it).join("_")
+  let structhash = $semexpr.struct.sym & "_" & semexpr.struct.argtypes.mapIt($it).join("_")
   let fields = semexpr.struct.fields
   module.addCommon("typedef struct {\n")
   module.indent:
     for field in fields:
       module.addCommon("$$i$# $#;\n" % [genSym(module.scope, field.typesym), field.name])
-  module.addCommon("} $#_$#;\n" % [module.scope.module.name, structhash])
+  module.addCommon("} $#;\n" % [structhash])
 
 proc genStructConstructor*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let values = semexpr.structconstructor.values

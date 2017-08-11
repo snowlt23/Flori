@@ -34,7 +34,11 @@
 (defn set-nth! [vec index value]
   (set! (nth (vec .data) index) value))
 
-@(^ (:a All))
+@(^ (:a Destructable))
 @(: (Vec :a))
 (defn destructor [vec]
+  (var i (size 0))
+  (while (< i (len vec))
+    (destructor (nth vec i))
+    (set! i (+ i (size 1))))
   (dealloc (cast Pointer (vec .data))))
