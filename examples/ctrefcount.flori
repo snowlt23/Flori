@@ -3,11 +3,11 @@
 
 (c-type File :name "FILE*" :header "stdio.h")
 @(: File CString)
-(c-import fprintf :header "stdio.h")
+(c-func fprintf :header "stdio.h")
 @(: CString CString -> File)
-(c-import open :name "fopen" :header "stdio.h")
+(c-func open :name "fopen" :header "stdio.h")
 @(: File)
-(c-import close :name "fclose" :header "stdio.h")
+(c-func close :name "fclose" :header "stdio.h")
 
 @(: File)
 (defn destructor [file]
@@ -37,17 +37,17 @@
 (defstruct Logger
   (file File))
 
-@(: Logger)
-(defn destructor [logger]
-  (close (logger file))) ; actually not needed
+;; @(: Logger)
+;; (defn destructor [logger]
+;;   (close (logger .file))) ; actually not needed
 
 @(: File -> Logger)
 (defn new-logger [file]
-  (Logger :file file)) ; file.inc +1
+  (construct Logger :file file)) ; file.inc +1
 
 @(: Logger CString)
 (defn log [logger s]
-  (write (logger file) s)) ; file.inc 2 -> file.inc 1
+  (write (logger .file) s)) ; file.inc 2 -> file.inc 1
 
 @(:)
 (defn main []

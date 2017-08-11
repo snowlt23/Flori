@@ -164,9 +164,9 @@ proc genStructConstructor*(module: var CCodegenModule, semexpr: SemanticExpr, re
   res.addSrc("$#" % tmpsym)
 
 proc genFieldAccess*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
-  let valuename = module.scope.genSym(semexpr.fieldaccess.valuesym)
-  let fieldname = semexpr.fieldaccess.fieldname
-  res.addSrc("$#.$#" % [valuename, fieldname])
+  module.gen(semexpr.fieldaccess.valuesym, res)
+  res.addSrc(".")
+  res.addSrc(semexpr.fieldaccess.fieldname)
 
 proc genVariable*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let varname = semexpr.variable.name

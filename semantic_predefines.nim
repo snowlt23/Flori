@@ -89,6 +89,31 @@ proc evalCEmit*(scope: var Scope, sexpr: SExpr): SemanticExpr =
     args.add(scope.evalSExpr(se))
   return newSemanticExpr(sexpr.span, semanticCExpr, notTypeSym, cexpr: CExpr(format: format, args: args))
 
+proc genDestructor*(scope: var Scope, span: Span, garbage: SemanticExpr, res: var seq[SemanticExpr]) =
+  if garbage.typesym.semexpr.kind == semanticStruct:
+    for field in garbage.typesym.semexpr.struct.fields:
+      let fieldgarbage = newSemanticExpr(
+        span,
+        semanticFieldAccess,
+        field.typesym,
+        fieldaccess: FieldAccess(
+          valuesym: garbage,
+          fieldname: field.name
+        )
+      )
+      scope.genDestructor(span, fieldgarbage, res)
+    let trysym = scope.tryType(span, "destructor", @[garbage.typesym])
+    if trysym.isSome:
+      res.add(scope.evalFuncCall(span, trysym.get, @[garbage],  @[garbage.typesym]))
+  elif garbage.kind == semanticSymbol:
+    let trysym = scope.tryType(span, "destructor", @[garbage.typesym])
+    if trysym.isSome:
+      res.add(scope.evalFuncCall(span, trysym.get, @[garbage],  @[garbage.typesym]))
+  else:
+    let trysym = scope.tryType(span, "destructor", @[garbage.typesym])
+    if trysym.isSome:
+      res.add(scope.evalFuncCall(span, trysym.get, @[garbage],  @[garbage.typesym]))
+
 proc evalBody*(parentscope: var Scope, scope: var Scope, sexpr: SExpr): seq[SemanticExpr] =
   result = @[]
   for e in sexpr:
@@ -97,11 +122,7 @@ proc evalBody*(parentscope: var Scope, scope: var Scope, sexpr: SExpr): seq[Sema
   for survive in survived:
     parentscope.addScopeValue(survive)
   for garbage in garbages:
-    let trysym = scope.tryType(sexpr.span, "destructor", @[garbage.semexpr.typesym])
-    # let trysym = scope.trySymbol(scope.newSemanticIdent(sexpr.span, "destructor", @[getSemanticTypeArg(garbage.semexpr.typesym)]))
-    let arg = newSemanticExpr(sexpr.span, semanticSymbol, garbage.semexpr.typesym, symbol: garbage)
-    if trysym.isSome:
-      result.add(scope.evalFuncCall(sexpr.span, trysym.get, @[arg], @[garbage.semexpr.typesym]))
+    scope.genDestructor(sexpr.span, newSemanticExpr(garbage), result)
 
 proc evalFunction*(parentscope: var Scope, sexpr: SExpr): SemanticExpr =
   let (argtypes, rettype, funcdef) = parentscope.getTypeAnnotation(sexpr)
