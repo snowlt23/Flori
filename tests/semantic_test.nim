@@ -163,8 +163,5 @@ suite "Semantic":
     (defn main []
       (var v (vec Int32)))
     """)
-    check semexpr.typesym.semexpr.kind == semanticStruct
-    # check semexpr.typesym.name == "Vec"
-    # check semexpr.typesym.semexpr.struct.argtypes[0].name == "Vec"
-    # check semexpr.typesym.semexpr.struct.argtypes[0].semexpr.kind == semanticStruct
-    # check semexpr.typesym.semexpr.struct.argtypes[0].semexpr.struct.argtypes[0].name == "Int32"
+    check semexpr.typesym.semexpr.kind == semanticPrimitiveType
+    check semexpr.typesym.semexpr.primtype.name == "Void"

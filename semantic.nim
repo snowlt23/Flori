@@ -895,7 +895,6 @@ proc getSpecType*(scope: var Scope, semexpr: SemanticExpr): SemanticExpr =
     return semexpr
 
 proc getSpecType*(scope: var Scope, sym: Symbol): Symbol =
-  # echo sym.semexpr.span
   if sym.semexpr.kind == semanticGenerics:
     if sym.semexpr.generics.spec.isNone:
       sym.raiseError("couldn't specialize generics param: $#" % sym.name)
@@ -1071,7 +1070,6 @@ proc genSpecGenerics*(scope: var Scope, semexpr: SemanticExpr): SemanticExpr =
   of semanticFuncCall:
     let args = semexpr.funccall.args.mapIt(scope.genSpecGenerics(it))
     let argtypes = args.mapIt(it.typesym)
-    # echo semexpr.funccall.callfunc.semexpr.kind, ":", semexpr.funccall.callfunc, argtypes, ":", argtypes.isSpecTypes
     if semexpr.funccall.callfunc.semexpr.kind == semanticTypeGenerics:
       result = semexpr.funccall.callfunc.semexpr # FIXME:
     elif semexpr.funccall.callfunc.semexpr.kind == semanticFunction:
@@ -1088,8 +1086,8 @@ proc genSpecGenerics*(scope: var Scope, semexpr: SemanticExpr): SemanticExpr =
       result.typesym = callfuncsym.semexpr.typesym
     elif semexpr.funccall.callfunc.semexpr.kind == semanticProtocolFunc:
       specializeProtocolFunc(semexpr.funccall.callfunc.semexpr, argtypes)
-      let fnargtypes = semexpr.funccall.callfunc.semexpr.protocolfntype.argtypes.mapIt(scope.getSpecType(it))
-      let semid = scope.newSemanticIdent(semexpr.span, semexpr.funccall.callfunc.name, fnargtypes.getSemanticTypeArgs)
+      # let fnargtypes = semexpr.funccall.callfunc.semexpr.protocolfntype.argtypes.mapIt(scope.getSpecType(it))
+      let semid = scope.newSemanticIdent(semexpr.span, semexpr.funccall.callfunc.name, argtypes.getSemanticTypeArgs)
       let specfuncsym = scope.tryFuncSymbol(semid)
       if specfuncsym.isNone:
         semexpr.raiseError("undeclared function by protocol: $#" % semid.debug)
@@ -1149,16 +1147,12 @@ proc genSpecGenericsPrimitiveFunc*(scope: var Scope, funcsym: Symbol, typesyms: 
 
   specializeGenericsPrimitiveFunc(funcsym.semexpr, typesyms)
 
-  # echo funcsym.debug, typesyms.mapIt(it.debug), "  ", funcsym.semexpr.primfunc.fntype.returntype.debug
   let funcname = funcsym.semexpr.primfunc.name
   let argtypes = if spectypes:
                    funcsym.semexpr.primfunc.fntype.argtypes.mapIt(scope.getSpecType(it))
                  else:
                    funcsym.semexpr.primfunc.fntype.argtypes
-  let rettype = if funcsym.semexpr.primfunc.fntype.returntype.isSpecType:
-                  scope.getSpecType(funcsym.semexpr.primfunc.fntype.returntype)
-                else:
-                  funcsym.semexpr.primfunc.fntype.returntype
+  let rettype = scope.getSpecType(funcsym.semexpr.primfunc.fntype.returntype)
   let f = PrimitiveFunc(
     isGenerics: false,
     kind: funcsym.semexpr.primfunc.kind,
@@ -1175,7 +1169,6 @@ proc genSpecGenericsPrimitiveFunc*(scope: var Scope, funcsym: Symbol, typesyms: 
   if scope.trySpecSymbol(semid).isSome:
     return sym
   scope.module.addSymbol(semid, sym)
-
   return sym
 
 proc genSpecGenericsPrimitiveType*(scope: var Scope, typesym: Symbol, typesyms: seq[Symbol]): Symbol =
@@ -1264,8 +1257,8 @@ proc getType*(scope: var Scope, span: Span, typesym: Symbol, argtypes: seq[Symbo
     return genSpecGenericsFunc(scope, typesym, argtypes)
   elif typesym.semexpr.kind == semanticProtocolFunc:
     return typesym
-  # elif typesym.semexpr.kind == semanticPrimitiveFunc:
-  #   return typesym
+  elif typesym.semexpr.kind == semanticPrimitiveFunc:
+    return typesym
   elif typesym.semexpr.kind == semanticFunction:
     return typesym
   else:
@@ -1373,9 +1366,6 @@ proc evalCall*(scope: var Scope, sexpr: SExpr): SemanticExpr =
       let retsemexpr = trysym.get.semexpr.evalproc(scope, sexpr)
       if retsemexpr.kind == semanticSExpr:
         return scope.evalSExpr(retsemexpr.sexpr)
-      # elif retsemexpr.kind == semanticSymbol and not retsemexpr.symbol.isGenericsFunc:
-      #   echo "gen!!!!"
-      #   return scope.genSpecGenerics(retsemexpr)
       else:
         return retsemexpr
     elif trysym.get.semexpr.kind == semanticFunction or trysym.get.semexpr.kind == semanticStruct:
