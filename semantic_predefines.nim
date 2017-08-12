@@ -104,18 +104,23 @@ proc genDestructor*(scope: var Scope, span: Span, garbage: SemanticExpr, res: va
       scope.genDestructor(span, fieldgarbage, res)
     let trysym = scope.tryType(span, "destructor", @[garbage.typesym])
     if trysym.isSome:
-      res.add(scope.evalFuncCall(span, trysym.get, @[garbage],  @[garbage.typesym]))
+      let funccall = scope.evalFuncCall(span, "destructor", @[garbage],  @[garbage.typesym])
+      res.add(funccall)
   elif garbage.kind == semanticSymbol:
     let trysym = scope.tryType(span, "destructor", @[garbage.typesym])
     if trysym.isSome:
-      res.add(scope.evalFuncCall(span, trysym.get, @[garbage],  @[garbage.typesym]))
+      let funccall = scope.evalFuncCall(span, "destructor", @[garbage],  @[garbage.typesym])
+      res.add(funccall)
   else:
     let trysym = scope.tryType(span, "destructor", @[garbage.typesym])
     if trysym.isSome:
-      res.add(scope.evalFuncCall(span, trysym.get, @[garbage],  @[garbage.typesym]))
+      let funccall = scope.evalFuncCall(span, "destructor", @[garbage],  @[garbage.typesym])
+      res.add(funccall)
 
 proc evalBody*(parentscope: var Scope, scope: var Scope, rettype: Symbol, sexpr: SExpr): seq[SemanticExpr] =
   result = @[]
+  if sexpr.kind == sexprNil:
+    return
   if sexpr.len > 1:
     sexpr.each(e):
       result.add(scope.evalSExpr(e.first))
@@ -184,23 +189,26 @@ proc evalGenericsAnnot*(parentscope: var Scope, sexpr: Sexpr): SEmanticExpr =
     if e.first.kind != sexprList and e.first.len < 2:
       sexpr.span.raiseError("generics parameter should be list")
     let protocolsemid = scope.newSemanticIdent(e.first.rest.first)
-    let protocolsym = scope.getSymbol(protocolsemid)
+    let protocolsymopt = scope.trySymbol(protocolsemid)
+    if protocolsymopt.isNone:
+      e.first.rest.first.span.raiseError("undeclared protocol: $#" % $e.first.rest.first)
     let semexpr = newSemanticExpr(
       sexpr.span,
       semanticGenerics,
       notTypeSym,
       generics: Generics(
         attr: $e.first,
-        protocol: protocolsym,
+        protocol: protocolsymopt.get,
         spec: none(Symbol)
       )
     )
     let sym = newSymbol(scope, $e.first.first, semexpr)
+    semexpr.typesym = sym
     let semid = newSemanticIdent(scope, e.first.first)
-    if not scope.hasSemId(semid):
+    if scope.trySymbol(semid).isNone:
       scope.addSymbol(semid, sym)
 
-    for fn in protocolsym.semexpr.protocol.funcs:
+    for fn in protocolsymopt.get.semexpr.protocol.funcs:
       let semexpr = newSemanticExpr(sexpr.span, semanticProtocolFunc, fn.fntype.returntype, protocolfntype: fn.fntype)
       let sym = newSymbol(scope, fn.name, semexpr)
       let semid = newSemanticIdent(scope, sexpr.span, fn.name, fn.fntype.argtypes.getSemanticTypeArgs)
@@ -248,7 +256,10 @@ proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   var argtypes = newSeq[Symbol]()
   if typeexpr.kind == sexprList:
     for gene in typeexpr.rest:
-      argtypes.add(scope.getSymbol(scope.newSemanticIdent(gene)))
+      let genesymopt = scope.trySymbol(scope.newSemanticIdent(gene))
+      if genesymopt.isNone:
+        gene.span.raiseError("undeclared type param: $#" % $gene)
+      argtypes.add(genesymopt.get)
   var fields = newSeq[tuple[name: string, typesym: Symbol]]()
   for field in sexpr.rest.rest:
     let fieldname = $field.first
@@ -323,7 +334,7 @@ proc evalIfExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let tbody = scope.evalSExpr(sexpr.rest.rest.first)
   let fbody = scope.evalSExpr(sexpr.rest.rest.rest.first)
   let condtypesym = cond.typesym
-  if not (condtypesym == scope.getSymbol(scope.newSemanticIdent(cond.span, "Bool", @[]))):
+  if not (condtypesym == scope.trySymbol(scope.newSemanticIdent(cond.span, "Bool", @[])).get):
     sexpr.span.raiseError("cond expression is not Bool type")
   let ttypesym = tbody.typesym
   let ftypesym = fbody.typesym

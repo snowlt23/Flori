@@ -9,7 +9,7 @@
 
 @(: -> Logger)
 (defn logger []
-  (construct Logger :files (vec File (size 0)))) ; file.inc +1
+  (construct Logger :files (vec File (size 0))))
 @(: &Logger File)
 (defn add-file [logger file]
   (push (logger .files) file))

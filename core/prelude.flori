@@ -142,6 +142,8 @@
 (c-func <= :infix :nodecl)
 @(: Size Size -> Bool)
 (c-func >= :infix :nodecl)
+@(: Size)
+(defn destructor [x])
 
 @(: Int32 -> Int32)
 (c-func abs :header "math.h")

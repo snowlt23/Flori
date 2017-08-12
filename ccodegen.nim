@@ -255,17 +255,18 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
     ress.add(res)
   module.addSrc("$# $#($#) {\n" % [rettype, funchash, argsrcs.join(", ")])
   module.indent:
-    for i in 0..<ress.len-1:
-      module.addSrc("$i")
-      module.addSrc(ress[i])
-      module.addSrc(";\n")
-    if ress[^1].prev != "":
-      module.addSrc("$$i$#;\n" % ress[^1].prev)
-    if semexpr.function.body[^1].typesym == module.scope.getSymbol(module.scope.newSemanticIdent(semexpr.span, "Void", @[])) or
-       semexpr.function.body[^1].typesym == notTypeSym:
-      module.addSrc("$$i$#;\n" % ress[^1].src)
-    else:
-      module.addSrc("$$ireturn $#;\n" % ress[^1].src)
+    if ress.len != 0:
+      for i in 0..<ress.len-1:
+        module.addSrc("$i")
+        module.addSrc(ress[i])
+        module.addSrc(";\n")
+      if ress[^1].prev != "":
+        module.addSrc("$$i$#;\n" % ress[^1].prev)
+      if semexpr.function.body[^1].typesym == module.scope.getSymbol(module.scope.newSemanticIdent(semexpr.span, "Void", @[])) or
+        semexpr.function.body[^1].typesym == notTypeSym:
+        module.addSrc("$$i$#;\n" % ress[^1].src)
+      else:
+        module.addSrc("$$ireturn $#;\n" % ress[^1].src)
   module.addSrc("}\n")
   module.addHeader("$# $#($#);\n" % [rettype, funchash, argsrcs.join(", ")])
 
@@ -309,8 +310,15 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
     res.addSrc("$#($#)" % [funchash.replaceSpecialSymbols(), finalargress.mapIt($it).join(", ")])
   elif funcsemexpr.kind == semanticPrimitiveType:
     res.addSrc(genSym(module.scope, semexpr.funccall.callfunc))
+  # elif funcsemexpr.kind == semanticProtocolFunc:
+  #   let argtypes = semexpr.funccall.args.mapIt(module.scope.getSpecType(it.typesym))
+  #   let semid = module.scope.newSemanticIdent(semexpr.span, semexpr.funccall.callfunc.name, argtypes.getSemanticTypeArgs)
+  #   let specfuncsym = module.scope.getSpecSymbol(semid)
+  #   let funcsym = module.scope.getType(semexpr.span, specfuncsym, argtypes)
+  #   let funchash = genSymhash($funcsym, argtypes)
+  #   res.addSrc("$#($#)" % [funchash, argress.mapIt($it).join(", ")])
   else:
-    funcsemexpr.raiseError("$# is not function kind" % $funcsemexpr.kind)
+    funcsemexpr.raiseError("$# is not function kind: ($# $#)" % [$funcsemexpr.kind, semexpr.funccall.callfunc.debug, semexpr.funccall.args.mapIt($it.typesym).join(" ")])
 
 proc genPrimitiveTypeExpr*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   if semexpr.primtype.isGenerics:

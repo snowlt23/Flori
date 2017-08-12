@@ -8,10 +8,6 @@ flori
 
 tests/tester.exe
 tests/tester
-sparser_test.exe
-sparser_test
-semantic_test.exe
-semantic_test
 
 hello.exe
 hello

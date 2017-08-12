@@ -2,6 +2,7 @@
 (require prelude :refer :all)
 (require fileio :refer :all)
 (require logger :refer :all)
+(require vec :refer :all)
 
 @(:)
 (defn main []
