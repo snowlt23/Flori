@@ -132,7 +132,7 @@ proc genSymHash*(typesym: TypeSymbol): string =
   of typesymTypedesc:
     return "_Typedesc_" & genSymHash(typesym.typedescsym)
   of typesymVarargs:
-    return "_Typedesc_" & genSymHash(typesym.varargssym)
+    return "_Varargs_" & genSymHash(typesym.varargssym)
   of typesymReftype:
     return "_Ref_" & genSymHash(typesym.reftypesym)
   else:
