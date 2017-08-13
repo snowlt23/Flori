@@ -123,18 +123,19 @@ proc genPattern*(pattern: string, args: seq[string]): string =
     respat = respat.replace("$" & $(i+1), $args[i])
   return respat
 
-proc genSymHash*(name: string, argtypes: seq[Symbol]): string =
+proc genSymHash*(name: string, argtypes: seq[TypeSymbol]): string =
   result = name
   for argtype in argtypes:
-    result &= "_" & $argtype
+    result &= "_" & $argtype.getSymbol()
 
+proc genSym*(scope: var Scope, sym: TypeSymbol): string
 proc genSym*(scope: var Scope, sym: Symbol): string =
   if sym.semexpr.kind == semanticPrimitiveType:
     return genPattern(sym.semexpr.primtype.primname, sym.semexpr.primtype.argtypes.mapIt(genSym(scope, it)))
   elif sym.semexpr.kind == semanticPrimitiveValue:
     return sym.semexpr.primValue
   elif sym.semexpr.kind == semanticStruct:
-    return genSymHash($sym, sym.semexpr.struct.argtypes.mapIt(scope.getSpecType(it)))
+    return genSymHash($sym, sym.semexpr.struct.argtypes)
   elif sym.semexpr.kind == semanticReftype:
     return "$#*" % genSym(scope, sym.semexpr.reftype.typ)
   elif sym.semexpr.kind == semanticGenerics or sym.semexpr.kind == semanticTypeGenerics:
@@ -143,6 +144,8 @@ proc genSym*(scope: var Scope, sym: Symbol): string =
     sym.raiseError("can't genSym kind: $#" % $sym.semexpr.kind)
   else:
     return ($sym).replaceSpecialSymbols()
+proc genSym*(scope: var Scope, sym: TypeSymbol): string =
+  return genSym(scope, sym.getSymbol())
 
 proc genStruct*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   if semexpr.struct.isGenerics:
@@ -171,7 +174,7 @@ proc genStructConstructor*(module: var CCodegenModule, semexpr: SemanticExpr, re
 
 proc genFieldAccess*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   module.gen(semexpr.fieldaccess.valuesym, res)
-  if semexpr.fieldaccess.valuesym.kind == semanticSymbol and semexpr.fieldaccess.valuesym.symbol.semexpr.typesym.semexpr.kind == semanticReftype:
+  if semexpr.fieldaccess.valuesym.kind == semanticSymbol and semexpr.fieldaccess.valuesym.symbol.semexpr.typesym.getSemExpr().kind == semanticReftype:
     res.addSrc("->")
   else:
     res.addSrc(".")
@@ -239,7 +242,7 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
   var argnames = newSeq[string]()
   var argtypes = newSeq[string]()
   for i, argtype in semexpr.function.fntype.argtypes:
-    if argtype.semexpr.kind == semanticTypedesc:
+    if argtype.getSemExpr().kind == semanticTypedesc:
       continue
     argnames.add(semexpr.function.argnames[i])
     argtypes.add(genSym(module.scope, argtype))
@@ -262,8 +265,7 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
         module.addSrc(";\n")
       if ress[^1].prev != "":
         module.addSrc("$$i$#;\n" % ress[^1].prev)
-      if semexpr.function.body[^1].typesym == module.scope.trySymbol(module.scope.newSemanticIdent(semexpr.span, "Void", @[])).get or
-        semexpr.function.body[^1].typesym == notTypeSym:
+      if semexpr.function.body[^1].typesym.getSymbol().name == "Void":
         module.addSrc("$$i$#;\n" % ress[^1].src)
       else:
         module.addSrc("$$ireturn $#;\n" % ress[^1].src)
@@ -290,20 +292,20 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
     gen(module, arg, res)
     argress.add(res)
 
-  let funcsemexpr = semexpr.funccall.callfunc.semexpr
+  let funcsemexpr = semexpr.funccall.callfunc.getSemExpr()
 
   # TODO: Typedesc
   if funcsemexpr.kind == semanticPrimitiveFunc:
     genPrimitiveFuncCall(module, funcsemexpr, res, argress)
   elif funcsemexpr.kind == semanticFunction:
     let callfunc = semexpr.funccall.callfunc
-    let argtypes = callfunc.semexpr.function.fntype.argtypes
+    let argtypes = funcsemexpr.function.fntype.argtypes
     let funchash = genSymhash($callfunc, argtypes)
     var finalargress = newSeq[string]()
     for i in 0..<argress.len:
-      if argtypes[i].semexpr.kind == semanticTypedesc:
+      if argtypes[i].getSemExpr().kind == semanticTypedesc:
         continue
-      elif argtypes[i].semexpr.kind == semanticReftype:
+      elif argtypes[i].getSemExpr().kind == semanticReftype:
         finalargress.add("&" & $argress[i])
       else:
         finalargress.add($argress[i])
@@ -329,8 +331,8 @@ proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRe
   case semexpr.kind
   of semanticNotType:
     discard
-  of semanticIdent:
-    res.addSrc(semexpr.ident)
+  of semanticArgType:
+    res.addSrc(semexpr.argtypeident)
   of semanticSymbol:
     res.addSrc(genSym(module.scope, semexpr.symbol))
   of semanticProtocol:

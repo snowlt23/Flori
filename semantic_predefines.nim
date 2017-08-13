@@ -330,14 +330,14 @@ proc evalIfExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let tbody = scope.evalSExpr(sexpr.rest.rest.first)
   let fbody = scope.evalSExpr(sexpr.rest.rest.rest.first)
   let condtypesym = cond.typesym
-  if not (condtypesym == scope.tryType(cond.span, "Bool", @[]).get):
+  if condtypesym.getSymbol().name != "Bool":
     sexpr.span.raiseError("cond expression is not Bool type")
   let ttypesym = tbody.typesym
   let ftypesym = fbody.typesym
   let typesym = if ttypesym == ftypesym:
                   ttypesym
                 else:
-                  notTypeSym
+                  scope.getVoidSym(sexpr.span)
   let semexpr = newSemanticExpr(
     sexpr.span,
     semanticIfExpr,
