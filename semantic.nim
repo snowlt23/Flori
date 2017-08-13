@@ -1087,7 +1087,7 @@ proc genSpecGenerics*(scope: var Scope, semexpr: SemanticExpr): SemanticExpr =
     var values = newSeq[tuple[name: string, value: SemanticExpr]]()
     for valuepair in semexpr.structconstructor.values:
       values.add((valuepair.name, scope.genSpecGenerics(valuepair.value)))
-    let structtype = scope.genSpecGenericsStruct(semexpr.structconstructor.structsym, values.mapIt(it.value.typesym))
+    let structtype = scope.genSpecGenericsStruct(semexpr.structconstructor.structsym, semexpr.structconstructor.structsym.genericstypes.mapIt(it.getSpecTypeSym()))
     result = newSemanticExpr(
       semexpr.span,
       semanticStructConstructor,
@@ -1188,12 +1188,22 @@ proc genSpecGenericsFunc*(scope: var Scope, funcsym: TypeSymbol, typesyms: seq[T
     #   funcsym.getSemExpr().function.fntype.argtypes,
     #   typesyms
     # )
+    var argtypes = newSeq[TypeSymbol]()
+    for i, argtype in funcsym.getSemExpr().function.fntype.argtypes:
+      if argtype.kind == typesymTypedesc:
+        argtypes.add(TypeSymbol(kind: typesymTypedesc, typedescsym: typesyms[i]))
+      elif argtype.kind == typesymVarargs:
+        argtypes.add(TypeSymbol(kind: typesymVarargs, varargssym: typesyms[i]))
+      elif argtype.kind == typesymReftype:
+        argtypes.add(TypeSymbol(kind: typesymReftype, reftypesym: typesyms[i]))
+      else:
+        argtypes.add(typesyms[i])
     let f = Function(
       isGenerics: not typesyms.isSpecTypes,
       argnames: funcsym.getSemExpr().function.argnames,
       fntype: FuncType(
         returntype: rettype,
-        argtypes: typesyms
+        argtypes: argtypes
       ),
       body: funcsym.getSemExpr().function.body.mapIt(scope.genSpecGenerics(it))
     )

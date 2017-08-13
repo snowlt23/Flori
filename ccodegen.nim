@@ -162,7 +162,6 @@ proc genStruct*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCod
 proc genStructConstructor*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let values = semexpr.structconstructor.values
   let tmpsym = genTmpSym(module)
-  echo "constructor! ", semexpr.typesym.debug
   res.addPrev("$# $# = {" % [genSym(module.scope, semexpr.typesym), tmpsym])
   for value in values:
     res.addPrev(".$# = " % value.name)
@@ -304,9 +303,9 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
     let funchash = genSymhash($callfunc, argtypes)
     var finalargress = newSeq[string]()
     for i in 0..<argress.len:
-      if argtypes[i].getSemExpr().kind == semanticTypedesc:
+      if argtypes[i].kind == typesymTypedesc:
         continue
-      elif argtypes[i].getSemExpr().kind == semanticReftype:
+      elif argtypes[i].kind == typesymReftype:
         finalargress.add("&" & $argress[i])
       else:
         finalargress.add($argress[i])
