@@ -283,6 +283,7 @@ proc tryType*(scope: var Scope, sexpr: SExpr): Option[TypeSymbol]
 proc trySymbol*(scope: var Scope, semid: SemanticIdent): Option[Symbol]
 proc trySpecSymbol*(scope: var Scope, semid: SemanticIdent): Option[Symbol]
 proc tryFuncSymbol*(scope: var Scope, semid: SemanticIdent): Option[Symbol]
+proc isSpecTypes*(syms: seq[TypeSymbol]): bool
 
 #
 # Consts
@@ -320,6 +321,37 @@ proc raiseError*(sym: Symbol, s: string) =
   sym.semexpr.raiseError(s)
 proc raiseError*(semid: SemanticIdent, s: string) =
   semid.span.raiseError(s)
+
+#
+# Metadata
+#
+
+proc newMetadata*(): MetaData =
+  result.metatable = initTable[string, SemanticExpr]()
+proc addMetadata*(semexpr: SemanticExpr, name: string, meta: SemanticExpr) =
+  semexpr.metadata.metatable[name] = meta
+proc getMetadata*(semexpr: SemanticExpr, name: string): SemanticExpr =
+  if not semexpr.metadata.metatable.hasKey(name):
+    semexpr.raiseError("expression hasn't `$#` metadata" % name)
+  semexpr.metadata.metatable[name]
+
+#
+# Macros
+#
+
+macro newSemanticExpr*(span: Span, kind: SemanticExprKind, typesym: TypeSymbol, body: varargs[untyped]): SemanticExpr =
+  let tmpid= genSym(nskVar, "tmp")
+  result = quote do:
+    var `tmpid` = SemanticExpr(kind: `kind`, span: `span`, typesym: `typesym`, metadata: newMetadata(), refcounter: CTRefCounter(kind: ctrefOwner, count: 0))
+  for b in body:
+    expectKind(b, nnkExprColonExpr)
+    let name = b[0]
+    name.expectKind(nnkIdent)
+    let value = b[1]
+    result.add(quote do:
+      `tmpid`.`name` = `value`
+    )
+  result.add(tmpid)
 
 #
 # CTRefCounter
@@ -408,7 +440,6 @@ proc `$`*(semid: SemanticIdent): string =
 #
 # TypeSymbol
 #
-
 proc getSymbol*(typesym: TypeSymbol): Symbol =
   case typesym.kind
   of typesymSpec:
@@ -416,7 +447,14 @@ proc getSymbol*(typesym: TypeSymbol): Symbol =
   of typesymGenerics:
     return typesym.genericssym
   of typesymTypeGenerics:
-    return typesym.genericsoriginsym
+    if typesym.genericstypes.isSpecTypes:
+      return typesym.genericsoriginsym.scope.tryType(
+        typesym.genericsoriginsym.semexpr.span,
+        typesym.genericsoriginsym.name,
+        typesym.genericstypes
+      ).get.getSymbol()
+    else:
+      return typesym.genericsoriginsym
   of typesymVarargs:
     return typesym.varargssym.getSymbol()
   of typesymTypedesc:
@@ -424,7 +462,7 @@ proc getSymbol*(typesym: TypeSymbol): Symbol =
   of typesymReftype:
     return typesym.reftypesym.getSymbol()
   of typesymVoid:
-    raise newException(SemanticError, "typesymGenerics can't getSymbol")
+    raise newException(SemanticError, "typesymVoid can't getSymbol")
 proc getSemExpr*(typesym: TypeSymbol): SemanticExpr =
   return typesym.getSymbol().semexpr
 proc `$`*(typesym: TypeSymbol): string =
@@ -434,7 +472,7 @@ proc `$`*(typesym: TypeSymbol): string =
   of typesymGenerics:
     $typesym.genericssym
   of typesymTypeGenerics:
-    $typesym.genericsoriginsym
+    "($# $#)" % [$typesym.genericsoriginsym, typesym.genericstypes.mapIt($it).join(" ")]
   of typesymVarargs:
     $typesym.varargssym
   of typesymTypedesc:
@@ -450,7 +488,7 @@ proc debug*(typesym: TypeSymbol): string =
   of typesymGenerics:
     $typesym.genericssym
   of typesymTypeGenerics:
-    typesym.genericsoriginsym.debug
+    "($# $#)" % [$typesym.genericsoriginsym, typesym.genericstypes.mapIt(it.debug).join(" ")]
   of typesymVarargs:
     typesym.varargssym.debug
   of typesymTypedesc:
@@ -632,7 +670,7 @@ proc addSymbol*(semids: var Table[SemanticIdent, SemanticIdentGroup], semid: Sem
 #
 
 proc getTypeSymbol*(sym: Symbol): TypeSymbol =
-  if sym.semexpr.kind == semanticGenerics:
+  if sym.semexpr.kind == semanticGenerics or sym.semexpr.kind == semanticGenericsChild:
     return TypeSymbol(kind: typesymGenerics, genericssym: sym)
   elif sym.semexpr.kind == semanticPrimitiveType:
     if sym.semexpr.primtype.argtypes.isSpecTypes:
@@ -682,35 +720,9 @@ proc getTypeSymbol*(sym: Symbol): TypeSymbol =
     sym.semexpr.span.raiseError("$#:$# is not type symbol" % [$sym, $sym.semexpr.kind])
 
 #
-# Metadata
-#
-
-proc newMetadata*(): MetaData =
-  result.metatable = initTable[string, SemanticExpr]()
-proc addMetadata*(semexpr: SemanticExpr, name: string, meta: SemanticExpr) =
-  semexpr.metadata.metatable[name] = meta
-proc getMetadata*(semexpr: SemanticExpr, name: string): SemanticExpr =
-  if not semexpr.metadata.metatable.hasKey(name):
-    semexpr.raiseError("expression hasn't `$#` metadata" % name)
-  semexpr.metadata.metatable[name]
-
-#
 # SemanticExpr
 #
 
-macro newSemanticExpr*(span: Span, kind: SemanticExprKind, typesym: TypeSymbol, body: varargs[untyped]): SemanticExpr =
-  let tmpid= genSym(nskVar, "tmp")
-  result = quote do:
-    var `tmpid` = SemanticExpr(kind: `kind`, span: `span`, typesym: `typesym`, metadata: newMetadata(), refcounter: CTRefCounter(kind: ctrefOwner, count: 0))
-  for b in body:
-    expectKind(b, nnkExprColonExpr)
-    let name = b[0]
-    name.expectKind(nnkIdent)
-    let value = b[1]
-    result.add(quote do:
-      `tmpid`.`name` = `value`
-    )
-  result.add(tmpid)
 proc expectSemantic*(semexpr: SemanticExpr, kind: SemanticExprKind) =
   if semexpr.kind != kind:
     semexpr.raiseError("expression is not $#, actually: $#" % [$kind, $semexpr.kind])
@@ -905,13 +917,12 @@ proc addArgSymbols*(scope: var Scope, argtypesyms: seq[TypeSymbol], funcdef: SEx
     let sym = newSymbol(scope, $arg, semexpr)
     scope.addSymbol(scope.newSemanticIdent(arg.span, $arg, @[]), sym)
 
-# FIXME: for (construct (Vec :a) :data (cast (Ptr :a) 1))
 proc genGenericsType*(scope: var Scope, genericssym: Symbol, fntypesym: TypeSymbol, argtypesym: TypeSymbol): TypeSymbol =
+  echo fntypesym.getSymbol.debug, ":", argtypesym.getSymbol.debug
   case fntypesym.kind
   of typesymSpec:
     return fntypesym
   of typesymGenerics:
-    echo genericssym, ":", fntypesym.getSymbol(), " = ", argtypesym
     if genericssym == fntypesym.getSymbol():
       return argtypesym
     else:
@@ -919,6 +930,7 @@ proc genGenericsType*(scope: var Scope, genericssym: Symbol, fntypesym: TypeSymb
   of typesymTypeGenerics:
     for i, fngenericstype in fntypesym.genericstypes:
       if genericssym == fngenericstype.getSymbol(): # FIXME:
+        # echo argtypesym.getSymbol.debug, ":", argtypesym.kind
         if argtypesym.kind == typesymSpec:
           let semexpr = argtypesym.getSemExpr()
           if semexpr.kind == semanticPrimitiveType:
@@ -943,9 +955,10 @@ proc genGenericsType*(scope: var Scope, genericssym: Symbol, fntypesyms: seq[Typ
     return TypeSymbol(kind: typesymGenerics, genericssym: genericssym)
   for i, fntypesym in fntypesyms:
     let ret = scope.genGenericsType(genericssym, fntypesym, argtypesyms[i])
+    # echo genericssym, " = ",  ret.debug, "  ", ret.isSpecType
     if ret.isSpecType:
       if genericssym.semexpr.kind == semanticGenerics:
-        echo "child! ", genericssym, fntypesyms.mapIt(it.debug), genericssym.semexpr.generics.children.len
+        # echo "child! ", genericssym, fntypesyms.mapIt(it.debug), genericssym.semexpr.generics.children.len
         for child in genericssym.semexpr.generics.children:
           child.typesym = ret
       return ret
@@ -959,7 +972,9 @@ proc genReturnType*(scope: var Scope, rettype: TypeSymbol, fntypesyms: seq[TypeS
   of typesymTypeGenerics:
     result = TypeSymbol(kind: typesymTypeGenerics, genericsoriginsym: rettype.genericsoriginsym, genericstypes: @[])
     for i, fngenericstype in rettype.genericstypes:
+      echo "arg! ", scope.genReturnType(fngenericstype, fntypesyms, argtypesyms).debug
       result.genericstypes.add(scope.genReturnType(fngenericstype, fntypesyms, argtypesyms))
+    echo "result! ", result.debug
   of typesymVarargs:
     return scope.genReturnType(rettype.varargssym, fntypesyms, argtypesyms)
   of typesymTypedesc:
@@ -968,6 +983,40 @@ proc genReturnType*(scope: var Scope, rettype: TypeSymbol, fntypesyms: seq[TypeS
     return scope.genReturnType(rettype.reftypesym, fntypesyms, argtypesyms)
   of typesymVoid:
     return rettype
+
+proc specGenericsType*(scope: var Scope, typesym: TypeSymbol, specsym: TypeSymbol) =
+  case typesym.kind
+  of typesymSpec:
+    discard
+  of typesymGenerics:
+    for child in typesym.getSemExpr().generics.children:
+      child.typesym = specsym
+  of typesymTypeGenerics:
+    if specsym.kind == typesymTypeGenerics:
+      for i in 0..<typesym.genericstypes.len:
+        scope.specGenericsType(typesym.genericstypes[i], specsym.genericstypes[i])
+    elif specsym.kind == typesymSpec:
+      if specsym.getSemExpr().kind == semanticPrimitiveType:
+        for i in 0..<typesym.genericstypes.len:
+          scope.specGenericsType(typesym.genericstypes[i], specsym.getSemExpr().primtype.argtypes[i])
+      elif specsym.getSemExpr().kind == semanticStruct:
+        for i in 0..<typesym.genericstypes.len:
+          scope.specGenericsType(typesym.genericstypes[i], specsym.getSemExpr().struct.argtypes[i])
+      else:
+        specsym.getSymbol().raiseError("$# couldn't specGenericsType: $#" % [$specsym.getSymbol(), $specsym.getSemExpr().kind])
+    else:
+      specsym.getSymbol().raiseError("$# couldn't specGenericsType: $#" % [$specsym.getSymbol(), $specsym.kind])
+  of typesymVarargs:
+    scope.specGenericsType(typesym.varargssym, specsym)
+  of typesymTypedesc:
+    scope.specGenericsType(typesym.typedescsym, specsym)
+  of typesymReftype:
+    scope.specGenericsType(typesym.reftypesym, specsym)
+  of typesymVoid:
+    discard
+proc specGenericsTypes*(scope: var Scope, typesyms: seq[TypeSymbol], specsyms: seq[TypeSymbol]) =
+  for i in 0..<typesyms.len:
+    scope.specGenericsType(typesyms[i], specsyms[i])
 
 #
 # Generics
@@ -1050,7 +1099,7 @@ proc genSpecGenerics*(scope: var Scope, semexpr: SemanticExpr): SemanticExpr =
         )
       )
       result.typesym = callfuncsym.getSemExpr().typesym
-      echo "PrimitiveType", callfuncsym, " = ", result.typesym.debug
+      # echo "PrimitiveType", callfuncsym, " = ", result.typesym.debug
     else: # primitiveFunc
       let callfuncsym = scope.genSpecGenericsPrimitiveFunc(semexpr.funccall.callfunc, argtypes)
       result = newSemanticExpr(
@@ -1092,11 +1141,14 @@ proc genSpecGenericsFunc*(scope: var Scope, funcsym: TypeSymbol, typesyms: seq[T
   funcsym.getSemExpr().expectSemantic(semanticFunction)
   if typesyms.isSpecTypes:
     let funcname = funcsym.getSemExpr().function.sym.name
+    # scope.specGenericsTypes(funcsym.getSemExpr().function.fntype.argtypes, typesyms)
+    # let rettype = funcsym.getSemExpr().function.fntype.returntype
     let rettype = scope.genReturnType(
       funcsym.getSemExpr().function.fntype.returntype,
       funcsym.getSemExpr().function.fntype.argtypes,
       typesyms
     )
+    echo funcsym.getSymbol, " = ", rettype.getSymbol.debug
     let f = Function(
       isGenerics: not typesyms.isSpecTypes,
       argnames: funcsym.getSemExpr().function.argnames,
@@ -1122,6 +1174,8 @@ proc genSpecGenericsPrimitiveFunc*(scope: var Scope, funcsym: TypeSymbol, typesy
   funcsym.getSemExpr().expectSemantic(semanticPrimitiveFunc)
   if typesyms.isSpecTypes:
     let funcname = funcsym.getSemExpr().primfunc.name
+    # scope.specGenericsTypes(funcsym.getSemExpr().primfunc.fntype.argtypes, typesyms)
+    # let rettype = funcsym.getSemExpr().primfunc.fntype.returntype
     let rettype = scope.genReturnType(
       funcsym.getSemExpr().primfunc.fntype.returntype,
       funcsym.getSemExpr().primfunc.fntype.argtypes,
@@ -1191,6 +1245,7 @@ proc genSpecGenericsStruct*(scope: var Scope, typesym: TypeSymbol, typesyms: seq
       )
     )
     let sym = newSymbol(typesym.getSymbol().scope, typesym.getSemExpr().struct.sym.name, semexpr)
+    echo sym.debug
     let semid = scope.newSemanticIdent(typesym.getSemExpr().span, typesym.getSemExpr().struct.sym.name, typesyms)
     let rettypesym = getTypeSymbol(sym)
     semexpr.typesym = rettypesym
@@ -1246,7 +1301,6 @@ proc tryType*(scope: var Scope, span: Span, typename: string, argtypes: seq[Type
     if typesymopt.isNone:
       return none(TypeSymbol)
     let typesym = getTypeSymbol(typesymopt.get)
-    echo typesymopt.get.semexpr.kind
     if typesymopt.get.semexpr.kind == semanticPrimitiveType and typesymopt.get.semexpr.primtype.isGenerics:
       return some(genSpecGenericsPrimitiveType(scope, typesym, argtypes))
     elif typesymopt.get.semexpr.kind == semanticStruct and typesymopt.get.semexpr.struct.isGenerics:
@@ -1255,10 +1309,10 @@ proc tryType*(scope: var Scope, span: Span, typename: string, argtypes: seq[Type
       return some(genSpecGenericsPrimitiveFunc(scope, typesym, argtypes))
     elif typesymopt.get.semexpr.kind == semanticFunction and typesymopt.get.semexpr.function.isGenerics:
       return some(genSpecGenericsFunc(scope, typesym, argtypes))
-    # elif typesymopt.get.semexpr.kind == semanticGenerics:
-    #   let semexpr = newSemanticExpr(typesymopt.get.semexpr.span, semanticGenericsChild, typesymopt.get.semexpr.typesym, parent: typesymopt.get)
-    #   let sym = scope.newSymbol(typesymopt.get.name, semexpr)
-    #   return some(getTypeSymbol(sym))
+    elif typesymopt.get.semexpr.kind == semanticGenerics:
+      let semexpr = newSemanticExpr(typesymopt.get.semexpr.span, semanticGenericsChild, typesymopt.get.semexpr.typesym, parent: typesymopt.get)
+      let sym = scope.newSymbol(typesymopt.get.name, semexpr)
+      return some(getTypeSymbol(sym))
     else:
       return some(typesym)
     # else:
