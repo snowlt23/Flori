@@ -129,7 +129,7 @@ proc evalBody*(parentscope: var Scope, scope: var Scope, rettype: TypeSymbol, se
   for survive in survived:
     parentscope.addScopeValue(survive)
   for garbage in garbages:
-    let semexpr = newSemanticExpr(sexpr.span, semanticSymbol, getTypeSymbol(garbage), symbol: garbage)
+    let semexpr = newSemanticExpr(sexpr.span, semanticSymbol, garbage.semexpr.typesym, symbol: garbage)
     scope.genDestructor(sexpr.span, semexpr, result)
 
   if scope.isReturnType(lastsemexpr.typesym, rettype):
