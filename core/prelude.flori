@@ -69,7 +69,7 @@
 @(: (Ptr :a) Size -> :a)
 (c-func nth :pattern "$1[$2]" :nodecl)
 
-@(: Size)
+@(: Size -> Pointer)
 (c-func alloc :name "malloc" :header "stdlib.h")
 @(: Pointer Size)
 (c-func realloc :name "realloc" :header "stdlib.h")

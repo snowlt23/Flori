@@ -185,6 +185,7 @@ proc evalTypeAnnot*(scope: var Scope, sexpr: SExpr): SemanticExpr =
 
 proc evalGenericsAnnot*(parentscope: var Scope, sexpr: Sexpr): SEmanticExpr =
   var scope = parentscope
+  let curindex = scope.genindex
   sexpr.rest.each(e):
     if e.first.kind != sexprList and e.first.len < 2:
       sexpr.span.raiseError("generics parameter should be list")
@@ -197,6 +198,7 @@ proc evalGenericsAnnot*(parentscope: var Scope, sexpr: Sexpr): SEmanticExpr =
       semanticGenerics,
       notTypeSym,
       generics: Generics(
+        scopeindex: curindex,
         attr: $e.first,
         protocol: protocolsymopt.get,
         spec: none(Symbol)

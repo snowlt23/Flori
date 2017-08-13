@@ -138,7 +138,7 @@ proc genSym*(scope: var Scope, sym: Symbol): string =
   elif sym.semexpr.kind == semanticReftype:
     return "$#*" % genSym(scope, sym.semexpr.reftype.typ)
   elif sym.semexpr.kind == semanticGenerics or sym.semexpr.kind == semanticTypeGenerics:
-    sym.raiseError("couldn't specialize generics param: $#" % sym.name)
+    sym.raiseError("couldn't specialize generics param: $#" % sym.debug)
   elif sym.semexpr.kind == semanticNotType:
     sym.raiseError("can't genSym kind: $#" % $sym.semexpr.kind)
   else:
@@ -262,7 +262,7 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
         module.addSrc(";\n")
       if ress[^1].prev != "":
         module.addSrc("$$i$#;\n" % ress[^1].prev)
-      if semexpr.function.body[^1].typesym == module.scope.getSymbol(module.scope.newSemanticIdent(semexpr.span, "Void", @[])) or
+      if semexpr.function.body[^1].typesym == module.scope.trySymbol(module.scope.newSemanticIdent(semexpr.span, "Void", @[])).get or
         semexpr.function.body[^1].typesym == notTypeSym:
         module.addSrc("$$i$#;\n" % ress[^1].src)
       else:
