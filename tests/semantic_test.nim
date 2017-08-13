@@ -54,7 +54,6 @@ suite "Semantic":
       x)
     (id 1)
     """)
-    echo semexpr.typesym.getSymbol().name
     check semexpr.typesym.getSymbol().name == "Int32"
   test "generics type function":
     let semexpr = evalSExpr("""
@@ -95,6 +94,7 @@ suite "Semantic":
     """)
     check semexpr.typesym.getSemExpr().kind == semanticStruct
     check semexpr.typesym.getSymbol().name == "Vec"
+    echo semexpr.typesym.getSemExpr().struct.argtypes[0].getSymbol().name
     check semexpr.typesym.getSemExpr().struct.argtypes[0].getSymbol().name == "Int32"
   test "generics type and generics function":
     let semexpr = evalSExpr("""

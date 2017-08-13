@@ -82,13 +82,6 @@ proc evalCValue*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   scope.defPrimitiveValue(sexpr.span, $argtypes[0], varname, primname)
   return newSemanticExpr(sexpr.span, semanticNotType, notTypeSym)
 
-proc evalCEmit*(scope: var Scope, sexpr: SExpr): SemanticExpr =
-  let format = sexpr.rest.first.strval
-  var args = newSeq[SemanticExpr]()
-  for se in sexpr.rest.rest:
-    args.add(scope.evalSExpr(se))
-  return newSemanticExpr(sexpr.span, semanticCExpr, notTypeSym, cexpr: CExpr(format: format, args: args))
-
 proc genDestructor*(scope: var Scope, span: Span, garbage: SemanticExpr, res: var seq[SemanticExpr]) =
   if garbage.typesym.getSemExpr().kind == semanticStruct:
     for field in garbage.typesym.getSemExpr().struct.fields:
@@ -201,7 +194,8 @@ proc evalGenericsAnnot*(parentscope: var Scope, sexpr: Sexpr): SEmanticExpr =
       generics: Generics(
         scopeindex: curindex,
         attr: $e.first,
-        protocol: protocolsymopt.get
+        protocol: protocolsymopt.get,
+        children: @[]
       )
     )
     let sym = newSymbol(scope, $e.first.first, semexpr)
@@ -280,7 +274,7 @@ proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   semexpr.typesym = getTypeSymbol(sym)
   let semid = scope.newSemanticIdent(sexpr.span, structname, argtypes)
   scope.module.addSymbol(semid, sym)
-  return newSemanticExpr(sexpr.span, semanticSymbol, notTypeSym, symbol: sym)
+  return newSemanticExpr(sexpr.span, semanticSymbol, getTypeSymbol(sym), symbol: sym)
 
 proc evalStructConstructor*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let sym = scope.tryType(sexpr.rest.first).get
@@ -422,7 +416,6 @@ proc predefine*(scope: var Scope) =
   scope.defPrimitiveEval(internalSpan, "require", evalRequire)
   scope.defPrimitiveEval(internalSpan, "c-func", evalCFunc)
   scope.defPrimitiveEval(internalSpan, "c-type", evalCType)
-  scope.defPrimitiveEval(internalSpan, "c-emit", evalCEmit)
   scope.defPrimitiveEval(internalSpan, ":", evalTypeAnnot)
   scope.defPrimitiveEval(internalSpan, "^", evalGenericsAnnot)
   scope.defPrimitiveEval(internalSpan, "defprotocol", evalProtocol)
