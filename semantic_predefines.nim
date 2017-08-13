@@ -41,7 +41,7 @@ proc evalCFunc*(scope: var Scope, sexpr: SExpr): SemanticExpr =
     )
     scope.module.addCFFI(cffi)
     # FIXME: c-import cffi
-    return newSemanticExpr(sexpr.span, semanticSymbol, rettype, symbol: notTypeSym)
+    return newSemanticExpr(sexpr.span, semanticNotType, rettype)
 
 proc evalCType*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let typeexpr = sexpr.rest.first
@@ -69,7 +69,7 @@ proc evalCType*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   else:
     scope.module.addDecl("extern $#;" % primname)
     sym = scope.defPrimitiveType(sexpr.span, generics, typename, primname)
-  return newSemanticExpr(sexpr.span, semanticSymbol, sym, symbol: sym)
+  return newSemanticExpr(sexpr.span, semanticSymbol, getTypeSymbol(sym), symbol: sym)
 
 proc evalCValue*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let (argtypes, _, vardef) = parseTypeAnnotation(sexpr)
@@ -80,7 +80,7 @@ proc evalCValue*(scope: var Scope, sexpr: SExpr): SemanticExpr =
                  else:
                    varname
   scope.defPrimitiveValue(sexpr.span, $argtypes[0], varname, primname)
-  return newSemanticExpr(sexpr.span, semanticSymbol, notTypeSym, symbol: notTypeSym)
+  return newSemanticExpr(sexpr.span, semanticNotType, notTypeSym)
 
 proc evalCEmit*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let format = sexpr.rest.first.strval
@@ -90,8 +90,8 @@ proc evalCEmit*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   return newSemanticExpr(sexpr.span, semanticCExpr, notTypeSym, cexpr: CExpr(format: format, args: args))
 
 proc genDestructor*(scope: var Scope, span: Span, garbage: SemanticExpr, res: var seq[SemanticExpr]) =
-  if garbage.typesym.semexpr.kind == semanticStruct:
-    for field in garbage.typesym.semexpr.struct.fields:
+  if garbage.typesym.getSemExpr().kind == semanticStruct:
+    for field in garbage.typesym.getSemExpr().struct.fields:
       let fieldgarbage = newSemanticExpr(
         span,
         semanticFieldAccess,
@@ -117,7 +117,7 @@ proc genDestructor*(scope: var Scope, span: Span, garbage: SemanticExpr, res: va
       let funccall = scope.evalFuncCall(span, "destructor", @[garbage],  @[garbage.typesym])
       res.add(funccall)
 
-proc evalBody*(parentscope: var Scope, scope: var Scope, rettype: Symbol, sexpr: SExpr): seq[SemanticExpr] =
+proc evalBody*(parentscope: var Scope, scope: var Scope, rettype: TypeSymbol, sexpr: SExpr): seq[SemanticExpr] =
   result = @[]
   if sexpr.kind == sexprNil:
     return
@@ -136,7 +136,8 @@ proc evalBody*(parentscope: var Scope, scope: var Scope, rettype: Symbol, sexpr:
   for survive in survived:
     parentscope.addScopeValue(survive)
   for garbage in garbages:
-    scope.genDestructor(sexpr.span, newSemanticExpr(garbage), result)
+    let semexpr = newSemanticExpr(sexpr.span, semanticSymbol, getTypeSymbol(garbage), symbol: garbage)
+    scope.genDestructor(sexpr.span, semexpr, result)
 
   if scope.isReturnType(lastsemexpr.typesym, rettype):
     result.add(lastsemexpr)
@@ -164,7 +165,7 @@ proc evalFunction*(parentscope: var Scope, sexpr: SExpr): SemanticExpr =
   let semexpr = newSemanticExpr(sexpr.span, semanticFunction, rettype, function: f)
   let sym = newSymbol(scope, $funcname, semexpr)
   f.sym = sym
-  let semid = newSemanticIdent(scope, sexpr.span, $funcname, argtypes.getSemanticTypeArgs)
+  let semid = newSemanticIdent(scope, sexpr.span, $funcname, argtypes)
   scope.module.addSymbol(semid, sym)
   return newSemanticExpr(sexpr.span, semanticSymbol, rettype, symbol: sym)
 
@@ -200,12 +201,11 @@ proc evalGenericsAnnot*(parentscope: var Scope, sexpr: Sexpr): SEmanticExpr =
       generics: Generics(
         scopeindex: curindex,
         attr: $e.first,
-        protocol: protocolsymopt.get,
-        spec: none(Symbol)
+        protocol: protocolsymopt.get
       )
     )
     let sym = newSymbol(scope, $e.first.first, semexpr)
-    semexpr.typesym = sym
+    semexpr.typesym = getTypeSymbol(sym)
     let semid = newSemanticIdent(scope, e.first.first)
     if scope.trySymbol(semid).isNone:
       scope.addSymbol(semid, sym)
@@ -213,7 +213,7 @@ proc evalGenericsAnnot*(parentscope: var Scope, sexpr: Sexpr): SEmanticExpr =
     for fn in protocolsymopt.get.semexpr.protocol.funcs:
       let semexpr = newSemanticExpr(sexpr.span, semanticProtocolFunc, fn.fntype.returntype, protocolfntype: fn.fntype)
       let sym = newSymbol(scope, fn.name, semexpr)
-      let semid = newSemanticIdent(scope, sexpr.span, fn.name, fn.fntype.argtypes.getSemanticTypeArgs)
+      let semid = newSemanticIdent(scope, sexpr.span, fn.name, fn.fntype.argtypes)
       scope.addSymbol(semid, sym)
 
     if e.rest.rest.kind == sexprNil:
@@ -221,7 +221,7 @@ proc evalGenericsAnnot*(parentscope: var Scope, sexpr: Sexpr): SEmanticExpr =
 
   let typeannot = sexpr.last
   var retsym = scope.evalSExpr(typeannot)
-  if retsym.kind == semanticSymbol and not (retsym.symbol == notTypeSym):
+  if retsym.kind == semanticSymbol:
     if retsym.symbol.semexpr.kind == semanticFunction:
       retsym.symbol.semexpr.function.isGenerics = true
     elif retsym.symbol.semexpr.kind == semanticProtocol:
@@ -232,7 +232,7 @@ proc evalGenericsAnnot*(parentscope: var Scope, sexpr: Sexpr): SEmanticExpr =
       retsym.symbol.semexpr.primfunc.isGenerics = true
     elif retsym.symbol.semexpr.kind == semanticPrimitiveType:
       retsym.symbol.semexpr.primtype.isGenerics = true
-  return newSemanticExpr(sexpr.span, semanticSymbol, notTypeSym, symbol: notTypeSym)
+  return newSemanticExpr(sexpr.span, semanticNotType, notTypeSym)
 
 proc evalProtocol*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let protocolname = $sexpr.rest.first
@@ -245,7 +245,7 @@ proc evalProtocol*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let protocol = Protocol(funcs: funcs)
   let semexpr = newSemanticExpr(sexpr.span, semanticProtocol, notTypeSym, protocol: protocol)
   let sym = newSymbol(scope, protocolname, semexpr)
-  let semid = newSemanticIdent(sym)
+  let semid = scope.newSemanticIdent(sexpr.span, protocolname, @[])
   scope.module.addSymbol(semid, sym)
   return newSemanticExpr(sexpr.span, semanticSymbol, notTypeSym, symbol: sym)
 
@@ -255,14 +255,14 @@ proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
                      $typeexpr
                    else:
                      $typeexpr.first
-  var argtypes = newSeq[Symbol]()
+  var argtypes = newSeq[TypeSymbol]()
   if typeexpr.kind == sexprList:
     for gene in typeexpr.rest:
-      let genesymopt = scope.trySymbol(scope.newSemanticIdent(gene))
+      let genesymopt = scope.tryType(gene)
       if genesymopt.isNone:
         gene.span.raiseError("undeclared type param: $#" % $gene)
       argtypes.add(genesymopt.get)
-  var fields = newSeq[tuple[name: string, typesym: Symbol]]()
+  var fields = newSeq[tuple[name: string, typesym: TypeSymbol]]()
   for field in sexpr.rest.rest:
     let fieldname = $field.first
     let typesym = scope.tryType(field.rest.first)
@@ -277,20 +277,20 @@ proc evalStruct*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let semexpr = newSemanticExpr(sexpr.span, semanticStruct, notTypeSym, struct: struct)
   let sym = newSymbol(scope, structname, semexpr)
   struct.sym = sym
-  semexpr.typesym = sym
-  let semid = scope.newSemanticIdent(sexpr.span, structname, argtypes.getSemanticTypeArgs())
+  semexpr.typesym = getTypeSymbol(sym)
+  let semid = scope.newSemanticIdent(sexpr.span, structname, argtypes)
   scope.module.addSymbol(semid, sym)
   return newSemanticExpr(sexpr.span, semanticSymbol, notTypeSym, symbol: sym)
 
 proc evalStructConstructor*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let sym = scope.tryType(sexpr.rest.first).get
   var struct: SemanticExpr
-  if sym.semexpr.kind == semanticStruct:
-    struct = sym.semexpr
-  elif sym.semexpr.kind == semanticTypeGenerics:
-    struct = sym.semexpr.typegenerics.typ.semexpr
+  if sym.getSemExpr().kind == semanticStruct:
+    struct = sym.getSemExpr()
+  elif sym.getSemExpr().kind == semanticTypeGenerics:
+    struct = sym.getSemExpr().typegenerics.typ.getSemExpr()
   else:
-    sexpr.rest.first.span.raiseError("$# is not type, actually $#" % [$sexpr.rest.first, $sym.semexpr.kind])
+    sexpr.rest.first.span.raiseError("$# is not type, actually $#" % [$sexpr.rest.first, $sym.getSemExpr().kind])
   let semexpr = newSemanticExpr(
     sexpr.span,
     semanticStructConstructor,
@@ -319,7 +319,7 @@ proc evalVariable*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   )
 
   let sym = newSymbol(scope, name, semexpr)
-  let semid = newSemanticIdent(sym)
+  let semid = scope.newSemanticIdent(sexpr.span, name, @[])
   scope.addSymbol(semid, sym)
   
   if value.canOwner:
@@ -336,7 +336,7 @@ proc evalIfExpr*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let tbody = scope.evalSExpr(sexpr.rest.rest.first)
   let fbody = scope.evalSExpr(sexpr.rest.rest.rest.first)
   let condtypesym = cond.typesym
-  if not (condtypesym == scope.trySymbol(scope.newSemanticIdent(cond.span, "Bool", @[])).get):
+  if not (condtypesym == scope.tryType(cond.span, "Bool", @[]).get):
     sexpr.span.raiseError("cond expression is not Bool type")
   let ttypesym = tbody.typesym
   let ftypesym = fbody.typesym
@@ -372,13 +372,13 @@ proc evalSetSyntax*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let value = scope.evalSExpr(sexpr.rest.rest.first)
   # if not (variable.typesym == value.typesym):
   #   value.raiseError("illegal set (set! $# $#)" % [$variable.typesym, $value.typesym])
-  if leftval.kind == semanticFuncCall and leftval.funccall.callfunc.semexpr.kind == semanticFunction:
+  if leftval.kind == semanticFuncCall and leftval.funccall.callfunc.getSemExpr().kind == semanticFunction:
     var args = leftval.funccall.args
     args.add(value)
     let argtypes = args.mapIt(it.typesym)
-    let setfuncsym = scope.tryType(leftval.span, "set-$#!" % leftval.funccall.callfunc.name, argtypes)
+    let setfuncsym = scope.tryType(leftval.span, "set-$#!" % leftval.funccall.callfunc.getSymbol().name, argtypes)
     if setfuncsym.isNone:
-      sexpr.span.raiseError("undeclared (set-$#! $#) function" % [leftval.funccall.callfunc.name, argtypes.join(" ")])
+      sexpr.span.raiseError("undeclared (set-$#! $#) function" % [leftval.funccall.callfunc.getSymbol().name, argtypes.mapIt($it).join(" ")])
     let semexpr = newSemanticExpr(
       leftval.span,
       semanticFuncCall,

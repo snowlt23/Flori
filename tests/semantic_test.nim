@@ -45,7 +45,7 @@ suite "Semantic":
     """)
     check semexpr.kind == semanticSymbol
     check semexpr.symbol.semexpr.kind == semanticFunction
-    check semexpr.symbol.semexpr.typesym.name == "Bool"
+    check semexpr.symbol.semexpr.typesym.getSymbol().name == "Bool"
   test "generics function":
     let semexpr = evalSExpr("""
     @(^ (:a All))
@@ -54,7 +54,8 @@ suite "Semantic":
       x)
     (id 1)
     """)
-    check semexpr.typesym.name == "Int32"
+    echo semexpr.typesym.getSymbol().name
+    check semexpr.typesym.getSymbol().name == "Int32"
   test "generics type function":
     let semexpr = evalSExpr("""
     @(^ (:a All))
@@ -66,12 +67,12 @@ suite "Semantic":
       (x .data))
     (get (construct (Wrap Int32) :data 1))
     """)
-    check semexpr.typesym.name == "Int32"
+    check semexpr.typesym.getSymbol().name == "Int32"
   test "generics type primitive function":
     let semexpr = evalSExpr("""
     (cast Pointer 1)
     """)
-    check semexpr.typesym.name == "Pointer"
+    check semexpr.typesym.getSymbol().name == "Pointer"
   test "generics type and generics function":
     let semexpr = evalSExpr("""
     @(^ (:a All))
@@ -92,9 +93,9 @@ suite "Semantic":
     (push v 1)
     v
     """)
-    check semexpr.typesym.semexpr.kind == semanticStruct
-    check semexpr.typesym.name == "Vec"
-    check semexpr.typesym.semexpr.struct.argtypes[0].name == "Int32"
+    check semexpr.typesym.getSemExpr().kind == semanticStruct
+    check semexpr.typesym.getSymbol().name == "Vec"
+    check semexpr.typesym.getSemExpr().struct.argtypes[0].getSymbol().name == "Int32"
   test "generics type and generics function":
     let semexpr = evalSExpr("""
     @(^ (:a All))
@@ -110,11 +111,11 @@ suite "Semantic":
     (var v (vec (Vec Int32)))
     v
     """)
-    check semexpr.typesym.semexpr.kind == semanticStruct
-    check semexpr.typesym.name == "Vec"
-    check semexpr.typesym.semexpr.struct.argtypes[0].name == "Vec"
-    check semexpr.typesym.semexpr.struct.argtypes[0].semexpr.kind == semanticStruct
-    check semexpr.typesym.semexpr.struct.argtypes[0].semexpr.struct.argtypes[0].name == "Int32"
+    check semexpr.typesym.getSemExpr().kind == semanticStruct
+    check semexpr.typesym.getSymbol().name == "Vec"
+    check semexpr.typesym.getSemExpr().struct.argtypes[0].getSymbol().name == "Vec"
+    check semexpr.typesym.getSemExpr().struct.argtypes[0].getSemExpr().kind == semanticStruct
+    check semexpr.typesym.getSemExpr().struct.argtypes[0].getSemExpr().struct.argtypes[0].getSymbol().name == "Int32"
   test "destructable":
     let semexpr = evalSExpr("""
     @(^ (:a All))
@@ -137,9 +138,9 @@ suite "Semantic":
     (var v (vec Int32))
     v
     """)
-    check semexpr.typesym.semexpr.kind == semanticStruct
-    check semexpr.typesym.name == "Vec"
-    check semexpr.typesym.semexpr.struct.argtypes[0].name == "Int32"
+    check semexpr.typesym.getSemExpr().kind == semanticStruct
+    check semexpr.typesym.getSymbol().name == "Vec"
+    check semexpr.typesym.getSemExpr().struct.argtypes[0].getSymbol().name == "Int32"
   test "generics destructor":
     let semexpr = evalSExpr("""
     @(^ (:a All))
@@ -163,5 +164,5 @@ suite "Semantic":
     (defn main []
       (var v (vec Int32)))
     """)
-    check semexpr.typesym.semexpr.kind == semanticPrimitiveType
-    check semexpr.typesym.semexpr.primtype.name == "Void"
+    check semexpr.typesym.getSemExpr().kind == semanticPrimitiveType
+    check semexpr.typesym.getSemExpr().primtype.name == "Void"
