@@ -354,7 +354,7 @@ proc evalWhileSyntax*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let semexpr = newSemanticExpr(
     sexpr.span,
     semanticWhileSyntax,
-    notTypeSym,
+    scope.getVoidSym(sexpr.span),
     whilesyntax: WhileSyntax(cond: cond, body: body),
   )
   return semexpr
@@ -387,7 +387,7 @@ proc evalSetSyntax*(scope: var Scope, sexpr: SExpr): SemanticExpr =
     let semexpr = newSemanticExpr(
       sexpr.span,
       semanticSetSyntax,
-      notTypeSym,
+      scope.getVoidSym(sexpr.span),
       setsyntax: SetSyntax(variable: leftval, value: value),
     )
     return semexpr

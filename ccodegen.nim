@@ -162,6 +162,7 @@ proc genStruct*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCod
 proc genStructConstructor*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let values = semexpr.structconstructor.values
   let tmpsym = genTmpSym(module)
+  echo "constructor! ", semexpr.typesym.debug
   res.addPrev("$# $# = {" % [genSym(module.scope, semexpr.typesym), tmpsym])
   for value in values:
     res.addPrev(".$# = " % value.name)

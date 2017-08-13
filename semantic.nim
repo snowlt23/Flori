@@ -571,7 +571,10 @@ proc isSpecType*(typesym: TypeSymbol): bool =
   of typesymGenerics:
     return false
   of typesymTypeGenerics:
-    return false
+    for genericstype in typesym.genericstypes:
+      if not genericstype.isSpecType:
+        return false
+    return true
   of typesymVarargs:
     return typesym.varargssym.isSpecType
   of typesymTypedesc:
@@ -1034,6 +1037,12 @@ proc specGenericsType*(scope: var Scope, typesym: TypeSymbol, specsym: TypeSymbo
           scope.specGenericsType(typesym.genericstypes[i], specsym.getSemExpr().struct.argtypes[i])
       else:
         specsym.getSymbol().raiseError("$# couldn't specGenericsType: $#" % [$specsym.getSymbol(), $specsym.getSemExpr().kind])
+    elif specsym.kind == typesymVarargs:
+      scope.specGenericsType(typesym, specsym.varargssym)
+    elif specsym.kind == typesymTypedesc:
+      scope.specGenericsType(typesym, specsym.typedescsym)
+    elif specsym.kind == typesymReftype:
+      scope.specGenericsType(typesym, specsym.reftypesym)
     else:
       specsym.getSymbol().raiseError("$# couldn't specGenericsType: $#" % [$specsym.getSymbol(), $specsym.kind])
   of typesymVarargs:
@@ -1072,6 +1081,8 @@ proc genSpecGenerics*(scope: var Scope, semexpr: SemanticExpr): SemanticExpr =
       )
     )
     result.typesym = semexpr.typesym
+  of semanticGenericsChild:
+    result = semexpr.getSpecTypeSym().getSemExpr()
   of semanticStructConstructor:
     var values = newSeq[tuple[name: string, value: SemanticExpr]]()
     for valuepair in semexpr.structconstructor.values:
@@ -1263,6 +1274,7 @@ proc genSpecGenericsPrimitiveFunc*(scope: var Scope, funcsym: TypeSymbol, typesy
 proc genSpecGenericsPrimitiveType*(scope: var Scope, typesym: TypeSymbol, typesyms: seq[TypeSymbol]): TypeSymbol =
   typesym.getSemExpr().expectSemantic(semanticPrimitiveType)
   if typesyms.isSpecTypes:
+    scope.specGenericsTypes(typesym.getSemExpr().primtype.argtypes, typesyms)
     let semexpr = newSemanticExpr(
       typesym.getSemExpr().span,
       semanticPrimitiveType,
@@ -1288,9 +1300,10 @@ proc genSpecGenericsPrimitiveType*(scope: var Scope, typesym: TypeSymbol, typesy
 proc genSpecGenericsStruct*(scope: var Scope, typesym: TypeSymbol, typesyms: seq[TypeSymbol]): TypeSymbol =
   typesym.getSemExpr().expectSemantic(semanticStruct)
   if typesyms.isSpecTypes:
+    scope.specGenericsTypes(typesym.getSemExpr().struct.argtypes, typesyms)
     var fields = newSeq[tuple[name: string, typesym: TypeSymbol]]()
-    for i in 0..<typesym.getSemExpr().struct.fields.len:
-      fields.add((typesym.getSemExpr().struct.fields[i].name, typesyms[i]))
+    for field in typesym.getSemExpr().struct.fields:
+      fields.add((field.name, field.typesym.getSpecTypeSym()))
     let semexpr = newSemanticExpr(
       typesym.getSemExpr().span,
       semanticStruct,
