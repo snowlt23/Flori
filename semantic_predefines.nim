@@ -88,27 +88,17 @@ proc genDestructor*(scope: var Scope, span: Span, garbage: SemanticExpr, res: va
       let fieldgarbage = newSemanticExpr(
         span,
         semanticFieldAccess,
-        field.typesym,
+        field.typesym.getSpecTypeSym(),
         fieldaccess: FieldAccess(
           valuesym: garbage,
           fieldname: field.name
         )
       )
       scope.genDestructor(span, fieldgarbage, res)
-    let trysym = scope.tryType(span, "destructor", @[garbage.typesym])
-    if trysym.isSome:
-      let funccall = scope.evalFuncCall(span, "destructor", @[garbage],  @[garbage.typesym])
-      res.add(funccall)
-  elif garbage.kind == semanticSymbol:
-    let trysym = scope.tryType(span, "destructor", @[garbage.typesym])
-    if trysym.isSome:
-      let funccall = scope.evalFuncCall(span, "destructor", @[garbage],  @[garbage.typesym])
-      res.add(funccall)
-  else:
-    let trysym = scope.tryType(span, "destructor", @[garbage.typesym])
-    if trysym.isSome:
-      let funccall = scope.evalFuncCall(span, "destructor", @[garbage],  @[garbage.typesym])
-      res.add(funccall)
+  let trysym = scope.trySymbol(scope.newSemanticIdent(span, "destructor", @[garbage.typesym]))
+  if trysym.isSome:
+    let funccall = scope.evalFuncCall(span, "destructor", @[garbage],  @[garbage.typesym])
+    res.add(funccall)
 
 proc evalBody*(parentscope: var Scope, scope: var Scope, rettype: TypeSymbol, sexpr: SExpr): seq[SemanticExpr] =
   result = @[]
@@ -307,6 +297,7 @@ proc evalVariable*(scope: var Scope, sexpr: SExpr): SemanticExpr =
     semanticVariable,
     typesym,
     variable: Variable(
+      scope: scope,
       name: name,
       value: value
     )

@@ -123,13 +123,28 @@ proc genPattern*(pattern: string, args: seq[string]): string =
     respat = respat.replace("$" & $(i+1), $args[i])
   return respat
 
+proc genSymHash*(typesym: TypeSymbol): string =
+  case typesym.kind
+  of typesymSpec:
+    return $typesym.getSymbol()
+  of typesymTypeGenerics:
+    return $typesym.getSymbol() & "_" & typesym.genericstypes.mapIt(genSymHash(it)).join("_")
+  of typesymTypedesc:
+    return "_Typedesc_" & genSymHash(typesym.typedescsym)
+  of typesymVarargs:
+    return "_Typedesc_" & genSymHash(typesym.varargssym)
+  of typesymReftype:
+    return "_Ref_" & genSymHash(typesym.reftypesym)
+  else:
+    raise newException(CCodegenError, "$# can't genSymHash" % typesym.debug)
+
 proc genSymHash*(name: string, argtypes: seq[TypeSymbol]): string =
   result = name
   for argtype in argtypes:
-    result &= "_" & $argtype.getSymbol()
+    result &= genSymHash(argtype)
 
-proc genSym*(scope: var Scope, sym: TypeSymbol): string
-proc genSym*(scope: var Scope, sym: Symbol): string =
+proc genSym*(scope: Scope, sym: TypeSymbol): string
+proc genSym*(scope: Scope, sym: Symbol): string =
   if sym.semexpr.kind == semanticPrimitiveType:
     return genPattern(sym.semexpr.primtype.primname, sym.semexpr.primtype.argtypes.mapIt(genSym(scope, it)))
   elif sym.semexpr.kind == semanticPrimitiveValue:
@@ -142,9 +157,11 @@ proc genSym*(scope: var Scope, sym: Symbol): string =
     sym.raiseError("couldn't specialize generics param: $#" % sym.debug)
   elif sym.semexpr.kind == semanticNotType:
     sym.raiseError("can't genSym kind: $#" % $sym.semexpr.kind)
+  # elif sym.semexpr.kind in {semanticArgType, semanticSymbol}:
+  #   return ("$#_$#" % [scope.module.name, sym.name]).replaceSpecialSymbols()
   else:
     return ($sym).replaceSpecialSymbols()
-proc genSym*(scope: var Scope, sym: TypeSymbol): string =
+proc genSym*(scope: Scope, sym: TypeSymbol): string =
   return genSym(scope, sym.getSymbol())
 
 proc genStruct*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
@@ -174,7 +191,7 @@ proc genStructConstructor*(module: var CCodegenModule, semexpr: SemanticExpr, re
 
 proc genFieldAccess*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   module.gen(semexpr.fieldaccess.valuesym, res)
-  if semexpr.fieldaccess.valuesym.kind == semanticSymbol and semexpr.fieldaccess.valuesym.symbol.semexpr.typesym.getSemExpr().kind == semanticReftype:
+  if semexpr.fieldaccess.valuesym.kind == semanticSymbol and semexpr.fieldaccess.valuesym.symbol.semexpr.typesym.kind == typesymReftype:
     res.addSrc("->")
   else:
     res.addSrc(".")
@@ -184,7 +201,7 @@ proc genVariable*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
   let varname = semexpr.variable.name
   let value = semexpr.variable.value
   let vartype = genSym(module.scope, semexpr.typesym)
-  res.addSrc("$# $#_$# = " % [vartype, module.scope.module.name, varname])
+  res.addSrc("$# $#_$# = " % [vartype, semexpr.variable.scope.module.name, varname])
   gen(module, value, res)
 
 proc genIfExpr*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
@@ -242,10 +259,14 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
   var argnames = newSeq[string]()
   var argtypes = newSeq[string]()
   for i, argtype in semexpr.function.fntype.argtypes:
-    if argtype.getSemExpr().kind == semanticTypedesc:
+    if argtype.kind == typesymTypedesc:
       continue
-    argnames.add(semexpr.function.argnames[i])
-    argtypes.add(genSym(module.scope, argtype))
+    elif argtype.kind == typesymReftype:
+      argnames.add(semexpr.function.argnames[i])
+      argtypes.add(genSym(module.scope, argtype) & "*")
+    else:
+      argnames.add(semexpr.function.argnames[i])
+      argtypes.add(genSym(module.scope, argtype))
   let funchash = genSymHash(funcname, semexpr.function.fntype.argtypes)
   let rettype = genSym(module.scope, semexpr.function.fntype.returntype)
   var argsrcs = newSeq[string]()
