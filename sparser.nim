@@ -37,7 +37,6 @@ proc isNewline*(context: ParserContext): bool =
     return false
 proc newlineLen*(context: ParserContext): int =
   let lf = 0x0a.char
-  let cr = 0x0d
   if context.curchar == lf:
     return 1
   else:
