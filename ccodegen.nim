@@ -122,28 +122,36 @@ proc genPattern*(pattern: string, args: seq[string]): string =
   for i in 0..<args.len:
     respat = respat.replace("$" & $(i+1), $args[i])
   return respat
+  
+proc genSym*(scope: Scope, sym: TypeSymbol): string
+proc genSym*(scope: Scope, sym: Symbol): string
 
 proc genSymHash*(typesym: TypeSymbol): string =
   case typesym.kind
   of typesymSpec:
-    return $typesym.getSymbol()
+    let sym = typesym.getSymbol()
+    if sym.semexpr.kind == semanticPrimitiveType:
+      return $sym & "_" & sym.semexpr.primtype.argtypes.mapIt(genSymHash(it)).join("_")
+    elif sym.semexpr.kind == semanticStruct:
+      return $sym & "_" & sym.semexpr.struct.argtypes.mapIt(genSymHash(it)).join("_")
+    else:
+      return $sym
   of typesymTypeGenerics:
     return $typesym.getSymbol() & "_" & typesym.genericstypes.mapIt(genSymHash(it)).join("_")
   of typesymTypedesc:
-    return "_Typedesc_" & genSymHash(typesym.typedescsym)
+    return "Typedesc_" & genSymHash(typesym.typedescsym)
   of typesymVarargs:
-    return "_Varargs_" & genSymHash(typesym.varargssym)
+    return "Varargs_" & genSymHash(typesym.varargssym)
   of typesymReftype:
-    return "_Ref_" & genSymHash(typesym.reftypesym)
+    return "Ref_" & genSymHash(typesym.reftypesym)
   else:
     raise newException(CCodegenError, "$# can't genSymHash" % typesym.debug)
 
 proc genSymHash*(name: string, argtypes: seq[TypeSymbol]): string =
   result = name
   for argtype in argtypes:
-    result &= genSymHash(argtype)
+    result &= "_" & genSymHash(argtype)
 
-proc genSym*(scope: Scope, sym: TypeSymbol): string
 proc genSym*(scope: Scope, sym: Symbol): string =
   if sym.semexpr.kind == semanticPrimitiveType:
     return genPattern(sym.semexpr.primtype.primname, sym.semexpr.primtype.argtypes.mapIt(genSym(scope, it)))
@@ -315,7 +323,7 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
 
   let funcsemexpr = semexpr.funccall.callfunc.getSemExpr()
 
-  # TODO: Typedesc
+  # TODO: Typedesc for PrimitiveFunc
   if funcsemexpr.kind == semanticPrimitiveFunc:
     genPrimitiveFuncCall(module, funcsemexpr, res, argress)
   elif funcsemexpr.kind == semanticFunction:
@@ -333,13 +341,6 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
     res.addSrc("$#($#)" % [funchash.replaceSpecialSymbols(), finalargress.mapIt($it).join(", ")])
   elif funcsemexpr.kind == semanticPrimitiveType:
     res.addSrc(genSym(module.scope, semexpr.funccall.callfunc))
-  # elif funcsemexpr.kind == semanticProtocolFunc:
-  #   let argtypes = semexpr.funccall.args.mapIt(module.scope.getSpecType(it.typesym))
-  #   let semid = module.scope.newSemanticIdent(semexpr.span, semexpr.funccall.callfunc.name, argtypes.getSemanticTypeArgs)
-  #   let specfuncsym = module.scope.getSpecSymbol(semid)
-  #   let funcsym = module.scope.getType(semexpr.span, specfuncsym, argtypes)
-  #   let funchash = genSymhash($funcsym, argtypes)
-  #   res.addSrc("$#($#)" % [funchash, argress.mapIt($it).join(", ")])
   else:
     funcsemexpr.raiseError("$# is not function kind: ($# $#)" % [$funcsemexpr.kind, semexpr.funccall.callfunc.debug, semexpr.funccall.args.mapIt($it.typesym).join(" ")])
 
@@ -427,7 +428,8 @@ proc genToplevelCalls*(context: CCodegenContext, cgenmodule: var CCodegenModule,
       elif semexpr.kind != semanticNotType:
         var res = newCCodegenRes()
         gen(cgenmodule, semexpr, res)
-        cgenmodule.addSrc("$$i$#;\n" % $res)
+        if $res != "":
+          cgenmodule.addSrc("$$i$#;\n" % $res)
   cgenmodule.addSrc("}\n")
   cgenmodule.addheader("void $#();\n" % initfuncname)
   context.addMainSrc("$$i$#();\n" % initfuncname)
