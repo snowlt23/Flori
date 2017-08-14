@@ -53,3 +53,4 @@ Flori is statically typed lisp programming language without GC for system/applic
 - Disassembler, Debugger, Profiler
 - Standard Library
 - Build System & Package Manager
+- Self Hosting
