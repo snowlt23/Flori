@@ -16,9 +16,9 @@ Flori is statically typed lisp programming language without GC for system/applic
 
 - Fast
 - Safe
-- Small
-- Simple
+- Small & Simple
 - Easy
+- Interactive
 - Ultimate power for Metaprogramming
 
 # Inspired languages
