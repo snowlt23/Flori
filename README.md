@@ -12,12 +12,21 @@ Flori is statically typed lisp programming language without GC for system/applic
 - Automatic resource management by **compile time reference counting** (I call it CTRefCount)
 - Interactive development (Common Lisp like)
 
+# Philosophy
+
+- Fast
+- Safe
+- Small
+- Simple
+- Eeasy
+- Ultimate power for Metaprogramming
+
 # Inspired languages
 
 - Clojure (Syntax)
 - Nim (C Backend, Macro)
 - Rust (Semantics)
-- Common Lisp (Interactive)
+- Common Lisp (Interactivity)
 
 # Examples
 
@@ -53,4 +62,5 @@ Flori is statically typed lisp programming language without GC for system/applic
 - Disassembler, Debugger, Profiler
 - Standard Library
 - Build System & Package Manager
+- Concurrency
 - Self Hosting
