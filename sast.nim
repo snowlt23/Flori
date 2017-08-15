@@ -17,7 +17,7 @@ type
     sexprAttr
     sexprInt
     sexprString
-  SExpr* = ref object
+  SExprObj* = object
     span*: Span
     case kind*: SExprKind
     of sexprNil:
@@ -33,6 +33,7 @@ type
       intval*: int64
     of sexprString:
       strval*: string
+  SExpr* = ref SExprObj
 
 proc `$`*(sexpr: SExpr): string
 

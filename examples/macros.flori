@@ -1,8 +1,34 @@
 
-@(: Bool Untyped Untyped -> Untyped)
+@(: Semantic SExpr SExpr -> SExpr)
 (defmacro aif [cond tbody fbody]
-  `(do
+  `(block
     (var it ,cond)
     (if it
-        ,tbody
-        ,fbody)))
+      ,tbody
+      ,fbody)))
+
+;; =>
+
+@(: Semantic SExpr SExpr -> SExpr)
+(defmacro aif [cond tbody fbody]
+  (backquote
+    (block
+      (var it (unquote cond))
+      (if it
+        (unquote tbody)
+        (unquote fbody)))))
+
+;; =>
+
+@(: Semantic SExpr SExpr -> SExpr)
+(defmacro aif [cond tbody fbody]
+  (var be (new-backquote-evaluator ; be is tmporary variable (__flori_tmp0)
+      (quote-eval "(block
+        (var it (unquote cond))
+        (if it
+        (unquote tbody)
+        (unquote fbody)))")))
+  (backquote-eval be "cond" cond)
+  (backquote-eval be "tbody" tbody)
+  (backquote-eval be "fbody" fbody)
+  (backquote-get-sexpr be))

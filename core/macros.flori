@@ -1,0 +1,25 @@
+
+(require prelude :refer :all)
+
+;; builtin macro
+; quote -> quote-eval
+; backquote -> backquote-eval
+
+(c-type SExpr :name "__flori_SExpr" :nodecl)
+(c-type BackquoteEvaluator :name "__flori_BackquoteEvaluator*" :nodecl)
+
+@(: SExpr -> SExpr)
+(c-func first :name "__flori_first" :nodecl)
+@(: SExpr -> SExpr)
+(c-func rest :name "__flori_rest" :nodecl)
+
+@(: CString -> SExpr)
+(c-func quote-eval :name "__flori_quote_eval" :nodecl)
+
+@(: SExpr -> BackquoteEvaluator)
+(c-func new-backquote-evaluator :name "__flori_new_backquote_evaluator" :nodecl)
+@(: BackquoteEvaluator CString SExpr)
+(c-func backquote-eval :name "__flori_backquote_eval" :nodecl)
+@(: BackquoteEvaluator -> SExpr)
+(c-func backquote-get-sexpr :name "__flori_backquote_get_sexpr" :nodecl)
+
