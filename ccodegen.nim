@@ -187,7 +187,7 @@ proc genStruct*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCod
 proc genStructConstructor*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let values = semexpr.structconstructor.values
   let tmpsym = genTmpSym(module)
-  res.addPrev("$# $# = {" % [genSym(module.scope, semexpr.typesym), tmpsym])
+  res.addPrev("$$i$# $# = {" % [genSym(module.scope, semexpr.typesym), tmpsym])
   for value in values:
     res.addPrev(".$# = " % value.name)
     var fieldres = newCCodegenRes()
@@ -222,21 +222,21 @@ proc genIfExpr*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCod
   gen(module, semexpr.ifexpr.tbody, tbodyres)
   gen(module, semexpr.ifexpr.fbody, fbodyres)
 
-  if semexpr.typesym == notTypeSym or rettype == "void":
-    res.formatPrev("if ($#) {\n", condres)
+  if semexpr.typesym.isVoid:
+    res.formatPrev("$iif ($#) {\n", condres)
     res.addPrevs([condres, tbodyres, fbodyres])
     res.formatPrev("$i  $#;\n", tbodyres)
     res.formatPrev("$i} else {\n")
     res.formatPrev("$i  $#;\n", fbodyres)
-    res.formatPrev("$i}")
+    res.formatPrev("$i}\n")
   else:
-    res.formatPrev("$# $#;\n", rettype, tmpsym)
+    res.formatPrev("$i$# $#;\n", rettype, tmpsym)
     res.formatPrev("$iif ($#) {\n", condres)
     res.addPrevs([condres, tbodyres, fbodyres])
     res.formatPrev("$i  $# = $#;\n", tmpsym, tbodyres)
     res.formatPrev("$i} else {\n")
     res.formatPrev("$i  $# = $#;\n", tmpsym, fbodyres)
-    res.formatPrev("$i}")
+    res.formatPrev("$i}\n")
     res.addSrc(tmpsym)
 
 proc genWhileSyntax*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
@@ -247,10 +247,10 @@ proc genWhileSyntax*(module: var CCodegenModule, semexpr: SemanticExpr, res: var
     var bodyres = newCCodegenRes()
     gen(module, b, bodyres)
     bodyress.add(bodyres)
-  res.formatPrev("while ($#) {\n", condres)
+  res.formatPrev("$iwhile ($#) {\n", condres)
   for bres in bodyress:
     res.formatPrev("$i  $#;\n", bres)
-  res.formatPrev("$i}")
+  res.formatPrev("$i}\n")
 
 proc genSetSyntax*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   var varres = newCCodegenRes()
@@ -292,12 +292,14 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
         module.addSrc("$i")
         module.addSrc(ress[i])
         module.addSrc(";\n")
-      if ress[^1].prev != "":
-        module.addSrc("$$i$#;\n" % ress[^1].prev)
-      if semexpr.function.body[^1].typesym.getSymbol().name == "Void":
-        module.addSrc("$$i$#;\n" % ress[^1].src)
-      else:
+
+      # generate return
+      if module.scope.isReturnType(semexpr.function.body[^1].typesym, semexpr.function.fntype.returntype):
+        module.addSrc("$#" % ress[^1].prev)
         module.addSrc("$$ireturn $#;\n" % ress[^1].src)
+      else:
+        module.addSrc("$#" % ress[^1].prev)
+        module.addSrc("$$i$#;\n" % ress[^1].src)
   module.addSrc("}\n")
   module.addHeader("$# $#($#);\n" % [rettype, funchash, argsrcs.join(", ")])
 

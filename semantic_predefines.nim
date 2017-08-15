@@ -143,13 +143,14 @@ proc evalFunction*(parentscope: var Scope, sexpr: SExpr): SemanticExpr =
       returntype: rettype,
       argtypes: argtypes,
     ),
-    body: evalBody(nullscope, scope, rettype, funcdef.rest.rest.rest),
+    body: nil,
   )
   let semexpr = newSemanticExpr(sexpr.span, semanticFunction, rettype, function: f)
   let sym = newSymbol(scope, $funcname, semexpr)
   f.sym = sym
   let semid = newSemanticIdent(scope, sexpr.span, $funcname, argtypes)
   scope.module.addSymbol(semid, sym)
+  f.body = evalBody(nullscope, scope, rettype, funcdef.rest.rest.rest)
   return newSemanticExpr(sexpr.span, semanticSymbol, rettype, symbol: sym)
 
 proc evalTypeAnnot*(scope: var Scope, sexpr: SExpr): SemanticExpr =

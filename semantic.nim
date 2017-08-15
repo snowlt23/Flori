@@ -434,6 +434,7 @@ proc `$`*(semid: SemanticIdent): string =
 #
 # TypeSymbol
 #
+
 proc getSymbol*(typesym: TypeSymbol): Symbol =
   case typesym.kind
   of typesymSpec:
@@ -459,6 +460,8 @@ proc getSymbol*(typesym: TypeSymbol): Symbol =
     typesym.internalspan.raiseError("typesymVoid can't getSymbol")
 proc getSemExpr*(typesym: TypeSymbol): SemanticExpr =
   return typesym.getSymbol().semexpr
+proc `==`*(a: TypeSymbol, b: TypeSymbol): bool =
+  return a.getSymbol() == b.getSymbol()
 proc `$`*(typesym: TypeSymbol): string =
   case typesym.kind
   of typesymSpec:
@@ -582,6 +585,13 @@ proc isSpecTypes*(syms: seq[TypeSymbol]): bool =
     if not sym.isSpecType:
       return false
   return true
+proc isVoid*(sym: TypeSymbol): bool =
+  if sym.kind == typesymVoid:
+    return true
+  elif sym.getSymbol().name == "Void":
+    return true
+  else:
+    return false
 proc isReturnType*(scope: var Scope, sym: TypeSymbol, rettype: TypeSymbol): bool =
   if sym.kind == typesymVoid:
     return false

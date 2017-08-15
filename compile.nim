@@ -22,14 +22,14 @@ proc getFilenames*(context: CCodegenContext): seq[string] =
   for sym in context.modules.keys:
     result.add(cachedir/sym & ".c")
 
-proc execCompileCmd*(context: CCodegenContext, outname: string) =
-  discard execShellCmd "gcc -o $# $# $#" % [outname, cachedir/"main.c", context.getFilenames.join(" ")]
+proc execCompileCmd*(context: CCodegenContext, outname: string, optlevel: string) =
+  discard execShellCmd "gcc -o $# -O$# $# $#" % [outname, optlevel, cachedir/"main.c", context.getFilenames.join(" ")]
 
-proc compile*(context: CCodegenContext, outname: string) =
+proc compile*(context: CCodegenContext, outname: string, optlevel: string) =
   context.writeToFiles()
-  context.execCompileCmd(outname)
+  context.execCompileCmd(outname, optlevel)
 
-proc compileFlori*(filename: string, outname: string) =
+proc compileFlori*(filename: string, outname: string, optlevel: string) =
   var semcontext = newSemanticContext()
   semcontext.includepaths.add("./")
   semcontext.includepaths.add(getAppDir() / "core")
@@ -37,4 +37,4 @@ proc compileFlori*(filename: string, outname: string) =
   semcontext.evalTopfile(filename)
   var cgencontext = newCCodegenContext()
   cgencontext.genContext(semcontext)
-  cgencontext.compile(outname)
+  cgencontext.compile(outname, optlevel)
