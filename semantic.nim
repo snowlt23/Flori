@@ -203,6 +203,7 @@ type
     fndef*: Option[Symbol]
   Function* = ref object
     isGenerics*: bool
+    isReturn*: bool
     sym*: Symbol
     argnames*: seq[string]
     fntype*: FuncType
@@ -720,17 +721,20 @@ proc tryFuncSymbol*(semids: var Table[SemanticIdent, SemanticIdentGroup], semid:
         return some(gsemidpair.value)
   return none(Symbol)
 
-proc addSymbol*(semids: var Table[SemanticIdent, SemanticIdentGroup], semid: SemanticIdent, symbol: Symbol) =
-  let symopt = semids.trySpecSymbol(semid)
-  if symopt.isSome:
-    if symopt.get.semexpr.kind == semanticFuncDecl:
-      symopt.get.semexpr.funcdecl.fndef = some(symbol)
-    else:
-      symbol.raiseError("can't redefine symbol: $#" % semid.debug)
-  else:
-    if not semids.hasKey(semid):
-      semids[semid] = newSemanticIdentGroup()
-    semids[semid].addSymbol(semid, symbol)
+proc addSymbol*(semids: var Table[SemanticIdent, SemanticIdentGroup], semid: SemanticIdent, symbol: Symbol, rewrite: bool) =
+  if semids.hasKey(semid):
+    for gsemidpair in semids[semid].idsymbols.mitems:
+      if gsemidpair.semid.args.len != semid.args.len:
+        continue
+      elif equal(semid, gsemidpair.semid):
+        if rewrite:
+          gsemidpair.value = symbol
+          return
+        else:
+          symbol.raiseError("can't redefine symbol: $#" % semid.debug)
+  if not semids.hasKey(semid):
+    semids[semid] = newSemanticIdentGroup()
+  semids[semid].addSymbol(semid, symbol)
 
 #
 # TypeSymbol from Symbol
@@ -844,8 +848,8 @@ proc newModule*(context: SemanticContext, modulename: string): Module =
 proc genindex*(module: Module): int =
   result = module.index
   module.index.inc
-proc addSymbol*(module: Module, semid: SemanticIdent, sym: Symbol) =
-  module.semanticidents.addSymbol(semid, sym)
+proc addSymbol*(module: Module, semid: SemanticIdent, sym: Symbol, rewrite = false) =
+  module.semanticidents.addSymbol(semid, sym, rewrite)
   module.symbols.add(sym)
 proc addToplevelCall*(module: Module, sexpr: SExpr, funccall: FuncCall) =
   module.toplevelcalls.add(newSemanticExpr(sexpr.span, semanticFuncCall, notTypeSym, funccall: funccall))
@@ -875,7 +879,7 @@ proc newScope*(module: Module): Scope =
 proc genindex*(scope: var Scope): int =
   return scope.module.genindex
 proc addSymbol*(scope: var Scope, semid: SemanticIdent, sym: Symbol) =
-  scope.semanticidents.addSymbol(semid, sym)
+  scope.semanticidents.addSymbol(semid, sym, rewrite = false)
 proc trySymbol*(scope: var Scope, semid: SemanticIdent): Option[Symbol] =
   let opt = scope.semanticidents.trySymbol(semid)
   if opt.isSome:
@@ -1192,6 +1196,7 @@ proc genSpecGenericsFunc*(scope: var Scope, funcsym: TypeSymbol, typesyms: seq[T
       argtypes.add(typesyms[i])
   let f = Function(
     isGenerics: not typesyms.isSpecTypes,
+    isReturn: funcsym.getSemExpr().function.isReturn,
     argnames: funcsym.getSemExpr().function.argnames,
     fntype: FuncType(
       returntype: rettype,

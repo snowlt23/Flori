@@ -16,7 +16,7 @@ proc writeToFiles*(context: CCodegenContext) =
   if not existsDir(cachedir):
     createDir(cachedir)
   for sym, module in context.modules:
-    writeFile(cachedir/sym & ".c", module.toplevel & "\n" & module.src)
+    writeFile(cachedir/sym & ".c", module.getSrc())
   writeFile(cachedir/"main.c", context.getMainSrc())
 
 proc getFilenames*(context: CCodegenContext): seq[string] =

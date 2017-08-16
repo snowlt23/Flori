@@ -16,6 +16,7 @@ type
   CCodegenModule* = object
     context*: CCodegenContext
     toplevel*: string
+    decls*: string
     src*: string
     header*: string
     curindent*: int
@@ -46,11 +47,14 @@ proc getMainSrc*(context: CCodegenContext): string =
 proc newCCodegenModule*(context: CCodegenContext, scope: Scope): CCodegenModule =
   result.context = context
   result.toplevel = ""
+  result.decls = ""
   result.src = ""
   result.header = ""
   result.curindent = 0
   result.scope = scope
   result.symcount = 0
+proc getSrc*(module: CCodegenModule): string =
+  module.toplevel & "\n" & module.decls & "\n" & module.src
 template indent*(module: CCodegenModule, body: untyped) =
   module.curindent += 1
   body
@@ -61,6 +65,8 @@ proc format*(module: CCodegenModule, s: string): string =
   return s.replace("$i", module.genIndent())
 proc addToplevel*(module: var CCodegenModule, s: string) =
   module.toplevel &= module.format(s)
+proc addDecl*(module: var CCodegenModule, s: string) =
+  module.decls &= module.format(s)
 proc addSrc*(module: var CCodegenModule, s: string) =
   module.src &= module.format(s)
 proc addSrc*(module: var CCodegenModule, res: CCodegenRes) =
@@ -71,8 +77,8 @@ proc addHeader*(module: var CCodegenModule, s: string) =
 proc addHeader*(module: var CCodegenModule, res: CCodegenRes) =
   module.header &= module.format(res.prev)
   module.header &= module.format(res.src)
-proc addCommon*(module: var CCodegenModule, s: string) =
-  module.addSrc(s)
+proc addExportDecl*(module: var CCodegenModule, s: string) =
+  module.addDecl(s)
   module.addHeader(s)
 
 proc newCCodegenRes*(): CCodegenRes =
@@ -178,11 +184,11 @@ proc genStruct*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCod
 
   var structhash = genSymHash($semexpr.struct.sym, semexpr.struct.argtypes)
   let fields = semexpr.struct.fields
-  module.addCommon("typedef struct {\n")
+  module.addExportDecl("typedef struct {\n")
   module.indent:
     for field in fields:
-      module.addCommon("$$i$# $#;\n" % [genSym(module.scope, field.typesym), field.name])
-  module.addCommon("} $#;\n" % [structhash])
+      module.addExportDecl("$$i$# $#;\n" % [genSym(module.scope, field.typesym), field.name])
+  module.addExportDecl("} $#;\n" % [structhash])
 
 proc genStructConstructor*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let values = semexpr.structconstructor.values
@@ -294,25 +300,29 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
   module.indent:
     if ress.len != 0:
       for i in 0..<ress.len-1:
-        module.addSrc("$i")
-        module.addSrc(ress[i])
-        module.addSrc(";\n")
+        module.addSrc(ress[i].prev)
+        if ress[i].src != "":
+          module.addSrc("$i")
+          module.addSrc(ress[i].src)
+          module.addSrc(";\n")
 
       # generate return
-      if module.scope.isReturnType(semexpr.function.body[^1].typesym, semexpr.function.fntype.returntype):
+      if semexpr.function.isReturn:
         module.addSrc("$#" % ress[^1].prev)
-        module.addSrc("$$ireturn $#;\n" % ress[^1].src)
+        if ress[^1].src != "":
+          module.addSrc("$$ireturn $#;\n" % ress[^1].src)
       else:
         module.addSrc("$#" % ress[^1].prev)
-        module.addSrc("$$i$#;\n" % ress[^1].src)
+        if ress[^1].src != "":
+          module.addSrc("$$i$#;\n" % ress[^1].src)
   module.addSrc("}\n")
   module.addHeader(decl & ";\n")
 
 proc genFuncDecl*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   if semexpr.funcdecl.fndef.get.semexpr.function.isGenerics:
     return
-  module.addToplevel(genDecl(module, semexpr.funcdecl.fndef.get.semexpr) & ";\n")
-  genFunction(module, semexpr.funcdecl.fndef.get.semexpr, res)
+  module.addDecl(genDecl(module, semexpr.funcdecl.fndef.get.semexpr) & ";\n")
+  # genFunction(module, semexpr.funcdecl.fndef.get.semexpr, res)
 
 proc genMacro*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   let funcsemexpr = semexpr.semmacro.funcsemexpr
@@ -440,7 +450,8 @@ proc genToplevelVariable*(module: var CCodegenModule, semexpr: SemanticExpr, res
 
 proc genHeaders*(context: CCodegenContext, cgenmodule: var CCodegenModule, sym: string, module: Module) =
   for header in module.ccodegeninfo.headers.keys:
-    cgenmodule.addCommon("#include \"$#\"\n" % header)
+    cgenmodule.addToplevel("#include \"$#\"\n" % header)
+    cgenmodule.addHeader("#include \"$#\"\n" % header)
 
 proc genCffis*(context: CCodegenContext, cgenmodule: var CCodegenModule, sym: string, module: Module) =
   for cffi in module.ccodegeninfo.cffis:
@@ -473,6 +484,8 @@ proc genToplevelCalls*(context: CCodegenContext, cgenmodule: var CCodegenModule,
   context.addMainSrc("$$i$#();\n" % initfuncname)
 
 proc genModule*(context: CCodegenContext, sym: string, module: Module, compiletime = false): CCodegenModule =
+  if context.modules.hasKey(sym):
+    return context.modules[sym]
   var cgenmodule = newCCodegenModule(context, newScope(module))
   genHeaders(context, cgenmodule, sym, module)
   for symbol in module.symbols:

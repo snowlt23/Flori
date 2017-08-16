@@ -115,8 +115,10 @@ proc evalBody*(parentscope: var Scope, scope: var Scope, rettype: TypeSymbol, se
   let lastsemexpr = scope.evalSExpr(sexpr.last)
   if scope.isReturnType(lastsemexpr.typesym, rettype):
     lastsemexpr.refinc
-  else:
+  elif rettype.getSymbol().name == "Void":
     result.add(lastsemexpr)
+  else:
+    lastsemexpr.raiseError("return value is not $# type" % rettype.debug)
   
   let (survived, garbages) = scope.getScopeValues()
   for survive in survived:
@@ -167,7 +169,13 @@ proc evalFunction*(parentscope: var Scope, sexpr: SExpr, addglobal = true): Sema
   if addglobal:
     scope.module.addSymbol(declsemid, declsym)
   f.body = evalBody(nullscope, scope, rettype, funcdef.rest.rest.rest)
-  fdecl.fndef = some(fsym)
+  if f.body.len == 0:
+    f.isReturn = false
+  elif scope.isReturnType(f.body[^1].typesym, rettype):
+    f.isReturn = true
+  else:
+    f.isReturn = false
+  scope.module.addSymbol(fsemid, fsym, rewrite = true)
   return newSemanticExpr(sexpr.span, semanticSymbol, rettype, symbol: fsym)
 
 proc evalMacro*(scope: var Scope, sexpr: SExpr): SemanticExpr =
