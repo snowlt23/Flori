@@ -14,8 +14,8 @@ proc ffiFirst(sexpr: FFISExpr): FFISExpr {.exportc: "__flori_first".} =
 proc ffiRest(sexpr: FFISExpr): FFISExpr {.exportc: "__flori_rest".} =
   FFISExpr(sexpr: sexpr.sexpr.rest)
 
-proc ffiQuoteEval(cstr: cstring): SExpr {.exportc: "__flori_quote_eval".} =
-   parseSExpr("quote", $cstr)
+proc ffiQuoteEval(cstr: cstring): FFISExpr {.exportc: "__flori_quote_eval".} =
+  FFISExpr(sexpr: parseSExpr("quote", $cstr))
 
 proc ffiNewBackquoteEvaluator(sexpr: SExpr): BackquoteEvaluator {.exportc: "__flori_new_backquote_evaluator".} =
   result = cast[BackquoteEvaluator](alloc(sizeof(BackquoteEvaluatorObj)))

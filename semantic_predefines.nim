@@ -1,6 +1,9 @@
 
 import sast
+import sparser
 import semantic
+import semanticeval
+import compile
 
 import strutils, sequtils
 import options
@@ -125,7 +128,7 @@ proc evalBody*(parentscope: var Scope, scope: var Scope, rettype: TypeSymbol, se
   if scope.isReturnType(lastsemexpr.typesym, rettype):
     result.add(lastsemexpr)
 
-proc evalFunction*(parentscope: var Scope, sexpr: SExpr): SemanticExpr =
+proc evalFunction*(parentscope: var Scope, sexpr: SExpr, addglobal = true): SemanticExpr =
   let (argtypes, rettype, funcdef) = parentscope.getTypeAnnotation(sexpr)
   let funcname = funcdef.rest.first
   var argnames = newSeq[string]()
@@ -145,18 +148,44 @@ proc evalFunction*(parentscope: var Scope, sexpr: SExpr): SemanticExpr =
     ),
     body: nil,
   )
-  let semexpr = newSemanticExpr(sexpr.span, semanticFunction, rettype, function: f)
-  let sym = newSymbol(scope, $funcname, semexpr)
-  f.sym = sym
-  let semid = newSemanticIdent(scope, sexpr.span, $funcname, argtypes)
-  scope.module.addSymbol(semid, sym)
+  let fsemexpr = newSemanticExpr(sexpr.span, semanticFunction, rettype, function: f)
+  let fsym = newSymbol(scope, $funcname, fsemexpr)
+  f.sym = fsym
+  let fsemid = newSemanticIdent(scope, sexpr.span, $funcname, argtypes)
+
+  let fdecl = FuncDecl(
+    fntype: FuncType(
+      returntype: rettype,
+      argtypes: argtypes,
+    ),
+    fndef: some(fsym)
+  )
+  let declsemexpr = newSemanticExpr(sexpr.span, semanticFuncDecl, rettype, funcdecl: fdecl)
+  let declsym = newSymbol(scope, $funcname, declsemexpr)
+  let declsemid = newSemanticIdent(scope, sexpr.span, $funcname, argtypes)
+
+  if addglobal:
+    scope.module.addSymbol(declsemid, declsym)
   f.body = evalBody(nullscope, scope, rettype, funcdef.rest.rest.rest)
-  return newSemanticExpr(sexpr.span, semanticSymbol, rettype, symbol: sym)
+  fdecl.fndef = some(fsym)
+  return newSemanticExpr(sexpr.span, semanticSymbol, rettype, symbol: fsym)
+
+proc evalMacro*(scope: var Scope, sexpr: SExpr): SemanticExpr =
+  let macroname = $sexpr.rest.first
+  let funcsemexpr = scope.evalFunction(sexpr, addglobal = false)
+  let semexpr = newSemanticExpr(sexpr.span, semanticMacro, funcsemexpr.typesym, semmacro: SemMacro(funcsemexpr: funcsemexpr))
+  let sym = newSymbol(scope, macroname, semexpr)
+  let semid = newSemanticIdent(scope, sexpr.span, $macroname, funcsemexpr.function.fntype.argtypes)
+  scope.module.addSymbol(semid, sym)
+  ctsharedHandle = scope.module.loadCompileTime()
+  return newSemanticExpr(sexpr.span, semanticSymbol, funcsemexpr.function.fntype.returntype, symbol: sym)
 
 proc evalTypeAnnot*(scope: var Scope, sexpr: SExpr): SemanticExpr =
   let (_, _, funcdef) = parseTypeAnnotation(sexpr)
   if $funcdef.first == "defn":
     return evalFunction(scope, sexpr)
+  if $funcdef.first == "defmacro":
+    return evalMacro(scope, sexpr)
   elif $funcdef.first == "c-func":
     return evalCFunc(scope, sexpr)
   elif $funcdef.first == "c-value":

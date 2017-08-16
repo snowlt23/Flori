@@ -108,6 +108,21 @@ proc parseSExpr*(context: var ParserContext): SExpr =
     context.inc
     let typ = parseSExpr(context)
     return newSList(span, newSIdent(span, "Ref"), newSList(span, typ, newSNil(span)))
+  elif context.curchar == '\'': # quote
+    let span = context.span
+    context.inc
+    let sexpr = parseSExpr(context)
+    return newSList(span, newSIdent(span, "quote"), newSList(span, sexpr, newSNil(span)))
+  elif context.curchar == '`':  # backquote
+    let span = context.span
+    context.inc
+    let sexpr = parseSExpr(context)
+    return newSList(span, newSIdent(span, "backquote"), newSList(span, sexpr, newSNil(span)))
+  elif context.curchar == ',': # unquote
+    let span = context.span
+    context.inc
+    let sexpr = parseSExpr(context)
+    return newSList(span, newSIdent(span, "unquote"), newSList(span, sexpr, newSNil(span)))
   elif ('a' <= context.curchar and context.curchar <= 'z') or
        ('A' <= context.curchar and context.curchar <= 'Z') or
        context.curchar in SpecialSymbols: # ident

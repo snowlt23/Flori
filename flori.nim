@@ -2,6 +2,7 @@
 import sast
 import sparser
 import semantic
+import semanticeval
 import ccodegen
 import compile
 import docopt
@@ -21,6 +22,16 @@ Options:
   -o=<outname> Output filename.
   --opt-level=<level> Spec optimization level.
 """
+
+proc compileFlori*(filename: string, outname: string, optlevel: string) =
+  var semcontext = newSemanticContext()
+  semcontext.includepaths.add("./")
+  semcontext.includepaths.add(getAppDir() / "core")
+  semcontext.includepaths.add(filename.splitFile().dir)
+  semcontext.evalTopfile(filename)
+  var cgencontext = newCCodegenContext()
+  cgencontext.genContext(semcontext)
+  cgencontext.compile(outname, optlevel)
 
 proc main() =
   let args = docopt(doc, version = "Flori 0.1.0")

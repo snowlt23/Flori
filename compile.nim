@@ -3,10 +3,12 @@ import sast
 import sparser
 import semantic
 import ccodegen
+import semanticeval
 
 import os
 import tables
 import strutils
+import dynlib
 
 let cachedir = "floricache"
 
@@ -29,12 +31,17 @@ proc compile*(context: CCodegenContext, outname: string, optlevel: string) =
   context.writeToFiles()
   context.execCompileCmd(outname, optlevel)
 
-proc compileFlori*(filename: string, outname: string, optlevel: string) =
-  var semcontext = newSemanticContext()
-  semcontext.includepaths.add("./")
-  semcontext.includepaths.add(getAppDir() / "core")
-  semcontext.includepaths.add(filename.splitFile().dir)
-  semcontext.evalTopfile(filename)
+#
+# Compile Time
+#
+
+let ctsharedname = cachedir/"compiletime_tmp"
+
+proc compileCompileTime*(context: CCodegenContext) =
+  context.writeToFiles()
+  discard execShellCmd "gcc -shared -o $# -O0 $# $# $#" % [ctsharedname, cachedir/"main.c", context.getFilenames.join(" "), cachedir/"macrolib.a"]
+proc loadCompileTime*(module: Module): LibHandle =
   var cgencontext = newCCodegenContext()
-  cgencontext.genContext(semcontext)
-  cgencontext.compile(outname, optlevel)
+  discard cgencontext.genModule(module.name, module, compiletime = true)
+  cgencontext.compileCompileTime()
+  return loadLib(ctsharedname)

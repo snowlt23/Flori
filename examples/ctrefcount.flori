@@ -64,3 +64,22 @@
   ; file.dec 0 (close (file logger))
 
 (main)
+
+(defstruct MyFile
+  (file File))
+@(: &MyFile File -> File)
+(defn control-file [mf f]
+  (set! (mf .file) f) ; f.inc
+  f) ; f.inc
+
+@(:)
+(defn myfile-main []
+  (var mf (MyFile :file stdout)) ; mf.ctrefcount = 1
+  (var f (open-file "voiceroids.txt")) ; f.ctrefcount = 1
+  (var retf (control-file mf f)) ;
+  ; mf.dec -> f.dec -> mf.destroy
+  ; f.dec
+  ; retf.borrow.dec -> f.destroy
+  )
+
+(myfile-main)

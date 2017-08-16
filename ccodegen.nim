@@ -25,7 +25,7 @@ type
     modules*: OrderedTable[string, CCodegenModule]
     mainsrc*: string
 
-proc genModule*(context: CCodegenContext, sym: string, module: Module): CCodegenModule
+proc genModule*(context: CCodegenContext, sym: string, module: Module, compiletime = false): CCodegenModule
 
 proc newCCodegenContext*(): CCodegenContext =
   new result
@@ -259,10 +259,7 @@ proc genSetSyntax*(module: var CCodegenModule, semexpr: SemanticExpr, res: var C
   gen(module, semexpr.setsyntax.value, valueres)
   res.format("$# = $#", varres, valueres)
 
-proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
-  if semexpr.function.isGenerics:
-    return
-
+proc genDecl*(module: var CCodegenModule, semexpr: SemanticExpr): string =
   let funcname = module.scope.genSym(semexpr.function.sym).replaceSpecialSymbols()
   var argnames = newSeq[string]()
   var argtypes = newSeq[string]()
@@ -280,12 +277,20 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
   var argsrcs = newSeq[string]()
   for i in 0..<argnames.len:
     argsrcs.add("$# $#_$#" % [argtypes[i], semexpr.function.sym.scope.module.name, argnames[i]])
+  return "$# $#($#)" % [rettype, funchash, argsrcs.join(", ")]
+
+proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
+  if semexpr.function.isGenerics:
+    return
+
   var ress = newSeq[CCodegenRes]()
   for e in semexpr.function.body:
     var res = newCCodegenRes()
     gen(module, e, res)
     ress.add(res)
-  module.addSrc("$# $#($#) {\n" % [rettype, funchash, argsrcs.join(", ")])
+
+  let decl = genDecl(module, semexpr)
+  module.addSrc(decl & " {\n")
   module.indent:
     if ress.len != 0:
       for i in 0..<ress.len-1:
@@ -301,7 +306,27 @@ proc genFunction*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
         module.addSrc("$#" % ress[^1].prev)
         module.addSrc("$$i$#;\n" % ress[^1].src)
   module.addSrc("}\n")
-  module.addHeader("$# $#($#);\n" % [rettype, funchash, argsrcs.join(", ")])
+  module.addHeader(decl & ";\n")
+
+proc genFuncDecl*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
+  if semexpr.funcdecl.fndef.get.semexpr.function.isGenerics:
+    return
+  module.addToplevel(genDecl(module, semexpr.funcdecl.fndef.get.semexpr) & ";\n")
+  genFunction(module, semexpr.funcdecl.fndef.get.semexpr, res)
+
+proc genMacro*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
+  let funcsemexpr = semexpr.semmacro.funcsemexpr
+  genFunction(module, funcsemexpr, res)
+  let funcname = module.scope.genSym(funcsemexpr.function.sym).replaceSpecialSymbols()
+  let funchash = genSymHash(funcname, funcsemexpr.function.fntype.argtypes)
+  module.addSrc("__flori_SExpr $#(__flori_SExpr sexpr) {\n" % [funchash & "_macro"])
+  module.indent:
+    var args = newSeq[string]()
+    for i, argtype in funcsemexpr.function.fntype.argtypes:
+      args.add("sexpr$#.first" % repeat(".rest", i)) # FIXME:
+    module.addSrc("$$ireturn $#($#)" % [funchash, args.join(", ")])
+  module.addSrc("}\n")
+  module.addHeader("__flori_SExpr $#(__flori_SExpr sexpr);\n" % [funchash & "_macro"])
 
 proc genPrimitiveFuncCall*(module: var CCodegenModule, funcsemexpr: SemanticExpr, res: var CCodegenRes, argress: seq[CCodegenRes]) =
   case funcsemexpr.primfunc.kind
@@ -316,6 +341,20 @@ proc genPrimitiveFuncCall*(module: var CCodegenModule, funcsemexpr: SemanticExpr
       src = "($# $# $#)" % [src, funcsemexpr.primfunc.name, $argress[i]]
     res.addSrc(src)
 
+proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, funcsemexpr: SemanticExpr, argress: seq[CCodegenRes], res: var CCodegenRes) =
+  let callfunc = semexpr.funccall.callfunc
+  let argtypes = funcsemexpr.function.fntype.argtypes
+  let funchash = genSymhash($callfunc, argtypes)
+  var finalargress = newSeq[string]()
+  for i in 0..<argress.len:
+    if argtypes[i].kind == typesymTypedesc:
+      continue
+    elif argtypes[i].kind == typesymReftype:
+      finalargress.add("&" & $argress[i])
+    else:
+      finalargress.add($argress[i])
+  res.addSrc("$#($#)" % [funchash.replaceSpecialSymbols(), finalargress.mapIt($it).join(", ")])
+
 proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRes) =
   var argress = newSeq[CCodegenRes]()
   for i, arg in semexpr.funccall.args:
@@ -329,18 +368,9 @@ proc genFuncCall*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CC
   if funcsemexpr.kind == semanticPrimitiveFunc:
     genPrimitiveFuncCall(module, funcsemexpr, res, argress)
   elif funcsemexpr.kind == semanticFunction:
-    let callfunc = semexpr.funccall.callfunc
-    let argtypes = funcsemexpr.function.fntype.argtypes
-    let funchash = genSymhash($callfunc, argtypes)
-    var finalargress = newSeq[string]()
-    for i in 0..<argress.len:
-      if argtypes[i].kind == typesymTypedesc:
-        continue
-      elif argtypes[i].kind == typesymReftype:
-        finalargress.add("&" & $argress[i])
-      else:
-        finalargress.add($argress[i])
-    res.addSrc("$#($#)" % [funchash.replaceSpecialSymbols(), finalargress.mapIt($it).join(", ")])
+    genFuncCall(module, semexpr, funcsemexpr, argress, res)
+  elif funcsemexpr.kind == semanticFuncDecl:
+    genFuncCall(module, semexpr, funcsemexpr.funcdecl.fndef.get.semexpr, argress, res)
   elif funcsemexpr.kind == semanticPrimitiveType:
     res.addSrc(genSym(module.scope, semexpr.funccall.callfunc))
   else:
@@ -375,8 +405,14 @@ proc gen*(module: var CCodegenModule, semexpr: SemanticExpr, res: var CCodegenRe
     genWhileSyntax(module, semexpr, res)
   of semanticSetSyntax:
     genSetSyntax(module, semexpr, res)
+  of semanticFuncDecl:
+    if semexpr.funcdecl.fndef.isNone:
+      semexpr.raiseError("not define implementation")
+    genFuncDecl(module, semexpr, res)
   of semanticFunction:
     genFunction(module, semexpr, res)
+  of semanticMacro:
+    genMacro(module, semexpr, res)
   of semanticPrimitiveType:
     genPrimitiveTypeExpr(module, semexpr, res)
   of semanticPrimitiveValue, semanticPrimitiveFunc, semanticPrimitiveEval:
@@ -436,13 +472,17 @@ proc genToplevelCalls*(context: CCodegenContext, cgenmodule: var CCodegenModule,
   cgenmodule.addheader("void $#();\n" % initfuncname)
   context.addMainSrc("$$i$#();\n" % initfuncname)
 
-proc genModule*(context: CCodegenContext, sym: string, module: Module): CCodegenModule =
+proc genModule*(context: CCodegenContext, sym: string, module: Module, compiletime = false): CCodegenModule =
   var cgenmodule = newCCodegenModule(context, newScope(module))
   genHeaders(context, cgenmodule, sym, module)
   for symbol in module.symbols:
     var res = newCCodegenRes()
     if not symbol.isImported:
-      gen(cgenmodule, symbol.semexpr, res)
+      if compiletime:
+        gen(cgenmodule, symbol.semexpr, res)
+      elif not symbol.semexpr.compiletime:
+        gen(cgenmodule, symbol.semexpr, res)
+      
   genToplevelCalls(context, cgenmodule, sym, module)
   context.modules[sym] = cgenmodule
   return cgenmodule

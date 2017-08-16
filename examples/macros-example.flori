@@ -1,5 +1,5 @@
 
-@(: Semantic SExpr SExpr -> SExpr)
+@(: SExpr SExpr SExpr -> SExpr)
 (defmacro aif [cond tbody fbody]
   `(block
     (var it ,cond)
@@ -9,7 +9,7 @@
 
 ;; =>
 
-@(: Semantic SExpr SExpr -> SExpr)
+@(: SExpr SExpr SExpr -> SExpr)
 (defmacro aif [cond tbody fbody]
   (backquote
     (block
@@ -20,7 +20,7 @@
 
 ;; =>
 
-@(: Semantic SExpr SExpr -> SExpr)
+@(: SExpr SExpr SExpr -> SExpr)
 (defmacro aif [cond tbody fbody]
   (var be (new-backquote-evaluator ; be is tmporary variable (__flori_tmp0)
       (quote-eval "(block

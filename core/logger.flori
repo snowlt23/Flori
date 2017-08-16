@@ -12,11 +12,11 @@
   (construct Logger :files (vec File (size 0))))
 @(: &Logger File)
 (defn add-file [logger file]
-  (push (logger .files) file))
+  (push (.files logger) file))
 
 @(: Logger CString)
 (defn log [logger s]
   (var i (size 0))
-  (while (< i (len (logger .files)))
-    (write (nth (logger .files) i) s)
+  (while (< i (len (.files logger)))
+    (write (nth (.files logger) i) s)
     (set! i (+ i (size 1)))))
