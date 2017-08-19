@@ -183,7 +183,7 @@ proc evalModule*(context: SemanticContext, modulename: string, sexpr: seq[SExpr]
   return module
 
 proc evalFile*(context: SemanticContext, modulepath: string): Module =
-  let modulename = modulepath.replace("/", ".").replace(".flori")
+  let modulename = modulepath.replace(".flori")
   if context.modules.hasKey(modulename):
     return context.modules[modulename]
 
