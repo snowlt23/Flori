@@ -5,6 +5,7 @@ import sempass
 
 import tables
 
+# TODO:
 proc evalSExpr*(scope: SemScope, sexpr: SExpr) =
   discard
 

@@ -2,6 +2,7 @@
 import sast
 
 import tables, hashes
+import options
 
 type
   SemTypeSymKind* = enum
@@ -10,18 +11,28 @@ type
     stTypeGenerics
   SemExprKind* = enum
     seSExpr
+    seIdent
+    seFuncCall
     seIf
     seWhile
     seSet
   SemDeclKind* = enum
-    seRequire
+    sdRequire
+    sdVariable
     sdFunc
     sdStruct
     sdCFunc
     sdCStruct
     sdProtocol
+  SemSymKind* = enum
+    symSemTypeSym
+    symSemExpr
+    symSemDecl
 
 type
+  FuncType* = object
+    argtypes*: seq[SemTypeSym]
+    returntype*: SemTypeSym
   SemTypeSym* = ref object
     case kind*: SemTypeSymKind
     of stSpec:
@@ -36,19 +47,40 @@ type
     case kind*: SemExprKind
     of seSExpr:
       sexpr*: SExpr
+    of seIdent:
+      nameid*: string
+    of seFuncCall:
+      fn*: SemDecl
+      args*: seq[SemExpr]
     of seIf:
-      discard
+      ifcond*: SemExpr
+      iftrue*: SemExpr
+      iffalse*: SemExpr
     of seWhile:
-      discard
+      whilecond*: SemExpr
+      whilebody*: seq[SemExpr]
     of seSet:
-      discard
+      setplace*: SemExpr
+      setvalue*: SemExpr
   SemDecl* = ref object
-  
-type
-  SemSymKind* = enum
-    symSemTypeSym
-    symSemExpr
-    symSemDecl
+    name*: string
+    functype*: Option[FuncType]
+    case kind*: SemDeclKind
+    of sdRequire:
+      requiremodule*: SemScope
+    of sdVariable:
+      discard
+    of sdFunc:
+      discard
+    of sdStruct:
+      discard
+    of sdCFunc:
+      discard
+    of sdCStruct:
+      discard
+    of sdProtocol:
+      discard
+
   SemSym* = object
     case kind*: SemSymKind
     of symSemTypeSym:
@@ -58,7 +90,6 @@ type
     of symSemDecl:
       sd*: SemDecl
 
-type
   ProcIdentDecl* = ref object
     name*: string
     args*: seq[SemTypeSym]
@@ -72,7 +103,6 @@ type
     scope*: SemScope
     name*: string
   ScopeIdent* = ref object
-    scope*: SemScope
     name*: string
   SemScope* = ref object
     top*: SemScope

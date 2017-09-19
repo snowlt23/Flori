@@ -11,3 +11,10 @@ type
 
 method execute*(pass: SemPass, ctx: SemPassContext) {.base.} =
   discard
+  
+proc register*(ctx: SemPassContext, pass: SemPass) =
+  ctx.passes.add(pass)
+
+proc execute*(ctx: SemPassContext) =
+  for pass in ctx.passes:
+    pass.execute(ctx)
