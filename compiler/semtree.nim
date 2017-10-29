@@ -23,7 +23,7 @@ type
     sdFunc
     sdStruct
     sdCFunc
-    sdCStruct
+    sdCType
     sdProtocol
   SemSymKind* = enum
     symSemTypeSym
@@ -80,8 +80,9 @@ type
       discard
     of sdCFunc:
       discard
-    of sdCStruct:
-      discard
+    of sdCType:
+      ctypename*: string
+      ctypeheader*: Option[string]
     of sdProtocol:
       discard
 

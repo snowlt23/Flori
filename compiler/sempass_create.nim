@@ -79,8 +79,23 @@ proc createTypeAnnot*(scope: SemScope, sexpr: SExpr) =
 proc createTopVar*(scope: SemScope, sexpr: SExpr) = discard
 # TODO:
 proc createDefStruct*(scope: SemScope, sexpr: SExpr) = discard
-# TODO:
-proc createCType*(scope: SemScope, sexpr: SExpr) = discard
+
+proc createCType*(scope: SemScope, sexpr: SExpr) =
+  let t = sexpr.rest.first
+  let nameopt = sexpr.getAttr("name")
+  let headeropt = sexpr.getAttr("header")
+  let nodecl = sexpr.hasAttr("nodecl")
+  let name = if nameopt.isSome:
+               nameopt.get.strval
+             else:
+               $t
+  let header = if nodecl:
+                 none(string)
+               else:
+                 some(headeropt.get.strval)
+  let status = scope.top.addType(TypeIdent(name: $t), SemDecl(kind: sdCType, ctypename: name, ctypeheader: header))
+  if not status:
+    sexpr.error("redefinition C type $#" % $t)
 
 proc createTopDecl*(scope: SemScope, sexpr: SExpr) =
   case $sexpr.first

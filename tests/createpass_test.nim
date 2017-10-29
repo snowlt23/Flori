@@ -1,6 +1,7 @@
 
 import unittest
 import tables
+import options
 import compiler.sast, compiler.sparser
 import compiler.semtree
 import compiler.sempass, compiler.sempass_create
@@ -25,3 +26,14 @@ suite "pass create":
     check firstcall.kind == seFuncCall
     check firstcall.args[0].kind == seIdent
     check firstcall.args[1].kind == seInt
+  test "c-type":
+    let passctx = newSemPassContext()
+    let sexprs = parseToplevel("testmodule.flori", """
+      (c-type Int32 :name "int32_t" :header "stdint.h")
+    """)
+    passctx.createModuleFromSExpr("testmodule", sexprs)
+    let module = passctx.modules[initScopeIdent("testmodule")]
+    let semdeclopt = module.getType(TypeIdent(name: "Int32"))
+    check semdeclopt.isSome
+    let semdecl = semdeclopt.get
+    check semdecl.kind == sdCType
