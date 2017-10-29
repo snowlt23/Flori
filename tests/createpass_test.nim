@@ -21,4 +21,7 @@ suite "pass create":
     check semdecl.functype.argtypes.len == 1
     check semdecl.funcargs.len == 1
     check semdecl.funcbody.len == 1
-    check semdecl.funcbody[0].kind == seFuncCall
+    let firstcall = semdecl.funcbody[0]
+    check firstcall.kind == seFuncCall
+    check firstcall.args[0].kind == seIdent
+    check firstcall.args[1].kind == seInt

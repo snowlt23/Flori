@@ -64,6 +64,7 @@ proc createDefn*(scope: SemScope, sexpr: SExpr, argtypes: seq[SExpr], rettype: S
   if not status:
     sexpr.error("redefinition proc $#" % $fname)
   
+# TODO:
 proc createCFunc*(scope: SemScope, sexpr: SExpr, argtypes: seq[SExpr], rettype: SExpr) = discard
 
 proc createTypeAnnot*(scope: SemScope, sexpr: SExpr) =
@@ -74,8 +75,11 @@ proc createTypeAnnot*(scope: SemScope, sexpr: SExpr) =
   of "c-func":
     scope.createCFunc(body, argtypes, rettype)
 
+# TODO:
 proc createTopVar*(scope: SemScope, sexpr: SExpr) = discard
+# TODO:
 proc createDefStruct*(scope: SemScope, sexpr: SExpr) = discard
+# TODO:
 proc createCType*(scope: SemScope, sexpr: SExpr) = discard
 
 proc createTopDecl*(scope: SemScope, sexpr: SExpr) =
