@@ -37,6 +37,9 @@ type
 
 proc `$`*(sexpr: SExpr): string
 
+proc error*(sexpr: SExpr, msg: string) =
+  raise newException(SExprError, "$#($#:$#): " % [sexpr.span.filename, $sexpr.span.line, $sexpr.span.linepos] & msg)
+
 template internalSpan*(): Span =
   const internalname = instantiationInfo().filename
   const internalline = instantiationInfo().line

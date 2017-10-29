@@ -9,6 +9,9 @@ type
     passes*: seq[SemPass]
     modules*: Table[ScopeIdent, SemScope]
 
+proc newSemPassContext*(): SemPassContext =
+  SemPassContext(passes: @[], modules: initTable[ScopeIdent, SemScope]())
+
 method execute*(pass: SemPass, ctx: SemPassContext) {.base.} =
   discard
   

@@ -1,0 +1,30 @@
+
+import prelude
+
+struct Vec[T]:
+  data Ptr[T]
+  len Int32
+enum Option[T]:
+  some T
+  none
+
+protocol Num[T]:
+  def `+`(T, T) -> T
+  def `-`(T, T) -> T
+protocol Addable[T]:
+  def `+`(T, T) -> T
+protocol ToStr[T]:
+  def str(T, T) -> String
+protocol Eq[T]:
+  def `==`(T, T) -> Bool
+
+@hook(Eq)
+macro neq-hook(t):
+  quote:
+    def `!=`(a, b):
+      not a == b
+
+def add5(x):
+  x + 5
+def add5(s):
+  $s & "5"
