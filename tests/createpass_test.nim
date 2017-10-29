@@ -26,6 +26,18 @@ suite "pass create":
     check firstcall.kind == seFuncCall
     check firstcall.args[0].kind == seIdent
     check firstcall.args[1].kind == seInt
+  test "redefinition defn":
+    let passctx = newSemPassContext()
+    let sexprs = parseToplevel("testmodule.flori", """
+      @(: Int32 -> Int32)
+      (defn add5 [x]
+        (+ x 5))
+      @(: Int32 -> Int32)
+      (defn add5 [x]
+        (+ x 5))
+    """)
+    expect(SExprError):
+      passctx.createModuleFromSExpr("testmodule", sexprs)
   test "c-func":
     let passctx = newSemPassContext()
     let sexprs = parseToplevel("testmodule.flori", """

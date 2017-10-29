@@ -133,6 +133,21 @@ proc extendSemScope*(scope: SemScope): SemScope =
   result.typeidents = scope.typeidents
   result.toplevels = @[]
 
+# FIXME: scope
+proc `==`*(a, b: SemExpr): bool =
+  if a.kind != b.kind: return false
+  if a.kind == seIdent:
+    return a.nameid == b.nameid
+  else:
+    return false
+# FIXME: scope
+proc `==`*(a, b: SemType): bool =
+  if a.kind != b.kind: return false
+  case a.kind
+  of stSymbol:
+    return false # FIXME:
+  of stIdent:
+    return a.idname == b.idname
 proc `==`*(a, b: ProcIdentDecl): bool =
   if a.name != b.name: return false
   if a.args.len != b.args.len: return false
