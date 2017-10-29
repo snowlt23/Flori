@@ -74,12 +74,14 @@ type
     of sdFunc:
       funcname*: string
       functype*: FuncType
-      funcargs*: SExpr
+      funcargs*: seq[SemExpr]
       funcbody*: seq[SemExpr]
     of sdStruct:
       discard
     of sdCFunc:
-      discard
+      cfuncname*: string
+      cfunctype*: FuncType
+      cfuncheader*: Option[string]
     of sdCType:
       ctypename*: string
       ctypeheader*: Option[string]
@@ -144,9 +146,14 @@ proc initProcIdentGroup*(): ProcIdentGroup =
 proc toProcIdent*(pi: ProcIdentDecl): ProcIdent =
   ProcIdent(name: pi.name)
 proc toProcIdentDecl*(semdecl: SemDecl): ProcIdentDecl =
-  result.name = semdecl.funcname
-  result.args = semdecl.functype.argtypes
-  result.value = semdecl
+  if semdecl.kind == sdCFunc:
+    result.name = semdecl.cfuncname
+    result.args = semdecl.cfunctype.argtypes
+    result.value = semdecl
+  else:
+    result.name = semdecl.funcname
+    result.args = semdecl.functype.argtypes
+    result.value = semdecl
 
 proc getProc*(scope: SemScope, pi: ProcIdentDecl): Option[SemDecl] =
   if not scope.procidents.hasKey(pi.toProcIdent):

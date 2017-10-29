@@ -26,6 +26,19 @@ suite "pass create":
     check firstcall.kind == seFuncCall
     check firstcall.args[0].kind == seIdent
     check firstcall.args[1].kind == seInt
+  test "c-func":
+    let passctx = newSemPassContext()
+    let sexprs = parseToplevel("testmodule.flori", """
+      @(: Bool -> Bool)
+      (c-func not :name "!" :nodecl)
+    """)
+    passctx.createModuleFromSExpr("testmodule", sexprs)
+    let module = passctx.modules[initScopeIdent("testmodule")]
+    let semdecl = module.procidents[ProcIdent(name: "not")].idents[0].value
+    check semdecl.kind == sdCFunc
+    check semdecl.cfuncname == "not"
+    check semdecl.cfunctype.argtypes.len == 1
+    check semdecl.cfuncheader.isNone
   test "c-type":
     let passctx = newSemPassContext()
     let sexprs = parseToplevel("testmodule.flori", """

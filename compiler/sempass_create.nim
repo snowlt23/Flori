@@ -51,21 +51,40 @@ proc createBody*(scope: SemScope, body: SExpr): seq[SemExpr] =
   for b in body:
     result.add(scope.createExpr(b))
 
+proc toFuncType*(scope: SemScope, argtypes: seq[SExpr], rettype: SExpr): FuncType =
+  FuncType(
+    argtypes: argtypes.mapIt(SemType(kind: stIdent, idscope: scope, idname: scope.createExpr(it))),
+    returntype: SemType(kind: stIdent, idscope: scope, idname: scope.createExpr(rettype)),
+  )
+
 proc createDefn*(scope: SemScope, sexpr: SExpr, argtypes: seq[SExpr], rettype: SExpr) =
   let fname = sexpr.rest.first
   let fargs = sexpr.rest.rest.first
   let fbody = sexpr.rest.rest.rest
-  let ftype = FuncType(
-    argtypes: argtypes.mapIt(SemType(kind: stIdent, idscope: scope, idname: scope.createExpr(it))),
-    returntype: SemType(kind: stIdent, idscope: scope, idname: scope.createExpr(rettype)),
-  )
-  let fdecl = SemDecl(kind: sdFunc, funcname: $fname, functype: ftype, funcargs: fargs, funcbody: scope.createBody(fbody))
+  let ftype = scope.toFuncType(argtypes, rettype)
+  let fdecl = SemDecl(kind: sdFunc, funcname: $fname, functype: ftype, funcargs: scope.createBody(fargs), funcbody: scope.createBody(fbody))
   let status = scope.top.addProc(fdecl.toProcIdentDecl)
   if not status:
-    sexpr.error("redefinition proc $#" % $fname)
+    sexpr.error("redefinition func $#" % $fname)
   
-# TODO:
-proc createCFunc*(scope: SemScope, sexpr: SExpr, argtypes: seq[SExpr], rettype: SExpr) = discard
+proc createCFunc*(scope: SemScope, sexpr: SExpr, argtypes: seq[SExpr], rettype: SExpr) =
+  let f = sexpr.rest.first
+  let nameopt = sexpr.getAttr("pattern")
+  let headeropt = sexpr.getAttr("header")
+  let nodecl = sexpr.hasAttr("nodecl")
+  let name = if nameopt.isSome:
+               nameopt.get.strval
+             else:
+               $f
+  let header = if nodecl:
+                 none(string)
+               else:
+                 some(headeropt.get.strval)
+  let ftype = scope.toFuncType(argtypes, rettype)
+  let fdecl = SemDecl(kind: sdCFunc, cfuncname: name, cfunctype: ftype, cfuncheader: header)
+  let status = scope.top.addProc(fdecl.toProcIdentDecl)
+  if not status:
+    sexpr.error("redefinition C func $#" % $f)
 
 proc createTypeAnnot*(scope: SemScope, sexpr: SExpr) =
   let (argtypes, rettype, body) = parseTypeAnnotation(sexpr)
