@@ -78,7 +78,7 @@ type
     of stProtocol:
       discard
 
-  SemSym* = object
+  SemSym* = ref object
     scope*: SemScope
     name*: SemExpr
     case kind*: SemSymKind
@@ -124,6 +124,9 @@ proc extendSemScope*(scope: SemScope): SemScope =
   result.procidents = scope.procidents
   result.typeidents = scope.typeidents
   result.toplevels = @[]
+
+proc semident*(name: string): SemExpr =
+  SemExpr(sexpr: newSNil(internalSpan), typ: none(SemSym), kind: seIdent, nameid: name)
 
 proc semsym*(scope: SemScope, name: SemExpr): SemSym =
   SemSym(scope: scope, name: name, kind: symUnresolve)

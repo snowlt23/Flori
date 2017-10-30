@@ -47,7 +47,7 @@ proc codegenExpr*(pass: CCodegenPass, src: var SrcExpr, semexpr: SemExpr)
 proc codegenSym*(pass: CCodegenPass, src: var SrcExpr, semsym: SemSym) =
   case semsym.kind
   of symUnresolve:
-    discard
+    semsym.name.sexpr.error("codegenSym: unresolve symbol")
   of symSemFunc:
     case semsym.sf.kind
     of sfFunc:

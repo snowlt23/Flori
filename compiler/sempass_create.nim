@@ -32,17 +32,18 @@ proc createExpr*(scope: SemScope, sexpr: SExpr): SemExpr =
   case sexpr.kind
   of sexprList:
     result = SemExpr(
+      sexpr: sexpr,
       typ: none(SemSym),
       kind: seFuncCall,
       fn: scope.semsym(scope.createExpr(sexpr.first)),
       args: scope.createBody(sexpr.rest)
     )
   of sexprIdent:
-    result = SemExpr(typ: none(SemSym), kind: seIdent, nameid: $sexpr)
+    result = SemExpr(sexpr: sexpr, typ: none(SemSym), kind: seIdent, nameid: $sexpr)
   of sexprInt:
-    result = SemExpr(typ: none(SemSym), kind: seInt, intval: sexpr.intval)
+    result = SemExpr(sexpr: sexpr, typ: some(scope.semsym(semident("Int32"))), kind: seInt, intval: sexpr.intval)
   of sexprString:
-    result = SemExpr(typ: none(SemSym), kind: seString, strval: sexpr.strval)
+    result = SemExpr(sexpr: sexpr, typ: some(scope.semsym(semident("CString"))), kind: seString, strval: sexpr.strval)
   else:
     sexpr.error("$# is not expression." % $sexpr.kind)
 
