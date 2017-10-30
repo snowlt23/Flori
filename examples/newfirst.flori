@@ -1,0 +1,9 @@
+
+(c-type Void :name "void" :nodecl)
+(c-type CString :name "char*" :nodecl)
+(c-type Int32 :name "int32_t" :header "stdint.h")
+
+@(: CString Int32)
+(c-func printf :header "stdio.h")
+
+(printf "%d" 5)

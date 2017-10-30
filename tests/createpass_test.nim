@@ -17,7 +17,7 @@ suite "pass create":
     passctx.createModuleFromSExpr("testmodule", sexprs)
     let module = passctx.modules[initScopeIdent("testmodule")]
     let semdecl = module.procidents[ProcIdent(name: "add5")].idents[0].value
-    check semdecl.kind == sdFunc
+    check semdecl.kind == sfFunc
     check semdecl.funcname == "add5"
     check semdecl.functype.argtypes.len == 1
     check semdecl.funcargs.len == 1
@@ -47,7 +47,7 @@ suite "pass create":
     passctx.createModuleFromSExpr("testmodule", sexprs)
     let module = passctx.modules[initScopeIdent("testmodule")]
     let semdecl = module.procidents[ProcIdent(name: "not")].idents[0].value
-    check semdecl.kind == sdCFunc
+    check semdecl.kind == sfCFunc
     check semdecl.cfuncname == "not"
     check semdecl.cfunctype.argtypes.len == 1
     check semdecl.cfuncheader.isNone
@@ -61,4 +61,6 @@ suite "pass create":
     let semdeclopt = module.getType(TypeIdent(name: "Int32"))
     check semdeclopt.isSome
     let semdecl = semdeclopt.get
-    check semdecl.kind == sdCType
+    check semdecl.kind == stCType
+    check semdecl.ctypename == "int32_t"
+    check semdecl.ctypeheader.get == "stdint.h"

@@ -32,17 +32,17 @@ proc createExpr*(scope: SemScope, sexpr: SExpr): SemExpr =
   case sexpr.kind
   of sexprList:
     result = SemExpr(
-      typ: none(SemType),
+      typ: none(SemSym),
       kind: seFuncCall,
-      fn: SemType(kind: stIdent, idscope: scope, idname: scope.createExpr(sexpr.first)),
+      fn: scope.semsym(scope.createExpr(sexpr.first)),
       args: scope.createBody(sexpr.rest)
     )
   of sexprIdent:
-    result = SemExpr(typ: none(SemType), kind: seIdent, nameid: $sexpr)
+    result = SemExpr(typ: none(SemSym), kind: seIdent, nameid: $sexpr)
   of sexprInt:
-    result = SemExpr(typ: none(SemType), kind: seInt, intval: sexpr.intval)
+    result = SemExpr(typ: none(SemSym), kind: seInt, intval: sexpr.intval)
   of sexprString:
-    result = SemExpr(typ: none(SemType), kind: seString, strval: sexpr.strval)
+    result = SemExpr(typ: none(SemSym), kind: seString, strval: sexpr.strval)
   else:
     sexpr.error("$# is not expression." % $sexpr.kind)
 
@@ -53,8 +53,8 @@ proc createBody*(scope: SemScope, body: SExpr): seq[SemExpr] =
 
 proc toFuncType*(scope: SemScope, argtypes: seq[SExpr], rettype: SExpr): FuncType =
   FuncType(
-    argtypes: argtypes.mapIt(SemType(kind: stIdent, idscope: scope, idname: scope.createExpr(it))),
-    returntype: SemType(kind: stIdent, idscope: scope, idname: scope.createExpr(rettype)),
+    argtypes: argtypes.mapIt(scope.semsym(scope.createExpr(it))),
+    returntype: scope.semsym(scope.createExpr(rettype)),
   )
 
 proc createDefn*(scope: SemScope, sexpr: SExpr, argtypes: seq[SExpr], rettype: SExpr) =
@@ -62,7 +62,7 @@ proc createDefn*(scope: SemScope, sexpr: SExpr, argtypes: seq[SExpr], rettype: S
   let fargs = sexpr.rest.rest.first
   let fbody = sexpr.rest.rest.rest
   let ftype = scope.toFuncType(argtypes, rettype)
-  let fdecl = SemDecl(kind: sdFunc, funcname: $fname, functype: ftype, funcargs: scope.createBody(fargs), funcbody: scope.createBody(fbody))
+  let fdecl = SemFunc(sexpr: sexpr, kind: sfFunc, funcname: $fname, functype: ftype, funcargs: scope.createBody(fargs), funcbody: scope.createBody(fbody))
   let status = scope.top.addProc(fdecl.toProcIdentDecl)
   if not status:
     sexpr.error("redefinition func $#" % $fname)
@@ -81,7 +81,7 @@ proc createCFunc*(scope: SemScope, sexpr: SExpr, argtypes: seq[SExpr], rettype: 
                else:
                  some(headeropt.get.strval)
   let ftype = scope.toFuncType(argtypes, rettype)
-  let fdecl = SemDecl(kind: sdCFunc, cfuncname: name, cfunctype: ftype, cfuncheader: header)
+  let fdecl = SemFunc(sexpr: sexpr, kind: sfCFunc, cfuncname: name, cfunctype: ftype, cfuncheader: header)
   let status = scope.top.addProc(fdecl.toProcIdentDecl)
   if not status:
     sexpr.error("redefinition C func $#" % $f)
@@ -112,7 +112,7 @@ proc createCType*(scope: SemScope, sexpr: SExpr) =
                  none(string)
                else:
                  some(headeropt.get.strval)
-  let status = scope.top.addType(TypeIdent(name: $t), SemDecl(kind: sdCType, ctypename: name, ctypeheader: header))
+  let status = scope.top.addType(TypeIdent(name: $t), SemType(sexpr: sexpr, kind: stCType, ctypename: name, ctypeheader: header))
   if not status:
     sexpr.error("redefinition C type $#" % $t)
 
@@ -131,13 +131,15 @@ proc createTopDecl*(scope: SemScope, sexpr: SExpr) =
   #   scope.createGenerics(sexpr)
   of ":":
     scope.createTypeAnnot(sexpr)
+  else:
+    scope.top.addTopExpr(scope.createExpr(sexpr))
 
 proc createTop*(scope: SemScope, sexpr: SExpr) =
   case sexpr.kind
   of sexprList:
     scope.createTopDecl(sexpr)
   else:
-    sexpr.error("couldn't eval $# at toplevel expression." % $sexpr.kind)
+    scope.top.addTopExpr(scope.createExpr(sexpr))
 
 proc createModuleFromSExpr*(ctx: SemPassContext, modulename: string, topsexprs: seq[SExpr]) =
   let scope = newSemScope()

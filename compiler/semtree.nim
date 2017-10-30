@@ -5,51 +5,41 @@ import tables, hashes
 import options
 
 type
-  SemTypeKind* = enum
-    stSymbol
-    stIdent
   SemExprKind* = enum
-    seSExpr
     seIdent
+    seSym
     seFuncCall
     seIf
     seWhile
     seSet
     seInt
     seString
-  SemDeclKind* = enum
-    sdRequire
-    sdVariable
-    sdFunc
-    sdStruct
-    sdCFunc
-    sdCType
-    sdProtocol
+  SemFuncKind* = enum
+    sfFunc
+    sfCFunc
+  SemTypeKind* = enum
+    stStruct
+    stCType
+    stProtocol
   SemSymKind* = enum
-    symSemTypeSym
-    symSemExpr
-    symSemDecl
+    symUnresolve
+    symSemFunc
+    symSemType
 
 type
   FuncType* = object
-    argtypes*: seq[SemType]
-    returntype*: SemType
-  SemType* = ref object
-    case kind*: SemTypeKind
-    of stSymbol:
-      sym*: SemDecl
-    of stIdent:
-      idscope*: SemScope
-      idname*: SemExpr
+    argtypes*: seq[SemSym]
+    returntype*: SemSym
   SemExpr* = ref object
-    typ*: Option[SemType]
+    sexpr*: SExpr
+    typ*: Option[SemSym]
     case kind*: SemExprKind
-    of seSExpr:
-      sexpr*: SExpr
     of seIdent:
       nameid*: string
+    of seSym:
+      sym*: SemSym
     of seFuncCall:
-      fn*: SemType
+      fn*: SemSym
       args*: seq[SemExpr]
     of seIf:
       ifcond*: SemExpr
@@ -65,42 +55,44 @@ type
       intval*: int64
     of seString:
       strval*: string
-  SemDecl* = ref object
-    case kind*: SemDeclKind
-    of sdRequire:
-      requiremodule*: SemScope
-    of sdVariable:
-      discard
-    of sdFunc:
+  SemFunc* = ref object
+    sexpr*: SExpr
+    case kind*: SemFuncKind
+    of sfFunc:
       funcname*: string
       functype*: FuncType
       funcargs*: seq[SemExpr]
       funcbody*: seq[SemExpr]
-    of sdStruct:
-      discard
-    of sdCFunc:
+    of sfCFunc:
       cfuncname*: string
       cfunctype*: FuncType
       cfuncheader*: Option[string]
-    of sdCType:
+  SemType* = ref object
+    sexpr*: SExpr
+    case kind*: SemTypeKind
+    of stStruct:
+      discard
+    of stCType:
       ctypename*: string
       ctypeheader*: Option[string]
-    of sdProtocol:
+    of stProtocol:
       discard
 
   SemSym* = object
+    scope*: SemScope
+    name*: SemExpr
     case kind*: SemSymKind
-    of symSemTypeSym:
+    of symUnresolve:
+      discard
+    of symSemFunc:
+      sf*: SemFunc
+    of symSemType:
       st*: SemType
-    of symSemExpr:
-      se*: SemExpr
-    of symSemDecl:
-      sd*: SemDecl
 
   ProcIdentDecl* = object
     name*: string
-    args*: seq[SemType]
-    value*: SemDecl
+    args*: seq[SemSym]
+    value*: SemFunc
   ProcIdentGroup* = object
     idents*: seq[ProcIdentDecl]
   ProcIdent* = object
@@ -112,7 +104,7 @@ type
   SemScope* = ref object
     top*: SemScope
     procidents*: Table[ProcIdent, ProcIdentGroup]
-    typeidents*: Table[TypeIdent, SemDecl]
+    typeidents*: Table[TypeIdent, SemType]
     toplevels*: seq[SemExpr]
 
 proc hash*(procid: ProcIdent): Hash = hash(procid.name)
@@ -123,7 +115,7 @@ proc newSemScope*(): SemScope =
   new result
   result.top = result
   result.procidents = initTable[ProcIdent, ProcIdentGroup]()
-  result.typeidents = initTable[TypeIdent, SemDecl]()
+  result.typeidents = initTable[TypeIdent, SemType]()
   result.toplevels = @[]
 
 proc extendSemScope*(scope: SemScope): SemScope =
@@ -133,6 +125,9 @@ proc extendSemScope*(scope: SemScope): SemScope =
   result.typeidents = scope.typeidents
   result.toplevels = @[]
 
+proc semsym*(scope: SemScope, name: SemExpr): SemSym =
+  SemSym(scope: scope, name: name, kind: symUnresolve)
+
 # FIXME: scope
 proc `==`*(a, b: SemExpr): bool =
   if a.kind != b.kind: return false
@@ -141,13 +136,8 @@ proc `==`*(a, b: SemExpr): bool =
   else:
     return false
 # FIXME: scope
-proc `==`*(a, b: SemType): bool =
-  if a.kind != b.kind: return false
-  case a.kind
-  of stSymbol:
-    return false # FIXME:
-  of stIdent:
-    return a.idname == b.idname
+proc `==`*(a, b: SemSym): bool =
+  a.name == b.name
 proc `==`*(a, b: ProcIdentDecl): bool =
   if a.name != b.name: return false
   if a.args.len != b.args.len: return false
@@ -160,8 +150,8 @@ proc initProcIdentGroup*(): ProcIdentGroup =
 
 proc toProcIdent*(pi: ProcIdentDecl): ProcIdent =
   ProcIdent(name: pi.name)
-proc toProcIdentDecl*(semdecl: SemDecl): ProcIdentDecl =
-  if semdecl.kind == sdCFunc:
+proc toProcIdentDecl*(semdecl: SemFunc): ProcIdentDecl =
+  if semdecl.kind == sfCFunc:
     result.name = semdecl.cfuncname
     result.args = semdecl.cfunctype.argtypes
     result.value = semdecl
@@ -170,18 +160,21 @@ proc toProcIdentDecl*(semdecl: SemDecl): ProcIdentDecl =
     result.args = semdecl.functype.argtypes
     result.value = semdecl
 
-proc getProc*(scope: SemScope, pi: ProcIdentDecl): Option[SemDecl] =
+proc getProc*(scope: SemScope, pi: ProcIdentDecl): Option[SemFunc] =
   if not scope.procidents.hasKey(pi.toProcIdent):
-    return none(SemDecl)
+    return none(SemFunc)
   let group = scope.procidents[pi.toProcIdent]
   for decl in group.idents:
     if pi == decl:
       return some decl.value
-  return none(SemDecl)
-proc getType*(scope: SemScope, ti: TypeIdent): Option[SemDecl] =
+  return none(SemFunc)
+proc getType*(scope: SemScope, ti: TypeIdent): Option[SemType] =
   if not scope.typeidents.hasKey(ti):
-    return none(SemDecl)
+    return none(SemType)
   return some scope.typeidents[ti]
+
+proc addTopExpr*(scope: SemScope, e: SemExpr) =
+  scope.toplevels.add(e)
 
 proc addProc*(scope: SemScope, pi: ProcIdentDecl): bool =
   if scope.getProc(pi).isSome: return false
@@ -189,7 +182,7 @@ proc addProc*(scope: SemScope, pi: ProcIdentDecl): bool =
     scope.procidents[pi.toProcIdent] = initProcIdentGroup()
   scope.procidents[pi.toProcIdent].idents.add(pi)
   return true
-proc addType*(scope: SemScope, ti: TypeIdent, t: SemDecl): bool =
+proc addType*(scope: SemScope, ti: TypeIdent, t: SemType): bool =
   if scope.getType(ti).isSome: return false
   scope.typeidents[ti] = t
   return true
