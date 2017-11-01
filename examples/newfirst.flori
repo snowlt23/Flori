@@ -2,8 +2,13 @@
 (c-type Void :name "void" :nodecl)
 (c-type CString :name "char*" :nodecl)
 (c-type Int32 :name "int32_t" :header "stdint.h")
-
+@(: Int32 Int32 -> Int32)
+(c-func + :infix :nodecl)
 @(: CString Int32)
 (c-func printf :header "stdio.h")
 
-(printf "%d" 5)
+@(: Int32 -> Int32)
+(defn add5 [x]
+  (+ x 5))
+
+(printf "%d" (add5 4))

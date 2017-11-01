@@ -48,7 +48,7 @@ suite "pass create":
     let module = passctx.modules[initScopeIdent("testmodule")]
     let semdecl = module.procidents[ProcIdent(name: "not")].idents[0].value
     check semdecl.kind == sfCFunc
-    check semdecl.cfuncname == "not"
+    check semdecl.cfuncname == "!"
     check semdecl.cfunctype.argtypes.len == 1
     check semdecl.cfuncheader.isNone
   test "c-type":

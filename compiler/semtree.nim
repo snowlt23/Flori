@@ -10,6 +10,7 @@ type
     seAttr
     seSym
     seFuncCall
+    seVar
     seIf
     seWhile
     seSet
@@ -45,6 +46,10 @@ type
     of seFuncCall:
       fn*: SemSym
       args*: seq[SemExpr]
+    of seVar:
+      varname*: string
+      varvalue*: SemExpr
+      vartoplevel*: bool
     of seIf:
       ifcond*: SemExpr
       iftrue*: SemExpr
@@ -136,6 +141,7 @@ proc extendSemScope*(scope: SemScope): SemScope =
   new result
   result.name = scope.name
   result.top = scope.top
+  result.varidents = scope.varidents
   result.procidents = scope.procidents
   result.typeidents = scope.typeidents
   result.toplevels = @[]
@@ -145,6 +151,11 @@ proc semident*(scope: SemScope, name: string): SemExpr =
 
 proc semsym*(scope: SemScope, name: SemExpr): SemSym =
   SemSym(scope: scope, name: name, kind: symUnresolve)
+proc `$`*(sym: SemSym): string =
+  if sym.name.kind == seIdent:
+    return sym.name.idname
+  else:
+    return "Unknown"
 
 # FIXME: scope
 proc `==`*(a, b: SemExpr): bool =
@@ -223,5 +234,9 @@ proc getReturnType*(semfunc: SemFunc): SemSym =
   of sfFunc:
     semfunc.functype.returntype
 
+proc isType*(semsym: SemSym, name: string): bool =
+  semsym.name.kind == seIdent and semsym.name.idname == name
+proc isBoolType*(semsym: SemSym): bool =
+  semsym.isType("Bool")
 proc isVoidType*(semsym: SemSym): bool =
-  semsym.name.kind == seIdent and semsym.name.idname == "Void"
+  semsym.isType("Void")

@@ -62,6 +62,7 @@ proc toFuncType*(scope: SemScope, argtypes: seq[SExpr], rettype: SExpr): FuncTyp
   )
 
 proc createDefn*(scope: SemScope, sexpr: SExpr, argtypes: seq[SExpr], rettype: SExpr) =
+  let scope = scope.extendSemScope()
   let fname = sexpr.rest.first
   let fargs = sexpr.rest.rest.first
   let fbody = sexpr.rest.rest.rest
@@ -73,7 +74,7 @@ proc createDefn*(scope: SemScope, sexpr: SExpr, argtypes: seq[SExpr], rettype: S
   
 proc createCFunc*(scope: SemScope, sexpr: SExpr, argtypes: seq[SExpr], rettype: SExpr) =
   let f = sexpr.rest.first
-  let nameopt = sexpr.getAttr("pattern")
+  let nameopt = sexpr.getAttr("name")
   let headeropt = sexpr.getAttr("header")
   let nodecl = sexpr.hasAttr("nodecl")
   let infix = sexpr.hasAttr("infix")
@@ -95,7 +96,7 @@ proc createCFunc*(scope: SemScope, sexpr: SExpr, argtypes: seq[SExpr], rettype: 
     cfuncheader: header,
     cfuncinfix: infix
   )
-  let status = scope.top.addProc(fdecl.toProcIdentDecl)
+  let status = scope.top.addProc(ProcIdentDecl(name: $f, args: ftype.argtypes, value: fdecl))
   if not status:
     sexpr.error("redefinition C func $#" % $f)
 
@@ -107,8 +108,21 @@ proc createTypeAnnot*(scope: SemScope, sexpr: SExpr) =
   of "c-func":
     scope.createCFunc(body, argtypes, rettype)
 
-# TODO:
-proc createTopVar*(scope: SemScope, sexpr: SExpr) = discard
+proc createTopVar*(scope: SemScope, sexpr: SExpr) =
+  let name = sexpr.rest.first
+  let value = sexpr.rest.rest.first
+  let vardecl = SemExpr(
+    sexpr: sexpr,
+    scope: scope,
+    typ: none(SemSym),
+    kind: seVar,
+    varname: $name,
+    varvalue: scope.createExpr(value),
+    vartoplevel: true
+  )
+  let status = scope.top.addVar(VarIdent(name: $name), vardecl)
+  if not status:
+    sexpr.error("redefinition $# variable." % $name)
 # TODO:
 proc createDefStruct*(scope: SemScope, sexpr: SExpr) = discard
 
@@ -121,6 +135,8 @@ proc createCType*(scope: SemScope, sexpr: SExpr) =
                nameopt.get.strval
              else:
                $t
+  if not nodecl and headeropt.isNone:
+    sexpr.error("c-type requires :nodecl or :header attribute.")
   let header = if nodecl:
                  none(string)
                else:

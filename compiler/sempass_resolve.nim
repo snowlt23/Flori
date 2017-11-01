@@ -68,6 +68,34 @@ proc resolveFuncCall*(pass: ResolvePass, semexpr: SemExpr) =
   semexpr.fn.sf = opt.get
   semexpr.typ = some(semexpr.fn.sf.getReturnType())
 
+proc resolveVar*(pass: ResolvePass, semexpr: SemExpr) =
+  if not semexpr.vartoplevel:
+    if not semexpr.scope.addVar(VarIdent(name: semexpr.varname), semexpr):
+      semexpr.sexpr.error("redefinition $# variable." % semexpr.varname)
+  pass.resolveExpr(semexpr.varvalue)
+  semexpr.typ = semexpr.varvalue.typ
+
+proc resolveIf*(pass: ResolvePass, semexpr: SemExpr) =
+  pass.resolveExpr(semexpr.ifcond)
+  if not semexpr.ifcond.typ.get.isBoolType():
+    semexpr.ifcond.sexpr.error("if cond expression should be Bool type.")
+  pass.resolveExpr(semexpr.iftrue)
+  pass.resolveExpr(semexpr.iffalse)
+  if semexpr.iftrue.typ.get != semexpr.iffalse.typ.get:
+    semexpr.sexpr.error("if expression not equal return type: $# != $#" % [$semexpr.iftrue.typ.get, $semexpr.iffalse.typ.get])
+  semexpr.typ = semexpr.iftrue.typ
+
+proc resolveWhile*(pass: ResolvePass, semexpr: SemExpr) =
+  pass.resolveExpr(semexpr.whilecond)
+  if not semexpr.whilecond.typ.get.isBoolType():
+    semexpr.whilecond.sexpr.error("while cond expression should be Bool type.")
+  for b in semexpr.whilebody:
+    pass.resolveExpr(b)
+  let opt = semexpr.scope.getType(TypeIdent(name: "Void"))
+  if opt.isNone:
+    semexpr.sexpr.error("undeclared Void type.")
+  pass.resolveByType(semexpr.typ.get)
+
 proc resolveExpr*(pass: ResolvePass, semexpr: SemExpr) =
   case semexpr.kind
   of seIdent:
@@ -77,6 +105,12 @@ proc resolveExpr*(pass: ResolvePass, semexpr: SemExpr) =
     semexpr.typ = v.get.typ
   of seFuncCall:
     pass.resolveFuncCall(semexpr)
+  of seVar:
+    pass.resolveVar(semexpr)
+  of seIf:
+    pass.resolveIf(semexpr)
+  of seWhile:
+    pass.resolveWhile(semexpr)
   of seInt:
     pass.resolveByType(semexpr.typ.get)
   of seString:

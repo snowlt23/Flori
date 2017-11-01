@@ -24,22 +24,32 @@ iterator walkType*(ctx: SemPassContext): SemType =
     for t in module.walkType:
       yield(t)
 
-iterator walkFuncExpr*(ctx: SemPassContext): SemExpr =
+iterator walkFuncExpr*(ctx: SemPassContext): var SemExpr =
   for f in ctx.walkFunc:
     if f.kind == sfFunc:
-      for e in f.funcbody:
+      for e in f.funcbody.mitems:
         yield(e)
 
-iterator walkTopExpr*(module: SemScope): SemExpr =
-  for e in module.toplevels:
+iterator walkTopExpr*(module: SemScope): var SemExpr =
+  for e in module.toplevels.mitems:
     yield(e)
-iterator walkTopExpr*(ctx: SemPassContext): SemExpr =
+iterator walkTopExpr*(ctx: SemPassContext): var SemExpr =
   for module in ctx.modules.values:
-    for e in module.toplevels:
+    for e in module.toplevels.mitems:
       yield(e)
 
-iterator walkExpr*(ctx: SemPassContext): SemExpr =
+iterator walkTopVar*(module: SemScope): var SemExpr =
+  for e in module.varidents.mvalues:
+    yield(e)
+iterator walkTopVar*(ctx: SemPassContext): var SemExpr =
+  for module in ctx.modules.values:
+    for e in module.varidents.mvalues:
+      yield(e)
+
+iterator walkExpr*(ctx: SemPassContext): var SemExpr =
   for e in ctx.walkFuncExpr():
+    yield(e)
+  for e in ctx.walkTopVar():
     yield(e)
   for e in ctx.walkTopExpr():
     yield(e)
