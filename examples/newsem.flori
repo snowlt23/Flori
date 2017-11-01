@@ -6,30 +6,35 @@
 (c-func + :infix :nodecl)
 @(: Float32 Float32 -> Float32)
 (c-func + :infix :nodecl)
-
 @(: CString :a)
 (c-func printf :nodecl)
+
 @(: Int32)
-(defun print [x]
+(defn print [x]
   (printf "%d" x))
 @(: Float32)
-(defun print [x]
+(defn print [x]
   (printf "%f" x))
+@(: CString)
+(defn print [s]
+  (printf "%s" s))
 
-(defmodule Option
-  (deftype Some [data])
-  (deftype None [])
-  
-  (defun get [opt]
-    (match opt
-      (Some (.data opt))
-      (None (panic "opt is None"))))
-  
-  (defn print [opt]
-    (print (get opt))))
+(defn println [x]
+  (print x)
+  (print "\n"))
 
-(defmodule Option
-  (defun + [a b]
-    (+ (get a) (get b))))
+(defn add5 [x]
+  (+ x 5))
 
-(print (Option. (+ (Option. 4) (Option. 5))))
+@(: String -> String)
+(defn add5 [x]
+  (concat x "5"))
+
+(defn fib [n]
+  (if (< n 2)
+      n
+      (+ (fib (- n 1))
+         (fib (- n 2)))))
+
+(println (add5 4))
+(println (fib 38))
