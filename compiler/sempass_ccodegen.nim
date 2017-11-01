@@ -42,7 +42,16 @@ proc generateMain*(pass: CCodegenPass): string =
   result &= pass.generateInits()
   result &= "}\n"
 
+proc codegenSym*(pass: CCodegenPass, src: var SrcExpr, semsym: SemSym)
 proc codegenExpr*(pass: CCodegenPass, src: var SrcExpr, semexpr: SemExpr)
+
+proc codegenFuncSym*(pass: CCodegenPass, src: var SrcExpr, scope: SemScope, name: string, types: seq[SemSym]) =
+  src &= scope.name
+  src &= "_"
+  src &= name
+  for typ in types:
+    src &= "_"
+    pass.codegenSym(src, typ)
 
 proc codegenSym*(pass: CCodegenPass, src: var SrcExpr, semsym: SemSym) =
   case semsym.kind
@@ -51,7 +60,7 @@ proc codegenSym*(pass: CCodegenPass, src: var SrcExpr, semsym: SemSym) =
   of symSemFunc:
     case semsym.sf.kind
     of sfFunc:
-      src &= semsym.sf.funcname
+      pass.codegenFuncSym(src, semsym.sf.scope, semsym.sf.funcname, semsym.sf.functype.argtypes)
     of sfCFunc:
       src &= semsym.sf.cfuncname
   of symSemType:
@@ -66,7 +75,7 @@ proc codegenSym*(pass: CCodegenPass, src: var SrcExpr, semsym: SemSym) =
 proc codegenFuncImpl*(pass: CCodegenPass, src: var SrcExpr, semfunc: SemFunc) =
   pass.codegenSym(src, semfunc.functype.returntype)
   src &= " "
-  src &= semfunc.funcname
+  pass.codegenFuncSym(src, semfunc.scope, semfunc.funcname, semfunc.functype.argtypes)
   src &= "("
   if semfunc.funcargs.len > 0:
     pass.codegenSym(src, semfunc.functype.argtypes[0])

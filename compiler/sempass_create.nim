@@ -155,7 +155,7 @@ proc createTop*(scope: SemScope, sexpr: SExpr) =
     scope.top.addTopExpr(scope.createExpr(sexpr))
 
 proc createModuleFromSExpr*(ctx: SemPassContext, modulename: string, topsexprs: seq[SExpr]) =
-  let scope = newSemScope()
+  let scope = newSemScope(modulename)
   for sexpr in topsexprs:
     scope.createTop(sexpr)
   ctx.modules[ScopeIdent(name: modulename)] = scope

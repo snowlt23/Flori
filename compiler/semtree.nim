@@ -111,6 +111,7 @@ type
   ScopeIdent* = object
     name*: string
   SemScope* = ref object
+    name*: string
     top*: SemScope
     varidents*: Table[VarIdent, SemExpr]
     procidents*: Table[ProcIdent, ProcIdentGroup]
@@ -122,8 +123,9 @@ proc hash*(procid: ProcIdent): Hash = hash(procid.name)
 proc hash*(typeid: TypeIdent): Hash = hash(typeid.name)
 proc hash*(scopeid: ScopeIdent): Hash = hash(scopeid.name)
 
-proc newSemScope*(): SemScope =
+proc newSemScope*(name: string): SemScope =
   new result
+  result.name = name
   result.top = result
   result.varidents = initTable[VarIdent, SemExpr]()
   result.procidents = initTable[ProcIdent, ProcIdentGroup]()
@@ -132,6 +134,7 @@ proc newSemScope*(): SemScope =
 
 proc extendSemScope*(scope: SemScope): SemScope =
   new result
+  result.name = scope.name
   result.top = scope.top
   result.procidents = scope.procidents
   result.typeidents = scope.typeidents

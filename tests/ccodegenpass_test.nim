@@ -59,10 +59,10 @@ printf("%d", 5);
     check readFile("floricache/testmodule.c") == """
 #include "stdint.h"
 #include "stdio.h"
-int32_t add5(int32_t x) {
+int32_t testmodule_add5_int32_t(int32_t x) {
 return (x + 5);
 }
 void testmodule_init() {
-printf("%d", add5(4));
+printf("%d", testmodule_add5_int32_t(4));
 }
 """
