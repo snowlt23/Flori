@@ -22,8 +22,8 @@ proc initSrcExpr*(): SrcExpr =
   result.prev = ""
   result.exp = ""
 proc `&=`*(src: var SrcExpr, s: string) = src.exp &= s
-proc `$`*(src: SrcExpr): string =
-  toSeq(src.headers.keys).mapIt("#include \"$#\"" % it).join("\n") & "\n" & src.exp
+proc getSrc*(src: SrcExpr): string =
+  toSeq(src.headers.keys).mapIt("#include \"$#\"" % it).join("\n") & "\n\n" & src.exp
 proc addHeader*(src: var SrcExpr, s: string) =
   src.headers[s] = true
 
@@ -88,12 +88,12 @@ proc codegenBody*(pass: CCodegenPass, src: var SrcExpr, body: seq[SemExpr], ret 
       src &= newsrc.prev
       src.prev = ""
       src &= newsrc.exp & ";\n"
-  if ret:
-    src &= "return "
   var newsrc = initSrcExpr()
   pass.codegenExpr(newsrc, body[^1])
   src &= newsrc.prev
   src.prev = ""
+  if ret:
+    src &= "return "
   src &= newsrc.exp & ";\n"
 
 proc codegenFuncImpl*(pass: CCodegenPass, src: var SrcExpr, semfunc: SemFunc) =
@@ -112,7 +112,7 @@ proc codegenFuncImpl*(pass: CCodegenPass, src: var SrcExpr, semfunc: SemFunc) =
       pass.codegenExpr(src, semfunc.funcargs[i])
   src &= ") {\n"
   pass.codegenBody(src, semfunc.funcbody, ret = not semfunc.getReturnType().isVoidType())
-  src &= "}\n"
+  src &= "}\n\n"
 
 proc codegenFunc*(pass: CCodegenPass, src: var SrcExpr, semfunc: SemFunc) =
   case semfunc.kind
@@ -166,18 +166,23 @@ proc codegenIf*(pass: CCodegenPass, src: var SrcExpr, semexpr: SemExpr) =
   pass.codegenExpr(falsesrc, semexpr.iffalse)
   if semexpr.typ.get.isVoidType:
     src.prev &= "if (" & condsrc.exp & ") {\n"
+    src.prev &= truesrc.prev
     src.prev &= truesrc.exp & ";\n"
     src.prev &= "} else {\n"
+    src.prev &= falsesrc.prev
     src.prev &= falsesrc.exp & ";\n"
     src.prev &= "}"
   else:
     let tmpsym = pass.gentmpsym()
     var tmptyp = initSrcExpr()
     pass.codegenSym(tmptyp, semexpr.iftrue.typ.get)
-    src.prev &= $tmptyp & " " & tmpsym & ";\n"
+    src.prev &= tmptyp.prev
+    src.prev &= tmptyp.exp & " " & tmpsym & ";\n"
     src.prev &= "if (" & condsrc.exp & ") {\n"
+    src.prev &= truesrc.prev
     src.prev &= tmpsym & " = " & truesrc.exp & ";\n"
     src.prev &= "} else {\n"
+    src.prev &= falsesrc.prev
     src.prev &= tmpsym & " = " & falsesrc.exp & ";\n"
     src.prev &= "}"
     src &= tmpsym
@@ -236,9 +241,15 @@ method execute*(pass: CCodegenPass, ctx: SemPassContext) =
     
     pass.modulesrcs[si] = modsrc
 
+proc filenames*(pass: CCodegenPass, dir: string): seq[string] =
+  result = @[]
+  for si, modsrc in pass.modulesrcs:
+    result.add(dir / si.name & ".c")
+  result.add(dir / "main.c")
+
 proc write*(pass: CCodegenPass, dir: string) =
   if not existsDir(dir):
     createDir(dir)
   for si, modsrc in pass.modulesrcs:
-    writeFile(dir / si.name & ".c", $modsrc)
+    writeFile(dir / si.name & ".c", modsrc.getSrc)
   writeFile(dir / "main.c", pass.generateMain())

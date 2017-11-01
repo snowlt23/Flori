@@ -118,6 +118,7 @@ type
   SemScope* = ref object
     name*: string
     top*: SemScope
+    level*: int
     varidents*: Table[VarIdent, SemExpr]
     procidents*: Table[ProcIdent, ProcIdentGroup]
     typeidents*: Table[TypeIdent, SemType]
@@ -132,6 +133,7 @@ proc newSemScope*(name: string): SemScope =
   new result
   result.name = name
   result.top = result
+  result.level = 0
   result.varidents = initTable[VarIdent, SemExpr]()
   result.procidents = initTable[ProcIdent, ProcIdentGroup]()
   result.typeidents = initTable[TypeIdent, SemType]()
@@ -141,10 +143,14 @@ proc extendSemScope*(scope: SemScope): SemScope =
   new result
   result.name = scope.name
   result.top = scope.top
+  result.level = scope.level + 1
   result.varidents = scope.varidents
   result.procidents = scope.procidents
   result.typeidents = scope.typeidents
   result.toplevels = @[]
+
+proc `==`*(a, b: SemScope): bool =
+  a.name == b.name and a.level == b.level
 
 proc semident*(scope: SemScope, name: string): SemExpr =
   SemExpr(sexpr: newSNil(internalSpan), typ: none(SemSym), kind: seIdent, scope: scope, idname: name)
@@ -191,19 +197,31 @@ proc toProcIdentDecl*(semdecl: SemFunc): ProcIdentDecl =
 
 proc getVar*(scope: SemScope, vi: VarIdent): Option[SemExpr] =
   if not scope.varidents.hasKey(vi):
-    return none(SemExpr)
+    if scope == scope.top:
+      return none(SemExpr)
+    else:
+      return scope.top.getVar(vi)
   return some scope.varidents[vi]
 proc getProc*(scope: SemScope, pi: ProcIdentDecl): Option[SemFunc] =
   if not scope.procidents.hasKey(pi.toProcIdent):
-    return none(SemFunc)
+    if scope == scope.top:
+      return none(SemFunc)
+    else:
+      return scope.top.getProc(pi)
   let group = scope.procidents[pi.toProcIdent]
   for decl in group.idents:
     if pi == decl:
-      return some decl.value
-  return none(SemFunc)
+      return some(decl.value)
+  if scope == scope.top:
+    return none(SemFunc)
+  else:
+    return scope.top.getProc(pi)
 proc getType*(scope: SemScope, ti: TypeIdent): Option[SemType] =
   if not scope.typeidents.hasKey(ti):
-    return none(SemType)
+    if scope == scope.top:
+      return none(SemType)
+    else:
+      return scope.top.getType(ti)
   return some scope.typeidents[ti]
 
 proc addTopExpr*(scope: SemScope, e: SemExpr) =

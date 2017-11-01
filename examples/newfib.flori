@@ -1,0 +1,21 @@
+
+(c-type Void :name "void" :nodecl)
+(c-type CString :name "char*" :nodecl)
+(c-type Int32 :name "int32_t" :header "stdint.h")
+(c-type Bool :name "bool" :header "stdbool.h")
+@(: Int32 Int32 -> Int32)
+(c-func + :infix :nodecl)
+@(: Int32 Int32 -> Int32)
+(c-func - :infix :nodecl)
+@(: Int32 Int32 -> Bool)
+(c-func < :infix :nodecl)
+@(: CString Int32)
+(c-func printf :header "stdio.h")
+
+@(: Int32 -> Int32)
+(defn fib [n]
+  (if (< n 2)
+    n
+    (+ (fib (- n 1)) (fib (- n 2)))))
+
+(printf "%d\n" (fib 38))

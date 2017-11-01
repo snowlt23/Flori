@@ -35,6 +35,7 @@ suite "pass create":
 #include "stdint.h"
 #include "stdio.h"
 #include "stdbool.h"
+
 void testmodule_init() {
 printf("%d", 5);
 }
@@ -56,9 +57,11 @@ printf("%d", 5);
 #include "stdint.h"
 #include "stdio.h"
 #include "stdbool.h"
+
 int32_t testmodule_add5_int32_t(int32_t x) {
 return (x + 5);
 }
+
 void testmodule_init() {
 printf("%d", testmodule_add5_int32_t(4));
 }
@@ -77,6 +80,7 @@ printf("%d", testmodule_add5_int32_t(4));
 #include "stdint.h"
 #include "stdio.h"
 #include "stdbool.h"
+
 int32_t testmodule_NINE;
 void testmodule_init() {
 testmodule_NINE = 9;
@@ -98,6 +102,7 @@ testmodule_NINE = 9;
 #include "stdint.h"
 #include "stdio.h"
 #include "stdbool.h"
+
 void testmodule_init() {
 if ((1 == 2)) {
 printf("%d", 4);
@@ -121,6 +126,7 @@ printf("%d", 5);
 #include "stdint.h"
 #include "stdio.h"
 #include "stdbool.h"
+
 void testmodule_init() {
 while ((1 == 2)) {
 printf("%d", 9);
