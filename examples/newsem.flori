@@ -1,0 +1,35 @@
+
+(c-type Int32 :name "int32_t" :header "stdint.h")
+(c-type Float32 :name "float" :nodecl)
+
+@(: Int32 Int32 -> Int32)
+(c-func + :infix :nodecl)
+@(: Float32 Float32 -> Float32)
+(c-func + :infix :nodecl)
+
+@(: CString :a)
+(c-func printf :nodecl)
+@(: Int32)
+(defun print [x]
+  (printf "%d" x))
+@(: Float32)
+(defun print [x]
+  (printf "%f" x))
+
+(defmodule Option
+  (deftype Some [data])
+  (deftype None [])
+  
+  (defun get [opt]
+    (match opt
+      (Some (.data opt))
+      (None (panic "opt is None"))))
+  
+  (defn print [opt]
+    (print (get opt))))
+
+(defmodule Option
+  (defun + [a b]
+    (+ (get a) (get b))))
+
+(print (Option. (+ (Option. 4) (Option. 5))))

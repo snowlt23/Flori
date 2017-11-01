@@ -19,37 +19,62 @@ proc newResolvePass*(): ResolvePass =
   ResolvePass()
 
 proc resolveByType*(pass: ResolvePass, sym: SemSym) =
-  let opt = sym.scope.getType(TypeIdent(name: sym.name.nameid))
+  let opt = sym.scope.getType(TypeIdent(name: sym.name.idname))
   if opt.isNone:
-    sym.name.sexpr.error("undeclared $# type." % sym.name.nameid)
+    sym.name.sexpr.error("undeclared $# type." % sym.name.idname)
   sym.kind = symSemType
   sym.st = opt.get
 
-proc resolveFuncType*(pass: ResolvePass, ft: FuncType) =
+proc resolveFuncType*(pass: ResolvePass, ft: FuncType): bool =
   for argtype in ft.argtypes:
     if argtype.name.kind == seIdent:
       pass.resolveByType(argtype)
+    elif argtype.name.kind == seAttr: # generics
+      discard
+    elif argtype.name.kind == seFuncCall: # type generics
+      discard
+    else:
+      return false
+  pass.resolveByType(ft.returntype)
+  return true
 
 proc resolveFunc*(pass: ResolvePass, semfunc: SemFunc) =
   case semfunc.kind
   of sfCFunc:
-    pass.resolveFuncType(semfunc.cfunctype)
+    if not pass.resolveFuncType(semfunc.cfunctype):
+      semfunc.sexpr.error("unresolve types of $# C func." % $semfunc.cfuncname)
   of sfFunc:
-    pass.resolveFuncType(semfunc.functype)
+    if not pass.resolveFuncType(semfunc.functype):
+      semfunc.sexpr.error("unresolve types of $# func." % $semfunc.funcname)
+    for i in 0..<semfunc.funcargs.len:
+      let argtype = semfunc.functype.argtypes[i]
+      let funcarg = semfunc.funcargs[i]
+      funcarg.typ = some(argtype)
+      if funcarg.kind != seIdent:
+        funcarg.sexpr.error("function argument should be ident.")
+      let status = semfunc.scope.addVar(VarIdent(name: funcarg.idname), funcarg)
+      if not status:
+        funcarg.sexpr.error("redefinition $# variable" % funcarg.idname)
 
 proc resolveFuncCall*(pass: ResolvePass, semexpr: SemExpr) =
   for arg in semexpr.args:
     pass.resolveExpr(arg)
   let argtypes = semexpr.args.mapIt(it.typ.get)
-  let pid = ProcIdentDecl(name: semexpr.fn.name.nameid, args: argtypes)
+  let pid = ProcIdentDecl(name: semexpr.fn.name.idname, args: argtypes)
   let opt = semexpr.fn.scope.getProc(pid)
   if opt.isNone:
-    semexpr.sexpr.error("undeclared $# func." % semexpr.fn.name.nameid)
+    semexpr.sexpr.error("undeclared $# func." % semexpr.fn.name.idname)
   semexpr.fn.kind = symSemFunc
   semexpr.fn.sf = opt.get
+  semexpr.typ = some(semexpr.fn.sf.getReturnType())
 
 proc resolveExpr*(pass: ResolvePass, semexpr: SemExpr) =
   case semexpr.kind
+  of seIdent:
+    let v = semexpr.scope.getVar(VarIdent(name: semexpr.idname))
+    if v.isNone:
+      semexpr.sexpr.error("undeclared $# ident." % semexpr.idname)
+    semexpr.typ = v.get.typ
   of seFuncCall:
     pass.resolveFuncCall(semexpr)
   of seInt:

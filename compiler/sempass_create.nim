@@ -32,6 +32,7 @@ proc createExpr*(scope: SemScope, sexpr: SExpr): SemExpr =
   case sexpr.kind
   of sexprList:
     result = SemExpr(
+      scope: scope,
       sexpr: sexpr,
       typ: none(SemSym),
       kind: seFuncCall,
@@ -39,11 +40,13 @@ proc createExpr*(scope: SemScope, sexpr: SExpr): SemExpr =
       args: scope.createBody(sexpr.rest)
     )
   of sexprIdent:
-    result = SemExpr(sexpr: sexpr, typ: none(SemSym), kind: seIdent, nameid: $sexpr)
+    result = SemExpr(scope: scope, sexpr: sexpr, typ: none(SemSym), kind: seIdent, idname: $sexpr)
+  of sexprAttr:
+    result = SemExpr(scope: scope, sexpr: sexpr, typ: none(SemSym), kind: seAttr, attrname: $sexpr)
   of sexprInt:
-    result = SemExpr(sexpr: sexpr, typ: some(scope.semsym(semident("Int32"))), kind: seInt, intval: sexpr.intval)
+    result = SemExpr(scope: scope, sexpr: sexpr, typ: some(scope.semsym(scope.semident("Int32"))), kind: seInt, intval: sexpr.intval)
   of sexprString:
-    result = SemExpr(sexpr: sexpr, typ: some(scope.semsym(semident("CString"))), kind: seString, strval: sexpr.strval)
+    result = SemExpr(scope: scope, sexpr: sexpr, typ: some(scope.semsym(scope.semident("CString"))), kind: seString, strval: sexpr.strval)
   else:
     sexpr.error("$# is not expression." % $sexpr.kind)
 
@@ -63,7 +66,7 @@ proc createDefn*(scope: SemScope, sexpr: SExpr, argtypes: seq[SExpr], rettype: S
   let fargs = sexpr.rest.rest.first
   let fbody = sexpr.rest.rest.rest
   let ftype = scope.toFuncType(argtypes, rettype)
-  let fdecl = SemFunc(sexpr: sexpr, kind: sfFunc, funcname: $fname, functype: ftype, funcargs: scope.createBody(fargs), funcbody: scope.createBody(fbody))
+  let fdecl = SemFunc(scope: scope, sexpr: sexpr, kind: sfFunc, funcname: $fname, functype: ftype, funcargs: scope.createBody(fargs), funcbody: scope.createBody(fbody))
   let status = scope.top.addProc(fdecl.toProcIdentDecl)
   if not status:
     sexpr.error("redefinition func $#" % $fname)
@@ -73,6 +76,7 @@ proc createCFunc*(scope: SemScope, sexpr: SExpr, argtypes: seq[SExpr], rettype: 
   let nameopt = sexpr.getAttr("pattern")
   let headeropt = sexpr.getAttr("header")
   let nodecl = sexpr.hasAttr("nodecl")
+  let infix = sexpr.hasAttr("infix")
   let name = if nameopt.isSome:
                nameopt.get.strval
              else:
@@ -82,7 +86,15 @@ proc createCFunc*(scope: SemScope, sexpr: SExpr, argtypes: seq[SExpr], rettype: 
                else:
                  some(headeropt.get.strval)
   let ftype = scope.toFuncType(argtypes, rettype)
-  let fdecl = SemFunc(sexpr: sexpr, kind: sfCFunc, cfuncname: name, cfunctype: ftype, cfuncheader: header)
+  let fdecl = SemFunc(
+    scope: scope,
+    sexpr: sexpr,
+    kind: sfCFunc,
+    cfuncname: name,
+    cfunctype: ftype,
+    cfuncheader: header,
+    cfuncinfix: infix
+  )
   let status = scope.top.addProc(fdecl.toProcIdentDecl)
   if not status:
     sexpr.error("redefinition C func $#" % $f)
@@ -113,7 +125,7 @@ proc createCType*(scope: SemScope, sexpr: SExpr) =
                  none(string)
                else:
                  some(headeropt.get.strval)
-  let status = scope.top.addType(TypeIdent(name: $t), SemType(sexpr: sexpr, kind: stCType, ctypename: name, ctypeheader: header))
+  let status = scope.top.addType(TypeIdent(name: $t), SemType(scope: scope, sexpr: sexpr, kind: stCType, ctypename: name, ctypeheader: header))
   if not status:
     sexpr.error("redefinition C type $#" % $t)
 

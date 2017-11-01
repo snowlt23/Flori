@@ -63,13 +63,37 @@ proc codegenSym*(pass: CCodegenPass, src: var SrcExpr, semsym: SemSym) =
     of stProtocol:
       discard # TODO:
 
+proc codegenFuncImpl*(pass: CCodegenPass, src: var SrcExpr, semfunc: SemFunc) =
+  pass.codegenSym(src, semfunc.functype.returntype)
+  src &= " "
+  src &= semfunc.funcname
+  src &= "("
+  if semfunc.funcargs.len > 0:
+    pass.codegenSym(src, semfunc.functype.argtypes[0])
+    src &= " "
+    pass.codegenExpr(src, semfunc.funcargs[0])
+    for i in 1..<semfunc.funcargs.len:
+      src &= ", "
+      pass.codegenSym(src, semfunc.functype.argtypes[i])
+      src &= " "
+      pass.codegenExpr(src, semfunc.funcargs[i])
+  src &= ") {\n"
+  for b in semfunc.funcbody[0..^2]:
+    pass.codegenExpr(src, b)
+    src &= ";\n"
+  if not semfunc.getReturnType().isVoidType():
+    src &= "return "
+  pass.codegenExpr(src, semfunc.funcbody[^1])
+  src &= ";\n"
+  src &= "}\n"
+
 proc codegenFunc*(pass: CCodegenPass, src: var SrcExpr, semfunc: SemFunc) =
   case semfunc.kind
   of sfCFunc:
     if semfunc.cfuncheader.isSome:
       src.addHeader(semfunc.cfuncheader.get)
   of sfFunc:
-    discard # TODO:
+    pass.codegenFuncImpl(src, semfunc)
 
 proc codegenType*(pass: CCodegenPass, src: var SrcExpr, semtype: SemType) =
   case semtype.kind
@@ -81,11 +105,16 @@ proc codegenType*(pass: CCodegenPass, src: var SrcExpr, semtype: SemType) =
   of stProtocol:
     discard # TODO:
 
-proc codegenExpr*(pass: CCodegenPass, src: var SrcExpr, semexpr: SemExpr) =
-  case semexpr.kind
-  of seIdent:
-    src &= semexpr.nameid
-  of seFuncCall:
+proc codegenFuncCall*(pass: CCodegenPass, src: var SrcExpr, semexpr: SemExpr) =
+  if semexpr.fn.sf.kind == sfCFunc and semexpr.fn.sf.cfuncinfix:
+    src &= "("
+    pass.codegenExpr(src, semexpr.args[0])
+    src &= " "
+    pass.codegenSym(src, semexpr.fn)
+    src &= " "
+    pass.codegenExpr(src, semexpr.args[1])
+    src &= ")"
+  else:
     pass.codegenSym(src, semexpr.fn)
     src &= "("
     if semexpr.args.len > 0:
@@ -94,6 +123,13 @@ proc codegenExpr*(pass: CCodegenPass, src: var SrcExpr, semexpr: SemExpr) =
         src &= ", "
         pass.codegenExpr(src, arg)
     src &= ")"
+
+proc codegenExpr*(pass: CCodegenPass, src: var SrcExpr, semexpr: SemExpr) =
+  case semexpr.kind
+  of seIdent:
+    src &= semexpr.idname
+  of seFuncCall:
+    pass.codegenFuncCall(src, semexpr)
   of seInt:
     src &= $semexpr.intval
   of seString:
@@ -109,7 +145,7 @@ method execute*(pass: CCodegenPass, ctx: SemPassContext) =
     for fn in module.walkFunc:
       pass.codegenFunc(modsrc, fn)
 
-    modsrc &= "int $#_init() {\n" % si.name
+    modsrc &= "void $#_init() {\n" % si.name
     for top in module.walkTopExpr:
       pass.codegenExpr(modsrc, top)
       modsrc &= ";\n"

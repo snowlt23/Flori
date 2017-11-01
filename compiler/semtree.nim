@@ -7,6 +7,7 @@ import options
 type
   SemExprKind* = enum
     seIdent
+    seAttr
     seSym
     seFuncCall
     seIf
@@ -32,10 +33,13 @@ type
     returntype*: SemSym
   SemExpr* = ref object
     sexpr*: SExpr
+    scope*: SemScope
     typ*: Option[SemSym]
     case kind*: SemExprKind
     of seIdent:
-      nameid*: string
+      idname*: string
+    of seAttr:
+      attrname*: string
     of seSym:
       sym*: SemSym
     of seFuncCall:
@@ -57,6 +61,7 @@ type
       strval*: string
   SemFunc* = ref object
     sexpr*: SExpr
+    scope*: SemScope
     case kind*: SemFuncKind
     of sfFunc:
       funcname*: string
@@ -67,8 +72,10 @@ type
       cfuncname*: string
       cfunctype*: FuncType
       cfuncheader*: Option[string]
+      cfuncinfix*: bool
   SemType* = ref object
     sexpr*: SExpr
+    scope*: SemScope
     case kind*: SemTypeKind
     of stStruct:
       discard
@@ -95,6 +102,8 @@ type
     value*: SemFunc
   ProcIdentGroup* = object
     idents*: seq[ProcIdentDecl]
+  VarIdent* = object
+    name*: string
   ProcIdent* = object
     name*: string
   TypeIdent* = object
@@ -103,10 +112,12 @@ type
     name*: string
   SemScope* = ref object
     top*: SemScope
+    varidents*: Table[VarIdent, SemExpr]
     procidents*: Table[ProcIdent, ProcIdentGroup]
     typeidents*: Table[TypeIdent, SemType]
     toplevels*: seq[SemExpr]
 
+proc hash*(varid: VarIdent): Hash = hash(varid.name)
 proc hash*(procid: ProcIdent): Hash = hash(procid.name)
 proc hash*(typeid: TypeIdent): Hash = hash(typeid.name)
 proc hash*(scopeid: ScopeIdent): Hash = hash(scopeid.name)
@@ -114,6 +125,7 @@ proc hash*(scopeid: ScopeIdent): Hash = hash(scopeid.name)
 proc newSemScope*(): SemScope =
   new result
   result.top = result
+  result.varidents = initTable[VarIdent, SemExpr]()
   result.procidents = initTable[ProcIdent, ProcIdentGroup]()
   result.typeidents = initTable[TypeIdent, SemType]()
   result.toplevels = @[]
@@ -125,8 +137,8 @@ proc extendSemScope*(scope: SemScope): SemScope =
   result.typeidents = scope.typeidents
   result.toplevels = @[]
 
-proc semident*(name: string): SemExpr =
-  SemExpr(sexpr: newSNil(internalSpan), typ: none(SemSym), kind: seIdent, nameid: name)
+proc semident*(scope: SemScope, name: string): SemExpr =
+  SemExpr(sexpr: newSNil(internalSpan), typ: none(SemSym), kind: seIdent, scope: scope, idname: name)
 
 proc semsym*(scope: SemScope, name: SemExpr): SemSym =
   SemSym(scope: scope, name: name, kind: symUnresolve)
@@ -135,7 +147,7 @@ proc semsym*(scope: SemScope, name: SemExpr): SemSym =
 proc `==`*(a, b: SemExpr): bool =
   if a.kind != b.kind: return false
   if a.kind == seIdent:
-    return a.nameid == b.nameid
+    return a.idname == b.idname
   else:
     return false
 # FIXME: scope
@@ -163,6 +175,10 @@ proc toProcIdentDecl*(semdecl: SemFunc): ProcIdentDecl =
     result.args = semdecl.functype.argtypes
     result.value = semdecl
 
+proc getVar*(scope: SemScope, vi: VarIdent): Option[SemExpr] =
+  if not scope.varidents.hasKey(vi):
+    return none(SemExpr)
+  return some scope.varidents[vi]
 proc getProc*(scope: SemScope, pi: ProcIdentDecl): Option[SemFunc] =
   if not scope.procidents.hasKey(pi.toProcIdent):
     return none(SemFunc)
@@ -179,6 +195,10 @@ proc getType*(scope: SemScope, ti: TypeIdent): Option[SemType] =
 proc addTopExpr*(scope: SemScope, e: SemExpr) =
   scope.toplevels.add(e)
 
+proc addVar*(scope: SemScope, vi: VarIdent, t: SemExpr): bool =
+  if scope.getVar(vi).isSome: return false
+  scope.varidents[vi] = t
+  return true
 proc addProc*(scope: SemScope, pi: ProcIdentDecl): bool =
   if scope.getProc(pi).isSome: return false
   if not scope.procidents.hasKey(pi.toProcIdent):
@@ -192,3 +212,13 @@ proc addType*(scope: SemScope, ti: TypeIdent, t: SemType): bool =
 
 proc initScopeIdent*(name: string): ScopeIdent =
   result.name = name
+
+proc getReturnType*(semfunc: SemFunc): SemSym =
+  case semfunc.kind
+  of sfCFunc:
+    semfunc.cfunctype.returntype
+  of sfFunc:
+    semfunc.functype.returntype
+
+proc isVoidType*(semsym: SemSym): bool =
+  semsym.name.kind == seIdent and semsym.name.idname == "Void"

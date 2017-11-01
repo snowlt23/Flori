@@ -1,0 +1,22 @@
+
+
+(defmodule Option
+  (deftype Some [data :a])
+  (deftype None [])
+  
+  @(: (Option :a) -> :a)
+  (defun get [opt]
+    (match opt
+      (Some (.data opt))
+      (None (panic "opt is None"))))
+  
+  @(: (Option :a))
+  (defn print [w]
+    (print (get w))))
+
+(defmodule Option
+  @(: (Option :a) (Option :a))
+  (defun + [a b]
+    (+ (get a) (get b))))
+
+(print (Option. (+ (Option. 4) (Option. 5))))

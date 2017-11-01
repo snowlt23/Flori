@@ -1,44 +1,36 @@
 
 (require prelude :refer :all)
 
-@(^ (:a All))
-(defstruct (Vec :a)
+(defstruct Vec
   (data (Ptr :a))
   (len Size))
 
-@(^ (:a All))
 @(: (Typedesc :a) Size -> (Vec :a))
-(defn vec [T len]
-  (construct (Vec :a)
-    :data (cast (Ptr :a) (alloc (* (sizeof :a) len)))
-    :len len))
+(defn vec [len]
+  (Vec. (new-ptr-array :a len) len))
 
-@(^ (:a All))
 @(: &(Vec :a) :a)
 (defn push [vec value]
   (realloc (cast Pointer (.data vec)) (* (sizeof :a) (+ (.len vec) (size 1))))
   (set! (nth (.data vec) (.len vec)) value)
   (set! (.len vec) (+ (.len vec) (size 1))))
 
-@(^ (:a All))
 @(: (Vec :a) -> Size)
 (defn len [vec]
   (.len vec))
 
-@(^ (:a All))
 @(: (Vec :a) Size -> :a)
 (defn nth [vec index]
   (nth (.data vec) index))
-@(^ (:a All))
 @(: &(Vec :a) Size :a)
 (defn set-nth! [vec index value]
   (set! (nth (.data vec) index) value))
 
-@(^ (:a Destructable))
 @(: (Vec :a))
 (defn destructor [vec]
   (var i (size 0))
-  (while (< i (len vec))
-    (destructor (nth vec i))
-    (set! i (+ i (size 1))))
+  (when (is :a Destructable)
+    (while (< i (len vec))
+      (destructor (nth vec i))
+      (set! i (+ i (size 1)))))
   (dealloc (cast Pointer (.data vec))))

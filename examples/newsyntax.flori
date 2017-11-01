@@ -5,8 +5,8 @@ struct Vec[T]:
   data Ptr[T]
   len Int32
 enum Option[T]:
-  some T
-  none
+  Some T
+  None
 
 protocol Num[T]:
   def `+`(T, T) -> T
@@ -24,7 +24,7 @@ macro neq-hook(t):
     def `!=`(a, b):
       not a == b
 
-def add5(x):
+def add5(x Int32) Int32:
   x + 5
-def add5(s):
-  $s & "5"
+def add5(x String) String:
+  $x & "5"
