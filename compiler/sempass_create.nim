@@ -149,7 +149,7 @@ proc createTopDecl*(scope: SemScope, sexpr: SExpr) =
   case $sexpr.first
   of "defn", "c-func":
     sexpr.error("$# requires type annotation." % $sexpr.first)
-  of "var":
+  of "def":
     scope.createTopVar(sexpr)
   of "defstruct":
     scope.createDefStruct(sexpr)

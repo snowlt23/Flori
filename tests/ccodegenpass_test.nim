@@ -71,7 +71,7 @@ printf("%d", testmodule_add5_int32_t(4));
     let genpass = newCCodegenPass()
     passctx.register(genpass)
     let sexprs = parseToplevel("testmodule.flori", prelude & """
-      (var NINE 9)
+      (def NINE 9)
     """)
     passctx.createModuleFromSExpr("testmodule", sexprs)
     passctx.execute()

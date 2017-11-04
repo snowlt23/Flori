@@ -1,0 +1,34 @@
+
+struct Vec[T]:
+  p::Ptr[T]
+  len::Int32
+->
+(struct Vec[T]
+  (block
+    (dc p Ptr[T])
+    (dc len Int32)))
+
+@type(Int32 -> Vec[T])
+def new_vec(len):
+  Vec(alloc(sizeof(T)*len), len)
+
+@type(Vec[T], Int32 -> T)
+def `[]`(vec, index):
+  vec.p[index]
+
+@type(&Vec[T], Int32, T)
+def `[]=`(vec, index, value):
+  vec.p[index] = value
+
+@type(&Vec[T], T)
+def push(vec, value):
+  vec.p = realloc(vec.p, sizeof(T)*(vec.len+1))
+  vec.p[vec.len] = value
+  vec.len += 1
+
+def main():
+  var v = new_vec(1)
+  v[0] = 9
+  v.push(10)
+
+main()

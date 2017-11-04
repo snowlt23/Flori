@@ -52,8 +52,8 @@ proc assignSpecialCall*(pass: SpecialPass, e: var SemExpr) =
       setplace: e.args[0],
       setvalue: e.args[1],
     )
-  of "var":
-    e.checkCallLen("var", 2)
+  of "def":
+    e.checkCallLen("def", 2)
     if e.args[0].kind != seIdent:
       e.args[0].sexpr.error("variable name should be ident.")
     e = SemExpr(

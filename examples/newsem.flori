@@ -9,6 +9,11 @@
 @(: CString :a)
 (c-func printf :nodecl)
 
+(defprotocol All)
+(defprotocol Num
+  (+ (: All All -> All))
+  (- (: All All -> All)))
+
 @(: Int32)
 (defn print [x]
   (printf "%d" x))
@@ -23,6 +28,10 @@
   (print x)
   (print "\n"))
 
+(defn add5 [x]
+  (+ x 5))
+
+@(: Num -> Num)
 (defn add5 [x]
   (+ x 5))
 

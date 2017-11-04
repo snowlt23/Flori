@@ -1,10 +1,10 @@
 
 (setq flori-separates "\\((\\|)\\|[\\|]\\|\s\\|\n\\|r\\)")
 
-(setq flori-keywords '("ns" "c-import" "c-export" "c-func" "c-type" "c-value" "var" "construct" "match" "if" "cond" "for" "while" "require"))
+(setq flori-keywords '("ns" "c-import" "c-export" "c-func" "c-type" "c-value" "construct" "match" "if" "cond" "for" "while" "require"))
 (setq flori-warnings '("unsafe"))
 
-(setq flori-def-regexp "\\(def.+?\\)\s+\\(.+?\\)\\(\s\\|\n\\)")
+(setq flori-def-regexp "\\(def.*?\\)\s+\\(.+?\\)\\(\s\\|\n\\)")
 (setq flori-keywords-regexp (regexp-opt flori-keywords 'words))
 (setq flori-warnings-regexp (regexp-opt flori-warnings 'words))
 (setq flori-funcname-regexp "\\(def.+\\)?\s+\\(.+?\\)]\s")
