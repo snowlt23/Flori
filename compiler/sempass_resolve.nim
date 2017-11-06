@@ -19,11 +19,16 @@ proc newResolvePass*(): ResolvePass =
   ResolvePass()
 
 proc resolveByType*(pass: ResolvePass, sym: SemSym) =
-  let opt = sym.scope.getType(TypeIdent(name: sym.name.idname))
-  if opt.isNone:
-    sym.name.sexpr.error("undeclared $# type." % sym.name.idname)
-  sym.kind = symSemType
-  sym.st = opt.get
+  if sym.name.kind == seIdent:
+    let opt = sym.scope.getType(TypeIdent(name: sym.name.idname))
+    if opt.isNone:
+      sym.name.sexpr.error("undeclared $# type." % sym.name.idname)
+    sym.kind = symSemType
+    sym.st = opt.get
+  elif argtype.name.kind == seAttr: # generics
+  elif argtype.name.kind == seFuncCall: # type generics
+  else:
+    sym.name.sexpr.error("$# is not type expression." % $sym.name.sexpr)
 
 proc resolveFuncType*(pass: ResolvePass, ft: FuncType): bool =
   for argtype in ft.argtypes:
@@ -103,6 +108,8 @@ proc resolveExpr*(pass: ResolvePass, semexpr: SemExpr) =
     if v.isNone:
       semexpr.sexpr.error("undeclared $# ident." % semexpr.idname)
     semexpr.typ = v.get.typ
+  of seAttr: # generics or attr
+    discard
   of seFuncCall:
     pass.resolveFuncCall(semexpr)
   of seVar:

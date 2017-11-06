@@ -1,27 +1,23 @@
 
 struct Vec[T]:
-  p::Ptr[T]
-  len::Int32
+  p: Ptr[T]
+  len: Int32
 ->
 (struct Vec[T]
   (block
-    (dc p Ptr[T])
-    (dc len Int32)))
+    (: p Ptr[T])
+    (: len Int32)))
 
-@type(Int32 -> Vec[T])
-def new_vec(len):
+def new_vec[T](len: Int32) Vec[T]:
   Vec(alloc(sizeof(T)*len), len)
 
-@type(Vec[T], Int32 -> T)
-def `[]`(vec, index):
+def `[]`[T](vec Vec[T], index Int32) T:
   vec.p[index]
 
-@type(&Vec[T], Int32, T)
-def `[]=`(vec, index, value):
+def `[]=`[T](vec Vec[T], index Int32, value T):
   vec.p[index] = value
 
-@type(&Vec[T], T)
-def push(vec, value):
+def push[T](vec Vec[T], value T):
   vec.p = realloc(vec.p, sizeof(T)*(vec.len+1))
   vec.p[vec.len] = value
   vec.len += 1
@@ -31,4 +27,11 @@ def main():
   v[0] = 9
   v.push(10)
 
+def fib(n):
+  if n < 2:
+    n
+  else:
+    fib(n-1) + fib(n-2)
+
+print(fib(38))
 main()

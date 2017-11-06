@@ -1,49 +1,40 @@
 
+(c-type Void :name "void" :nodecl)
+(c-type CString :name "char*" :nodecl)
 (c-type Int32 :name "int32_t" :header "stdint.h")
-(c-type Float32 :name "float" :nodecl)
+(c-type Bool :name "bool" :header "stdbool.h")
 
-@(: Int32 Int32 -> Int32)
-(c-func + :infix :nodecl)
-@(: Float32 Float32 -> Float32)
-(c-func + :infix :nodecl)
-@(: CString :a)
-(c-func printf :nodecl)
+@(importc :namd "void")
+(deftype Void [])
+@(importc :name "char*")
+(deftype CString [])
+@(importc :name "int32_t" :header "stdint.h")
+(deftype Int32 [])
+@(importc :name "bool" :header "stdbool.h")
+(deftype Bool [])
 
-(defprotocol All)
-(defprotocol Num
-  (+ (: All All -> All))
-  (- (: All All -> All)))
+@(importc :pattern "$1+$2")
+(defn + [a Int32 b Int32] Int32)
+@(importc :pattern "$1-$2")
+(defn - [a Int32 b Int32] Int32)
+@(importc :pattern "$1<$2")
+(defn < [a Int32 b Int32] Int32)
+@(importc :header "stdio.h")
+(defn printf [fmt CString value :a])
 
-@(: Int32)
-(defn print [x]
-  (printf "%d" x))
-@(: Float32)
-(defn print [x]
-  (printf "%f" x))
-@(: CString)
-(defn print [s]
-  (printf "%s" s))
+@(importc :pattern "($1)$2")
+(defn cast [T Typedesc value T])
 
-(defn println [x]
-  (print x)
-  (print "\n"))
-
-(defn add5 [x]
-  (+ x 5))
-
-@(: Num -> Num)
-(defn add5 [x]
-  (+ x 5))
-
-@(: String -> String)
-(defn add5 [x]
-  (concat x "5"))
-
-(defn fib [n]
+(defn fib [n Int32] Int32
   (if (< n 2)
-      n
-      (+ (fib (- n 1))
-         (fib (- n 2)))))
+    n
+    (+ (fib (- n 1)) (fib (- n 2)))))
 
-(println (add5 4))
-(println (fib 38))
+(deftype Vec {:a All}
+  :p :a
+  :len Int32)
+
+(defn nth {:a All} [v (Vec :a) i Int32]
+  (nth v:p i))
+
+(printf "%d\n" (fib 38))

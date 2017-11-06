@@ -1,0 +1,48 @@
+
+All: protocol {}
+
+Int32: ctype {
+  name: "int32_t"
+  header: "stdint.h"
+}
+Ptr: ctype [:a All] {
+  pattern: "$1*"
+}
+
+Vec: type [:a All] {
+  p: Ptr[:a]
+  len: Int32
+}
+
+printf: cfn [:a All] (CString :a) {
+  name: "printf"
+  header: "stdio.h"
+}
+
+add5: fn (a Int32) Int32 {
+  a + 5
+}
+
+unless: macro (c FList, t FBlock) {
+  quote {
+    if (not $(c)) {
+      $(t)
+    } else {
+      $(f)
+    }
+  }
+}
+
+..: iterator (i FIdent, body FBlock, s Int32, e Int32) {
+  quote {
+    $(i): $(s)
+    while ($(i) <= $(e)) {
+      $(body)
+    }
+  }
+}
+
+for i in 0..5 {
+  res: add5(i)
+  println(res)
+}

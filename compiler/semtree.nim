@@ -9,6 +9,8 @@ type
     seIdent
     seAttr
     seSym
+    seGenericsParent
+    seGenericsChild
     seFuncCall
     seVar
     seIf
@@ -43,6 +45,10 @@ type
       attrname*: string
     of seSym:
       sym*: SemSym
+    of seGenericsParent:
+      genspec: Option[SemSym]
+    of seGenericsChild:
+      genparent*: SemExpr
     of seFuncCall:
       fn*: SemSym
       args*: seq[SemExpr]

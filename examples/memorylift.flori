@@ -13,6 +13,7 @@
 (defn set-nth! [vec index value]
   (set! (nth (.p vec) index) value))
 
+@(^ :a All)
 @(: &(Vec :a) :a)
 (defn push [vec value]
   (set! (.p vec)
