@@ -10,7 +10,7 @@ Ptr: ctype [:a All] {
 }
 
 Vec: type [:a All] {
-  p: Ptr[:a]
+  p: Ptr![:a]
   len: Int32
 }
 
@@ -20,7 +20,7 @@ printf: cfn [:a All] (CString :a) {
 }
 
 add5: fn (a Int32) Int32 {
-  a + 5
+  a * 2 + 5
 }
 
 unless: macro (c FList, t FBlock) {
