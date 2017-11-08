@@ -11,10 +11,10 @@ type
     internal*: tuple[filename: string, line: int]
   FExprKind* = enum
     fexprIdent
-    fexprAttr
     fexprIntLit
     fexprStrLit
     fexprInfix
+    fexprSeq
     fexprArray
     fexprList
     fexprBlock
@@ -24,17 +24,15 @@ type
     case kind*: FExprKind
     of fexprIdent:
       ident*: string
-    of fexprAttr:
-      attr*: string
     of fexprIntLit:
       intval*: int64
     of fexprStrLit:
       strval*: string
-    of fexprInfix, fexprArray, fexprList, fexprBlock, fexprCall:
+    of fexprInfix, fexprSeq, fexprArray, fexprList, fexprBlock, fexprCall:
       sons: seq[FExpr]
 
 const fexprAtoms* = {fexprIdent..fexprStrLit}
-const fexprContainer* = {fexprArray..fexprCall}
+const fexprContainer* = {fexprSeq..fexprCall}
 
 proc `$`*(fexpr: FExpr): string
 
@@ -48,14 +46,14 @@ template internalSpan*(): Span =
 
 proc fident*(span: Span, id: string): FExpr =
   FExpr(span: span, kind: fexprIdent, ident: id)
-proc fattr*(span: Span, at: string): FExpr =
-  FExpr(span: span, kind: fexprAttr, attr: at)
 proc fintlit*(span: Span, x: int64): FExpr =
   FExpr(span: span, kind: fexprIntLit, intval: x)
 proc fstrlit*(span: Span, s: string): FExpr =
   FExpr(span: span, kind: fexprStrLit, strval: s)
 proc finfix*(span: Span, call, left, right: FExpr): FExpr =
   FExpr(span: span, kind: fexprInfix, sons: @[call, left, right])
+proc fseq*(span: Span, sons = newSeq[FExpr]()): FExpr =
+  FExpr(span: span, kind: fexprSeq, sons: sons)
 proc farray*(span: Span, sons = newSeq[FExpr]()): FExpr =
   FExpr(span: span, kind: fexprArray, sons: sons)
 proc flist*(span: Span, sons = newSeq[FExpr]()): FExpr =
@@ -101,19 +99,19 @@ proc `$`*(fexpr: FExpr): string =
   case fexpr.kind
   of fexprIdent:
     fexpr.ident
-  of fexprAttr:
-    ":" & fexpr.attr
   of fexprIntLit:
     $fexpr.intval
   of fexprStrLit:
     "\"" & fexpr.strval & "\""
   of fexprInfix:
     $fexpr.sons[1] & " " & $fexpr.sons[0] & " " & $fexpr.sons[2]
+  of fexprSeq:
+    fexpr.sons.mapIt($it).join(" ")
   of fexprArray:
     "[" & fexpr.sons.mapIt($it).join(", ") & "]"
   of fexprList:
     "(" & fexpr.sons.mapIt($it).join(", ") & ")"
   of fexprBlock:
-    "{" & fexpr.sons.mapIt($it).join("\n") & "}"
+    "{" & "\n" & fexpr.sons.mapIt($it).join("\n") & "\n" & "}"
   of fexprCall:
     $fexpr.sons[0] & "(" & fexpr.sons[1..^1].mapIt($it).join(", ") & ")"

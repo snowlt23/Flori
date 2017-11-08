@@ -14,6 +14,15 @@ Vec: type [:a All] {
   len: Int32
 }
 
+opadd: cfn (Int32 Int32) {
+  pattern: "$1+$2"
+  header: false
+}
+opsub: cfn (Int32 Int32) {
+  pattern: "$1-$2"
+  header: false
+}
+
 printf: cfn [:a All] (CString :a) {
   name: "printf"
   header: "stdio.h"
@@ -23,12 +32,18 @@ add5: fn (a Int32) Int32 {
   a * 2 + 5
 }
 
+fib: fn (n Int32) Int32 {
+  if (n < 2) {
+    n
+  } else {
+    fib(n-1) + fib(n-2)
+  }
+}
+
 unless: macro (c FList, t FBlock) {
   quote {
     if (not $(c)) {
       $(t)
-    } else {
-      $(f)
     }
   }
 }

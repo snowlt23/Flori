@@ -1,5 +1,5 @@
 
-import sast
+import ast
 import strutils
 
 type
@@ -12,9 +12,10 @@ type
     pos*: int
 
 const StartList* = {'(', '['}
-const EndList* = {')', ']'}
-const SpecialSymbols* = {'!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '/', '<', '=', '>', '?', '^'}
-const SeparateSymbols* = {'(', '[', ')', ']', '{', '}', ',', ' '}
+const EndList* = {')', ']', '}', ','}
+const SeparateSymbols* = {'(', '[', ')', ']', '{', '}', ',', '!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '/', '<', '=', '>', '?', '^', ':'}
+
+proc parseFExpr*(context: var ParserContext): FExpr
 
 proc newParserContext*(filename: string, src: string): ParserContext =
   result.filename = filename
@@ -47,6 +48,11 @@ proc isSeparateSymbol*(context: ParserContext): bool =
     return true
   else:
     return false
+proc isEndSymbol*(context: ParserContext): bool =
+  if context.curchar in EndList or context.isNewline:
+    return true
+  else:
+    return false
 proc inc*(context: var ParserContext) =
   context.linepos += 1
   context.pos += 1
@@ -74,14 +80,103 @@ proc span*(context: ParserContext): Span =
   result.line = context.line
   result.linepos = context.linepos
   result.pos = context.pos
+proc error*(context: ParserContext, msg: string) =
+  raise newException(FParseError, "($#:$#) " % [$context.line, $context.linepos] & msg)
 
-# TODO:
-proc parseFExpr*(context: var ParserContext): SExpr = discard
+proc parseFExprElem*(context: var ParserContext): FExpr =
+  if context.curchar == '(':
+    var lst = flist(context.span)
+    context.inc
+    context.skipSpaces()
+    if context.curchar != ')':
+      lst.addSon(context.parseFExpr())
+    while true:
+      context.skipSpaces()
+      if context.curchar != ',' and context.curchar == ')':
+        context.inc
+        break
+      if context.curchar != ',':
+        context.error("require separate comma.")
+      context.inc
+      lst.addSon(context.parseFExpr())
+    return lst
+  elif context.curchar == '[': # Array
+    var arr = farray(context.span)
+    context.inc
+    context.skipSpaces()
+    if context.curchar != ')':
+      arr.addSon(context.parseFExpr())
+    while true:
+      context.skipSpaces()
+      if context.curchar != ',' and context.curchar == ']':
+        context.inc
+        break
+      if context.curchar != ',':
+        context.error("require separate comma.")
+      context.inc
+      arr.addSon(context.parseFExpr())
+    return arr
+  elif context.curchar == '{': # Block
+    var blk = fblock(context.span)
+    context.inc
+    context.skipSpaces()
+    if context.curchar != '}':
+      blk.addSon(context.parseFExpr())
+    while true:
+      context.skipSpaces()
+      if context.curchar == '}':
+        context.inc
+        break
+      blk.addSon(context.parseFExpr())
+    return blk
+  elif ('a' <= context.curchar and context.curchar <= 'z') or
+       ('A' <= context.curchar and context.curchar <= 'Z'): # ident
+    var ident = ""
+    let span = context.span()
+    while true:
+      if context.isSeparateSymbol or context.curchar == ' ':
+        break
+      ident.add(context.curchar)
+      context.inc
+    return fident(span, ident)
+  elif '0' <= context.curchar and context.curchar <= '9': # digit
+    let span = context.span
+    var s = ""
+    while true:
+      if not ('0' <= context.curchar and context.curchar <= '9'):
+        break
+      s &= context.curchar
+      context.inc
+    return fintlit(span, parseInt(s))
+  elif context.curchar == '"':
+    var s = ""
+    let span = context.span
+    context.inc
+    while true:
+      if context.curchar == '"':
+        context.inc
+        break
+      s &= context.curchar
+      context.inc
+    return fstrlit(span, s)
+  else:
+    context.error("couldn't parse F expression")
 
-proc parseSExpr*(filename: string, src: string): SExpr =
+proc parseFExpr*(context: var ParserContext): FExpr =
+  context.skipSpaces()
+  if context.isEOF:
+    return nil
+
+  let sq = fseq(context.span)
+  while not context.isEndSymbol:
+    context.skipSpaces()
+    sq.addSon(context.parseFExprElem())
+  return sq
+
+proc parseFExpr*(filename: string, src: string): FExpr =
   var context = newParserContext(filename, src)
   return parseFExpr(context)
-proc parseToplevel*(filename: string, src: string): seq[SExpr] =
+proc parseToplevel*(filename: string, src: string): seq[FExpr] =
   var context = newParserContext(filename, src)
   result = @[]
   while true:
