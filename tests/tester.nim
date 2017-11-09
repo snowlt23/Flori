@@ -1,4 +1,5 @@
 
+import parser_test
 import createpass_test
 import resolvepass_test
 import ccodegenpass_test

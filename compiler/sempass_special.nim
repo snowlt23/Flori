@@ -1,5 +1,5 @@
 
-import sast
+import ast
 import semtree, sempass
 import walker
 
@@ -14,55 +14,73 @@ proc newSpecialPass*(): SpecialPass =
 
 proc checkCallLen*(e: SemExpr, name: string, len: int) =
   if e.args.len != len:
-    e.sexpr.error("$# arguments length should be $#." % [name, $len])
+    e.fexpr.error("$# arguments length should be $#." % [name, $len])
 proc checkCallMinLen*(e: SemExpr, name: string, minlen: int) =
   if e.args.len < minlen:
-    e.sexpr.error("$# arguments length should be greater than $#." % [name, $minlen])
+    e.fexpr.error("$# arguments length should be greater than $#." % [name, $minlen])
 
 proc assignSpecialCall*(pass: SpecialPass, e: var SemExpr) =
+  if e.fn.name.kind != seIdent:
+    return
+
   case e.fn.name.idname
   of "if":
-    e.checkCallLen("if", 3)
-    e = SemExpr(
-      sexpr: e.sexpr,
-      scope: e.scope,
-      typ: none(SemSym),
-      kind: seIf,
-      ifcond: e.args[0],
-      iftrue: e.args[1],
-      iffalse: e.args[2],
-    )
+    e.checkCallMinLen("if", 2)
+    if e.args.len == 2:
+      e = SemExpr(
+        fexpr: e.fexpr,
+        scope: e.scope,
+        typ: some(e.scope.semsym(e.scope.semident("Void"))),
+        kind: seIf,
+        ifcond: e.args[0],
+        iftrue: e.args[1],
+        iffalse: none(SemExpr),
+      )
+    else:
+      if e.args[2].kind != seIdent or e.args[2].idname != "else":
+        e.args[2].fexpr.error("if branch should be else.")
+      e = SemExpr(
+        fexpr: e.fexpr,
+        scope: e.scope,
+        typ: none(SemSym),
+        kind: seIf,
+        ifcond: e.args[0],
+        iftrue: e.args[1],
+        iffalse: some(e.args[3]),
+      )
   of "while":
-    e.checkCallMinLen("while", 1)
+    e.checkCallLen("while", 2)
     e = SemExpr(
-      sexpr: e.sexpr,
+      fexpr: e.fexpr,
       scope: e.scope,
       typ: some(e.scope.semsym(e.scope.semident("Void"))),
       kind: seWhile,
       whilecond: e.args[0],
-      whilebody: e.args[1..^1]
+      whilebody: e.args[1]
     )
-  of "set!":
-    e.checkCallLen("set!", 2)
-    e = SemExpr(
-      sexpr: e.sexpr,
-      scope: e.scope,
-      typ: none(SemSym),
-      kind: seSet,
-      setplace: e.args[0],
-      setvalue: e.args[1],
-    )
-  of "def":
+  # of "set!":
+  #   e.checkCallLen("set!", 2)
+  #   e = SemExpr(
+  #     fexpr: e.fexpr,
+  #     scope: e.scope,
+  #     typ: none(SemSym),
+  #     kind: seSet,
+  #     setplace: e.args[0],
+  #     setvalue: e.args[1],
+  #   )
+  of "var":
     e.checkCallLen("def", 2)
     if e.args[0].kind != seIdent:
-      e.args[0].sexpr.error("variable name should be ident.")
+      e.args[0].fexpr.error("variable name should be ident.")
+    if e.args[1].kind != seIdent or e.args[1].idname != "=":
+      e.args[1].fexpr.error("variable require '= symbol.")
     e = SemExpr(
-      sexpr: e.sexpr,
+      fexpr: e.fexpr,
       scope: e.scope,
       typ: none(SemSym),
       kind: seVar,
       varname: e.args[0].idname,
-      varvalue: e.args[1],
+      varvalue: e.args[2],
       vartoplevel: false
     )
 

@@ -1,23 +1,21 @@
 
 import unittest
 
-import compiler.sast, compiler.sparser
+import compiler.ast, compiler.parser
 import compiler.semtree
 import compiler.sempass, compiler.sempass_create
 import compiler.sempass_default
 import compiler.sempass_ccodegen
 
 let prelude = """
-(c-type Void :name "void" :nodecl)
-(c-type CString :name "char*" :nodecl)
-(c-type Int32 :name "int32_t" :header "stdint.h")
-(c-type Bool :name "bool" :header "stdbool.h")
-@(: Int32 Int32 -> Int32)
-(c-func + :infix :nodecl)
-@(: Int32 Int32 -> Bool)
-(c-func = :name "==" :infix :nodecl)
-@(: CString Int32)
-(c-func printf :header "stdio.h")
+ctype Void ["void", nodecl]
+ctype CString ["char*", nodecl]
+ctype Int32 ["int32_t", "stdint.h"]
+ctype Bool ["bool", "stdbool.h"]
+
+cfn +(Int32, Int32) Int32 ["+", nodecl, infix]
+cfn ==(Int32, Int32) Bool ["==", nodecl, infix]
+cfn printf(CString, Int32) Void ["printf", "stdio.h"]
 """
 
 suite "pass create":
@@ -26,7 +24,7 @@ suite "pass create":
     let genpass = newCCodegenPass()
     passctx.register(genpass)
     let sexprs = parseToplevel("testmodule.flori", prelude & """
-      (printf "%d" 5)
+      printf("%d", 5)
     """)
     passctx.createModuleFromSExpr("testmodule", sexprs)
     passctx.execute()
@@ -40,15 +38,15 @@ void testmodule_init() {
 printf("%d", 5);
 }
 """
-  test "defn":
+  test "fn":
     let passctx = newDefaultSemPassContext()
     let genpass = newCCodegenPass()
     passctx.register(genpass)
     let sexprs = parseToplevel("testmodule.flori", prelude & """
-      @(: Int32 -> Int32)
-      (defn add5 [x]
-        (+ x 5))
-      (printf "%d" (add5 4))
+      fn add5(x Int32) Int32 {
+        x + 5
+      }
+      printf("%d", add5(4))
     """)
     passctx.createModuleFromSExpr("testmodule", sexprs)
     passctx.execute()
@@ -71,7 +69,7 @@ printf("%d", testmodule_add5_int32_t(4));
     let genpass = newCCodegenPass()
     passctx.register(genpass)
     let sexprs = parseToplevel("testmodule.flori", prelude & """
-      (def NINE 9)
+      var NINE = 9
     """)
     passctx.createModuleFromSExpr("testmodule", sexprs)
     passctx.execute()
@@ -91,9 +89,11 @@ testmodule_NINE = 9;
     let genpass = newCCodegenPass()
     passctx.register(genpass)
     let sexprs = parseToplevel("testmodule.flori", prelude & """
-      (if (= 1 2)
-        (printf "%d" 4)
-        (printf "%d" 5))
+      if (1 == 2) {
+        printf("%d", 4)
+      } else {
+        printf("%d", 5)
+      }
     """)
     passctx.createModuleFromSExpr("testmodule", sexprs)
     passctx.execute()
@@ -116,8 +116,9 @@ printf("%d", 5);
     let genpass = newCCodegenPass()
     passctx.register(genpass)
     let sexprs = parseToplevel("testmodule.flori", prelude & """
-      (while (= 1 2)
-        (printf "%d" 9))
+      while (1 == 2) {
+        printf("%d", 9)
+      }
     """)
     passctx.createModuleFromSExpr("testmodule", sexprs)
     passctx.execute()

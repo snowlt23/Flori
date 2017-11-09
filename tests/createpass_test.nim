@@ -2,17 +2,17 @@
 import unittest
 import tables
 import options
-import compiler.sast, compiler.sparser
+import compiler.ast, compiler.parser
 import compiler.semtree
 import compiler.sempass, compiler.sempass_create
 
 suite "pass create":
-  test "defn":
+  test "fn":
     let passctx = newSemPassContext()
     let sexprs = parseToplevel("testmodule.flori", """
-      @(: Int32 -> Int32)
-      (defn add5 [x]
-        (+ x 5))
+      fn add5 (x Int32) Int32 {
+        x + 5
+      }
     """)
     passctx.createModuleFromSExpr("testmodule", sexprs)
     let module = passctx.modules[initScopeIdent("testmodule")]
@@ -26,23 +26,22 @@ suite "pass create":
     check firstcall.kind == seFuncCall
     check firstcall.args[0].kind == seIdent
     check firstcall.args[1].kind == seInt
-  test "redefinition defn":
+  test "redefinition fn":
     let passctx = newSemPassContext()
     let sexprs = parseToplevel("testmodule.flori", """
-      @(: Int32 -> Int32)
-      (defn add5 [x]
-        (+ x 5))
-      @(: Int32 -> Int32)
-      (defn add5 [x]
-        (+ x 5))
+      fn add5 (x Int32) Int32 {
+        x + 5
+      }
+      fn add5 (x Int32) Int32 {
+        x + 5
+      }
     """)
-    expect(SExprError):
+    expect(FExprError):
       passctx.createModuleFromSExpr("testmodule", sexprs)
   test "c-func":
     let passctx = newSemPassContext()
     let sexprs = parseToplevel("testmodule.flori", """
-      @(: Bool -> Bool)
-      (c-func not :name "!" :nodecl)
+      cfn not(Bool) Bool ["!", nodecl]
     """)
     passctx.createModuleFromSExpr("testmodule", sexprs)
     let module = passctx.modules[initScopeIdent("testmodule")]
@@ -54,7 +53,7 @@ suite "pass create":
   test "c-type":
     let passctx = newSemPassContext()
     let sexprs = parseToplevel("testmodule.flori", """
-      (c-type Int32 :name "int32_t" :header "stdint.h")
+      ctype Int32 ["int32_t", "stdint.h"]
     """)
     passctx.createModuleFromSExpr("testmodule", sexprs)
     let module = passctx.modules[initScopeIdent("testmodule")]

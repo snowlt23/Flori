@@ -1,5 +1,5 @@
 
-import sast
+import ast
 
 import tables, hashes
 import options
@@ -7,11 +7,13 @@ import options
 type
   SemExprKind* = enum
     seIdent
-    seAttr
     seSym
     seGenericsParent
     seGenericsChild
     seFuncCall
+    seArray
+    seList
+    seBlock
     seVar
     seIf
     seWhile
@@ -35,14 +37,12 @@ type
     argtypes*: seq[SemSym]
     returntype*: SemSym
   SemExpr* = ref object
-    sexpr*: SExpr
+    fexpr*: FExpr
     scope*: SemScope
     typ*: Option[SemSym]
     case kind*: SemExprKind
     of seIdent:
       idname*: string
-    of seAttr:
-      attrname*: string
     of seSym:
       sym*: SemSym
     of seGenericsParent:
@@ -52,6 +52,8 @@ type
     of seFuncCall:
       fn*: SemSym
       args*: seq[SemExpr]
+    of seArray, seList, seBlock:
+      body*: seq[SemExpr]
     of seVar:
       varname*: string
       varvalue*: SemExpr
@@ -59,10 +61,10 @@ type
     of seIf:
       ifcond*: SemExpr
       iftrue*: SemExpr
-      iffalse*: SemExpr
+      iffalse*: Option[SemExpr]
     of seWhile:
       whilecond*: SemExpr
-      whilebody*: seq[SemExpr]
+      whilebody*: SemExpr
     of seSet:
       setplace*: SemExpr
       setvalue*: SemExpr
@@ -71,7 +73,7 @@ type
     of seString:
       strval*: string
   SemFunc* = ref object
-    sexpr*: SExpr
+    fexpr*: FExpr
     scope*: SemScope
     case kind*: SemFuncKind
     of sfFunc:
@@ -85,7 +87,7 @@ type
       cfuncheader*: Option[string]
       cfuncinfix*: bool
   SemType* = ref object
-    sexpr*: SExpr
+    fexpr*: FExpr
     scope*: SemScope
     case kind*: SemTypeKind
     of stStruct:
@@ -159,7 +161,7 @@ proc `==`*(a, b: SemScope): bool =
   a.name == b.name and a.level == b.level
 
 proc semident*(scope: SemScope, name: string): SemExpr =
-  SemExpr(sexpr: newSNil(internalSpan), typ: none(SemSym), kind: seIdent, scope: scope, idname: name)
+  SemExpr(fexpr: fident(internalSpan, name), typ: none(SemSym), kind: seIdent, scope: scope, idname: name)
 
 proc semsym*(scope: SemScope, name: SemExpr): SemSym =
   SemSym(scope: scope, name: name, kind: symUnresolve)

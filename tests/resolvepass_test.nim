@@ -2,7 +2,7 @@
 import unittest
 import tables
 import options
-import compiler.sast, compiler.sparser
+import compiler.ast, compiler.parser
 import compiler.semtree
 import compiler.sempass, compiler.sempass_create, compiler.sempass_default
 

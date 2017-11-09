@@ -13,7 +13,8 @@ type
 
 const StartList* = {'(', '['}
 const EndList* = {')', ']', '}', ','}
-const SeparateSymbols* = {'(', '[', ')', ']', '{', '}', ',', '!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '/', '<', '=', '>', '?', '^', ':'}
+const SpecialSymbols* = {'!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '/', '<', '=', '>', '?', '^', ':'}
+const SeparateSymbols* = {'(', '[', ')', ']', '{', '}', ','} + SpecialSymbols
 
 proc parseFExpr*(context: var ParserContext): FExpr
 
@@ -139,6 +140,15 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       ident.add(context.curchar)
       context.inc
     return fident(span, ident)
+  elif context.curchar in SpecialSymbols: # special ident
+    var ident = ""
+    let span = context.span()
+    while true:
+      if context.curchar notin SpecialSymbols:
+        break
+      ident.add(context.curchar)
+      context.inc
+    return fspecial(span, ident)
   elif '0' <= context.curchar and context.curchar <= '9': # digit
     let span = context.span
     var s = ""
@@ -171,7 +181,10 @@ proc parseFExpr*(context: var ParserContext): FExpr =
   while not context.isEndSymbol:
     context.skipSpaces()
     sq.addSon(context.parseFExprElem())
-  return sq
+  if sq.len == 1:
+    return sq[0]
+  else:
+    return sq
 
 proc parseFExpr*(filename: string, src: string): FExpr =
   var context = newParserContext(filename, src)

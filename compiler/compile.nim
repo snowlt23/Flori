@@ -1,5 +1,5 @@
 
-import sast, sparser
+import ast, parser
 import sempass, sempass_default, sempass_create, sempass_ccodegen
 
 import os

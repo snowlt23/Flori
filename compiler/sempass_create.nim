@@ -1,5 +1,5 @@
 
-import sast
+import ast
 import semtree
 import sempass
 
@@ -10,86 +10,126 @@ import options
 type
   CreateError* = object of Exception
 
-proc createBody*(scope: SemScope, body: SExpr): seq[SemExpr]
+proc requireMinLen*(fexpr: FExpr, name: string, len: int) =
+  if fexpr.len < len:
+    fexpr.error("$# is require $# len seq" % [name, $len])
 
-proc parseTypeAnnotation*(sexpr: SExpr, isAnnot = true): tuple[argtypes: seq[SExpr], rettype: SExpr, body: SExpr] =
-  var argtypes = newSeq[SExpr]()
-  var rettype: SExpr
-  let body = sexpr.last
-  sexpr.rest.each(arg):
-    if $arg.first == "->":
-      rettype = arg.rest.first
-      break
-    elif isAnnot and arg.rest.kind == sexprNil:
-      break
+proc createBody*(scope: SemScope, body: FExpr): seq[SemExpr]
+
+proc createExpr*(scope: SemScope, fexpr: FExpr): SemExpr =
+  case fexpr.kind
+  of fexprSeq:
+    if fexpr.len >= 2:
+      case fexpr[1].kind
+      of fexprSpecial: # infix
+        let left = scope.createExpr(fexpr[0])
+        let right = scope.createBody(fexpr[2..^1])
+        result = SemExpr(
+          scope: scope,
+          fexpr: fexpr,
+          typ: none(SemSym),
+          kind: seFuncCall,
+          fn: scope.semsym(scope.createExpr(fexpr[1])),
+          args: @[left] & right
+        )
+      of fexprList: # call
+        if fexpr.len >= 4 and fexpr[2].kind == fexprSpecial: # infix
+          let body = scope.createBody(fexpr[1])
+          let call = SemExpr(
+            scope: scope,
+            fexpr: fexpr,
+            typ: none(SemSym),
+            kind: seFuncCall,
+            fn: scope.semsym(scope.createExpr(fexpr[0])),
+            args: body
+          )
+          let right = scope.createExpr(fexpr[3..^1])
+          result = SemExpr(
+            scope: scope,
+            fexpr: fexpr,
+            typ: none(SemSym),
+            kind: seFuncCall,
+            fn: scope.semsym(scope.createExpr(fexpr[2])),
+            args: @[call] & right
+          )
+        else:
+          let body = scope.createBody(fexpr[1..^1])
+          let call = SemExpr(
+            scope: scope,
+            fexpr: fexpr,
+            typ: none(SemSym),
+            kind: seFuncCall,
+            fn: scope.semsym(scope.createExpr(fexpr[0])),
+            args: if body.len == 1: body[0].body else: body
+          )
+          result = call
+      else:
+        result = SemExpr(
+          scope: scope,
+          fexpr: fexpr,
+          typ: none(SemSym),
+          kind: seFuncCall,
+          fn: scope.semsym(scope.createExpr(fexpr[0])),
+          args: scope.createBody(fexpr[1..^1])
+        )
     else:
-      argtypes.add(arg.first)
-  if rettype == nil:
-    rettype = newSIdent(sexpr.span, "Void")
-  return (argtypes, rettype, body)
-
-proc createExpr*(scope: SemScope, sexpr: SExpr): SemExpr =
-  case sexpr.kind
-  of sexprList:
-    result = SemExpr(
-      scope: scope,
-      sexpr: sexpr,
-      typ: none(SemSym),
-      kind: seFuncCall,
-      fn: scope.semsym(scope.createExpr(sexpr.first)),
-      args: scope.createBody(sexpr.rest)
-    )
-  of sexprIdent:
-    result = SemExpr(scope: scope, sexpr: sexpr, typ: none(SemSym), kind: seIdent, idname: $sexpr)
-  of sexprAttr:
-    result = SemExpr(scope: scope, sexpr: sexpr, typ: none(SemSym), kind: seAttr, attrname: $sexpr)
-  of sexprInt:
-    result = SemExpr(scope: scope, sexpr: sexpr, typ: some(scope.semsym(scope.semident("Int32"))), kind: seInt, intval: sexpr.intval)
-  of sexprString:
-    result = SemExpr(scope: scope, sexpr: sexpr, typ: some(scope.semsym(scope.semident("CString"))), kind: seString, strval: sexpr.strval)
+      result = scope.createExpr(fexpr[0])
+  of fexprList:
+    result = SemExpr(scope: scope, fexpr: fexpr, typ: some(scope.semsym(scope.semident("Void"))), kind: seList, body: scope.createBody(fexpr))
+  of fexprBlock:
+    result = SemExpr(scope: scope, fexpr: fexpr, typ: some(scope.semsym(scope.semident("Void"))), kind: seBlock, body: scope.createBody(fexpr))
+  of fexprIdent, fexprSpecial:
+    result = SemExpr(scope: scope, fexpr: fexpr, typ: none(SemSym), kind: seIdent, idname: $fexpr)
+  of fexprIntLit:
+    result = SemExpr(scope: scope, fexpr: fexpr, typ: some(scope.semsym(scope.semident("Int32"))), kind: seInt, intval: fexpr.intval)
+  of fexprStrLit:
+    result = SemExpr(scope: scope, fexpr: fexpr, typ: some(scope.semsym(scope.semident("CString"))), kind: seString, strval: fexpr.strval)
   else:
-    sexpr.error("$# is not expression." % $sexpr.kind)
+    fexpr.error("$# is not expression." % $fexpr.kind)
 
-proc createBody*(scope: SemScope, body: SExpr): seq[SemExpr] =
+proc createBody*(scope: SemScope, body: FExpr): seq[SemExpr] =
   result = @[]
   for b in body:
     result.add(scope.createExpr(b))
 
-proc toFuncType*(scope: SemScope, argtypes: seq[SExpr], rettype: SExpr): FuncType =
+proc toFuncType*(scope: SemScope, argtypes: seq[FExpr], rettype: FExpr): FuncType =
   FuncType(
     argtypes: argtypes.mapIt(scope.semsym(scope.createExpr(it))),
     returntype: scope.semsym(scope.createExpr(rettype)),
   )
 
-proc createDefn*(scope: SemScope, sexpr: SExpr, argtypes: seq[SExpr], rettype: SExpr) =
+proc createFn*(scope: SemScope, fexpr: FExpr) =
   let scope = scope.extendSemScope()
-  let fname = sexpr.rest.first
-  let fargs = sexpr.rest.rest.first
-  let fbody = sexpr.rest.rest.rest
+  let fname = fexpr[1]
+  let fargs = fseq(fexpr.span, fexpr[2].sons.mapIt(it[0]))
+  let argtypes = fexpr[2].sons.mapIt(it[1])
+  let rettype = fexpr[3]
+  let fbody = fexpr[4]
   let ftype = scope.toFuncType(argtypes, rettype)
-  let fdecl = SemFunc(scope: scope, sexpr: sexpr, kind: sfFunc, funcname: $fname, functype: ftype, funcargs: scope.createBody(fargs), funcbody: scope.createBody(fbody))
+  let fdecl = SemFunc(scope: scope, fexpr: fexpr, kind: sfFunc, funcname: $fname, functype: ftype, funcargs: scope.createBody(fargs), funcbody: scope.createBody(fbody))
   let status = scope.top.addProc(fdecl.toProcIdentDecl)
   if not status:
-    sexpr.error("redefinition func $#" % $fname)
+    fexpr.error("redefinition func $#" % $fname)
   
-proc createCFunc*(scope: SemScope, sexpr: SExpr, argtypes: seq[SExpr], rettype: SExpr) =
-  let f = sexpr.rest.first
-  let nameopt = sexpr.getAttr("name")
-  let headeropt = sexpr.getAttr("header")
-  let nodecl = sexpr.hasAttr("nodecl")
-  let infix = sexpr.hasAttr("infix")
-  let name = if nameopt.isSome:
-               nameopt.get.strval
-             else:
-               $f
-  let header = if nodecl:
+proc createCFunc*(scope: SemScope, fexpr: FExpr) =
+  let f = fexpr[1]
+  let argtypes = fexpr[2].sons
+  let rettype = fexpr[3]
+  let name = fexpr[4][0].strval
+  let headerstr = fexpr[4][1]
+  let param = if fexpr[4].len >= 3:
+                $fexpr[4][2]
+              else:
+                "none"
+  let header = if $headerstr == "nodecl":
                  none(string)
                else:
-                 some(headeropt.get.strval)
+                 some(headerstr.strval)
+  let infix = if param == "infix": true else: false
   let ftype = scope.toFuncType(argtypes, rettype)
   let fdecl = SemFunc(
     scope: scope,
-    sexpr: sexpr,
+    fexpr: fexpr,
     kind: sfCFunc,
     cfuncname: name,
     cfunctype: ftype,
@@ -98,21 +138,18 @@ proc createCFunc*(scope: SemScope, sexpr: SExpr, argtypes: seq[SExpr], rettype: 
   )
   let status = scope.top.addProc(ProcIdentDecl(name: $f, args: ftype.argtypes, value: fdecl))
   if not status:
-    sexpr.error("redefinition C func $#" % $f)
+    fexpr.error("redefinition C func $#" % $f)
 
-proc createTypeAnnot*(scope: SemScope, sexpr: SExpr) =
-  let (argtypes, rettype, body) = parseTypeAnnotation(sexpr)
-  case $body.first
-  of "defn":
-    scope.createDefn(body, argtypes, rettype)
-  of "c-func":
-    scope.createCFunc(body, argtypes, rettype)
-
-proc createTopVar*(scope: SemScope, sexpr: SExpr) =
-  let name = sexpr.rest.first
-  let value = sexpr.rest.rest.first
+proc createTopVar*(scope: SemScope, fexpr: FExpr) =
+  fexpr.requireMinLen("var", 4)
+  if fexpr[1].kind != fexprIdent:
+    fexpr[1].error("variable name should be ident.")
+  if $fexpr[2] != "=":
+    fexpr[2].error("variable require '= symbol.")
+  let name = fexpr[1]
+  let value = fexpr[3..^1]
   let vardecl = SemExpr(
-    sexpr: sexpr,
+    fexpr: fexpr,
     scope: scope,
     typ: none(SemSym),
     kind: seVar,
@@ -122,56 +159,52 @@ proc createTopVar*(scope: SemScope, sexpr: SExpr) =
   )
   let status = scope.top.addVar(VarIdent(name: $name), vardecl)
   if not status:
-    sexpr.error("redefinition $# variable." % $name)
+    fexpr.error("redefinition $# variable." % $name)
 # TODO:
-proc createDefStruct*(scope: SemScope, sexpr: SExpr) = discard
+proc createDefStruct*(scope: SemScope, fexpr: FExpr) = discard
 
-proc createCType*(scope: SemScope, sexpr: SExpr) =
-  let t = sexpr.rest.first
-  let nameopt = sexpr.getAttr("name")
-  let headeropt = sexpr.getAttr("header")
-  let nodecl = sexpr.hasAttr("nodecl")
-  let name = if nameopt.isSome:
-               nameopt.get.strval
-             else:
-               $t
-  if not nodecl and headeropt.isNone:
-    sexpr.error("c-type requires :nodecl or :header attribute.")
-  let header = if nodecl:
-                 none(string)
+proc createCType*(scope: SemScope, fexpr: FExpr) =
+  fexpr.requireMinLen("var", 3)
+  if fexpr[1].kind != fexprIdent:
+    fexpr[1].error("ctype name should be ident.")
+  if fexpr[2].kind != fexprArray:
+    fexpr[2].error("ctype expect array expression.")
+  let t = fexpr[1]
+  let name = fexpr[2][0].strval
+  let headerstr = fexpr[2][1]
+  let header = if headerstr.kind == fexprStrLit:
+                 some(headerstr.strval)
                else:
-                 some(headeropt.get.strval)
-  let status = scope.top.addType(TypeIdent(name: $t), SemType(scope: scope, sexpr: sexpr, kind: stCType, ctypename: name, ctypeheader: header))
+                 none(string)
+  let status = scope.top.addType(TypeIdent(name: $t), SemType(scope: scope, fexpr: fexpr, kind: stCType, ctypename: name, ctypeheader: header))
   if not status:
-    sexpr.error("redefinition C type $#" % $t)
+    fexpr.error("redefinition C type $#" % $t)
 
-proc createTopDecl*(scope: SemScope, sexpr: SExpr) =
-  case $sexpr.first
-  of "defn", "c-func":
-    sexpr.error("$# requires type annotation." % $sexpr.first)
-  of "def":
-    scope.createTopVar(sexpr)
-  of "defstruct":
-    scope.createDefStruct(sexpr)
-  of "c-type":
-    scope.createCType(sexpr)
-  # TODO: generics
-  # of "^":
-  #   scope.createGenerics(sexpr)
-  of ":":
-    scope.createTypeAnnot(sexpr)
+proc createTopDecl*(scope: SemScope, fexpr: FExpr) =
+  case $fexpr[0]
+  of "fn":
+    scope.createFn(fexpr)
+  of "cfn":
+    scope.createCFunc(fexpr)
+  of "var":
+    scope.createTopVar(fexpr)
+  of "struct":
+    scope.createDefStruct(fexpr)
+  of "ctype":
+    scope.createCType(fexpr)
   else:
-    scope.top.addTopExpr(scope.createExpr(sexpr))
+    scope.top.addTopExpr(scope.createExpr(fexpr))
 
-proc createTop*(scope: SemScope, sexpr: SExpr) =
-  case sexpr.kind
-  of sexprList:
-    scope.createTopDecl(sexpr)
+proc createTop*(scope: SemScope, fexpr: FExpr) =
+  assert(fexpr.kind == fexprSeq)
+  case fexpr[0].kind
+  of fexprIdent:
+    scope.createTopDecl(fexpr)
   else:
-    scope.top.addTopExpr(scope.createExpr(sexpr))
+    scope.top.addTopExpr(scope.createExpr(fexpr))
 
-proc createModuleFromSExpr*(ctx: SemPassContext, modulename: string, topsexprs: seq[SExpr]) =
+proc createModuleFromSExpr*(ctx: SemPassContext, modulename: string, topfexprs: seq[FExpr]) =
   let scope = newSemScope(modulename)
-  for sexpr in topsexprs:
+  for sexpr in topfexprs:
     scope.createTop(sexpr)
   ctx.modules[ScopeIdent(name: modulename)] = scope

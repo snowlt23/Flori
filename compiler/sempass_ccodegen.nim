@@ -1,5 +1,5 @@
 
-import sast
+import ast
 import semtree, sempass
 import walker
 import tables
@@ -62,7 +62,7 @@ proc codegenFuncSym*(pass: CCodegenPass, src: var SrcExpr, scope: SemScope, name
 proc codegenSym*(pass: CCodegenPass, src: var SrcExpr, semsym: SemSym) =
   case semsym.kind
   of symUnresolve:
-    semsym.name.sexpr.error("codegenSym: unresolve symbol")
+    semsym.name.fexpr.error("codegenSym: unresolve symbol")
   of symSemFunc:
     case semsym.sf.kind
     of sfFunc:
@@ -78,7 +78,7 @@ proc codegenSym*(pass: CCodegenPass, src: var SrcExpr, semsym: SemSym) =
     of stProtocol:
       discard # TODO:
 
-proc codegenBody*(pass: CCodegenPass, src: var SrcExpr, body: seq[SemExpr], ret = false) =
+proc codegenBody*(pass: CCodegenPass, src: var SrcExpr, body: seq[SemExpr], ret: string = nil) =
   if body.len == 0:
     return
   if body.len >= 2:
@@ -92,8 +92,8 @@ proc codegenBody*(pass: CCodegenPass, src: var SrcExpr, body: seq[SemExpr], ret 
   pass.codegenExpr(newsrc, body[^1])
   src &= newsrc.prev
   src.prev = ""
-  if ret:
-    src &= "return "
+  if ret != nil:
+    src &= ret
   src &= newsrc.exp & ";\n"
 
 proc codegenFuncImpl*(pass: CCodegenPass, src: var SrcExpr, semfunc: SemFunc) =
@@ -111,7 +111,11 @@ proc codegenFuncImpl*(pass: CCodegenPass, src: var SrcExpr, semfunc: SemFunc) =
       src &= " "
       pass.codegenExpr(src, semfunc.funcargs[i])
   src &= ") {\n"
-  pass.codegenBody(src, semfunc.funcbody, ret = not semfunc.getReturnType().isVoidType())
+  let ret = if semfunc.getReturnType().isVoidType():
+              nil
+            else:
+              "return "
+  pass.codegenBody(src, semfunc.funcbody, ret = ret)
   src &= "}\n\n"
 
 proc codegenFunc*(pass: CCodegenPass, src: var SrcExpr, semfunc: SemFunc) =
@@ -159,38 +163,40 @@ proc codegenVar*(pass: CCodegenPass, src: var SrcExpr, semexpr: SemExpr) =
   pass.codegenExpr(src, semexpr.varvalue)
 proc codegenIf*(pass: CCodegenPass, src: var SrcExpr, semexpr: SemExpr) =
   var condsrc = initSrcExpr()
-  pass.codegenExpr(condsrc, semexpr.ifcond)
+  let tmpsym = pass.gentmpsym()
+  let ret = if semexpr.typ.get.isVoidType:
+              nil
+            else:
+              tmpsym & " = "
+  pass.codegenExpr(condsrc, semexpr.ifcond.body[0])
   var truesrc = initSrcExpr()
-  pass.codegenExpr(truesrc, semexpr.iftrue)
+  pass.codegenBody(truesrc, semexpr.iftrue.body, ret)
   var falsesrc = initSrcExpr()
-  pass.codegenExpr(falsesrc, semexpr.iffalse)
-  if semexpr.typ.get.isVoidType:
-    src.prev &= "if (" & condsrc.exp & ") {\n"
-    src.prev &= truesrc.prev
-    src.prev &= truesrc.exp & ";\n"
-    src.prev &= "} else {\n"
-    src.prev &= falsesrc.prev
-    src.prev &= falsesrc.exp & ";\n"
-    src.prev &= "}"
-  else:
-    let tmpsym = pass.gentmpsym()
+  if semexpr.iffalse.isSome:
+    pass.codegenBody(falsesrc, semexpr.iffalse.get.body, ret)
+
+  if not semexpr.typ.get.isVoidType:
     var tmptyp = initSrcExpr()
     pass.codegenSym(tmptyp, semexpr.iftrue.typ.get)
     src.prev &= tmptyp.prev
     src.prev &= tmptyp.exp & " " & tmpsym & ";\n"
-    src.prev &= "if (" & condsrc.exp & ") {\n"
-    src.prev &= truesrc.prev
-    src.prev &= tmpsym & " = " & truesrc.exp & ";\n"
-    src.prev &= "} else {\n"
-    src.prev &= falsesrc.prev
-    src.prev &= tmpsym & " = " & falsesrc.exp & ";\n"
-    src.prev &= "}"
     src &= tmpsym
+
+  src.prev &= "if (" & condsrc.exp & ") {\n"
+  src.prev &= truesrc.prev
+  src.prev &= truesrc.exp
+  src.prev &= "}"
+  if semexpr.iffalse.isSome:
+    src.prev &= " else {\n"
+    src.prev &= falsesrc.prev
+    src.prev &= falsesrc.exp
+    src.prev &= "}"
+
 proc codegenWhile*(pass: CCodegenPass, src: var SrcExpr, semexpr: SemExpr) =
   src &= "while ("
-  pass.codegenExpr(src, semexpr.whilecond)
+  pass.codegenExpr(src, semexpr.whilecond.body[0])
   src &= ") {\n"
-  pass.codegenBody(src, semexpr.whilebody)
+  pass.codegenBody(src, semexpr.whilebody.body)
   src &= "}"
 
 proc codegenExpr*(pass: CCodegenPass, src: var SrcExpr, semexpr: SemExpr) =
@@ -210,7 +216,7 @@ proc codegenExpr*(pass: CCodegenPass, src: var SrcExpr, semexpr: SemExpr) =
   of seString:
     src &= "\"" & semexpr.strval & "\""
   else:
-    semexpr.sexpr.error("$# is unsupported expression in C codegen." % $semexpr.kind)
+    semexpr.fexpr.error("$# is unsupported expression in C codegen." % $semexpr.kind)
 
 proc codegenTopVarDecl*(pass: CCodegenPass, src: var SrcExpr, semexpr: SemExpr) =
   pass.codegenSym(src, semexpr.varvalue.typ.get)
