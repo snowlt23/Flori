@@ -38,9 +38,9 @@ suite "F expression parser test":
     check fexpr.kind == fexprBlock
     check $fexpr == """
 {
-1
-2
-3
+  1
+  2
+  3
 }"""
   test "seq block":
     let fexprs = parseToplevel("test.flori", """
@@ -56,9 +56,9 @@ suite "F expression parser test":
     check fexprs[0][1].kind == fexprBlock
     check $fexprs[0] == """
 loop {
-1
-2
-3
+  1
+  2
+  3
 }"""
   test "seq if":
     let fexprs = parseToplevel("test.flori", """
@@ -78,9 +78,9 @@ loop {
     check fexprs[0][4].kind == fexprBlock
     check $fexprs[0] == """
 if (true) {
-1
+  1
 } else {
-2
+  2
 }"""
   test "fn":
     let fexpr = parseToplevel("test.flori", """

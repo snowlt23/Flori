@@ -101,7 +101,10 @@ proc len*(fexpr: FExpr): int =
   else:
     return 0
 
-proc `$`*(fexpr: FExpr): string =
+proc genIndent*(indent: int): string =
+  repeat(' ', indent)
+
+proc toString*(fexpr: FExpr, indent: int): string =
   case fexpr.kind
   of fexprIdent:
     fexpr.ident
@@ -112,12 +115,14 @@ proc `$`*(fexpr: FExpr): string =
   of fexprStrLit:
     "\"" & fexpr.strval & "\""
   of fexprSeq:
-    fexpr.sons.mapIt($it).join(" ")
+    fexpr.sons.mapIt(it.toString(indent)).join(" ")
   of fexprArray:
-    "[" & fexpr.sons.mapIt($it).join(", ") & "]"
+    "[" & fexpr.sons.mapIt(it.toString(indent)).join(", ") & "]"
   of fexprList:
-    "(" & fexpr.sons.mapIt($it).join(", ") & ")"
+    "(" & fexpr.sons.mapIt(it.toString(indent)).join(", ") & ")"
   of fexprBlock:
-    "{" & "\n" & fexpr.sons.mapIt($it).join("\n") & "\n" & "}"
+    "{" & "\n" & genIndent(indent + 2) & fexpr.sons.mapIt(it.toString(indent + 2)).join("\n" & genIndent(indent + 2)) & "\n" & "}"
   of fexprCall:
     $fexpr.sons[0] & "(" & fexpr.sons[1..^1].mapIt($it).join(", ") & ")"
+
+proc `$`*(fexpr: FExpr): string = fexpr.toString(0)
