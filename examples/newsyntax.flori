@@ -1,0 +1,37 @@
+
+struct Vec[T]:
+  p: Ptr[T]
+  len: Int32
+->
+(struct Vec[T]
+  (block
+    (: p Ptr[T])
+    (: len Int32)))
+
+def new_vec[T](len: Int32) Vec[T]:
+  Vec(alloc(sizeof(T)*len), len)
+
+def `[]`[T](vec Vec[T], index Int32) T:
+  vec.p[index]
+
+def `[]=`[T](vec Vec[T], index Int32, value T):
+  vec.p[index] = value
+
+def push[T](vec Vec[T], value T):
+  vec.p = realloc(vec.p, sizeof(T)*(vec.len+1))
+  vec.p[vec.len] = value
+  vec.len += 1
+
+def main():
+  var v = new_vec(1)
+  v[0] = 9
+  v.push(10)
+
+def fib(n):
+  if n < 2:
+    n
+  else:
+    fib(n-1) + fib(n-2)
+
+print(fib(38))
+main()

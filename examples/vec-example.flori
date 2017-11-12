@@ -5,7 +5,7 @@
 
 @(:)
 (defn main []
-  (var v (vec Int32 (size 10)))
+  (def v (vec Int32 (size 10)))
   (set! (nth v (size 5)) 9)
   (print (nth v (size 5))))
 

@@ -8,19 +8,5 @@ flori
 
 tests/tester.exe
 tests/tester
-
-hello.exe
-hello
-xorshift.exe
-xorshift
-ctrefcount.exe
-ctrefcount
-voiceroids.txt
-varargs-example.exe
-varargs-example
-vec-example.exe
-vec-example
-logger-example.exe
-logger-example
-fibonacci.exe
-fibonacci
+tests/parser_test.exe
+tests/parser_test

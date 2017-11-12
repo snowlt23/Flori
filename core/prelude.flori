@@ -40,9 +40,21 @@
 
 ;; Pointer Types
 
-(c-type Pointer :name "void*" :nodecl)
-@(^ (:a All))
-(c-type (Ptr :a) :name "$1*" :nodecl)
+(c-type UnsafePointer :name "void*" :nodecl)
+(c-type UnsafePtr :param [:a] :name "$1*" :nodecl)
+
+(defstruct Ptr [:a]
+  (p (UnsafePtr :a)))
+
+@(: :a -> (Ptr :a))
+(defn new-ptr [value]
+  (alloc ()))
+@(: (Typedesc :a) Int32 -> (Ptr :a))
+(defn new-ptr-array [len]
+  (Ptr. (alloc (* (sizeof :a) len))))
+@(: (Ptr :a))
+(defn destructor [p]
+  (dealloc (.p p)))
 
 ;; Values
 

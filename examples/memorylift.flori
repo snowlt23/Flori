@@ -1,0 +1,31 @@
+
+(defstruct Vec
+  (p (Ptr :a))
+  (len Int32))
+
+@(: (Typedesc :a) Int32 -> (Vec :a))
+(defn new-vec [T len]
+  (Vec.
+    (alloc (* (sizeof :a) len))
+    len))
+
+@(: &(Vec :a) Int32 :a)
+(defn set-nth! [vec index value]
+  (set! (nth (.p vec) index) value))
+
+@(^ :a All)
+@(: &(Vec :a) :a)
+(defn push [vec value]
+  (set! (.p vec)
+        (realloc (.p vec) (* (sizeof :a) (+ (.len vec) 1))))
+  (set! (nth vec (.len vec)) value)
+  (set! (.len vec) (+ (.len vec) 1)))
+
+(defn main []
+  (var v (new-vec Int32 1))
+  (set! (nth v 0) 9)
+  (push v 10))
+
+(main)
+
+;; (vec 9 10)

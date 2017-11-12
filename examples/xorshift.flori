@@ -2,14 +2,14 @@
 (require prelude :refer :all)
 (require io :refer :all)
 
-(var x (uint32 123456789))
-(var y (uint32 362436069))
-(var z (uint32 521288629))
-(var w (uint32 88675123))
+(def x (uint32 123456789))
+(def y (uint32 362436069))
+(def z (uint32 521288629))
+(def w (uint32 88675123))
 
 @(: -> UInt32)
 (defn xor128 []
-  (var t (pow x (<< x (uint32 11))))
+  (def t (pow x (<< x (uint32 11))))
   (set! x y)
   (set! y z)
   (set! z w)

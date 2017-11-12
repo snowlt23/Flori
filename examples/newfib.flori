@@ -1,0 +1,20 @@
+
+ctype Void ["void", nodecl]
+ctype CString ["char*", nodecl]
+ctype Int32 ["int32_t", "stdint.h"]
+ctype Bool ["bool", "stdbool.h"]
+
+cfn +(Int32, Int32) Int32 ["+", nodecl, infix]
+cfn -(Int32, Int32) Int32 ["-", nodecl, infix]
+cfn <(Int32, Int32) Bool ["<", nodecl, infix]
+cfn printf(CString, Int32) Void ["printf", "stdio.h"]
+
+fn fib(n Int32) Int32 {
+  if (n < 2) {
+    n
+  } else {
+    fib(n - 1) + fib(n - 2)
+  }
+}
+
+printf("%d\n", fib(38))

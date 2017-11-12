@@ -1,0 +1,15 @@
+
+(deftype Vec [p (Ptr :a) len Int32])
+
+(defn new-vec [t Typedesc len Int32] (Vec t)
+  (Vec.
+    (cast (Ptr t) (alloc (* (sizeof t) len)))
+    len))
+
+(defn push [vec (Vec :a) value :a]
+  (set! (.p vec)
+    (cast (Ptr :a) (alloc (* (sizeof :a) (+ (.len vec) 1)))))
+  (set! (nth vec (.len vec)) value)
+  (set! (.len vec) (+ (.len vec) 1)))
+
+(defn )

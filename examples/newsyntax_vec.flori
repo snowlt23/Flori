@@ -1,0 +1,17 @@
+
+Vec: type [:a All] {
+  p: Ptr[:a]
+  len: Int32
+}
+
+new_vec: fn [:a all] (v Vec![:a], i Int32) {
+
+}
+
+!: fn [:a all] (v Vec![:a], i Int32) :a {
+  v.p!i
+}
+
+!=: fn [:a all] (v &Vec![:a], i Int32, value :a) {
+  v.p!i = value
+}

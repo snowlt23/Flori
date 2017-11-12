@@ -3,13 +3,15 @@
 
 **Warning:** This project is still in experimental.
 
-Flori is statically typed lisp programming language without GC for system/application programming.
+Flori is statically typed programming language without GC for system/application programming.
 
 # Features
 
 - Native compile via C
 - Statically typed
-- Automatic resource management by **compile time reference counting** (I call it CTRefCount)
+- Flexible meta syntax, it's F expression.
+- Automatic resource management by **Compile Time Reference Counting** (I call it CTRC)
+- Blazing fast memory management by **Memory Lifting**.
 - Interactive development (Common Lisp like)
 
 # Philosophy
@@ -23,40 +25,40 @@ Flori is statically typed lisp programming language without GC for system/applic
 
 # Inspired languages
 
-- Clojure (Syntax)
-- Nim (C Backend, Macro)
-- Rust (Semantics)
-- Common Lisp (Interactivity)
+- Nim
+- REBOL
+- Clojure
+- Rust
+- Common Lisp
 
 # Examples
 
 ### Hello World
 ```
-(require prelude :refer :all)
-(require io :refer :all)
+import io
 
-(print "Hello World!\n")
+println("Hello World!")
 ```
 
 ### File I/O
 ```
-(require prelude :refer :all)
-(require fileio :refer :all)
+import fileio
 
-@(:)
-(defn main []
-  (var f (open-file "voiceroids.txt" "w"))
-  (write f "Yukari!")
-  (write f "Maki!")
-  (write f "Akane!")
-  (write f "Aoi!")
-  ;; automatic release file of 'f variable!
-  )
-(main)
+fn main() {
+  var f = openFile("voiceroids.txt, "w")
+  write(f, "Yukari")
+  write(f, "Maki")
+  write(f, "Akane")
+  write(f, "Aoi")
+  # automatic release file of 'f variable here!
+}
+
+main()
 ```
 
 # TODO
 
+- Improve CTRefCount
 - Macro system
 - Hot Reload
 - Disassembler, Debugger, Profiler
