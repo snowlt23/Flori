@@ -1,0 +1,26 @@
+
+struct Void [importc "void", nodecl]
+struct CString [importc "char*", nodecl]
+struct Int32 [importc "int32_t", header "stdint.h"]
+struct Bool [importc "bool", header "stdbool.h"]
+
+fn printf(CString, Int32) Void [importc, header "stdio.h"]
+fn abs(Int32) Int32 [importc, header "math.h"]
+
+fn print(x Int32) [inline] {
+  printf("%d", x)
+}
+
+fn abstrue(x Int32, b1 Bool, b2 Bool) Int32 {
+  if (b1) {
+    if (b2) {
+      abs(x)
+    } else {
+      x
+    }
+  } else {
+    x
+  }
+}
+
+printf("%d\n", abstrue(38))

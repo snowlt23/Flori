@@ -1,6 +1,6 @@
 
 #
-# Symbol and Typeinfer resolve
+# Symbol resolve, Type inference, Generics
 #
 
 import ast
