@@ -1,0 +1,20 @@
+
+struct Void [importc "void", nodecl]
+struct CString [importc "char*", nodecl]
+struct Int32 [importc "int32_t", header "stdint.h"]
+struct Bool [importc "bool", header "stdbool.h"]
+
+fn +(Int32, Int32) Int32 [importc "+", nodecl, infix]
+fn -(Int32, Int32) Int32 [importc "-", nodecl, infix]
+fn <(Int32, Int32) Bool [importc "<", nodecl, infix]
+fn printf(CString, Int32) [importc "printf", header "stdio.h"]
+
+fn fib(n Int32) Int32 {
+  if (n < 2) {
+    n
+  } else {
+    fib(n - 1) + fib(n - 2)
+  }
+}
+
+printf("%d\n", fib(38))

@@ -1,7 +1,0 @@
-
-(require prelude :refer :all)
-(require io :refer :all)
-
-(print (and true true true))
-(print (and true true false))
-

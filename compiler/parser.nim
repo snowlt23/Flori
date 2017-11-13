@@ -1,5 +1,5 @@
 
-import ast
+import fexpr
 import strutils
 
 type
@@ -13,8 +13,9 @@ type
 
 const StartList* = {'(', '['}
 const EndList* = {')', ']', '}', ','}
-const SpecialSymbols* = {'!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '/', '<', '=', '>', '?', '^', ':'}
-const SeparateSymbols* = {'(', '[', ')', ']', '{', '}', ','} + SpecialSymbols
+const PrefixSymbols* = {'$', '&', '?'}
+const InfixSymbols* = {'!', '$', '%', '&', '\'', '*', '+', '-', '.', '/', '<', '=', '>', '^', ':'}
+const SeparateSymbols* = {'(', '[', ')', ']', '{', '}', ','} + PrefixSymbols + InfixSymbols
 
 proc parseFExpr*(context: var ParserContext): FExpr
 
@@ -65,7 +66,7 @@ proc skipSpaces*(context: var ParserContext) =
       context.line += 1
       context.linepos = 1
       context.pos += context.newlineLen()
-    elif context.curchar == ';':
+    elif context.curchar == '#':
       context.inc
       while true:
         if context.isNewline:
@@ -140,15 +141,24 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       ident.add(context.curchar)
       context.inc
     return fident(span, ident)
-  elif context.curchar in SpecialSymbols: # special ident
+  elif context.curchar in PrefixSymbols: # special ident
     var ident = ""
     let span = context.span()
     while true:
-      if context.curchar notin SpecialSymbols:
+      if context.curchar notin PrefixSymbols + InfixSymbols:
         break
       ident.add(context.curchar)
       context.inc
-    return fspecial(span, ident)
+    return fprefix(span, ident)
+  elif context.curchar in InfixSymbols: # special ident
+    var ident = ""
+    let span = context.span()
+    while true:
+      if context.curchar notin PrefixSymbols + InfixSymbols:
+        break
+      ident.add(context.curchar)
+      context.inc
+    return finfix(span, ident)
   elif '0' <= context.curchar and context.curchar <= '9': # digit
     let span = context.span
     var s = ""
@@ -172,6 +182,24 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
   else:
     context.error("couldn't parse F expression")
 
+proc rewriteToCall*(fexpr: FExpr): FExpr =
+  if fexpr.kind == fexprSeq and fexpr.len == 1:
+    return rewriteToCall(fexpr[0])
+  elif fexpr.kind == fexprSeq:
+    let stack = fseq(fexpr.span)
+    for i, son in fexpr.sons:
+      if son.kind == fexprInfix:
+        let left = rewriteToCall(stack)
+        let right = rewriteToCall(fexpr[i+1..^1])
+        return fcall(son.span, son, @[left, right])
+      else:
+        stack.addSon(son)
+    return fexpr
+  elif fexpr.len == 2 and fexpr[1].kind == fexprList:
+    return fcall(fexpr.span, fexpr[0], fexpr[1].sons)
+  else:
+    return fexpr
+
 proc parseFExpr*(context: var ParserContext): FExpr =
   context.skipSpaces()
   if context.isEOF:
@@ -181,10 +209,8 @@ proc parseFExpr*(context: var ParserContext): FExpr =
   while not context.isEndSymbol:
     context.skipSpaces()
     sq.addSon(context.parseFExprElem())
-  if sq.len == 1:
-    return sq[0]
-  else:
-    return sq
+
+  return rewriteToCall(sq)
 
 proc parseFExpr*(filename: string, src: string): FExpr =
   var context = newParserContext(filename, src)

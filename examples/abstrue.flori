@@ -23,4 +23,10 @@ fn abstrue(x Int32, b1 Bool, b2 Bool) Int32 {
   }
 }
 
+var a = if (b1) {
+          1
+        } else {
+          2
+        } + 5
+
 printf("%d\n", abstrue(38))

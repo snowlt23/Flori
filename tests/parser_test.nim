@@ -1,6 +1,6 @@
 
 import unittest
-import compiler.ast, compiler.parser
+import compiler.fexpr, compiler.parser
 
 suite "F expression parser test":
   test "atom":
@@ -43,18 +43,18 @@ suite "F expression parser test":
   3
 }"""
   test "seq block":
-    let fexprs = parseToplevel("test.flori", """
+    let fexpr = parseToplevel("test.flori", """
     loop {
       1
       2
       3
     }
-    """)
-    check fexprs[0].len == 2
-    check fexprs[0].kind == fexprSeq
-    check fexprs[0][0].kind == fexprIdent
-    check fexprs[0][1].kind == fexprBlock
-    check $fexprs[0] == """
+    """)[0]
+    check fexpr.len == 2
+    check fexpr.kind == fexprSeq
+    check fexpr[0].kind == fexprIdent
+    check fexpr[1].kind == fexprBlock
+    check $fexpr == """
 loop {
   1
   2
@@ -95,32 +95,35 @@ if (true) {
     check fexpr[2].kind == fexprList
     check fexpr[3].kind == fexprIdent
     check fexpr[4].kind == fexprBlock
-    check fexpr[4][0][1].kind == fexprSpecial
-    check $fexpr[4][0][1] == "+"
+    check fexpr[4][0].kind == fexprCall
+    check $fexpr[4][0][0] == "+"
+    check $fexpr[4][0][1] == "x"
+    check $fexpr[4][0][2] == "5"
   test "var":
     let fexpr = parseToplevel("test.flori", """
-    var x = 9
+    x := 9
     """)[0]
-    check fexpr[0].kind == fexprIdent
-    check $fexpr[0] == "var"
+    check fexpr.kind == fexprCall
+    check fexpr[0].kind == fexprInfix
+    check $fexpr[0] == ":="
     check fexpr[1].kind == fexprIdent
     check $fexpr[1] == "x"
-    check fexpr[2].kind == fexprSpecial
-    check $fexpr[2] == "="
-    check fexpr[3].kind == fexprIntLit
-    check $fexpr[3] == "9"
-  test "cfn":
+    check fexpr[2].kind == fexprIntLit
+    check $fexpr[2] == "9"
+  test "fn pragma":
     let fexpr = parseToplevel("test.flori", """
-    cfn +(Int32, Int32) Int32 ["+", nodecl, infix]
+    fn opAdd(Int32, Int32) Int32 [importc, nodecl, infix]
     """)[0]
     check fexpr[0].kind == fexprIdent
-    check $fexpr[0] == "cfn"
-  test "ctype":
+    check $fexpr[0] == "fn"
+    check fexpr[1].kind == fexprIdent
+    check $fexpr[1] == "opAdd"
+  test "struct pragma":
     let fexpr = parseToplevel("test.flori", """
-    ctype Int32 ["int32_t", "stdint.h"]
+    struct Int32 [importc "int32_t", header "stdint.h"]
     """)[0]
     check fexpr[0].kind == fexprIdent
-    check $fexpr[0] == "ctype"
+    check $fexpr[0] == "struct"
     check fexpr[1].kind == fexprIdent
     check $fexpr[1] == "Int32"
     check fexpr[2].kind == fexprArray

@@ -1,7 +1,7 @@
 
 (setq flori-separates "\\((\\|)\\|[\\|]\\|\s\\|\n\\|r\\)")
 
-(setq flori-keywords '("match" "if" "else" "elif" "cond" "for" "while" "require" "macro" "iterator" "fn" "type" "cfn" "ctype"))
+(setq flori-keywords '("var" "match" "if" "else" "elif" "cond" "for" "while" "require" "macro" "iterator" "fn" "type" "cfn" "ctype"))
 (setq flori-warnings '("unsafe"))
 
 (setq flori-keywords-regexp (regexp-opt flori-keywords 'words))
