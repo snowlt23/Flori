@@ -40,6 +40,21 @@ import io
 println("Hello World!")
 ```
 
+### Fibonacci
+```
+import io
+
+fn fib(n Int32) Int32 {
+  if (n <= 2) {
+    n
+  } else {
+    fib(n-1) + fib(n-2)
+  }
+}
+
+println(fib(38))
+```
+
 ### File I/O
 ```
 import fileio
