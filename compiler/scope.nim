@@ -30,14 +30,7 @@ proc extendScope*(scope: Scope): Scope =
 
 proc `==`*(a, b: Scope): bool =
   a.name == b.name and a.level == b.level
-
-proc symbol*(scope: Scope, name: string, kind: SymbolKind): Symbol =
-  Symbol(scope: scope, isImported: false, name: name, kind: kind)
-proc `==`*(a, b: Symbol): bool =
-  a.name == b.name and a.scope == b.scope
-proc `$`*(sym: Symbol): string =
-  $sym.scope.name & "." & sym.name
-
+  
 proc name*(s: seq[string]): Name = Name(names: s)
 proc name*(s: string): Name = name(@[s])
 proc hash*(name: Name): Hash = hash(name.names.join("_"))
@@ -47,6 +40,14 @@ proc `==`*(a, b: Name): bool =
     if a.names[i] != b.names[i]:
       return false
   return true
+proc `$`*(name: Name): string = name.names.join(".")
+
+proc symbol*(scope: Scope, name: string, kind: SymbolKind): Symbol =
+  Symbol(scope: scope, isImported: false, name: name, kind: kind)
+proc `==`*(a, b: Symbol): bool =
+  a.name == b.name and a.scope == b.scope
+proc `$`*(sym: Symbol): string =
+  $sym.scope.name & "." & sym.name
 
 proc procname*(name: Name, argtypes: seq[Symbol]): ProcName =
   ProcName(name: name, argtypes: argtypes)
@@ -69,12 +70,12 @@ proc getDecl*(scope: Scope, n: Name): Option[Symbol] =
     else:
       return scope.top.getDecl(n)
   return some scope.decls[n]
-proc getProc*(scope: Scope, pd: ProcName): Option[ProcDecl] =
+proc getFunc*(scope: Scope, pd: ProcName): Option[ProcDecl] =
   if not scope.procdecls.hasKey(pd.name):
     if scope == scope.top:
       return none(ProcDecl)
     else:
-      return scope.top.getProc(pd)
+      return scope.top.getFunc(pd)
   let group = scope.procdecls[pd.name]
   for decl in group.decls:
     if pd.match(decl):
@@ -82,7 +83,7 @@ proc getProc*(scope: Scope, pd: ProcName): Option[ProcDecl] =
   if scope == scope.top:
     return none(ProcDecl)
   else:
-    return scope.top.getProc(pd)
+    return scope.top.getFunc(pd)
 
 proc addDecl*(scope: Scope, n: Name, v: Symbol): bool =
   if scope.getDecl(n).isSome: return false
@@ -90,7 +91,7 @@ proc addDecl*(scope: Scope, n: Name, v: Symbol): bool =
   return true
 proc addFunc*(scope: Scope, decl: ProcDecl): bool =
   let pn = ProcName(name: decl.name, argtypes: decl.argtypes)
-  if scope.getProc(pn).isSome: return false
+  if scope.getFunc(pn).isSome: return false
   if not scope.procdecls.hasKey(decl.name):
     scope.procdecls[decl.name] = initProcIdentGroup()
   scope.procdecls[decl.name].decls.add(decl)
