@@ -21,7 +21,13 @@ type
     generics*: Option[seq[(FExpr, FExpr)]]
     pragma*: Option[FExpr]
     body*: Option[FExpr]
+  IfExpr* = object
+    cond*: FExpr
+    tbody*: FExpr
+    fbody*: Option[FExpr]
     
+proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr)
+
 proc name*(fexpr: FExpr): Name =
   case fexpr.kind
   of fexprIdent:
@@ -106,6 +112,22 @@ proc parseStruct*(fexpr: FExpr): StructExpr =
   else:
     result.body = none(FExpr)
 
+proc parseIf*(fexpr: FExpr): IfExpr =
+  if fexpr[1].kind != fexprList:
+    fexpr[1].error("if condition should be FList.")
+  result.cond = fexpr[1]
+
+  if fexpr[2].kind != fexprBlock:
+    fexpr[2].error("if body should be FBlock.")
+  result.tbody = fexpr[2]
+
+  if fexpr.len >= 4:
+    if $fexpr[3] != "else":
+      fexpr[3].error("if expression expect `else ident.")
+    result.fbody = some(fexpr[4])
+  else:
+    result.fbody = none(FExpr)
+
 proc evalFn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let parsed = parseFn(fexpr)
   let fname = parsed.name
@@ -132,9 +154,18 @@ proc evalStruct*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   if not status:
     fexpr.error("redefinition $# type." % $fname)
 
-# TODO: evalIf
 proc evalIf*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
-  discard
+  let parsed = parseIf(fexpr)
+  ctx.evalFExpr(scope, parsed.cond)
+  ctx.evalFExpr(scope, parsed.tbody)
+  ctx.evalFExpr(scope, parsed.fbody.get)
+  if parsed.fbody.isSome and parsed.tbody.typ == parsed.fbody.get.typ:
+    fexpr.typ = parsed.tbody.typ
+  else:
+    let opt = scope.getDecl(name("Void"))
+    if opt.isNone:
+      fexpr.error("undeclared Void type.")
+    fexpr.typ = opt
 
 proc initInternalEval*(scope: Scope) =
   scope.addInternalEval("fn", evalFn)
@@ -182,9 +213,9 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
       fexpr.error("undeclared $# macro. (unsupported macro in currently)" % $fn)
   of fexprArray..fexprBlock:
     for son in fexpr:
-      ctx.evalFExpr(scope, fexpr)
-    if fexpr.kind == fexprList and fexpr.len == 1:
-      fexpr.typ = fexpr[0].typ
+      ctx.evalFExpr(scope, son)
+    if fexpr.len >= 1:
+      fexpr.typ = fexpr[^1].typ
   of fexprCall:
     for arg in fexpr[1..^1]:
       ctx.evalFExpr(scope, arg)
