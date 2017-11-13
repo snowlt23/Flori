@@ -1,43 +1,11 @@
 
+import scope
 import strutils, sequtils
-
-type
-  FExprError* = object of Exception
-  Span* = object
-    filename*: string
-    line*: int
-    linepos*: int
-    pos*: int
-    internal*: tuple[filename: string, line: int]
-  FExprKind* = enum
-    fexprIdent
-    fexprPrefix
-    fexprInfix
-    fexprQuote
-    fexprIntLit
-    fexprStrLit
-    fexprSeq
-    fexprArray
-    fexprList
-    fexprBlock
-    fexprCall
-  FExpr* = ref object
-    span*: Span
-    case kind*: FExprKind
-    of fexprIdent:
-      ident*: string
-    of fexprPrefix:
-      prefix*: string
-    of fexprInfix:
-      infix*: string
-    of fexprQuote:
-      quoted*: FExpr
-    of fexprIntLit:
-      intval*: int64
-    of fexprStrLit:
-      strval*: string
-    of fexprSeq, fexprArray, fexprList, fexprBlock, fexprCall:
-      sons*: seq[FExpr]
+import options
+import types
+export types.Span
+export types.FExprKind
+export types.FExpr
 
 const fexprAtoms* = {fexprIdent..fexprStrLit}
 const fexprContainer* = {fexprSeq..fexprCall}
@@ -53,27 +21,29 @@ template internalSpan*(): Span =
   Span(line: 0, linepos: 0, internal: (internalname, internalline))
 
 proc fident*(span: Span, id: string): FExpr =
-  FExpr(span: span, kind: fexprIdent, ident: id)
+  FExpr(span: span, typ: none(Symbol), kind: fexprIdent, ident: id)
+proc fsymbol*(span: Span, sym: Symbol): FExpr =
+  FExpr(span: span, typ: none(Symbol), kind: fexprSymbol, symbol: sym)
 proc fprefix*(span: Span, s: string): FExpr =
-  FExpr(span: span, kind: fexprPrefix, prefix: s)
+  FExpr(span: span, typ: none(Symbol), kind: fexprPrefix, prefix: s)
 proc finfix*(span: Span, s: string): FExpr =
-  FExpr(span: span, kind: fexprInfix, infix: s)
+  FExpr(span: span, typ: none(Symbol), kind: fexprInfix, infix: s)
 proc fquote*(span: Span, f: FExpr): FExpr =
-  FExpr(span: span, kind: fexprQuote, quoted: f)
+  FExpr(span: span, typ: none(Symbol), kind: fexprQuote, quoted: f)
 proc fintlit*(span: Span, x: int64): FExpr =
-  FExpr(span: span, kind: fexprIntLit, intval: x)
+  FExpr(span: span, typ: none(Symbol), kind: fexprIntLit, intval: x)
 proc fstrlit*(span: Span, s: string): FExpr =
-  FExpr(span: span, kind: fexprStrLit, strval: s)
+  FExpr(span: span, typ: none(Symbol), kind: fexprStrLit, strval: s)
 proc fseq*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, kind: fexprSeq, sons: sons)
+  FExpr(span: span, typ: none(Symbol), kind: fexprSeq, sons: sons)
 proc farray*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, kind: fexprArray, sons: sons)
+  FExpr(span: span, typ: none(Symbol), kind: fexprArray, sons: sons)
 proc flist*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, kind: fexprList, sons: sons)
+  FExpr(span: span, typ: none(Symbol), kind: fexprList, sons: sons)
 proc fblock*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, kind: fexprBlock, sons: sons)
+  FExpr(span: span, typ: none(Symbol), kind: fexprBlock, sons: sons)
 proc fcall*(span: Span, call: FExpr, args = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, kind: fexprCall, sons: @[call] & args)
+  FExpr(span: span, typ: none(Symbol), kind: fexprCall, sons: @[call] & args)
 
 proc addSon*(fexpr: FExpr, f: FExpr) =
   if fexpr.kind notin fexprContainer:
@@ -118,6 +88,8 @@ proc toString*(fexpr: FExpr, indent: int): string =
   case fexpr.kind
   of fexprIdent:
     fexpr.ident
+  of fexprSymbol:
+    $fexpr.symbol
   of fexprPrefix:
     fexpr.prefix
   of fexprInfix:

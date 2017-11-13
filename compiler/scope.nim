@@ -1,33 +1,45 @@
-  
-import fexpr
 
 import tables, hashes
 import options
 import strutils
 
-type
-  Symbol* = object
-    scope*: Scope
-    fexpr*: FExpr
-  Name* = object
-    names*: seq[string]
-  ProcDecl* = object
-    isInternal*: bool
-    name*: Name
-    argtypes*: seq[Name]
-    sym*: Symbol
-  ProcName* = object
-    name*: Name
-    argtypes*: seq[Name]
-  ProcDeclGroup* = object
-    decls*: seq[ProcDecl]
-  Scope* = ref object
-    name*: Name
-    top*: Scope
-    level*: int
-    decls*: Table[Name, Symbol]
-    procdecls*: Table[Name, ProcDeclGroup]
+import types
+export types.SymbolKind
+export types.Symbol
+export types.Name
+export types.ProcDecl
+export types.ProcName
+export types.ProcDeclGroup
+export types.Scope
 
+proc newScope*(name: Name): Scope =
+  new result
+  result.name = name
+  result.top = result
+  result.level = 0
+  result.decls = initTable[Name, Symbol]()
+  result.procdecls = initTable[Name, ProcDeclGroup]()
+
+proc extendScope*(scope: Scope): Scope =
+  new result
+  result.name = scope.name
+  result.top = scope.top
+  result.level = scope.level + 1
+  result.decls = scope.decls
+  result.procdecls = scope.procdecls
+
+proc `==`*(a, b: Scope): bool =
+  a.name == b.name and a.level == b.level
+
+proc symbol*(scope: Scope, name: string, kind: SymbolKind): Symbol =
+  Symbol(scope: scope, name: name, kind: kind)
+proc `==`*(a, b: Symbol): bool =
+  a.name == b.name and a.scope == b.scope
+proc `$`*(sym: Symbol): string =
+  $sym.scope.name & "." & sym.name
+
+proc name*(s: seq[string]): Name = Name(names: s)
+proc name*(s: string): Name = name(@[s])
 proc hash*(name: Name): Hash = hash(name.names.join("_"))
 proc `==`*(a, b: Name): bool =
   if a.names.len != b.names.len: return false
@@ -35,6 +47,9 @@ proc `==`*(a, b: Name): bool =
     if a.names[i] != b.names[i]:
       return false
   return true
+
+proc procname*(name: Name, argtypes: seq[Symbol]): ProcName =
+  ProcName(name: name, argtypes: argtypes)
 
 proc match*(a: ProcName, b: ProcDecl): bool =
   if a.name != b.name: return false
@@ -73,7 +88,7 @@ proc addDecl*(scope: Scope, n: Name, v: Symbol): bool =
   if scope.getDecl(n).isSome: return false
   scope.decls[n] = v
   return true
-proc addFunc*(scope: Scope, decl: ProcDecl, sym: Symbol): bool =
+proc addFunc*(scope: Scope, decl: ProcDecl): bool =
   let pn = ProcName(name: decl.name, argtypes: decl.argtypes)
   if scope.getProc(pn).isSome: return false
   if not scope.procdecls.hasKey(decl.name):
