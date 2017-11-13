@@ -36,6 +36,18 @@ suite "pass resolve":
     semctx.evalModule(name("testmodule"), fexprs)
     check fexprs[^1].typ.isSome
     check $fexprs[^1].typ.get == "testmodule.Int32"
+  test "if":
+    let semctx = newSemanticContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
+      if (1 == 1) {
+        1
+      } else {
+        2
+      }
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+    check fexprs[^1].typ.isSome
+    check $fexprs[^1].typ.get == "testmodule.Int32"
   # test "generics":
   #   let semctx = newSemanticContext()
   #   let fexprs = parseToplevel("testmodule.flori", prelude & pointerprelude & """

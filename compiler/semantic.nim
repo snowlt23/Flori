@@ -132,9 +132,14 @@ proc evalStruct*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   if not status:
     fexpr.error("redefinition $# type." % $fname)
 
+# TODO: evalIf
+proc evalIf*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+  discard
+
 proc initInternalEval*(scope: Scope) =
   scope.addInternalEval("fn", evalFn)
   scope.addInternalEval("struct", evalStruct)
+  scope.addInternalEval("if", evalIf)
 
 proc initInternalScope*(ctx: SemanticContext) =
   let scope = newScope(name("internal"))
@@ -174,13 +179,7 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
     if internalopt.isSome:
       internalopt.get.internalproc(ctx, scope, fexpr)
     else:
-      for arg in fexpr[1..^1]:
-        ctx.evalFExpr(scope, arg)
-      let argtypes = fexpr.sons[1..^1].mapIt(it.typ.get)
-      let opt = scope.getFunc(procname(name(fn), argtypes))
-      if opt.isNone:
-        fexpr.error("undeclared $#($#) function." % [$fn, argtypes.mapIt($it).join(", ")])
-      fexpr.typ = some(opt.get.returntype)
+      fexpr.error("undeclared $# macro. (unsupported macro in currently)" % $fn)
   of fexprArray..fexprBlock:
     for son in fexpr:
       ctx.evalFExpr(scope, fexpr)
