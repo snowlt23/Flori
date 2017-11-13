@@ -112,12 +112,14 @@ if (true) {
     check $fexpr[2] == "9"
   test "fn pragma":
     let fexpr = parseToplevel("test.flori", """
-    fn opAdd(Int32, Int32) Int32 [importc, nodecl, infix]
+    fn `+(a Int32, b Int32) Int32 [importc, nodecl, infix]
     """)[0]
     check fexpr[0].kind == fexprIdent
     check $fexpr[0] == "fn"
-    check fexpr[1].kind == fexprIdent
-    check $fexpr[1] == "opAdd"
+    check fexpr[1].kind == fexprQuote
+    check $fexpr[1] == "`+"
+    check fexpr[1].quoted.kind == fexprInfix
+    check $fexpr[1].quoted == "+"
   test "struct pragma":
     let fexpr = parseToplevel("test.flori", """
     struct Int32 [importc "int32_t", header "stdint.h"]

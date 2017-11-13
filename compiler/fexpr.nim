@@ -13,6 +13,7 @@ type
     fexprIdent
     fexprPrefix
     fexprInfix
+    fexprQuote
     fexprIntLit
     fexprStrLit
     fexprSeq
@@ -29,6 +30,8 @@ type
       prefix*: string
     of fexprInfix:
       infix*: string
+    of fexprQuote:
+      quoted*: FExpr
     of fexprIntLit:
       intval*: int64
     of fexprStrLit:
@@ -55,6 +58,8 @@ proc fprefix*(span: Span, s: string): FExpr =
   FExpr(span: span, kind: fexprPrefix, prefix: s)
 proc finfix*(span: Span, s: string): FExpr =
   FExpr(span: span, kind: fexprInfix, infix: s)
+proc fquote*(span: Span, f: FExpr): FExpr =
+  FExpr(span: span, kind: fexprQuote, quoted: f)
 proc fintlit*(span: Span, x: int64): FExpr =
   FExpr(span: span, kind: fexprIntLit, intval: x)
 proc fstrlit*(span: Span, s: string): FExpr =
@@ -117,6 +122,8 @@ proc toString*(fexpr: FExpr, indent: int): string =
     fexpr.prefix
   of fexprInfix:
     fexpr.infix
+  of fexprQuote:
+    "`" & fexpr.quoted.toString(indent)
   of fexprIntLit:
     $fexpr.intval
   of fexprStrLit:

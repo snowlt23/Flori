@@ -159,6 +159,10 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       ident.add(context.curchar)
       context.inc
     return finfix(span, ident)
+  elif context.curchar == '`': # quote
+    let span = context.span()
+    context.inc
+    return fquote(span, context.parseFExprElem())
   elif '0' <= context.curchar and context.curchar <= '9': # digit
     let span = context.span
     var s = ""
