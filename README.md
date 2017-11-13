@@ -7,21 +7,13 @@ Flori is statically typed programming language without GC for system/application
 
 # Features
 
-- Native compile via C
-- Statically typed
-- Flexible meta syntax, it's F expression.
-- Automatic resource management by **Compile Time Reference Counting** (I call it CTRC)
+- Native compile via C. (It's so fast and portable!)
+- Statically typed.
+- Flexible meta syntax, it's **F expression**.
+- Automatic resource management by **Compile Time Reference Counting**. (I call it CTRC)
 - Blazing fast memory management by **Memory Lifting**.
-- Interactive development (Common Lisp like)
-
-# Philosophy
-
-- Fast
-- Safe
-- Small & Simple
-- Easy
-- Interactive
-- Ultimate power for Metaprogramming
+- Ultimate power for Metaprogramming.
+- Interactive development. (Common Lisp like)
 
 # Inspired languages
 
