@@ -7,10 +7,10 @@ type
   SemPass* = ref object of RootObj
   SemPassContext* = ref object
     passes*: seq[SemPass]
-    modules*: Table[ScopeIdent, SemScope]
+    modules*: Table[string, SemScope]
 
 proc newSemPassContext*(): SemPassContext =
-  SemPassContext(passes: @[], modules: initTable[ScopeIdent, SemScope]())
+  SemPassContext(passes: @[], modules: initTable[string, SemScope]())
 
 method execute*(pass: SemPass, ctx: SemPassContext) {.base.} =
   discard
