@@ -32,7 +32,7 @@ proc `==`*(a, b: Scope): bool =
   a.name == b.name and a.level == b.level
 
 proc symbol*(scope: Scope, name: string, kind: SymbolKind): Symbol =
-  Symbol(scope: scope, name: name, kind: kind)
+  Symbol(scope: scope, isImported: false, name: name, kind: kind)
 proc `==`*(a, b: Symbol): bool =
   a.name == b.name and a.scope == b.scope
 proc `$`*(sym: Symbol): string =
@@ -69,18 +69,18 @@ proc getDecl*(scope: Scope, n: Name): Option[Symbol] =
     else:
       return scope.top.getDecl(n)
   return some scope.decls[n]
-proc getProc*(scope: Scope, pd: ProcName): Option[Symbol] =
+proc getProc*(scope: Scope, pd: ProcName): Option[ProcDecl] =
   if not scope.procdecls.hasKey(pd.name):
     if scope == scope.top:
-      return none(Symbol)
+      return none(ProcDecl)
     else:
       return scope.top.getProc(pd)
   let group = scope.procdecls[pd.name]
   for decl in group.decls:
     if pd.match(decl):
-      return some(decl.sym)
+      return some(decl)
   if scope == scope.top:
-    return none(Symbol)
+    return none(ProcDecl)
   else:
     return scope.top.getProc(pd)
 
@@ -95,3 +95,16 @@ proc addFunc*(scope: Scope, decl: ProcDecl): bool =
     scope.procdecls[decl.name] = initProcIdentGroup()
   scope.procdecls[decl.name].decls.add(decl)
   return true
+
+proc createImportSymbol*(sym: Symbol): Symbol =
+  Symbol(scope: sym.scope, isImported: true, name: sym.name, kind: sym.kind)
+proc importScope*(scope: Scope, importscope: Scope) =
+  for key, sym in importscope.decls:
+    if not sym.isImported:
+      discard scope.addDecl(key, sym.createImportSymbol())
+  for key, group in importscope.procdecls:
+    for decl in group.decls:
+      if not decl.sym.isImported:
+        var importdecl = decl
+        importdecl.sym = decl.sym.createImportSymbol()
+        discard scope.addFunc(importdecl)

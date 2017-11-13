@@ -17,16 +17,9 @@ type
     symbolInternal
   Symbol* = object
     scope*: Scope
+    isImported*: bool
     name*: string
-    case kind*: SymbolKind
-    of symbolType:
-      discard
-    of symbolFunc:
-      discard
-    of symbolMacro:
-      discard
-    of symbolInternal:
-      internalproc*: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)
+    kind*: SymbolKind
   FExprKind* = enum
     fexprIdent
     fexprSymbol
@@ -64,8 +57,10 @@ type
     names*: seq[string]
   ProcDecl* = object
     isInternal*: bool
+    internalProc*: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)
     name*: Name
     argtypes*: seq[Symbol]
+    returntype*: Symbol
     sym*: Symbol
   ProcName* = object
     name*: Name
