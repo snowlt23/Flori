@@ -23,12 +23,12 @@ type Pointer $[importc "void*", nodecl]
 type Ptr [T All] $[importc, nodecl, pattern "$1*"]
 
 fn sizeof(T Typedesc) Int32 $[importc, nodecl]
-fn alloc(Int32) Pointer $[importc "malloc", header "stdlib.h"]
+fn alloc(size Int32) Pointer $[importc "malloc", header "stdlib.h"]
 fn cast[F All](T Typedesc, value F) Ptr!T $[importc, nodecl, pattern "($1)$2"]
 """
 
-suite "pass resolve":
-  test "typeinfer":
+suite "semantic":
+  test "infix":
     let semctx = newSemanticContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
       1 + 1
@@ -36,6 +36,14 @@ suite "pass resolve":
     semctx.evalModule(name("testmodule"), fexprs)
     check fexprs[^1].typ.isSome
     check $fexprs[^1].typ.get == "testmodule.Int32"
+  test "call":
+    let semctx = newSemanticContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
+      printf("%d", 9)
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+    check fexprs[^1].typ.isSome
+    check $fexprs[^1].typ.get == "testmodule.Void"
   test "if":
     let semctx = newSemanticContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """

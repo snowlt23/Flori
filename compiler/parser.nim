@@ -189,6 +189,8 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
 proc rewriteToCall*(fexpr: FExpr): FExpr =
   if fexpr.kind == fexprSeq and fexpr.len == 1:
     return rewriteToCall(fexpr[0])
+  elif fexpr.len == 2 and fexpr[1].kind == fexprList:
+    return fcall(fexpr.span, fexpr[0], fexpr[1].sons)
   elif fexpr.kind == fexprSeq:
     let stack = fseq(fexpr.span)
     for i, son in fexpr.sons:
@@ -199,8 +201,6 @@ proc rewriteToCall*(fexpr: FExpr): FExpr =
       else:
         stack.addSon(son)
     return fexpr
-  elif fexpr.len == 2 and fexpr[1].kind == fexprList:
-    return fcall(fexpr.span, fexpr[0], fexpr[1].sons)
   else:
     return fexpr
 
