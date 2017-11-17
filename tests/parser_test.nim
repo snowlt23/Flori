@@ -82,6 +82,13 @@ if (true) {
 } else {
   2
 }"""
+  test "call":
+    let fexpr = parseToplevel("test.flori", """
+    printf("%d", 9)
+    """)[0]
+    check fexpr.kind == fexprCall
+    check fexpr[0].kind == fexprIdent
+    check $fexpr[0] == "printf"
   test "fn":
     let fexpr = parseToplevel("test.flori", """
     fn add5(x Int32) Int32 {

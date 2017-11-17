@@ -1,13 +1,13 @@
 
-struct Void [importc "void", nodecl]
-struct CString [importc "char*", nodecl]
-struct Int32 [importc "int32_t", header "stdint.h"]
-struct Bool [importc "bool", header "stdbool.h"]
+struct Void $[importc "void", nodecl]
+struct CString $[importc "char*", nodecl]
+struct Int32 $[importc "int32_t", header "stdint.h"]
+struct Bool $[importc "bool", header "stdbool.h"]
 
-fn printf(CString, Int32) Void [importc, header "stdio.h"]
-fn abs(Int32) Int32 [importc, header "math.h"]
+fn printf(CString, Int32) $[importc, header "stdio.h"]
+fn abs(Int32) Int32 $[importc, header "math.h"]
 
-fn print(x Int32) [inline] {
+fn print(x Int32) $[inline] {
   printf("%d", x)
 }
 
@@ -23,7 +23,7 @@ fn abstrue(x Int32, b1 Bool, b2 Bool) Int32 {
   }
 }
 
-var a = if (b1) {
+a := if (b1) {
           1
         } else {
           2

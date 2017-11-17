@@ -22,8 +22,8 @@ type
     pragma*: Option[FExpr]
     body*: Option[FExpr]
   IfExpr* = object
-    cond*: FExpr
-    tbody*: FExpr
+    tbody*: (FExpr, FExpr)
+    ebody*: seq[(FExpr, FExpr)]
     fbody*: Option[FExpr]
     
 proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr)
@@ -113,20 +113,33 @@ proc parseStruct*(fexpr: FExpr): StructExpr =
     result.body = none(FExpr)
 
 proc parseIf*(fexpr: FExpr): IfExpr =
-  if fexpr[1].kind != fexprList:
-    fexpr[1].error("if condition should be FList.")
-  result.cond = fexpr[1]
+  var pos = 1
+  if fexpr[pos].kind != fexprList:
+    fexpr[pos].error("if condition should be FList.")
+  let tcond = fexpr[pos]
+  pos.inc
 
-  if fexpr[2].kind != fexprBlock:
-    fexpr[2].error("if body should be FBlock.")
-  result.tbody = fexpr[2]
+  if fexpr[pos].kind != fexprBlock:
+    fexpr[pos].error("if body should be FBlock.")
+  result.tbody = (tcond, fexpr[pos])
+  pos.inc
 
-  if fexpr.len >= 4:
-    if $fexpr[3] != "else":
-      fexpr[3].error("if expression expect `else ident.")
-    result.fbody = some(fexpr[4])
-  else:
-    result.fbody = none(FExpr)
+  result.ebody = @[]
+  while fexpr.len > pos:
+    if $fexpr[pos] == "elif":
+      pos.inc
+      if fexpr[pos].kind != fexprList:
+        fexpr[pos].error("elif condition should be FList.")
+      let econd = fexpr[pos]
+      pos.inc
+      result.ebody.add((econd, fexpr[pos]))
+      pos.inc
+    elif $fexpr[pos] == "else":
+      pos.inc
+      result.fbody = some(fexpr[pos])
+      pos.inc
+    else:
+      fexpr[pos].error("if expression expect `else or `elif ident.") 
 
 proc evalFn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let parsed = parseFn(fexpr)
@@ -154,13 +167,28 @@ proc evalStruct*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   if not status:
     fexpr.error("redefinition $# type." % $fname)
 
+proc isEqualType*(types: seq[Symbol]): bool =
+  let first = types[0]
+  for t in types[1..^1]:
+    if first != t:
+      return false
+  return true
+
 proc evalIf*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let parsed = parseIf(fexpr)
-  ctx.evalFExpr(scope, parsed.cond)
-  ctx.evalFExpr(scope, parsed.tbody)
-  ctx.evalFExpr(scope, parsed.fbody.get)
-  if parsed.fbody.isSome and parsed.tbody.typ == parsed.fbody.get.typ:
-    fexpr.typ = parsed.tbody.typ
+  let (tcond, tbody) = parsed.tbody
+  ctx.evalFExpr(scope, tcond)
+  ctx.evalFExpr(scope, tbody)
+  if parsed.fbody.isSome:
+    ctx.evalFExpr(scope, parsed.fbody.get)
+  var types = @[tbody.typ.get, parsed.fbody.get.typ.get]
+  for e in parsed.ebody:
+    let (econd, ebody) = e
+    ctx.evalFExpr(scope, econd)
+    ctx.evalFExpr(scope, ebody)
+    types.add(ebody.typ.get)
+  if parsed.fbody.isSome and isEqualType(types):
+    fexpr.typ = some(types[0])
   else:
     let opt = scope.getDecl(name("Void"))
     if opt.isNone:

@@ -19,8 +19,8 @@ fn `printf(fmt CString, val Int32) $[importc, header "stdio.h"]
 let pointerprelude = """
 protocol All {}
 
-type Pointer $[importc "void*", nodecl]
-type Ptr [T All] $[importc, nodecl, pattern "$1*"]
+struct Pointer $[importc "void*", nodecl]
+struct Ptr [T All] $[importc, nodecl, pattern "$1*"]
 
 fn sizeof(T Typedesc) Int32 $[importc, nodecl]
 fn alloc(size Int32) Pointer $[importc "malloc", header "stdlib.h"]
@@ -44,13 +44,27 @@ suite "semantic":
     semctx.evalModule(name("testmodule"), fexprs)
     check fexprs[^1].typ.isSome
     check $fexprs[^1].typ.get == "testmodule.Void"
-  test "if":
+  test "if else":
     let semctx = newSemanticContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
       if (1 == 1) {
         1
       } else {
         2
+      }
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+    check fexprs[^1].typ.isSome
+    check $fexprs[^1].typ.get == "testmodule.Int32"
+  test "if elif else":
+    let semctx = newSemanticContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
+      if (1 == 1) {
+        1
+      } elif (1 == 2) {
+        2
+      } else {
+        3
       }
     """)
     semctx.evalModule(name("testmodule"), fexprs)
