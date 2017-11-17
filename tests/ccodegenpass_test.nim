@@ -1,33 +1,31 @@
 
 import unittest
 
-import compiler.ast, compiler.parser
-import compiler.semtree
-import compiler.sempass, compiler.sempass_create
-import compiler.sempass_default
-import compiler.sempass_ccodegen
+import compiler.fexpr, compiler.parser
+import compiler.scope, compiler.semantic
+import compiler.ccodegen
 
 let prelude = """
-ctype Void ["void", nodecl]
-ctype CString ["char*", nodecl]
-ctype Int32 ["int32_t", "stdint.h"]
-ctype Bool ["bool", "stdbool.h"]
+struct Void $["void", nodecl]
+struct CString $["char*", nodecl]
+struct Int32 $["int32_t", "stdint.h"]
+struct Bool $["bool", "stdbool.h"]
 
-cfn +(Int32, Int32) Int32 ["+", nodecl, infix]
-cfn ==(Int32, Int32) Bool ["==", nodecl, infix]
-cfn printf(CString, Int32) Void ["printf", "stdio.h"]
+cfn +(Int32, Int32) Int32 $["+", nodecl, infix]
+cfn ==(Int32, Int32) Bool $["==", nodecl, infix]
+cfn printf(CString, Int32) Void $["printf", "stdio.h"]
 """
 
 suite "pass create":
   test "c ffi":
-    let passctx = newDefaultSemPassContext()
-    let genpass = newCCodegenPass()
-    passctx.register(genpass)
-    let sexprs = parseToplevel("testmodule.flori", prelude & """
+    let semctx = newSemanticContext()
+    let genctx = newCCodegenContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
       printf("%d", 5)
     """)
-    passctx.createModuleFromSExpr("testmodule", sexprs)
-    passctx.execute()
+    semctx.evalModule(name("testmodule"), fexprs)
+    genctx.codegenSemantic(semctx)
+    genctx.write("floricache")
     genpass.write("floricache")
     check readFile("floricache/testmodule.c") == """
 #include "stdint.h"

@@ -3,6 +3,7 @@ import options
 import tables
 
 type
+  Metadata* = ref object of RootObj
   FExprError* = object of Exception
   Span* = object
     filename*: string
@@ -20,6 +21,7 @@ type
     isImported*: bool
     name*: string
     kind*: SymbolKind
+    fexpr*: FExpr
   FExprKind* = enum
     fexprIdent
     fexprSymbol
@@ -36,6 +38,7 @@ type
   FExpr* = ref object
     span*: Span
     typ*: Option[Symbol]
+    metadata*: Table[string, Metadata]
     case kind*: FExprKind
     of fexprIdent:
       ident*: string

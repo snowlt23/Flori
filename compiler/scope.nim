@@ -42,8 +42,8 @@ proc `==`*(a, b: Name): bool =
   return true
 proc `$`*(name: Name): string = name.names.join(".")
 
-proc symbol*(scope: Scope, name: string, kind: SymbolKind): Symbol =
-  Symbol(scope: scope, isImported: false, name: name, kind: kind)
+proc symbol*(scope: Scope, name: string, kind: SymbolKind, fexpr: FExpr): Symbol =
+  Symbol(scope: scope, isImported: false, name: name, kind: kind, fexpr: fexpr)
 proc `==`*(a, b: Symbol): bool =
   a.name == b.name and a.scope == b.scope
 proc `$`*(sym: Symbol): string =
@@ -109,3 +109,10 @@ proc importScope*(scope: Scope, importscope: Scope) =
         var importdecl = decl
         importdecl.sym = decl.sym.createImportSymbol()
         discard scope.addFunc(importdecl)
+
+proc isType*(sym: Symbol, name: string): bool =
+  $sym.name == name
+proc isBoolType*(sym: Symbol): bool =
+  sym.isType("Bool")
+proc isVoidType*(sym: Symbol): bool =
+  sym.isType("Void")

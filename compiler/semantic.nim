@@ -8,24 +8,42 @@ import strutils, sequtils
 import types
 export types.SemanticContext
 
+import metadata
+
 type
+  InternalMarkKind* = enum
+    internalFn
+    internalStruct
+    internalIf
   FnExpr* = object
     name*: FExpr
     generics*: Option[seq[(FExpr, FExpr)]]
     args*: seq[(FExpr, FExpr)]
     ret*: FExpr
-    pragma*: Option[FExpr]
+    pragma*: FExpr
     body*: Option[FExpr]
   StructExpr* = object
     name*: FExpr
     generics*: Option[seq[(FExpr, FExpr)]]
-    pragma*: Option[FExpr]
+    pragma*: FExpr
     body*: Option[FExpr]
   IfExpr* = object
     tbody*: (FExpr, FExpr)
     ebody*: seq[(FExpr, FExpr)]
     fbody*: Option[FExpr]
-    
+  InternalPragma = object
+    importc*: bool
+    importname*: Option[string]
+    header*: Option[string]
+    infix*: bool
+    nodecl*: bool
+
+defMetadata(internalMark, InternalMarkKind)
+defMetadata(internalFnExpr, FnExpr)
+defMetadata(internalStructExpr, StructExpr)
+defMetadata(internalIfExpr, IfExpr)
+defMetadata(internalPragma, InternalPragma)
+
 proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr)
 
 proc name*(fexpr: FExpr): Name =
@@ -72,10 +90,10 @@ proc parseFn*(fexpr: FExpr): FnExpr =
 
   if fexpr[pos].kind == fexprPrefix and fexpr[pos].prefix == "$":
     pos.inc
-    result.pragma = some(fexpr[pos])
+    result.pragma = fexpr[pos]
     pos.inc
   else:
-    result.pragma = none(FExpr)
+    result.pragma = farray(fexpr.span)
 
   if fexpr.len > pos:
     if fexpr[pos].kind != fexprBlock:
@@ -99,10 +117,10 @@ proc parseStruct*(fexpr: FExpr): StructExpr =
 
   if fexpr[pos].kind == fexprPrefix and fexpr[pos].prefix == "$":
     pos.inc
-    result.pragma = some(fexpr[pos])
+    result.pragma = fexpr[pos]
     pos.inc
   else:
-    result.pragma = none(FExpr)
+    result.pragma = farray(fexpr.span)
   
   if fexpr.len > pos and fexpr[pos].kind == fexprBlock:
     if fexpr[pos].kind != fexprBlock:
@@ -141,8 +159,31 @@ proc parseIf*(fexpr: FExpr): IfExpr =
     else:
       fexpr[pos].error("if expression expect `else or `elif ident.") 
 
+proc addInternalPragma*(fexpr: FExpr, pragma: FExpr) =
+  var ipragma = InternalPragma()
+  for e in pragma:
+    if e.len >= 2:
+      if $e[0] == "importc":
+        ipragma.importc = true
+        ipragma.importname = some($e[1])
+      elif $e[0] == "header":
+        ipragma.header = some($e[1])
+      else:
+        e[0].error("unknown pragma.")
+    else:
+      if $e == "importc":
+        ipragma.importc = true
+        ipragma.importname = none(string)
+      elif $e == "nodecl":
+        ipragma.nodecl = true
+      elif $e == "infix":
+        ipragma.infix = true
+      else:
+        e.error("unknown pragma.")
+  fexpr.internalPragma = ipragma
+
 proc evalFn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
-  let parsed = parseFn(fexpr)
+  var parsed = parseFn(fexpr)
   let fname = parsed.name
   var argtypes = newSeq[Symbol]()
   let rettype = scope.getDecl(name(parsed.ret))
@@ -155,17 +196,30 @@ proc evalFn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
       t.error("undeclared $# type." % $n)
     n.typ = opt
     argtypes.add(opt.get)
-  let status = scope.addFunc(ProcDecl(isInternal: false, name: name(fname), argtypes: argtypes, returntype: rettype.get, sym: scope.symbol($fname, symbolFunc)))
+  let sym = scope.symbol($fname, symbolFunc, fexpr)
+  let status = scope.addFunc(ProcDecl(isInternal: false, name: name(fname), argtypes: argtypes, returntype: rettype.get, sym: sym))
   if not status:
     fexpr.error("redefinition $# function." % $fname)
+  # symbol resolve
+  let fsym = fsymbol(fexpr[0].span, sym)
+  fexpr[0] = fsym
+  parsed.name = fsym
+  # internal metadata for postprocess phase
+  fexpr.addInternalPragma(parsed.pragma)
+  fexpr.internalMark = internalFn
+  fexpr.internalFnExpr = parsed
 
 proc evalStruct*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let parsed = parseStruct(fexpr)
   let fname = parsed.name
-  let sym = scope.symbol($fname, symbolType)
+  let sym = scope.symbol($fname, symbolType, fexpr)
   let status = scope.addDecl(name(fname), sym)
   if not status:
     fexpr.error("redefinition $# type." % $fname)
+  # internal metadata for postprocess phase
+  fexpr.addInternalPragma(parsed.pragma)
+  fexpr.internalMark = internalStruct
+  fexpr.internalStructExpr = parsed
 
 proc isEqualType*(types: seq[Symbol]): bool =
   let first = types[0]
@@ -194,6 +248,9 @@ proc evalIf*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
     if opt.isNone:
       fexpr.error("undeclared Void type.")
     fexpr.typ = opt
+  # internal metadata for postprocess phase
+  fexpr.internalMark = internalIf
+  fexpr.internalIfExpr = parsed
 
 proc initInternalEval*(scope: Scope) =
   scope.addInternalEval("fn", evalFn)
@@ -253,6 +310,8 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
     if opt.isNone:
       fexpr.error("undeclared $#($#) function." % [$fn, argtypes.mapIt($it).join(", ")])
     fexpr.typ = some(opt.get.returntype)
+    # symbol resolve
+    fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
   else:
     fexpr.error("$# is unsupported expression in eval." % $fexpr.kind)
 
