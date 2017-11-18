@@ -20,7 +20,7 @@ type
   Symbol* = object
     scope*: Scope
     isImported*: bool
-    name*: string
+    name*: Name
     kind*: SymbolKind
     fexpr*: FExpr
   FExprKind* = enum

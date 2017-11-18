@@ -1,9 +1,11 @@
 
-import fexpr
+import fexpr, parser
 import scope
+
 import tables
 import options
 import strutils, sequtils
+import os
 
 import types
 export types.SemanticContext
@@ -59,10 +61,10 @@ proc name*(fexpr: FExpr): Name =
   else:
     fexpr.error("$# is not name." % $fexpr)
 
-proc addInternalEval*(scope: Scope, n: string, p: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)) =
-  let status = scope.addFunc(ProcDecl(isInternal: true, internalproc: p, name: name(n), argtypes: @[], sym: scope.symbol(n, symbolInternal, fident(internalSpan, "internal")))) # FIXME: returntype
+proc addInternalEval*(scope: Scope, n: Name, p: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)) =
+  let status = scope.addFunc(ProcDecl(isInternal: true, internalproc: p, name: n, argtypes: @[], sym: scope.symbol(n, symbolInternal, fident(internalSpan, "internal")))) # FIXME: returntype
   if not status:
-    fseq(internalSpan).error("redefinition $# function." % n)
+    fseq(internalSpan).error("redefinition $# function." % $n)
 
 proc parseFn*(fexpr: FExpr): FnExpr =
   var pos = 1
@@ -201,18 +203,19 @@ proc evalFn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
     arg[1] = fsymbol(arg[0].span, opt.get)
     n.typ = opt
     argtypes.add(opt.get)
-    let status = fnscope.addDecl(name($n), opt.get)
+    let status = fnscope.addDecl(name(n), opt.get)
     if not status:
       n.error("redefinition $# variable." % $n)
+
+  let sym = scope.symbol(name(fname), symbolFunc, fexpr)
+  let status = scope.addFunc(ProcDecl(isInternal: false, name: name(fname), argtypes: argtypes, returntype: rettype.get, sym: sym))
+  if not status:
+    fexpr.error("redefinition $# function." % $fname)
 
   if parsed.body.isSome:
     for e in parsed.body.get:
       ctx.evalFExpr(fnscope, e)
 
-  let sym = scope.symbol($fname, symbolFunc, fexpr)
-  let status = scope.addFunc(ProcDecl(isInternal: false, name: name(fname), argtypes: argtypes, returntype: rettype.get, sym: sym))
-  if not status:
-    fexpr.error("redefinition $# function." % $fname)
   # symbol resolve
   let fsym = fsymbol(fexpr[0].span, sym)
   fexpr[1] = fsym
@@ -224,11 +227,11 @@ proc evalFn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
 
 proc evalStruct*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   var parsed = parseStruct(fexpr)
-  let fname = parsed.name
-  let sym = scope.symbol($fname, symbolType, fexpr)
-  let status = scope.addDecl(name(fname), sym)
+  let sname = parsed.name
+  let sym = scope.symbol(name(sname), symbolType, fexpr)
+  let status = scope.addDecl(name(sname), sym)
   if not status:
-    fexpr.error("redefinition $# type." % $fname)
+    fexpr.error("redefinition $# type." % $sname)
   # symbol resolve
   let fsym = fsymbol(fexpr[0].span, sym)
   fexpr[1] = fsym
@@ -270,9 +273,9 @@ proc evalIf*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   fexpr.internalIfExpr = parsed
 
 proc initInternalEval*(scope: Scope) =
-  scope.addInternalEval("fn", evalFn)
-  scope.addInternalEval("struct", evalStruct)
-  scope.addInternalEval("if", evalIf)
+  scope.addInternalEval(name("fn"), evalFn)
+  scope.addInternalEval(name("struct"), evalStruct)
+  scope.addInternalEval(name("if"), evalIf)
 
 proc initInternalScope*(ctx: SemanticContext) =
   let scope = newScope(name("internal"))
@@ -339,3 +342,9 @@ proc evalModule*(ctx: SemanticContext, name: Name, fexprs: seq[FExpr]) =
     ctx.evalFExpr(scope, f)
     scope.toplevels.add(f)
   ctx.modules[name] = scope
+
+proc evalFile*(ctx: SemanticContext, filepath: string) =
+  let (dir, file, _) = filepath.splitFile()
+  let n = name((dir / file).replace("/", "_").replace("\\", "_"))
+  let fexprs = parseToplevel(filepath, readFile(filepath))
+  ctx.evalModule(n, fexprs)

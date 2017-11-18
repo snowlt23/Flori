@@ -44,12 +44,12 @@ proc `==`*(a, b: Name): bool =
   return true
 proc `$`*(name: Name): string = name.names.join(".")
 
-proc symbol*(scope: Scope, name: string, kind: SymbolKind, fexpr: FExpr): Symbol =
+proc symbol*(scope: Scope, name: Name, kind: SymbolKind, fexpr: FExpr): Symbol =
   Symbol(scope: scope, isImported: false, name: name, kind: kind, fexpr: fexpr)
 proc `==`*(a, b: Symbol): bool =
   a.name == b.name and a.scope == b.scope
 proc `$`*(sym: Symbol): string =
-  $sym.scope.name & "." & sym.name
+  $sym.scope.name & "." & $sym.name
 
 proc procname*(name: Name, argtypes: seq[Symbol]): ProcName =
   ProcName(name: name, argtypes: argtypes)

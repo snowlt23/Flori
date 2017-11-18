@@ -51,6 +51,8 @@ proc generateMain*(ctx: CCodegenContext): string =
   result &= ctx.generateInits()
   result &= "}\n"
 
+proc codegenSymbol*(sym: Symbol): string =
+  ($sym).replace(".", "_")
 proc codegenSymbol*(fexpr: FExpr): string =
   if fexpr.kind != fexprSymbol:
     fexpr.error("$# isn't symbol." % $fexpr)
@@ -133,11 +135,15 @@ proc codegenIfBranch*(ctx: CCodegenContext, src: var SrcExpr, fexpr: (FExpr, FEx
   src.prev &= "}"
 
 proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  let tmp = ctx.gentmpsym()
+  let tmpret = ctx.gentmpsym()
   let ret = if fexpr.typ.get.isVoidType:
               nil
             else:
-              tmp & " = "
+              tmpret & " = "
+
+  if not fexpr.typ.get.isVoidType:
+    src.prev &= codegenSymbol(fexpr.typ.get) & " " & tmpret & ";\n"
+
   src.prev &= "if "
   ctx.codegenIfBranch(src, fexpr.internalIfExpr.tbody, ret)
   for e in fexpr.internalIfExpr.ebody:
@@ -151,7 +157,7 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     src.prev &= bodysrc.exp
     src.prev &= "}\n"
   if not fexpr.typ.get.isVoidType:
-    src &= tmp
+    src &= tmpret
 
 proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, toplevel: bool) =
   case fexpr.internalMark
@@ -165,12 +171,18 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topl
     if not toplevel:
       ctx.codegenIf(src, fexpr)
 
+proc getRawName*(fexpr: FExpr): string =
+  if fexpr.kind == fexprQuote:
+    return $fexpr.quoted.symbol.name
+  else:
+    return $fexpr.symbol.name
+
 proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   let fn = fexpr[0].symbol.fexpr
   let fname = if fn.internalPragma.importname.isSome:
                 fn.internalPragma.importname.get
               else:
-                $fn[1].name
+                getRawName(fn[1])
   if fn.internalPragma.infix:
     if fexpr.len != 3:
       fexpr.error("$# is not infix expression." % $fexpr)

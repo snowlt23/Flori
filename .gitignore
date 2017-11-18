@@ -8,5 +8,6 @@ flori
 
 tests/tester.exe
 tests/tester
-tests/parser_test.exe
-tests/parser_test
+
+fib.exe
+fib
