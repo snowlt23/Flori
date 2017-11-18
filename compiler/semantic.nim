@@ -165,9 +165,9 @@ proc addInternalPragma*(fexpr: FExpr, pragma: FExpr) =
     if e.len >= 2:
       if $e[0] == "importc":
         ipragma.importc = true
-        ipragma.importname = some($e[1])
+        ipragma.importname = some(e[1].strval)
       elif $e[0] == "header":
-        ipragma.header = some($e[1])
+        ipragma.header = some(e[1].strval)
       else:
         e[0].error("unknown pragma.")
     else:
@@ -189,20 +189,33 @@ proc evalFn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let rettype = scope.getDecl(name(parsed.ret))
   if rettype.isNone:
     parsed.ret.error("undeclared $# type." % $parsed.ret)
-  for arg in parsed.args:
+  parsed.ret = fsymbol(parsed.ret.span, rettype.get)
+
+  let fnscope = scope.extendScope()
+
+  for arg in parsed.args.mitems:
     let (n, t) = arg
     let opt = scope.getDecl(name(t))
     if opt.isNone:
       t.error("undeclared $# type." % $n)
+    arg[1] = fsymbol(arg[0].span, opt.get)
     n.typ = opt
     argtypes.add(opt.get)
+    let status = fnscope.addDecl(name($n), opt.get)
+    if not status:
+      n.error("redefinition $# variable." % $n)
+
+  if parsed.body.isSome:
+    for e in parsed.body.get:
+      ctx.evalFExpr(fnscope, e)
+
   let sym = scope.symbol($fname, symbolFunc, fexpr)
   let status = scope.addFunc(ProcDecl(isInternal: false, name: name(fname), argtypes: argtypes, returntype: rettype.get, sym: sym))
   if not status:
     fexpr.error("redefinition $# function." % $fname)
   # symbol resolve
   let fsym = fsymbol(fexpr[0].span, sym)
-  fexpr[0] = fsym
+  fexpr[1] = fsym
   parsed.name = fsym
   # internal metadata for postprocess phase
   fexpr.addInternalPragma(parsed.pragma)
@@ -210,12 +223,16 @@ proc evalFn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   fexpr.internalFnExpr = parsed
 
 proc evalStruct*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
-  let parsed = parseStruct(fexpr)
+  var parsed = parseStruct(fexpr)
   let fname = parsed.name
   let sym = scope.symbol($fname, symbolType, fexpr)
   let status = scope.addDecl(name(fname), sym)
   if not status:
     fexpr.error("redefinition $# type." % $fname)
+  # symbol resolve
+  let fsym = fsymbol(fexpr[0].span, sym)
+  fexpr[1] = fsym
+  parsed.name = fsym
   # internal metadata for postprocess phase
   fexpr.addInternalPragma(parsed.pragma)
   fexpr.internalMark = internalStruct

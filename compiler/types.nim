@@ -12,6 +12,7 @@ type
     pos*: int
     internal*: tuple[filename: string, line: int]
   SymbolKind* = enum
+    symbolVar
     symbolType
     symbolFunc
     symbolMacro

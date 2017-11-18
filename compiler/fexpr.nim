@@ -2,6 +2,8 @@
 import scope
 import strutils, sequtils
 import options
+import tables
+
 import types
 export types.Span
 export types.FExprKind
@@ -21,29 +23,35 @@ template internalSpan*(): Span =
   Span(line: 0, linepos: 0, internal: (internalname, internalline))
 
 proc fident*(span: Span, id: string): FExpr =
-  FExpr(span: span, typ: none(Symbol), kind: fexprIdent, ident: id)
+  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprIdent, ident: id)
 proc fsymbol*(span: Span, sym: Symbol): FExpr =
-  FExpr(span: span, typ: none(Symbol), kind: fexprSymbol, symbol: sym)
+  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprSymbol, symbol: sym)
 proc fprefix*(span: Span, s: string): FExpr =
-  FExpr(span: span, typ: none(Symbol), kind: fexprPrefix, prefix: s)
+  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprPrefix, prefix: s)
 proc finfix*(span: Span, s: string): FExpr =
-  FExpr(span: span, typ: none(Symbol), kind: fexprInfix, infix: s)
+  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprInfix, infix: s)
 proc fquote*(span: Span, f: FExpr): FExpr =
-  FExpr(span: span, typ: none(Symbol), kind: fexprQuote, quoted: f)
+  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprQuote, quoted: f)
 proc fintlit*(span: Span, x: int64): FExpr =
-  FExpr(span: span, typ: none(Symbol), kind: fexprIntLit, intval: x)
+  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprIntLit, intval: x)
 proc fstrlit*(span: Span, s: string): FExpr =
-  FExpr(span: span, typ: none(Symbol), kind: fexprStrLit, strval: s)
+  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprStrLit, strval: s)
 proc fseq*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, typ: none(Symbol), kind: fexprSeq, sons: sons)
+  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprSeq, sons: sons)
 proc farray*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, typ: none(Symbol), kind: fexprArray, sons: sons)
+  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprArray, sons: sons)
 proc flist*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, typ: none(Symbol), kind: fexprList, sons: sons)
+  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprList, sons: sons)
 proc fblock*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, typ: none(Symbol), kind: fexprBlock, sons: sons)
+  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprBlock, sons: sons)
 proc fcall*(span: Span, call: FExpr, args = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, typ: none(Symbol), kind: fexprCall, sons: @[call] & args)
+  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprCall, sons: @[call] & args)
+
+proc len*(fexpr: FExpr): int =
+  if fexpr.kind in fexprContainer:
+    return fexpr.sons.len
+  else:
+    return 0
 
 proc addSon*(fexpr: FExpr, f: FExpr) =
   if fexpr.kind notin fexprContainer:
@@ -53,12 +61,16 @@ proc `[]`*(fexpr: FExpr, i: int): FExpr =
   if fexpr.kind notin fexprContainer:
     fexpr.error("$# has not sons" % $fexpr.kind)
   return fexpr.sons[i]
-proc `[]`*(fexpr: FExpr, sl: HSlice[int, BackwardsIndex]): FExpr =
+proc `[]`*(fexpr: FExpr, i: BackwardsIndex): FExpr =
+  fexpr[fexpr.len-int(i)]
+proc `[]`*(fexpr: FExpr, sl: Slice[int]): FExpr =
   if fexpr.kind notin fexprContainer:
     fexpr.error("$# has not sons" % $fexpr.kind)
   result = fseq(fexpr.span)
   for i in sl:
     result.addSon(fexpr.sons[i])
+proc `[]`*(fexpr: FExpr, sl: HSlice[int, BackwardsIndex]): FExpr =
+  fexpr[sl.a..fexpr.len-int(sl.b)]
 proc `[]=`*(fexpr: FExpr, i: int, f: FExpr) =
   if fexpr.kind notin fexprContainer:
     fexpr.error("$# has not sons" % $fexpr.kind)
@@ -74,12 +86,6 @@ iterator pairs*(fexpr: FExpr): (int, FExpr) =
     fexpr.error("$# has not sons" % $fexpr.kind)
   for i, son in fexpr.sons:
     yield(i, son)
-
-proc len*(fexpr: FExpr): int =
-  if fexpr.kind in fexprContainer:
-    return fexpr.sons.len
-  else:
-    return 0
 
 proc genIndent*(indent: int): string =
   repeat(' ', indent)

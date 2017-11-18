@@ -11,12 +11,12 @@ struct CString $[importc "char*", nodecl]
 struct Int32 $[importc "int32_t", header "stdint.h"]
 struct Bool $[importc "bool", header "stdbool.h"]
 
-fn +(Int32, Int32) Int32 $[importc "+", nodecl, infix]
-fn ==(Int32, Int32) Bool $[importc "==", nodecl, infix]
-fn printf(CString, Int32) Void $[importc "printf", header "stdio.h"]
+fn `+(a Int32, b Int32) Int32 $[importc "+", nodecl, infix]
+fn `==(a Int32, b Int32) Bool $[importc "==", nodecl, infix]
+fn printf(fmt CString, value Int32) $[importc "printf", header "stdio.h"]
 """
 
-suite "pass create":
+suite "C codegen":
   test "c ffi":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
@@ -30,6 +30,11 @@ suite "pass create":
 #include "stdint.h"
 #include "stdio.h"
 #include "stdbool.h"
+
+typedef void testmodule_Void;
+typedef char* testmodule_CString;
+typedef int32_t testmodule_Int32;
+typedef bool testmodule_Bool;
 
 void testmodule_init() {
 printf("%d", 5);
@@ -52,12 +57,17 @@ printf("%d", 5);
 #include "stdio.h"
 #include "stdbool.h"
 
-int32_t testmodule_add5_int32_t(int32_t x) {
+typedef void testmodule_Void;
+typedef char* testmodule_CString;
+typedef int32_t testmodule_Int32;
+typedef bool testmodule_Bool;
+
+testmodule_Int32 testmodule_add5(testmodule_Int32 x) {
 return (x + 5);
 }
 
 void testmodule_init() {
-printf("%d", testmodule_add5_int32_t(4));
+printf("%d", testmodule_add5(4));
 }
 """
   test "var":
@@ -97,12 +107,18 @@ testmodule_NINE = 9;
 #include "stdio.h"
 #include "stdbool.h"
 
+typedef void testmodule_Void;
+typedef char* testmodule_CString;
+typedef int32_t testmodule_Int32;
+typedef bool testmodule_Bool;
+
 void testmodule_init() {
 if ((1 == 2)) {
 printf("%d", 4);
 } else {
 printf("%d", 5);
-};
+}
+;
 }
 """
   test "while":
