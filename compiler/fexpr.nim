@@ -53,7 +53,7 @@ proc `[]`*(fexpr: FExpr, i: int): FExpr =
   if fexpr.kind notin fexprContainer:
     fexpr.error("$# has not sons" % $fexpr.kind)
   return fexpr.sons[i]
-proc `[]`*(fexpr: FExpr, sl: Slice[int]): FExpr =
+proc `[]`*(fexpr: FExpr, sl: HSlice[int, BackwardsIndex]): FExpr =
   if fexpr.kind notin fexprContainer:
     fexpr.error("$# has not sons" % $fexpr.kind)
   result = fseq(fexpr.span)

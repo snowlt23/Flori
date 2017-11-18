@@ -3,9 +3,11 @@ import types
 import fexpr
 import scope
 import semantic
+
 import tables
 import options
 import strutils, sequtils
+import os
 
 type
   SrcExpr* = object
@@ -90,7 +92,21 @@ proc codegenFn*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     src &= "}\n"
 
 proc codegenStruct*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  discard # TODO:
+  if fexpr.internalPragma.header.isSome:
+    src.addHeader(fexpr.internalPragma.header.get)
+  if fexpr.internalPragma.importc:
+    let struct = fexpr.internalStructExpr
+    let fname = if fexpr.internalPragma.importname.isSome:
+                  fexpr.internalPragma.importname.get
+                else:
+                  $struct.name
+    src &= "typedef "
+    src &= fname
+    src &= " "
+    ctx.codegenFExpr(src, struct.name)
+    src &= ";\n"
+  else:
+    fexpr.error("unsupported struct in currently.")
 
 proc codegenIfBranch*(ctx: CCodegenContext, src: var SrcExpr, fexpr: (FExpr, FExpr), ret: string) =
   let (tcond, tbody) = fexpr
@@ -167,8 +183,6 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     src &= $fexpr
   of fexprSymbol:
     src &= $fexpr
-    if fexpr.hasinternalMark: # TODO: symbol codegen support of type and importctype
-
   of fexprIntLit:
     src &= $fexpr
   of fexprStrLit:
@@ -184,3 +198,31 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     ctx.codegenCall(src, fexpr)
   else:
     fexpr.error("$# is unsupported expression in eval." % $fexpr.kind)
+
+proc codegenToplevel*(ctx: CCodegenContext, name: Name, scope: Scope) =
+  var modsrc = initSrcExpr()
+  for f in scope.toplevels:
+    ctx.codegenFExpr(modsrc, f)
+
+  modsrc &= "void $#_init() {\n" % $name
+  ctx.codegenBody(modsrc, fblock(internalSpan, scope.toplevels))
+  modsrc &= "}\n"
+
+  ctx.modulesrcs[name] = modsrc
+
+proc codegen*(ctx: CCodegenContext, sem: SemanticContext) =
+  for name, module in sem.modules:
+    ctx.codegenToplevel(name, module)
+
+proc filenames*(ctx: CCodegenContext, dir: string): seq[string] =
+  result = @[]
+  for si, modsrc in ctx.modulesrcs:
+    result.add(dir / $si & ".c")
+  result.add(dir / "main.c")
+
+proc write*(ctx: CCodegenContext, dir: string) =
+  if not existsDir(dir):
+    createDir(dir)
+  for si, modsrc in ctx.modulesrcs:
+    writeFile(dir / $si & ".c", modsrc.getSrc)
+  writeFile(dir / "main.c", ctx.generateMain())

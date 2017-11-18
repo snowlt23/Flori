@@ -6,14 +6,14 @@ import compiler.scope, compiler.semantic
 import compiler.ccodegen
 
 let prelude = """
-struct Void $["void", nodecl]
-struct CString $["char*", nodecl]
-struct Int32 $["int32_t", "stdint.h"]
-struct Bool $["bool", "stdbool.h"]
+struct Void $[importc "void", nodecl]
+struct CString $[importc "char*", nodecl]
+struct Int32 $[importc "int32_t", header "stdint.h"]
+struct Bool $[importc "bool", header "stdbool.h"]
 
-cfn +(Int32, Int32) Int32 $["+", nodecl, infix]
-cfn ==(Int32, Int32) Bool $["==", nodecl, infix]
-cfn printf(CString, Int32) Void $["printf", "stdio.h"]
+fn +(Int32, Int32) Int32 $[importc "+", nodecl, infix]
+fn ==(Int32, Int32) Bool $[importc "==", nodecl, infix]
+fn printf(CString, Int32) Void $[importc "printf", header "stdio.h"]
 """
 
 suite "pass create":
@@ -24,9 +24,8 @@ suite "pass create":
       printf("%d", 5)
     """)
     semctx.evalModule(name("testmodule"), fexprs)
-    genctx.codegenSemantic(semctx)
+    genctx.codegen(semctx)
     genctx.write("floricache")
-    genpass.write("floricache")
     check readFile("floricache/testmodule.c") == """
 #include "stdint.h"
 #include "stdio.h"
@@ -37,18 +36,17 @@ printf("%d", 5);
 }
 """
   test "fn":
-    let passctx = newDefaultSemPassContext()
-    let genpass = newCCodegenPass()
-    passctx.register(genpass)
-    let sexprs = parseToplevel("testmodule.flori", prelude & """
+    let semctx = newSemanticContext()
+    let genctx = newCCodegenContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
       fn add5(x Int32) Int32 {
         x + 5
       }
       printf("%d", add5(4))
     """)
-    passctx.createModuleFromSExpr("testmodule", sexprs)
-    passctx.execute()
-    genpass.write("floricache")
+    semctx.evalModule(name("testmodule"), fexprs)
+    genctx.codegen(semctx)
+    genctx.write("floricache")
     check readFile("floricache/testmodule.c") == """
 #include "stdint.h"
 #include "stdio.h"
@@ -63,15 +61,14 @@ printf("%d", testmodule_add5_int32_t(4));
 }
 """
   test "var":
-    let passctx = newDefaultSemPassContext()
-    let genpass = newCCodegenPass()
-    passctx.register(genpass)
-    let sexprs = parseToplevel("testmodule.flori", prelude & """
+    let semctx = newSemanticContext()
+    let genctx = newCCodegenContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
       var NINE = 9
     """)
-    passctx.createModuleFromSExpr("testmodule", sexprs)
-    passctx.execute()
-    genpass.write("floricache")
+    semctx.evalModule(name("testmodule"), fexprs)
+    genctx.codegen(semctx)
+    genctx.write("floricache")
     check readFile("floricache/testmodule.c") == """
 #include "stdint.h"
 #include "stdio.h"
@@ -83,19 +80,18 @@ testmodule_NINE = 9;
 }
 """
   test "if":
-    let passctx = newDefaultSemPassContext()
-    let genpass = newCCodegenPass()
-    passctx.register(genpass)
-    let sexprs = parseToplevel("testmodule.flori", prelude & """
+    let semctx = newSemanticContext()
+    let genctx = newCCodegenContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
       if (1 == 2) {
         printf("%d", 4)
       } else {
         printf("%d", 5)
       }
     """)
-    passctx.createModuleFromSExpr("testmodule", sexprs)
-    passctx.execute()
-    genpass.write("floricache")
+    semctx.evalModule(name("testmodule"), fexprs)
+    genctx.codegen(semctx)
+    genctx.write("floricache")
     check readFile("floricache/testmodule.c") == """
 #include "stdint.h"
 #include "stdio.h"
@@ -110,17 +106,16 @@ printf("%d", 5);
 }
 """
   test "while":
-    let passctx = newDefaultSemPassContext()
-    let genpass = newCCodegenPass()
-    passctx.register(genpass)
-    let sexprs = parseToplevel("testmodule.flori", prelude & """
+    let semctx = newSemanticContext()
+    let genctx = newCCodegenContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
       while (1 == 2) {
         printf("%d", 9)
       }
     """)
-    passctx.createModuleFromSExpr("testmodule", sexprs)
-    passctx.execute()
-    genpass.write("floricache")
+    semctx.evalModule(name("testmodule"), fexprs)
+    genctx.codegen(semctx)
+    genctx.write("floricache")
     check readFile("floricache/testmodule.c") == """
 #include "stdint.h"
 #include "stdio.h"

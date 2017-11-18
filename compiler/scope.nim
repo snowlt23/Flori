@@ -19,6 +19,7 @@ proc newScope*(name: Name): Scope =
   result.level = 0
   result.decls = initTable[Name, Symbol]()
   result.procdecls = initTable[Name, ProcDeclGroup]()
+  result.toplevels = @[]
 
 proc extendScope*(scope: Scope): Scope =
   new result
@@ -27,6 +28,7 @@ proc extendScope*(scope: Scope): Scope =
   result.level = scope.level + 1
   result.decls = scope.decls
   result.procdecls = scope.procdecls
+  result.toplevels = @[]
 
 proc `==`*(a, b: Scope): bool =
   a.name == b.name and a.level == b.level

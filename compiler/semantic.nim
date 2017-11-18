@@ -60,7 +60,7 @@ proc name*(fexpr: FExpr): Name =
     fexpr.error("$# is not name." % $fexpr)
 
 proc addInternalEval*(scope: Scope, n: string, p: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)) =
-  let status = scope.addFunc(ProcDecl(isInternal: true, internalproc: p, name: name(n), argtypes: @[], sym: scope.symbol(n, symbolInternal))) # FIXME: returntype
+  let status = scope.addFunc(ProcDecl(isInternal: true, internalproc: p, name: name(n), argtypes: @[], sym: scope.symbol(n, symbolInternal, fident(internalSpan, "internal")))) # FIXME: returntype
   if not status:
     fseq(internalSpan).error("redefinition $# function." % n)
 
@@ -320,4 +320,5 @@ proc evalModule*(ctx: SemanticContext, name: Name, fexprs: seq[FExpr]) =
   scope.importScope(ctx.internalScope)
   for f in fexprs:
     ctx.evalFExpr(scope, f)
+    scope.toplevels.add(f)
   ctx.modules[name] = scope

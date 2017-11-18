@@ -76,6 +76,7 @@ type
     level*: int
     decls*: Table[Name, Symbol]
     procdecls*: Table[Name, ProcDeclGroup]
+    toplevels*: seq[FExpr]
   SemanticContext* = ref object
     modules*: Table[Name, Scope]
   
