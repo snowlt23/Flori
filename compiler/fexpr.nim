@@ -45,7 +45,7 @@ proc flist*(span: Span, lst: varargs[FExpr]): FExpr =
 proc farray*(span: Span, sons = newSeq[FExpr]()): FExpr =
   FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), reader: none(string), kind: fexprArray, sons: sons)
 proc fmap*(span: Span): FExpr =
-  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), reader: none(string), kind: fexprMap, tbl: initTable[Name, FExpr]())
+  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), reader: none(string), kind: fexprMap, tbl: initOrderedTable[Name, FExpr]())
 
 iterator items*(fexpr: FExpr): FExpr =
   case fexpr.kind
@@ -84,23 +84,51 @@ proc addSon*(fexpr: FExpr, f: FExpr) =
     fexpr.error("$# isn't farray" % $fexpr.kind)
   fexpr.sons.add(f)
 proc `[]`*(fexpr: FExpr, i: int): FExpr =
-  if fexpr.kind != fexprArray:
-    fexpr.error("$# isn't farray" % $fexpr.kind)
-  return fexpr.sons[i]
+  case fexpr.kind
+  of fexprList:
+    var cnt = 0
+    for val in fexpr:
+      if i == cnt:
+        return val
+      cnt.inc
+  of fexprArray:
+    return fexpr.sons[i]
+  else:
+    fexpr.error("$# isn't container" % $fexpr.kind)
 proc `[]`*(fexpr: FExpr, i: BackwardsIndex): FExpr =
   fexpr[fexpr.len-int(i)]
 proc `[]`*(fexpr: FExpr, sl: Slice[int]): FExpr =
-  if fexpr.kind != fexprArray:
-    fexpr.error("$# isn't farray" % $fexpr.kind)
-  result = farray(fexpr.span)
-  for i in sl:
-    result.addSon(fexpr.sons[i])
+  case fexpr.kind
+  of fexprList:
+    result = fnil(fexpr.span)
+    for i in sl:
+      result = fcons(fexpr.span, fexpr[i], result)
+    result = result.reverse()
+  of fexprArray:
+    result = farray(fexpr.span)
+    for i in sl:
+      result.addSon(fexpr.sons[i])
+  else:
+    fexpr.error("$# isn't container" % $fexpr.kind)
 proc `[]`*(fexpr: FExpr, sl: HSlice[int, BackwardsIndex]): FExpr =
   fexpr[sl.a..fexpr.len-int(sl.b)]
 proc `[]=`*(fexpr: FExpr, i: int, f: FExpr) =
-  if fexpr.kind != fexprArray:
-    fexpr.error("$# isn't farray" % $fexpr.kind)
-  fexpr.sons[i] = f
+  case fexpr.kind
+  of fexprList:
+    var cnt = 0
+    var cur = fexpr
+    while true:
+      if cnt == i:
+        cur.car = f
+        break
+      if cur.cdr.kind == fexprNil:
+        fexpr.error("index out of bounds")
+      cnt.inc
+      cur = cur.cdr
+  of fexprArray:
+    fexpr.sons[i] = f
+  else:
+    fexpr.error("$# isn't container" % $fexpr.kind)
 
 proc `[]`*(fexpr: FExpr, key: Name): FExpr =
   if fexpr.kind != fexprMap:

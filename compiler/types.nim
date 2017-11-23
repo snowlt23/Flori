@@ -60,7 +60,7 @@ type
     of fexprArray:
       sons*: seq[FExpr]
     of fexprMap:
-      tbl*: Table[Name, FExpr]
+      tbl*: OrderedTable[Name, FExpr]
   ProcDecl* = object
     isInternal*: bool
     internalProc*: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)

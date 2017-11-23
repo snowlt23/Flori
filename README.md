@@ -9,7 +9,7 @@ Flori is statically typed lisp programming language without GC for system/applic
 
 - Native compile via C. (It's so fast and portable!)
 - Statically typed.
-- Flexible meta syntax (like Clojure), it's **F expression**.
+- Flexible meta syntax. (like Clojure)
 - Automatic resource management by **Compile Time Reference Counting**. (I call it CTRC)
 - Blazing fast memory management by **Memory Lifting**.
 - Ultimate power for Metaprogramming.
@@ -61,11 +61,13 @@ Flori is statically typed lisp programming language without GC for system/applic
 
 # TODO
 
-- Improve CTRefCount
-- Macro system
+- CTRefCount
 - Hot Reload
-- Disassembler, Debugger, Profiler
+- Macro system
+- Memory Lifting
+- Condition System
 - Standard Library
+- Disassembler, Debugger, Profiler
 - Build System & Package Manager
 - Concurrency
 - Self Hosting

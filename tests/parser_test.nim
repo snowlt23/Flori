@@ -32,7 +32,7 @@ suite "F expression parser test":
     {:importc "+" :header nodecl :pattern infix}
     """)[0]
     check fexpr.kind == fexprMap
-    check $fexpr == "{:header nodecl :importc \"+\" :pattern infix}"
+    check $fexpr == "{:importc \"+\" :header nodecl :pattern infix}"
   test "println":
     let fexpr = parseToplevel("test.flori", """
     (println "Hello Yukari!")
@@ -58,6 +58,13 @@ suite "F expression parser test":
     check fexpr.cdr.cdr.cdr.car.kind == fexprList
     check $fexpr.cdr.cdr.cdr.car == "(println \"False!\")"
     check $fexpr == """(if true (println "True!") (println "False!"))"""
+  test "pragma":
+    let fexpr = parseToplevel("test.flori", """
+    ${:importc "test" :header nodeclc}
+    """)[0]
+    check fexpr.kind == fexprList
+    check $fexpr[0] == "pragma"
+    check $fexpr[1] == "{:importc \"test\" :header nodeclc}"
   test "fn":
     let fexpr = parseToplevel("test.flori", """
     (defn add5 [^int x] ^int

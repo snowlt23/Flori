@@ -89,13 +89,18 @@ proc parseFExpr*(context: var ParserContext): FExpr =
   if context.curchar == '^': # type reader
     context.inc
     let span = context.span
-    result = flist(span, fident(span, "type"), context.parseFExpr())
+    result = flist(context.span, fident(span, "type"), context.parseFExpr())
     result.reader = some("^")
   elif context.curchar == '&': # mut reader
     context.inc
     let span = context.span
-    result = flist(span, fident(span, "mut"), context.parseFExpr())
+    result = flist(context.span, fident(span, "mut"), context.parseFExpr())
     result.reader = some("&")
+  elif context.curchar == '$': # pragma reader
+    context.inc
+    let span = context.span
+    result = flist(span, fident(span, "pragma"), context.parseFExpr())
+    result.reader = some("$")
   elif context.curchar == '(': # List
     var lst = fnil(context.span)
     context.inc
