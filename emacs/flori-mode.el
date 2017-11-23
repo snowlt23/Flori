@@ -1,24 +1,20 @@
 
-(setq flori-separates "\\((\\|)\\|[\\|]\\|\s\\|\n\\|r\\)")
+(setq flori-separates "\\((\\|)\\|[\\|]\\|\s\\|\n\\|\r\\)")
 
-(setq flori-keywords '("var" "match" "if" "else" "elif" "cond" "for" "while" "require" "macro" "iterator" "fn" "type" "cfn" "ctype"))
-(setq flori-warnings '("unsafe"))
+(setq flori-keywords '("construct" "match" "if" "cond" "for" "while" "require"))
 
 (setq flori-keywords-regexp (regexp-opt flori-keywords 'words))
-(setq flori-warnings-regexp (regexp-opt flori-warnings 'words))
-
-(setq flori-def-regexp "\\(fn\\|struct\\|cfn\\|ctype\\)\s+\\(\\([a-z]\\|[A-Z]\\|[0-9]\\)+\\)")
-(setq flori-type-regexp "[A-Z]\\([a-z]\\|[0-9]\\)*")
-(setq flori-attr-regexp "\:\\([a-z]\\|[A-Z]\\)+")
+(setq flori-def-regexp (concat "\\(def.*?\\)" flori-separates "\\(.+?\\)" flori-separates))
+(setq flori-type-regexp (concat "\\^.+?" flori-separates))
+(setq flori-attr-regexp (concat "\:.+?" flori-separates))
 (setq flori-constant-regexp (concat flori-separates "\\([0-9]\\([0-9]\\|\.\\)*?\\)" flori-separates))
 (setq flori-string-regexp "\".*\"")
 (setq flori-path-regexp "\\([a-z]\\|[A-Z]\\)+\\(\\.\\([a-z]\\|[A-Z]\\)+\\)+")
 
 (setq flori-font-lock-keywords
       `((,flori-keywords-regexp . font-lock-keyword-face)
-        (,flori-warnings-regexp . font-lock-warning-face)
+        (,flori-def-regexp (1 font-lock-keyword-face) (3 font-lock-function-name-face))
         (,flori-type-regexp . font-lock-type-face)
-        (,flori-def-regexp (1 font-lock-keyword-face) (2 font-lock-function-name-face))
         (,flori-attr-regexp . font-lock-preprocessor-face)
         (,flori-constant-regexp (2 font-lock-constant-face))
         (,flori-string-regexp . font-lock-string-face)
@@ -38,6 +34,8 @@
   (setq indent-line-function #'flori-indent-line)
   (setq comment-start ";;")
   (setq font-lock-defaults '(flori-font-lock-keywords)))
+(font-lock-add-keywords 'flori-mode
+                        '(("set!" . font-lock-keyword-face)))
 (font-lock-add-keywords 'flori-mode
                         '(("destructor" . font-lock-builtin-face)))
 
