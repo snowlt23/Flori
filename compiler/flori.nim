@@ -29,8 +29,8 @@ proc main() =
                      parseInt($args["--opt"])
                    else:
                      0
-    if optlevel > 3:
-      quit "optlevel should be lesseq than 3."
+    if optlevel > 3 or optlevel < 0:
+      quit "optlevel should be 0 <= level <= 3."
     compileFlori(filepath, outname, optlevel)
 
 main()

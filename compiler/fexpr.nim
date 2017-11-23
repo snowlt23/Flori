@@ -151,7 +151,7 @@ iterator map*(fexpr: FExpr): (Name, FExpr) =
 
 proc reverse*(fexpr: FExpr): FExpr =
   if fexpr.kind != fexprList:
-    fexpr.error("$# isn't flist")
+    fexpr.error("$# isn't flist" % $fexpr)
   var cur = fnil(fexpr.span)
   for val in fexpr:
     cur = fcons(cur.span, val, cur)

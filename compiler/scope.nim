@@ -104,6 +104,6 @@ proc importScope*(scope: Scope, importscope: Scope) =
 proc isType*(sym: Symbol, name: string): bool =
   $sym.name == name
 proc isBoolType*(sym: Symbol): bool =
-  sym.isType("Bool")
+  sym.isType("bool")
 proc isVoidType*(sym: Symbol): bool =
-  sym.isType("Void")
+  sym.isType("void")

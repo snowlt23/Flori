@@ -176,7 +176,7 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
     let opt = scope.getDecl(typename(t))
     if opt.isNone:
       t.error("undeclared $# type." % $n)
-    parsed.args[i+1] = fsymbol(parsed.args[i+1].span, opt.get)
+    parsed.args[i] = fsymbol(parsed.args[i].span, opt.get)
     n.typ = opt
     argtypes.add(opt.get)
     let status = fnscope.addDecl(name(n), opt.get)

@@ -9,7 +9,7 @@ let prelude = """
 (deftype void ${:importc "void" :header nodeclc})
 (deftype bool ${:importc "bool" :header "stdbool.h"})
 (deftype cstring ${:importc "char*" :header nodeclc})
-(deftype int ${:importc "int64_t" :header nodeclc})
+(deftype int ${:importc "int64_t" :header "stdint.h"})
 
 (defn + [^int a ^int b] ^int ${:importc "+" :header nodeclc :pattern infixc})
 (defn = [^int a ^int b] ^bool ${:importc "==" :header nodeclc :pattern infixc})

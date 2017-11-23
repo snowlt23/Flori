@@ -8,7 +8,7 @@
 (deftype void ${:importc "void" :header nodeclc})
 (deftype bool ${:importc "bool" :header "stdbool.h"})
 (deftype cstring ${:importc "char*" :header nodeclc})
-(deftype int ${:importc "int64_t" :header nodeclc})
+(deftype int ${:importc "int64_t" :header "stdint.h"})
 (deftype int32 ${:importc "int32_t" :header "stdint.h"})
 (deftype int64 ${:importc "int64_t" :header "stdint.h"})
 

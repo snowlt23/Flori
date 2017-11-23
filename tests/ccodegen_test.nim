@@ -1,19 +1,19 @@
 
 import unittest
 
-import compiler.fexpr, compiler.parser
+import compiler.types, compiler.fexpr, compiler.parser
 import compiler.scope, compiler.semantic
 import compiler.ccodegen
 
 let prelude = """
-struct Void $[importc "void", nodecl]
-struct CString $[importc "char*", nodecl]
-struct Int32 $[importc "int32_t", header "stdint.h"]
-struct Bool $[importc "bool", header "stdbool.h"]
+(deftype void ${:importc "void" :header nodeclc})
+(deftype bool ${:importc "bool" :header "stdbool.h"})
+(deftype cstring ${:importc "char*" :header nodeclc})
+(deftype int ${:importc "int64_t" :header "stdint.h"})
 
-fn `+(a Int32, b Int32) Int32 $[importc "+", nodecl, infix]
-fn `==(a Int32, b Int32) Bool $[importc "==", nodecl, infix]
-fn printf(fmt CString, value Int32) $[importc "printf", header "stdio.h"]
+(defn + [^int a ^int b] ^int ${:importc "+" :header nodeclc :pattern infixc})
+(defn = [^int a ^int b] ^bool ${:importc "==" :header nodeclc :pattern infixc})
+(defn printf [^cstring fmt ^int x] ${:importc "printf" :header "stdio.h"})
 """
 
 suite "C codegen":
@@ -21,48 +21,47 @@ suite "C codegen":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
-      printf("%d", 5)
+      (printf "%d" 5)
     """)
     semctx.evalModule(name("testmodule"), fexprs)
     genctx.codegen(semctx)
-    genctx.write("floricache")
+    genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
 #include "stdint.h"
 #include "stdio.h"
 #include "stdbool.h"
 
-typedef void testmodule_Void;
-typedef char* testmodule_CString;
-typedef int32_t testmodule_Int32;
-typedef bool testmodule_Bool;
+typedef void testmodule_void;
+typedef bool testmodule_bool;
+typedef char* testmodule_cstring;
+typedef int64_t testmodule_int;
 
 void testmodule_init() {
 printf("%d", 5);
 }
 """
-  test "fn":
+  test "defn":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
-      fn add5(x Int32) Int32 {
-        x + 5
-      }
-      printf("%d", add5(4))
+      (defn add5 [^int x] ^int
+        (+ x 5))
+      (printf "%d" (add5 4))
     """)
     semctx.evalModule(name("testmodule"), fexprs)
     genctx.codegen(semctx)
-    genctx.write("floricache")
+    genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
 #include "stdint.h"
 #include "stdio.h"
 #include "stdbool.h"
 
-typedef void testmodule_Void;
-typedef char* testmodule_CString;
-typedef int32_t testmodule_Int32;
-typedef bool testmodule_Bool;
+typedef void testmodule_void;
+typedef bool testmodule_bool;
+typedef char* testmodule_cstring;
+typedef int64_t testmodule_int;
 
-testmodule_Int32 testmodule_add5(testmodule_Int32 x) {
+testmodule_int testmodule_add5(testmodule_int x) {
 return (x + 5);
 }
 
@@ -70,47 +69,26 @@ void testmodule_init() {
 printf("%d", testmodule_add5(4));
 }
 """
-  test "var":
-    let semctx = newSemanticContext()
-    let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
-      var NINE = 9
-    """)
-    semctx.evalModule(name("testmodule"), fexprs)
-    genctx.codegen(semctx)
-    genctx.write("floricache")
-    check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-int32_t testmodule_NINE;
-void testmodule_init() {
-testmodule_NINE = 9;
-}
-"""
   test "if":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
-      if (1 == 2) {
-        printf("%d", 4)
-      } else {
-        printf("%d", 5)
-      }
+      (if (= 1 2)
+          (printf "%d" 4)
+          (printf "%d" 5))
     """)
     semctx.evalModule(name("testmodule"), fexprs)
     genctx.codegen(semctx)
-    genctx.write("floricache")
+    genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
 #include "stdint.h"
 #include "stdio.h"
 #include "stdbool.h"
 
-typedef void testmodule_Void;
-typedef char* testmodule_CString;
-typedef int32_t testmodule_Int32;
-typedef bool testmodule_Bool;
+typedef void testmodule_void;
+typedef bool testmodule_bool;
+typedef char* testmodule_cstring;
+typedef int64_t testmodule_int;
 
 void testmodule_init() {
 if ((1 == 2)) {
@@ -125,21 +103,49 @@ printf("%d", 5);
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
-      while (1 == 2) {
-        printf("%d", 9)
-      }
+      (while (= 1 2)
+        (printf "%d" 9))
     """)
     semctx.evalModule(name("testmodule"), fexprs)
     genctx.codegen(semctx)
-    genctx.write("floricache")
+    genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
 #include "stdint.h"
 #include "stdio.h"
 #include "stdbool.h"
 
+typedef void testmodule_void;
+typedef bool testmodule_bool;
+typedef char* testmodule_cstring;
+typedef int64_t testmodule_int;
+
 void testmodule_init() {
 while ((1 == 2)) {
 printf("%d", 9);
 };
+}
+"""
+  test "toplevel def":
+    let semctx = newSemanticContext()
+    let genctx = newCCodegenContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
+      (def nine 9)
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+    genctx.codegen(semctx)
+    genctx.writeModules("floricache")
+    check readFile("floricache/testmodule.c") == """
+#include "stdint.h"
+#include "stdio.h"
+#include "stdbool.h"
+
+typedef void testmodule_void;
+typedef bool testmodule_bool;
+typedef char* testmodule_cstring;
+typedef int64_t testmodule_int;
+
+int32_t testmodule_NINE;
+void testmodule_init() {
+testmodule_NINE = 9;
 }
 """
