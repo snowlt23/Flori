@@ -7,9 +7,8 @@
 (def z (uint32 521288629))
 (def w (uint32 88675123))
 
-@(: -> UInt32)
-(defn xor128 []
-  (def t (pow x (<< x (uint32 11))))
+(defn xor128 [] ^uint32
+  (def t (pow x (shl x (uint32 11))))
   (set! x y)
   (set! y z)
   (set! z w)
@@ -19,6 +18,5 @@
       (pow t (>> t (uint32 8)))))
   w)
 
-(print (xor128))
-(print "\n")
-(print (xor128))
+(println (xor128))
+(println (xor128))

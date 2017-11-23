@@ -1,22 +1,30 @@
 
-(require :prelude)
+;;; require
 
-(deftype void {:importc :nodecl})
-(deftype bool {:importc :header "stdbool.h"})
-(deftype cstring {:importc "char*" :nodecl})
-(deftype int {:importc "int64_t" :nodecl})
+(require prelude :refer :all)
+
+;;; importc
+
+(deftype void {:importc "void" :header nodeclc})
+(deftype bool {:importc "bool" :header "stdbool.h"})
+(deftype cstring {:importc "char*" :header nodeclc})
+(deftype int {:importc "int64_t" :header nodeclc})
 (deftype int32 {:importc "int32_t" :header "stdint.h"})
 (deftype int64 {:importc "int64_t" :header "stdint.h"})
 
-(defn + [^int a ^int b] ^int {:importc :nodecl :infix})
-(defn += [^&int a ^int b] {:importc :nodecl :infix})
-(defn - [^int a ^int b] ^int {:importc :nodecl :infix})
-(defn < [^int a ^int b] ^bool {:importc :nodecl :infix})
+(defn + [^int a ^int b] ^int {:importc "+" :header nodeclc :pattern infixc})
+(defn += [^&int a ^int b] {:importc "+=" :header nodeclc :pattern infixc})
+(defn - [^int a ^int b] ^int {:importc "-" :header nodeclc :pattern infixc})
+(defn < [^int a ^int b] ^bool {:importc "<" :header nodeclc :pattern infixc})
+
+;;; fib
 
 (defn fib [^int n] ^int
   (if (< n 2)
       n
       (+ (fib (- n 1)) (fib (- n 2)))))
+
+;;; vec type
 
 (deftype vec [:a] {:p ^(ptr :a) :len ^int})
 
@@ -35,6 +43,8 @@
   (set! (nth vec (:len vec)) value)
   (+= (:len vec) 1))
 
+;;; for macro
+
 (defmacro for [^fexpr i ^fexpr iter ^frest body]
   `(,(append (car iter) `-iter) ,i ,body ,@(cdr iter)))
 
@@ -45,6 +55,8 @@
   `(let [,i ,a]
     (while (<= ,i ,b)
       ,body)))
+
+;;; main
 
 (defn main []
   (let [top (new-vec ^int 1)]

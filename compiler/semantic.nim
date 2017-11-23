@@ -51,20 +51,16 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr)
 proc name*(fexpr: FExpr): Name =
   case fexpr.kind
   of fexprIdent:
-    return name(fexpr.ident)
-  of fexprPrefix:
-    return name(fexpr.prefix)
-  of fexprInfix:
-    return name(fexpr.infix)
-  of fexprQuote:
-    return name(fexpr.quoted)
+    return name($fexpr)
+  of fexprAttr:
+    return name($fexpr)
   else:
     fexpr.error("$# is not name." % $fexpr)
 
 proc addInternalEval*(scope: Scope, n: Name, p: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)) =
   let status = scope.addFunc(ProcDecl(isInternal: true, internalproc: p, name: n, argtypes: @[], sym: scope.symbol(n, symbolInternal, fident(internalSpan, "internal")))) # FIXME: returntype
   if not status:
-    fseq(internalSpan).error("redefinition $# function." % $n)
+    fnil(internalSpan).error("redefinition $# function." % $n)
 
 proc parseFn*(fexpr: FExpr): FnExpr =
   var pos = 1

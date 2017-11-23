@@ -4,14 +4,13 @@
 (require logger :refer :all)
 (require vec :refer :all)
 
-@(:)
 (defn main []
-  (var l (logger))
-  (add-file l stdout)
-  (add-file l (open-file "voiceroids.txt" "w"))
-  (log l "Yukari\n")
-  (log l "Maki\n")
-  (log l "Akane\n")
-  (log l "Aoi\n"))
+  (let [l (new-logger)]
+    (add-file l stdout)
+    (add-file l (open-file "voiceroids.txt) "w")
+    (log l "Yukari\n")
+    (log l "Maki\n")
+    (log l "Akane\n")
+    (log l "Aoi\n")))
 
 (main)

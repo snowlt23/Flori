@@ -1,20 +1,19 @@
 
-struct Void $[importc "void", nodecl]
-struct CString $[importc "char*", nodecl]
-struct Int32 $[importc "int32_t", header "stdint.h"]
-struct Bool $[importc "bool", header "stdbool.h"]
+(deftype void {:importc "void" :header nodeclc})
+(deftype bool {:importc "bool" :header "stdbool.h"})
+(deftype cstring {:importc "char*" :header nodeclc})
+(deftype int {:importc "int64_t" :header nodeclc})
+(deftype int32 {:importc "int32_t" :header "stdint.h"})
+(deftype int64 {:importc "int64_t" :header "stdint.h"})
 
-fn `+(a Int32, b Int32) Int32 $[importc, nodecl, infix]
-fn `-(a Int32, b Int32) Int32 $[importc, nodecl, infix]
-fn `<(a Int32, b Int32) Bool $[importc, nodecl, infix]
-fn printf(fmt CString, value Int32) $[importc, header "stdio.h"]
+(defn + [^int a ^int b] ^int {:importc "+" :header nodeclc :pattern infixc})
+(defn - [^int a ^int b] ^int {:importc "-" :header nodeclc :pattern infixc})
+(defn < [^int a ^int b] ^bool {:importc "<" :header nodeclc :pattern infixc})
+(defn printf [^cstring fmt ^int value] {:importc "printf" :header "stdio.h"})
 
-fn fib(n Int32) Int32 {
-  if (n < 2) {
-    n
-  } else {
-    fib(n - 1) + fib(n - 2)
-  }
-}
+(defn fib [^int n] ^int
+  (if (< n 2)
+      n
+      (+ (fib (- n 1)) (fib (- n 2)))))
 
-printf("%d\n", fib(38))
+(printf "%d\n" (fib 38))
