@@ -27,15 +27,14 @@ Flori is statically typed lisp programming language without GC for system/applic
 
 ### Hello World
 ```
-import io
+(require io :refer :all)
 
-println("Hello World!")
+(println "Hello World!")
 ```
 
 ### Fibonacci
 ```
-import io
-(require :io)
+(require io :refer :all)
 
 (defn fib [^int n] ^int
   (if (< n 2)
@@ -47,7 +46,7 @@ import io
 
 ### File I/O
 ```
-(require :fileio)
+(require fileio :refer :all)
 
 (defn main []
   (let [f (open-file "voiceroids.txt", "w")]
@@ -57,7 +56,7 @@ import io
     (write f "Aoi")
     ;; automatic release file of 'f variable here!))
 
-main()
+(main)
 ```
 
 # TODO
