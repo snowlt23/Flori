@@ -46,31 +46,35 @@ Heap flori_heap;
 typedef struct {
   int32_t* p;
   int32_t len;
-} Vec_int32_t;
+} Vec_Int32;
 
-Vec_int32_t new_vec(int32_t len) {
-  return Vec_int32_t{heap_alloc(flori_heap, sizeof(int32_t)*len), len};
+Vec_Int32 new_vec_Int32(int32_t len) {
+  return Vec_Int32{heap_alloc(flori_heap, sizeof(int32_t)*len), len};
 }
 
-void set_nth_excl(Vec_int32_t* vec, int32_t index, int32_t value) {
+void excl_eq(Vec_Int32* vec, int32_t index, int32_t value) {
   v->p[index] = value;
 }
 
-void push(Vec_int32_t* vec, int32_t value) {
+void push(Vec_Int32* vec, int32_t value) {
   vec->p = realloc(vec->p, sizeof(int32_t)*(vec->len+1));
   set_nth_excl(&v, vec->len, value);
   vec->len = vec->len + 1;
 }
 
 void memorylift_main() {
-  size_t heappos = heap_position(flori_heap);
-
-  int32_t len_tmp = 1;
-  Vec_int32_t v = new_vec(len_tmp);
-  set_nth_excl(&v, 0, 9);
-  push(&v, 10);
-
-  heap_rollback(flori_heap, heappos);
+  size_t __flori_heappos = heap_position(flori_heap);
+  Vec_Int32 top = new_vec_Int32(Int32, 1);
+  for (int i = 0; i <= 5; i++) {
+    size_t __flori_heappos = heap_position(flori_heap);
+    int32_t len_tmp = 1;
+    Vec_Int32 v = new_vec_Int32(len_tmp);
+    excl_eq(&v, 0, 9);
+    push(&v, 10);
+    heap_rollback(flori_heap, __flori_heappos);
+    top = v;
+  }
+  heap_rollback(flori_heap, __flori_heappos);
 }
 
 void memorylift_init() {

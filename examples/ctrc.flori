@@ -1,0 +1,68 @@
+
+struct Vec[T] {
+  p Ptr![:a]
+  len Int32
+}
+
+fn new_vec(T Typedesc, len Int32) Vec![T] {
+  Vec(alloc(sizeof(T)*len), len)
+}
+
+fn `!=[T](vec &Vec![T], index Int32, value T) {
+  vec.p!index = value
+}
+
+fn push[T](vec &Vec![T], value T) {
+  vec.p = realloc(vec.p, sizeof(T)*(vec.len+1))
+  vec!(vec.len-1) = value
+  vec.len += 1
+}
+
+fn vec_main() {
+  var top = new_vec(Int32, 1) # top.cnt 1
+  top!0 = 9
+  for i in 0..5 {
+    v := new_vec(Int32, 1) # v.cnt 1
+    v!0 = 9 # v.cnt 1
+    push(v, 10) # v.cnt 1
+    push(v, top!0) # v.cnt 1
+    # top.cnt 0 released -> 
+    top = v # v.cnt 2, top.cnt 1
+    # v.cnt 1 not released
+  }
+}
+
+voiceroids := ["Yukari", "Maki", "Akane", "Aoi"]
+
+fn read_file(filename String) {
+  f := open_file("voiceroids.txt", "r") # f.cnt 1
+  var s = "" # s.cnt 1
+  for line in readline(f) { # f.cnt 1
+    s &= line & "\n" # s.cnt 1
+  }
+  # f.cnt 0
+  return s # s.cnt 1
+}
+
+fn add_file(logger &Logger, f File) {
+  push(logger.files, f) # f.cnt += 1
+}
+
+fn file_main() {
+  logger := new_logger()
+  f := open_file("voiceroids.txt", "r") # f.cnt 1
+  add_file(logger, f) # f.cnt 2
+  for v in voiceroids {
+    write(f, v); # f.cnt 2
+  }
+  txt := read_file("voiceroids.txt") # txt.cnt 1
+  print(txt)
+  # logger.cnt 0, f.cnt 1
+  # f.cnt 0
+  # txt.cnt 0
+}
+
+vec_main()
+file_main()
+
+# (vec 9 10)
