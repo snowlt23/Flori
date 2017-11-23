@@ -1,5 +1,5 @@
 
-import tables, hashes
+import tables
 import options
 import strutils
 
@@ -32,17 +32,6 @@ proc extendScope*(scope: Scope): Scope =
 
 proc `==`*(a, b: Scope): bool =
   a.name == b.name and a.level == b.level
-  
-proc name*(s: seq[string]): Name = Name(names: s)
-proc name*(s: string): Name = name(@[s])
-proc hash*(name: Name): Hash = hash(name.names.join("_"))
-proc `==`*(a, b: Name): bool =
-  if a.names.len != b.names.len: return false
-  for i in 0..<a.names.len:
-    if a.names[i] != b.names[i]:
-      return false
-  return true
-proc `$`*(name: Name): string = name.names.join(".")
 
 proc symbol*(scope: Scope, name: Name, kind: SymbolKind, fexpr: FExpr): Symbol =
   Symbol(scope: scope, isImported: false, name: name, kind: kind, fexpr: fexpr)
