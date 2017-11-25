@@ -2,7 +2,7 @@
 import unittest
 
 import compiler.types, compiler.fexpr, compiler.parser
-import compiler.scope, compiler.semantic
+import compiler.scope, compiler.semantic, compiler.internal
 import compiler.ccodegen
 
 let prelude = """
@@ -95,8 +95,7 @@ if ((1 == 2)) {
 printf("%d", 4);
 } else {
 printf("%d", 5);
-}
-;
+};
 }
 """
   test "while":
@@ -143,9 +142,36 @@ typedef void testmodule_void;
 typedef bool testmodule_bool;
 typedef char* testmodule_cstring;
 typedef int64_t testmodule_int;
-
-int32_t testmodule_NINE;
+testmodule_int testmodule_nine;
 void testmodule_init() {
-testmodule_NINE = 9;
+testmodule_nine = 9;
+}
+"""
+  test "local def":
+    let semctx = newSemanticContext()
+    let genctx = newCCodegenContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
+      (defn test []
+        (def name "feelsgoodman"))
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+    genctx.codegen(semctx)
+    genctx.writeModules("floricache")
+    check readFile("floricache/testmodule.c") == """
+#include "stdint.h"
+#include "stdio.h"
+#include "stdbool.h"
+
+typedef void testmodule_void;
+typedef bool testmodule_bool;
+typedef char* testmodule_cstring;
+typedef int64_t testmodule_int;
+
+testmodule_void testmodule_test() {
+testmodule_cstring testmodule_name = "feelsgoodman";
+}
+
+void testmodule_init() {
+;
 }
 """

@@ -1,8 +1,6 @@
 
-import types
-import fexpr
-import scope
-import semantic
+import types, fexpr
+import scope, semantic, internal
 
 import tables
 import options
@@ -153,11 +151,35 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     src.prev &= tmpret & " = " & fbodysrc.exp & ";\n"
   else:
     src.prev &= fbodysrc.exp & ";\n"
-  src.prev &= "}\n"
+  src.prev &= "}"
 
   # return temporary variable.
   if not fexpr.typ.get.isVoidType:
     src &= tmpret
+
+proc codegenWhile*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  src &= "while ("
+  ctx.codegenFExpr(src, fexpr.internalWhileExpr.cond)
+  src &= ") {\n"
+  ctx.codegenBody(src, fexpr.internalWhileExpr.body)
+  src &= "}"
+
+proc codegenDef*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  src &= codegenSymbol(fexpr.internalDefExpr.value.typ.get)
+  src &= " "
+  src &= codegenSymbol(fexpr.internalDefExpr.name)
+  src &= " = "
+  ctx.codegenFExpr(src, fexpr.internalDefExpr.value)
+
+proc codegenDefDecl*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  src &= codegenSymbol(fexpr.internalDefExpr.value.typ.get)
+  src &= " "
+  src &= codegenSymbol(fexpr.internalDefExpr.name)
+  src &= ";"
+proc codegenDefValue*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  src &= codegenSymbol(fexpr.internalDefExpr.name)
+  src &= " = "
+  ctx.codegenFExpr(src, fexpr.internalDefExpr.value)
 
 proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, toplevel: bool) =
   case fexpr.internalMark
@@ -170,6 +192,17 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topl
   of internalIf:
     if not toplevel:
       ctx.codegenIf(src, fexpr)
+  of internalWhile:
+    if not toplevel:
+      ctx.codegenWhile(src, fexpr)
+  of internalDef:
+    if toplevel:
+      ctx.codegenDefDecl(src, fexpr)
+      fexpr.internalToplevel = true
+    elif fexpr.hasinternalToplevel and fexpr.internalToplevel:
+      ctx.codegenDefValue(src, fexpr)
+    else:
+      ctx.codegenDef(src, fexpr)
 
 # proc getRawName*(fexpr: FExpr): string =
 #   if fexpr.kind == fexprQuote:

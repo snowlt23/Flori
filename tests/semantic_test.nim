@@ -2,8 +2,8 @@
 import unittest
 import tables
 import options
-import compiler.types, compiler.fexpr, compiler.parser, compiler.scope
-import compiler.semantic
+import compiler.types, compiler.fexpr, compiler.parser
+import compiler.scope, compiler.semantic, compiler.internal
 
 let prelude = """
 (deftype void ${:importc "void" :header nodeclc})
@@ -43,3 +43,33 @@ suite "semantic":
     semctx.evalModule(name("testmodule"), fexprs)
     check fexprs[^1].typ.isSome
     check $fexprs[^1].typ.get == "testmodule.int"
+  test "while":
+    let semctx = newSemanticContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
+      (while (= 1 2)
+        (printf "%d" 9))
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+    check $fexprs[^1].typ.get == "testmodule.void"
+    check $fexprs[^1][0] == "while"
+    check fexprs[^1].internalMark == internalWhile
+  test "toplevel def":
+    let semctx = newSemanticContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
+      (def nine 9)
+      (printf "%d" nine)
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+    check fexprs[^2].internalMark == internalDef
+    check $fexprs[^2].typ.get == "testmodule.void"
+    check $fexprs[^1][2] == "nine"
+    check fexprs[^1][2].typ.get.name == name("int")
+  test "local def":
+    let semctx = newSemanticContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
+      (defn test []
+        (def name "feelsgoodman"))
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+    check fexprs[^1][3].internalMark == internalDef
+    check $fexprs[^1][3].typ.get == "testmodule.void"

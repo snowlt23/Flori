@@ -87,8 +87,7 @@ type
 # Name
 #
   
-proc name*(s: seq[string]): Name = Name(names: s)
-proc name*(s: string): Name = name(@[s])
+proc name*(s: varargs[string]): Name = Name(names: @s)
 proc hash*(name: Name): Hash = hash(name.names.join("_"))
 proc `==`*(a, b: Name): bool =
   if a.names.len != b.names.len: return false
