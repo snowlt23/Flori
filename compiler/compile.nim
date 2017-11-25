@@ -1,6 +1,6 @@
 
 import fexpr, parser
-import semantic, scope
+import scope, semantic, internal
 import ccodegen
 
 import os
