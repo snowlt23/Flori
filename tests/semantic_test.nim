@@ -73,3 +73,10 @@ suite "semantic":
     semctx.evalModule(name("testmodule"), fexprs)
     check fexprs[^1][3].internalMark == internalDef
     check $fexprs[^1][3].typ.get == "testmodule.void"
+  test "deftype":
+    let semctx = newSemanticContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
+      (deftype vec $[:a] [^(ptr :a) p ^int len])
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+    check fexprs[^1].internalDeftypeExpr.generics.isSome

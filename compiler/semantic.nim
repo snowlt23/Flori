@@ -20,11 +20,11 @@ proc name*(fexpr: FExpr): Name =
     return name($fexpr)
   else:
     fexpr.error("$# is not name." % $fexpr)
-proc typename*(fexpr: FExpr): Name =
-  if fexpr.kind == fexprList and $fexpr[0] == "type":
-    return name($fexpr[1])
-  else:
-    fexpr.error("$# is not typename." % $fexpr)
+# proc typename*(fexpr: FExpr): Name =
+#   if fexpr.kind == fexprList and $fexpr[0] == "type":
+#     return name($fexpr[1])
+#   else:
+#     fexpr.error("$# is not typename." % $fexpr)
 
 proc addInternalEval*(scope: Scope, n: Name, p: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)) =
   let status = scope.addFunc(ProcDecl(isInternal: true, internalproc: p, name: n, argtypes: @[], sym: scope.symbol(n, symbolInternal, fident(internalSpan, "internal")))) # FIXME: returntype
@@ -37,7 +37,9 @@ proc voidtypeExpr*(span: Span): FExpr =
 proc isTypeExpr*(fexpr: FExpr): bool =
   fexpr.kind == fexprList and $fexpr[0] == "type"
 proc isPragmaExpr*(fexpr: FExpr): bool =
-  fexpr.kind == fexprList and $fexpr[0] == "pragma"
+  fexpr.kind == fexprList and $fexpr[0] == "pragma" and fexpr[1].kind == fexprMap
+proc isGenericsExpr*(fexpr: FExpr): bool =
+  fexpr.kind == fexprList and $fexpr[0] == "pragma" and fexpr[1].kind == fexprArray
 
 proc resolveByType*(scope: Scope, fexpr: FExpr, n: Name) =
   let opt = scope.getDecl(n)
@@ -46,6 +48,31 @@ proc resolveByType*(scope: Scope, fexpr: FExpr, n: Name) =
   fexpr.typ = opt
 proc resolveByVoid*(scope: Scope, fexpr: FExpr) =
   scope.resolveByType(fexpr, name("void"))
+  
+proc evalTypeInside*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr): Symbol =
+  if fexpr.kind == fexprList:
+    if fexpr.len <= 1:
+      fexpr.error("type list requires 2 arguments.")
+    let opt = scope.getDecl(name(fexpr[0]))
+    if opt.isNone:
+      fexpr.error("undeclared $# type." % $fexpr[0])
+    var sym = opt.get
+    for arg in fexpr[1..^1].mitems:
+      sym.types.add(ctx.evalTypeInside(scope, arg))
+    fexpr[0] = fsymbol(fexpr[0].span, sym)
+    return sym
+  else:
+    let opt = scope.getDecl(name(fexpr))
+    if opt.isNone:
+      fexpr.error("undeclared $# type." % $fexpr)
+    fexpr = fsymbol(fexpr.span, opt.get)
+    return opt.get
+
+proc evalType*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr): Symbol =
+  if fexpr.kind != fexprList or $fexpr[0] != "type":
+    fexpr.error("$# isn't type." % $fexpr)
+  result = ctx.evalTypeInside(scope, fexpr[1])
+  fexpr = fsymbol(fexpr.span, result)
 
 proc internalScope*(ctx: SemanticContext): Scope =
   ctx.modules[name("internal")]
@@ -82,7 +109,7 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
 
       let opt = scope.getFunc(procname(name(fn), argtypes))
       if opt.isNone:
-        fexpr.error("undeclared $#($#) function." % [$fn, argtypes.mapIt($it).join(", ")])
+        fexpr.error("undeclared ($# $#) function." % [$fn, argtypes.mapIt($it).join(", ")])
       fexpr.typ = some(opt.get.returntype)
       # symbol resolve
       fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)

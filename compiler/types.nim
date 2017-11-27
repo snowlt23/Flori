@@ -15,7 +15,10 @@ type
   SymbolKind* = enum
     symbolVar
     symbolType
+    symbolGenerics
+    symbolTypeGenerics
     symbolFunc
+    symbolFuncGenerics
     symbolMacro
     symbolInternal
   Symbol* = object
@@ -23,6 +26,7 @@ type
     isImported*: bool
     name*: Name
     kind*: SymbolKind
+    types*: seq[Symbol]
     fexpr*: FExpr
   Name* = object
     names*: seq[string]
@@ -96,3 +100,10 @@ proc `==`*(a, b: Name): bool =
       return false
   return true
 proc `$`*(name: Name): string = name.names.join(".")
+
+proc symbol*(scope: Scope, name: Name, kind: SymbolKind, fexpr: FExpr): Symbol =
+  Symbol(scope: scope, isImported: false, name: name, kind: kind, types: @[], fexpr: fexpr)
+proc `==`*(a, b: Symbol): bool =
+  a.name == b.name and a.scope == b.scope
+proc `$`*(sym: Symbol): string =
+  $sym.scope.name & "." & $sym.name

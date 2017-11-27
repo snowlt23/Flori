@@ -1,5 +1,4 @@
 
-import scope
 import strutils, sequtils
 import options
 import tables
@@ -64,6 +63,24 @@ iterator items*(fexpr: FExpr): FExpr =
       yield(val)
   else:
     fexpr.error("$# shouldn't be use as container" % $fexpr.kind)
+    
+iterator mitems*(fexpr: FExpr): var FExpr =
+  case fexpr.kind
+  of fexprList:
+    var cur = fexpr
+    while true:
+      yield(cur.car)
+      if cur.cdr.kind == fexprNil:
+        break
+      cur = cur.cdr
+  of fexprArray:
+    for son in fexpr.sons.mitems:
+      yield(son)
+  of fexprMap:
+    for val in fexpr.tbl.mvalues:
+      yield(val)
+  else:
+    fexpr.error("$# shouldn't be use as container" % $fexpr.kind)
 
 proc len*(fexpr: FExpr): int =
   case fexpr.kind
@@ -83,11 +100,11 @@ proc addSon*(fexpr: FExpr, f: FExpr) =
   if fexpr.kind != fexprArray:
     fexpr.error("$# isn't farray" % $fexpr.kind)
   fexpr.sons.add(f)
-proc `[]`*(fexpr: FExpr, i: int): FExpr =
+proc `[]`*(fexpr: FExpr, i: int): var FExpr =
   case fexpr.kind
   of fexprList:
     var cnt = 0
-    for val in fexpr:
+    for val in fexpr.mitems:
       if i == cnt:
         return val
       cnt.inc
@@ -95,7 +112,7 @@ proc `[]`*(fexpr: FExpr, i: int): FExpr =
     return fexpr.sons[i]
   else:
     fexpr.error("$# isn't container" % $fexpr.kind)
-proc `[]`*(fexpr: FExpr, i: BackwardsIndex): FExpr =
+proc `[]`*(fexpr: FExpr, i: BackwardsIndex): var FExpr =
   fexpr[fexpr.len-int(i)]
 proc `[]`*(fexpr: FExpr, sl: Slice[int]): FExpr =
   case fexpr.kind

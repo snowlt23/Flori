@@ -12,6 +12,8 @@ export types.ProcName
 export types.ProcDeclGroup
 export types.Scope
 
+import fexpr
+
 proc newScope*(name: Name): Scope =
   new result
   result.name = name
@@ -33,12 +35,19 @@ proc extendScope*(scope: Scope): Scope =
 proc `==`*(a, b: Scope): bool =
   a.name == b.name and a.level == b.level
 
-proc symbol*(scope: Scope, name: Name, kind: SymbolKind, fexpr: FExpr): Symbol =
-  Symbol(scope: scope, isImported: false, name: name, kind: kind, fexpr: fexpr)
-proc `==`*(a, b: Symbol): bool =
-  a.name == b.name and a.scope == b.scope
-proc `$`*(sym: Symbol): string =
-  $sym.scope.name & "." & $sym.name
+proc match*(a, b: FExpr): bool
+proc match*(a, b: Symbol): bool =
+  if b.kind == symbolGenerics:
+    return true
+  elif a.kind == symbolTypeGenerics and b.kind == symbolTypeGenerics:
+    return match(a.fexpr[0], b.fexpr[0])
+  else:
+    return a == b
+proc match*(a, b: FExpr): bool =
+  if a.kind == fexprSymbol and b.kind == fexprSymbol:
+    return a.symbol.match(b.symbol)
+  else:
+    return false
 
 proc procname*(name: Name, argtypes: seq[Symbol]): ProcName =
   ProcName(name: name, argtypes: argtypes)
@@ -48,7 +57,7 @@ proc match*(a: ProcName, b: ProcDecl): bool =
   if b.isInternal: return true
   if a.argtypes.len != b.argtypes.len: return false
   for i in 0..<a.argtypes.len:
-    if a.argtypes[i] != b.argtypes[i]: return false
+    if not a.argtypes[i].match(b.argtypes[i]): return false
   return true
 
 proc initProcIdentGroup*(): ProcDeclGroup =

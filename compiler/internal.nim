@@ -61,7 +61,7 @@ proc parseDefn*(fexpr: FExpr): DefnExpr =
   result.name = fexpr[pos]
   pos.inc
 
-  if fexpr[pos].kind == fexprMap:
+  if fexpr[pos].isGenericsExpr:
     result.generics = some(fexpr[pos])
     pos.inc
   else:
@@ -96,7 +96,7 @@ proc parseDeftype*(fexpr: FExpr): DeftypeExpr =
   result.name = fexpr[pos]
   pos.inc
 
-  if fexpr[pos].kind == fexprMap:
+  if fexpr[pos].isGenericsExpr:
     result.generics = some(fexpr[pos])
     pos.inc
   else:
@@ -161,32 +161,24 @@ proc addInternalPragma*(fexpr: FExpr, pragma: FExpr) =
 
 proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   var parsed = parseDefn(fexpr)
-  let fname = parsed.name
-  var argtypes = newSeq[Symbol]()
-  let rettype = scope.getDecl(typename(parsed.ret))
-  if rettype.isNone:
-    parsed.ret.error("undeclared $# type." % $parsed.ret)
-  parsed.ret = fsymbol(parsed.ret.span, rettype.get)
 
   let fnscope = scope.extendScope()
+  let rettype = ctx.evalType(fnscope, parsed.ret)
+  var argtypes = newSeq[Symbol]() # for procdecl
 
   for i in countup(0, parsed.args.len-1, 2):
-    let t = parsed.args[i]
     let n = parsed.args[i+1]
-    let opt = scope.getDecl(typename(t))
-    if opt.isNone:
-      t.error("undeclared $# type." % $n)
-    parsed.args[i] = fsymbol(parsed.args[i].span, opt.get)
-    n.typ = opt
-    argtypes.add(opt.get)
-    let status = fnscope.addDecl(name(n), opt.get)
+    let sym = ctx.evalType(fnscope, parsed.args[i])
+    n.typ = some(sym)
+    argtypes.add(sym)
+    let status = fnscope.addDecl(name(n), sym)
     if not status:
       n.error("redefinition $# variable." % $n)
 
-  let sym = scope.symbol(name(fname), symbolFunc, fexpr)
-  let status = scope.addFunc(ProcDecl(isInternal: false, name: name(fname), argtypes: argtypes, returntype: rettype.get, sym: sym))
+  let sym = scope.symbol(name(parsed.name), symbolFunc, fexpr)
+  let status = scope.addFunc(ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, returntype: rettype, sym: sym))
   if not status:
-    fexpr.error("redefinition $# function." % $fname)
+    fexpr.error("redefinition $# function." % $parsed.name)
 
   if parsed.body.kind != fexprNil:
     for e in parsed.body:
@@ -204,7 +196,7 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
 proc evalDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   var parsed = parseDeftype(fexpr)
   let sname = parsed.name
-  let sym = scope.symbol(name(sname), symbolType, fexpr)
+  let sym = scope.symbol(name(sname), if parsed.generics.isSome: symbolTypeGenerics else: symbolType, fexpr)
   let status = scope.addDecl(name(sname), sym)
   if not status:
     fexpr.error("redefinition $# type." % $sname)
@@ -249,6 +241,7 @@ proc evalWhile*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
     ctx.evalFExpr(scope, b)
 
   scope.resolveByVoid(fexpr)
+
   # internal metadata for postprocess phase
   fexpr.internalMark = internalWhile
   fexpr.internalWhileExpr = parsed
