@@ -26,26 +26,26 @@
 
 ;;; vec type
 
-(deftype vec [:a] {:p ^(ptr :a) :len ^int})
+(deftype vec $[:a] [^(ptr :a) p ^int len])
 
 (defn new-vec [^typedesc :a ^int len] ^(vec :a)
-  (construct ^vec
+  (vec
     (alloc (* (sizeof :a) len)
     len)))
 
-(defn nth {:a ^all} [^&(vec :a) vec ^int index] ^:a
+(defn nth $[:a] [^&(vec :a) vec ^int index] ^:a
   (nth (:p vec) index) value)
-(defn nth-set! {:a ^all} [^&(vec :a) vec ^int index ^:a value]
+(defn nth-set! $[:a] [^&(vec :a) vec ^int index ^:a value]
   (set! (nth (:p vec) index) value))
 
-(defn push {:a ^all} [^&(vec :a) vec ^:a value]
+(defn push $[:a] [^&(vec :a) vec ^:a value]
   (set! (:p vec) (realloc (:p vec) (* (sizeof :a) (+ (:len vec) 1))))
   (set! (nth vec (:len vec)) value)
   (+= (:len vec) 1))
 
 ;;; for macro
 
-(defmacro for [^fexpr i ^fexpr iter ^frest body]
+(defmacro for [^fexpr i ^flist iter ^frest body]
   `(,(append (car iter) `-iter) ,i ,body ,@(cdr iter)))
 
 (defmacro defiter [^fident name ^farray args ^frest body]
