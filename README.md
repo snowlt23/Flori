@@ -3,7 +3,7 @@
 
 **Warning:** This project is still in experimental.
 
-Flori is statically typed lisp programming language without GC for system/application programming.
+Flori is statically typed programming language without GC for system/application programming.
 
 # Features
 
