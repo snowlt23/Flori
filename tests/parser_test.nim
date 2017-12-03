@@ -1,6 +1,6 @@
 
 import unittest
-import compiler.ast, compiler.parser
+import compiler.fexpr, compiler.parser
 
 suite "F expression parser test":
   test "atom":
@@ -42,85 +42,62 @@ suite "F expression parser test":
   2
   3
 }"""
-  test "seq block":
-    let fexprs = parseToplevel("test.flori", """
-    loop {
-      1
-      2
-      3
-    }
-    """)
-    check fexprs[0].len == 2
-    check fexprs[0].kind == fexprSeq
-    check fexprs[0][0].kind == fexprIdent
-    check fexprs[0][1].kind == fexprBlock
-    check $fexprs[0] == """
-loop {
-  1
-  2
-  3
-}"""
-  test "seq if":
-    let fexprs = parseToplevel("test.flori", """
+  test "call":
+    let fexpr = parseToplevel("test.flori", """
+    println("Hello Yukari!")
+    """)[0]
+    check fexpr.len == 2
+    check fexpr.kind == fexprCall
+    check fexpr[0].kind == fexprIdent
+    check $fexpr[0] == "println"
+    check fexpr[1].kind == fexprStrLit
+    check $fexpr[1] == "\"Hello Yukari!\""
+    check $fexpr == "println(\"Hello Yukari!\")"
+  test "if":
+    let fexpr = parseToplevel("test.flori", """
     if (true) {
-      1
+      println("True!")
     } else {
-      2
+      println("False!")
     }
-    """)
-    check fexprs[0].len == 5
-    check fexprs[0][0].kind == fexprIdent
-    check $fexprs[0][0] == "if"
-    check fexprs[0][1].kind == fexprList
-    check fexprs[0][2].kind == fexprBlock
-    check fexprs[0][3].kind == fexprIdent
-    check $fexprs[0][3] == "else"
-    check fexprs[0][4].kind == fexprBlock
-    check $fexprs[0] == """
-if (true) {
-  1
-} else {
-  2
-}"""
+    """)[0]
+    check fexpr.kind == fexprSeq
+    check fexpr[0].kind == fexprIdent
+    check $fexpr[0] == "if"
+    check fexpr[1].kind == fexprList
+    check $fexpr[1][0] == "true"
+    check fexpr[2].kind == fexprBlock
+    check fexpr[3].kind == fexprIdent
+    check $fexpr[3] == "else"
+    check fexpr[4].kind == fexprBlock
+  test "pragma":
+    let fexpr = parseToplevel("test.flori", """
+    $[importc "test", header nodeclc]
+    """)[0]
+    check fexpr.kind == fexprSeq
+    check $fexpr[0] == "$"
+    check $fexpr[1] == "[importc \"test\", header nodeclc]"
   test "fn":
     let fexpr = parseToplevel("test.flori", """
-    fn add5(x Int32) Int32 {
+    fn add5(x Int) Int {
       x + 5
     }
     """)[0]
+    check fexpr.kind == fexprSeq
     check fexpr[0].kind == fexprIdent
     check $fexpr[0] == "fn"
     check fexpr[1].kind == fexprIdent
     check $fexpr[1] == "add5"
+
     check fexpr[2].kind == fexprList
-    check fexpr[3].kind == fexprIdent
+    check fexpr[2][0].kind == fexprSeq
+    check $fexpr[2][0][0] == "x"
+    check $fexpr[2][0][1] == "Int"
+
+    check $fexpr[3] == "Int"
+
     check fexpr[4].kind == fexprBlock
-    check fexpr[4][0][1].kind == fexprSpecial
-    check $fexpr[4][0][1] == "+"
-  test "var":
-    let fexpr = parseToplevel("test.flori", """
-    var x = 9
-    """)[0]
-    check fexpr[0].kind == fexprIdent
-    check $fexpr[0] == "var"
-    check fexpr[1].kind == fexprIdent
-    check $fexpr[1] == "x"
-    check fexpr[2].kind == fexprSpecial
-    check $fexpr[2] == "="
-    check fexpr[3].kind == fexprIntLit
-    check $fexpr[3] == "9"
-  test "cfn":
-    let fexpr = parseToplevel("test.flori", """
-    cfn +(Int32, Int32) Int32 ["+", nodecl, infix]
-    """)[0]
-    check fexpr[0].kind == fexprIdent
-    check $fexpr[0] == "cfn"
-  test "ctype":
-    let fexpr = parseToplevel("test.flori", """
-    ctype Int32 ["int32_t", "stdint.h"]
-    """)[0]
-    check fexpr[0].kind == fexprIdent
-    check $fexpr[0] == "ctype"
-    check fexpr[1].kind == fexprIdent
-    check $fexpr[1] == "Int32"
-    check fexpr[2].kind == fexprArray
+    check fexpr[4][0].kind == fexprCall
+    check $fexpr[4][0][0] == "+"
+    check $fexpr[4][0][1] == "x"
+    check $fexpr[4][0][2] == "5"

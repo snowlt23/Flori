@@ -1,0 +1,71 @@
+
+;;; require
+
+(require prelude :refer :all)
+
+;;; importc
+
+(deftype void ${:importc "void" :header nodeclc})
+(deftype bool ${:importc "bool" :header "stdbool.h"})
+(deftype cstring ${:importc "char*" :header nodeclc})
+(deftype int ${:importc "int64_t" :header "stdint.h"})
+(deftype int32 ${:importc "int32_t" :header "stdint.h"})
+(deftype int64 ${:importc "int64_t" :header "stdint.h"})
+
+(defn + [^int a ^int b] ^int ${:importc "+" :header nodeclc :pattern infixc})
+(defn += [^&int a ^int b] ${:importc "+=" :header nodeclc :pattern infixc})
+(defn - [^int a ^int b] ^int ${:importc "-" :header nodeclc :pattern infixc})
+(defn < [^int a ^int b] ^bool ${:importc "<" :header nodeclc :pattern infixc})
+
+;;; fib
+
+(defn fib [^int n] ^int
+  (if (< n 2)
+      n
+      (+ (fib (- n 1)) (fib (- n 2)))))
+
+;;; vec type
+
+(deftype vec $[:a] [^(ptr :a) p ^int len])
+
+(defn new-vec [^typedesc :a ^int len] ^(vec :a)
+  (vec
+    (alloc (* (sizeof :a) len)
+    len)))
+
+(defn nth $[:a] [^&(vec :a) vec ^int index] ^:a
+  (nth (:p vec) index) value)
+(defn nth-set! $[:a] [^&(vec :a) vec ^int index ^:a value]
+  (set! (nth (:p vec) index) value))
+
+(defn push $[:a] [^&(vec :a) vec ^:a value]
+  (set! (:p vec) (realloc (:p vec) (* (sizeof :a) (+ (:len vec) 1))))
+  (set! (nth vec (:len vec)) value)
+  (+= (:len vec) 1))
+
+;;; for macro
+
+(defmacro for [^fexpr i ^flist iter ^frest body]
+  `(,(append (car iter) `-iter) ,i ,body ,@(cdr iter)))
+
+(defmacro defiter [^fident name ^farray args ^frest body]
+  `(defmacro ,(append name `-iter) ,args ,@body))
+
+(defiter countup [^fexpr i ^fexpr body ^int a ^int b]
+  `(let [,i ,a]
+    (while (<= ,i ,b)
+      ,body)))
+
+;;; main
+
+(defn main []
+  (let [top (new-vec ^int 1)]
+    (set! (nth top 0) 9)
+    (for i (countup 0 5)
+      (let [v (new-vec ^int 1)]
+        (set! (nth v 0) 9)
+        (push v 10)
+        (push v (nth top 0))
+        (set! top v)))))
+
+(main)

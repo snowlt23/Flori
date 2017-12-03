@@ -1,19 +1,21 @@
 
-ctype Void ["void", nodecl]
-ctype CString ["char*", nodecl]
-ctype Int32 ["int32_t", "stdint.h"]
-ctype Bool ["bool", "stdbool.h"]
+type Void $[importc "void", header nodeclc]
+type Bool $[importc "bool", header "stdbool.h"]
+type CString $[importc "char*", header nodeclc]
+type Int $[importc "int64_t", header "stdint.h"]
+type Int32 $[importc "int32_t", header "stdint.h"]
+type Int64 $[importc "int64_t", header "stdint.h"]
 
-cfn +(Int32, Int32) Int32 ["+", nodecl, infix]
-cfn -(Int32, Int32) Int32 ["-", nodecl, infix]
-cfn <(Int32, Int32) Bool ["<", nodecl, infix]
-cfn printf(CString, Int32) Void ["printf", "stdio.h"]
+fn `+(a Int, b Int) Int $[importc "+", header nodeclc, pattern infixc]
+fn `-(a Int, b Int) Int $[importc "-", header nodeclc, pattern infixc]
+fn `<(a Int, b Int) Bool $[importc "<", header nodeclc, pattern infixc]
+fn printf(fmt CString, value Int) $[importc "printf", header "stdio.h"]
 
-fn fib(n Int32) Int32 {
+fn fib(n Int) Int {
   if (n < 2) {
     n
   } else {
-    fib(n - 1) + fib(n - 2)
+    fib(n-1) + fib(n-2)
   }
 }
 

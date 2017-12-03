@@ -3,10 +3,9 @@
 (require io :refer :all)
 (require vec :refer :all)
 
-@(:)
 (defn main []
-  (def v (vec Int32 (size 10)))
-  (set! (nth v (size 5)) 9)
-  (print (nth v (size 5))))
+  (def v (new-vec ^int 10))
+  (set! (nth v 5) 9)
+  (print (nth v 5)))
 
 (main)
