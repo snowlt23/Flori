@@ -13,7 +13,7 @@ Flori is statically typed programming language without GC for system/application
 - Automatic resource management by **Compile Time Reference Counting**. (I call it CTRC)
 - Blazing fast memory management by **Memory Lifting**.
 - Ultimate power for Metaprogramming.
-- Interactive development. (Common Lisp like)
+- Interactive development environment. (Common Lisp like)
 
 # Inspired languages
 

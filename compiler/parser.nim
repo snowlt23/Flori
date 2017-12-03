@@ -15,8 +15,8 @@ type
 
 const StartList* = {'(', '['}
 const EndList* = {')', ']', '}', ','}
-const PrefixSymbols* = {'$', '&', '?'}
-const InfixSymbols* = {'!', '$', '%', '&', '\'', '*', '+', '-', '.', '/', '<', '=', '>', '^', ':'}
+const PrefixSymbols* = {'$', '&', '?', '@'}
+const InfixSymbols* = {'!', '%', '*', '+', '-', '.', '/', '<', '=', '>', '^', ':'}
 const SeparateSymbols* = {'(', '[', ')', ']', '{', '}', ','} + PrefixSymbols + InfixSymbols
 
 proc parseFExpr*(context: var ParserContext): FExpr

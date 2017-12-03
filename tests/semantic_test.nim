@@ -81,10 +81,10 @@ suite "semantic":
     let semctx = newSemanticContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
       type Vec[T] {
-        p Ptr[T]
+        p [Ptr T]
         len Int
       }
-      fn genvec() Vec!Int {}
+      fn genvec() Vec[Int] {}
     """)
     semctx.evalModule(name("testmodule"), fexprs)
     check fexprs[^2].internalDeftypeExpr.generics.isSome

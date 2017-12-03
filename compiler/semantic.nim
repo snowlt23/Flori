@@ -12,6 +12,11 @@ export types.SemanticContext
 
 import metadata
 
+type
+  TypeExpr* = object
+    name*: FExpr
+    generics*: FExpr
+
 proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr)
 
 proc name*(fexpr: FExpr): Name =
@@ -31,8 +36,26 @@ proc addInternalEval*(scope: Scope, n: Name, p: proc (ctx: SemanticContext, scop
 proc voidtypeExpr*(span: Span): FExpr =
   return fident(span, "Void")
 
+proc parseType*(fexpr: FExpr): TypeExpr =
+  if fexpr.kind == fexprSeq:
+    if fexpr[0].kind != fexprIdent:
+      fexpr[0].error("$# isn't type name." % $fexpr[0])
+    if fexpr[1].kind == fexprArray:
+      result.name = fexpr[0]
+      result.generics = fexpr[1]
+    else:
+      result.name = fexpr[0]
+      result.generics = farray(fexpr.span)
+  elif fexpr.kind == fexprIdent:
+    result.name = fexpr
+    result.generics = farray(fexpr.span)
+  else:
+    fexpr.error("$# isn't type." % $fexpr)
+
 proc isTypeExpr*(fexpr: FExpr): bool =
   fexpr.kind == fexprIdent
+proc isParametricTypeExpr*(fexpr: FExpr): bool =
+  fexpr.kind == fexprSeq and fexpr[0].kind == fexprIdent and fexpr[1].kind == fexprArray
 proc isPragmaPrefix*(fexpr: FExpr): bool =
   fexpr.kind == fexprPrefix and $fexpr == "$"
 
@@ -45,26 +68,25 @@ proc resolveByVoid*(scope: Scope, fexpr: FExpr) =
   scope.resolveByType(fexpr, name("Void"))
   
 proc evalType*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr): Symbol =
-  if fexpr.kind != fexprIdent:
+  if fexpr.kind == fexprIdent:
+    let opt = scope.getDecl(name(fexpr))
+    if opt.isNone:
+      fexpr.error("undeclared $# type." % $fexpr)
+    fexpr = fsymbol(fexpr.span, opt.get)
+    return opt.get
+  elif fexpr.isParametricTypeExpr: # parametric type (generics)
+    if fexpr.len <= 1:
+      fexpr.error("parametric type requires greater than 2 arguments.")
+    let opt = scope.getDecl(name(fexpr[0]))
+    if opt.isNone:
+      fexpr.error("undeclared $# type." % $fexpr[0])
+    var sym = opt.get
+    for arg in fexpr[1].mitems:
+      sym.types.add(ctx.evalType(scope, arg))
+    fexpr[0] = fsymbol(fexpr[0].span, sym)
+    return sym
+  else:
     fexpr.error("$# isn't type. ($#)" % [$fexpr, $fexpr.kind])
-
-  let opt = scope.getDecl(name(fexpr))
-  if opt.isNone:
-    fexpr.error("undeclared $# type." % $fexpr)
-  fexpr = fsymbol(fexpr.span, opt.get)
-  return opt.get
-
-  # if fexpr.kind == fexprSeq: # parametric type
-  #   if fexpr.len <= 1:
-  #     fexpr.error("type fseq requires 2 arguments.")
-  #   let opt = scope.getDecl(name(fexpr[0]))
-  #   if opt.isNone:
-  #     fexpr.error("undeclared $# type." % $fexpr[0])
-  #   var sym = opt.get
-  #   for arg in fexpr[1..^1].mitems:
-  #     sym.types.add(ctx.evalType(scope, arg))
-  #   fexpr[0] = fsymbol(fexpr[0].span, sym)
-  #   return sym
 
 proc internalScope*(ctx: SemanticContext): Scope =
   ctx.modules[name("internal")]

@@ -72,7 +72,10 @@ proc parseDefn*(fexpr: FExpr): DefnExpr =
   else:
     fexpr[pos].error("function arguments should be FList.")
 
-  if fexpr[pos].isTypeExpr:
+  if fexpr.len > pos+1 and fexpr[pos..pos+1].isParametricTypeExpr:
+    result.ret = fexpr[pos..pos+1]
+    pos += 2
+  elif fexpr[pos].isTypeExpr:
     result.ret = fexpr[pos]
     pos.inc
   else:

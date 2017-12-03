@@ -49,6 +49,12 @@ fn push[T](vec &Vec!T, index Int, value T) {
   vec.len += 1
 }
 
+# compile time variable
+
+eval_when [compiletime, runtime] {
+  refcnt := 1
+}
+
 # for macro
 
 macro for(i FIdent, in FIdent, iter FList, body FBlock) {
