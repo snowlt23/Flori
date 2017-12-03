@@ -217,6 +217,14 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topl
 #   else:
 #     return $fexpr.symbol.name
 
+proc codegenArguments*(ctx: CCodegenContext, src: var SrcExpr, args: FExpr) =
+  if args.len >= 1:
+    ctx.codegenFExpr(src, args[0])
+  if args.len >= 2:
+    for arg in args[1..^1]:
+      src &= ", "
+      ctx.codegenFExpr(src, arg)
+
 proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   let fn = fexpr[0].symbol.fexpr
   let fname = fn.internalPragma.importc.get
@@ -233,11 +241,7 @@ proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   else:
     src &= fname
     src &= "("
-    if fexpr.len > 1:
-      ctx.codegenFExpr(src, fexpr[1])
-    for arg in fexpr[2..^1]:
-      src &= ", "
-      ctx.codegenFExpr(src, arg)
+    ctx.codegenArguments(src, fexpr[1])
     src &= ")"
 
 proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
@@ -249,12 +253,7 @@ proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   else: # normal call
     src &= codegenSymbol(fexpr[0])
     src &= "("
-    if fexpr.len > 1:
-      ctx.codegenFExpr(src, fexpr[1])
-    if fexpr.len > 2:
-      for arg in fexpr[2..^1]:
-        src &= ", "
-        ctx.codegenFExpr(src, arg)
+    ctx.codegenArguments(src, fexpr[1])
     src &= ")"
 
 proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
@@ -269,7 +268,7 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     src &= $fexpr
   of fexprArray, fexprList, fexprBlock:
     fexpr.error("unsupported $# in C Codegen." % $fexpr.kind)
-  of fexprCall, fexprSeq:
+  of fexprSeq:
     if fexpr.hasinternalMark:
       ctx.codegenInternal(src, fexpr, toplevel = false)
     else:
@@ -279,7 +278,7 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 
 proc codegenToplevel*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   case fexpr.kind
-  of fexprSeq, fexprCall:
+  of fexprSeq:
     if fexpr.hasinternalMark:
       ctx.codegenInternal(src, fexpr, toplevel = true)
   else:

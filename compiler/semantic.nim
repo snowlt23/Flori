@@ -29,12 +29,12 @@ proc name*(fexpr: FExpr): Name =
     fexpr.error("$# is not name." % $fexpr)
 
 proc addInternalEval*(scope: Scope, n: Name, p: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)) =
-  let status = scope.addFunc(ProcDecl(isInternal: true, internalproc: p, name: n, argtypes: @[], sym: scope.symbol(n, symbolInternal, fident(internalSpan, "internal")))) # FIXME: returntype
+  let status = scope.addFunc(ProcDecl(isInternal: true, internalproc: p, name: n, argtypes: @[], sym: scope.symbol(n, symbolInternal, fident(internalSpan, name("internal"))))) # FIXME: returntype
   if not status:
     fseq(internalSpan).error("redefinition $# function." % $n)
 
 proc voidtypeExpr*(span: Span): FExpr =
-  return fident(span, "Void")
+  return fident(span, name("Void"))
 
 proc parseType*(fexpr: FExpr): TypeExpr =
   if fexpr.kind == fexprSeq:
@@ -88,6 +88,35 @@ proc evalType*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr): Symbol =
   else:
     fexpr.error("$# isn't type. ($#)" % [$fexpr, $fexpr.kind])
 
+proc evalInfixCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+  let fn = fexpr[0]
+  let left = fexpr[1]
+  let right = fexpr[2]
+  ctx.evalFExpr(scope, left)
+  ctx.evalFExpr(scope, right)
+
+  let argtypes = @[left.typ.get, right.typ.get]
+
+  let opt = scope.getFunc(procname(name(fn), argtypes))
+  if opt.isNone:
+    fexpr.error("undeclared $#($#) function." % [$fn, argtypes.mapIt($it).join(", ")])
+  fexpr.typ = some(opt.get.returntype)
+  # symbol resolve
+  fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
+
+proc evalFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+  let fn = fexpr[0]
+  for arg in fexpr[1]:
+    ctx.evalFExpr(scope, arg)
+  let argtypes = fexpr[1].mapIt(it.typ.get)
+
+  let opt = scope.getFunc(procname(name(fn), argtypes))
+  if opt.isNone:
+    fexpr.error("undeclared $#($#) function." % [$fn, argtypes.mapIt($it).join(", ")])
+  fexpr.typ = some(opt.get.returntype)
+  # symbol resolve
+  fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
+
 proc internalScope*(ctx: SemanticContext): Scope =
   ctx.modules[name("internal")]
 
@@ -96,7 +125,7 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   of fexprIdent:
     let opt = scope.getDecl(name(fexpr))
     if opt.isNone:
-      fexpr.error("undeclared $# ident." % fexpr.ident)
+      fexpr.error("undeclared $# ident." % $fexpr)
     fexpr.typ = opt.get.fexpr.typ
   of fexprSymbol:
     discard
@@ -116,23 +145,17 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
     for son in fexpr:
       ctx.evalFExpr(scope, son)
     fexpr.typ = fexpr[^1].typ
-  of fexprCall, fexprSeq:
+  of fexprSeq:
     let fn = fexpr[0]
     let internalopt = scope.getFunc(procname(name(fn), @[]))
     if internalopt.isSome:
       internalopt.get.internalproc(ctx, scope, fexpr)
+    elif fexpr.len == 2 and fexpr[1].kind == fexprList: # function call
+      ctx.evalFuncCall(scope, fexpr)
+    elif fexpr[0].kind == fexprInfix:
+      ctx.evalInfixCall(scope, fexpr)
     else:
-      let fn = fexpr[0]
-      for arg in fexpr[1..^1]:
-        ctx.evalFExpr(scope, arg)
-      let argtypes = fexpr[1..^1].mapIt(it.typ.get)
-
-      let opt = scope.getFunc(procname(name(fn), argtypes))
-      if opt.isNone:
-        fexpr.error("undeclared ($# $#) function." % [$fn, argtypes.mapIt($it).join(", ")])
-      fexpr.typ = some(opt.get.returntype)
-      # symbol resolve
-      fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
+      fexpr.error("unsupported FSeq call.")
   else:
     fexpr.error("$# is unsupported expression in eval." % $fexpr.kind)
 

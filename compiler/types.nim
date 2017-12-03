@@ -34,31 +34,34 @@ type
     fexprIdent
     fexprPrefix
     fexprInfix
-    fexprSymbol
+
     fexprQuote
+    fexprSymbol
+    
     fexprIntLit
     fexprStrLit
+
     fexprSeq
     fexprArray
     fexprList
     fexprBlock
-    fexprCall
+
   FExpr* = ref object
     span*: Span
     typ*: Option[Symbol]
     metadata*: Table[string, Metadata]
     case kind*: FExprKind
     of fexprIdent, fexprPrefix, fexprInfix:
-      ident*: string
-    of fexprSymbol:
-      symbol*: Symbol
+      idname*: Name
     of fexprQuote:
       quoted*: FExpr
+    of fexprSymbol:
+      symbol*: Symbol
     of fexprIntLit:
       intval*: int64
     of fexprStrLit:
       strval*: string
-    of fexprSeq, fexprArray, fexprList, fexprBlock, fexprCall:
+    of fexprSeq, fexprArray, fexprList, fexprBlock:
       sons*: seq[FExpr]
   ProcDecl* = object
     isInternal*: bool

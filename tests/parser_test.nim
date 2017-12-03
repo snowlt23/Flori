@@ -42,16 +42,17 @@ suite "F expression parser test":
   2
   3
 }"""
-  test "call":
+  test "call function":
     let fexpr = parseToplevel("test.flori", """
     println("Hello Yukari!")
     """)[0]
     check fexpr.len == 2
-    check fexpr.kind == fexprCall
+    check fexpr.kind == fexprSeq
     check fexpr[0].kind == fexprIdent
     check $fexpr[0] == "println"
-    check fexpr[1].kind == fexprStrLit
-    check $fexpr[1] == "\"Hello Yukari!\""
+    check fexpr[1].kind == fexprList
+    check fexpr[1][0].kind == fexprStrLit
+    check $fexpr[1][0] == "\"Hello Yukari!\""
     check $fexpr == "println(\"Hello Yukari!\")"
   test "if":
     let fexpr = parseToplevel("test.flori", """
@@ -97,7 +98,7 @@ suite "F expression parser test":
     check $fexpr[3] == "Int"
 
     check fexpr[4].kind == fexprBlock
-    check fexpr[4][0].kind == fexprCall
+    check fexpr[4][0].kind == fexprSeq
     check $fexpr[4][0][0] == "+"
     check $fexpr[4][0][1] == "x"
     check $fexpr[4][0][2] == "5"

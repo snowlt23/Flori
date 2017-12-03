@@ -65,8 +65,8 @@ suite "semantic":
     semctx.evalModule(name("testmodule"), fexprs)
     check fexprs[^2].internalMark == internalDef
     check $fexprs[^2].typ.get == "testmodule.Void"
-    check $fexprs[^1][2] == "nine"
-    check $fexprs[^1][2].typ.get == "testmodule.Int"
+    check $fexprs[^1][1][1] == "nine"
+    check $fexprs[^1][1][1].typ.get == "testmodule.Int"
   test "local def":
     let semctx = newSemanticContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
@@ -81,7 +81,7 @@ suite "semantic":
     let semctx = newSemanticContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
       type Vec[T] {
-        p [Ptr T]
+        p Ptr[T]
         len Int
       }
       fn genvec() Vec[Int] {}

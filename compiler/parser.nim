@@ -13,11 +13,11 @@ type
     linepos*: int
     pos*: int
 
-const StartList* = {'(', '['}
+const StartList* = {'(', '[', '{'}
 const EndList* = {')', ']', '}', ','}
 const PrefixSymbols* = {'$', '&', '?', '@'}
-const InfixSymbols* = {'!', '%', '*', '+', '-', '.', '/', '<', '=', '>', '^', ':'}
-const SeparateSymbols* = {'(', '[', ')', ']', '{', '}', ','} + PrefixSymbols + InfixSymbols
+const InfixSymbols* = {'!', '%', '*', '.', '+', '-', '/', '<', '=', '>', '^', ':'}
+const SeparateSymbols* = StartList + EndList + PrefixSymbols + InfixSymbols
 
 proc parseFExpr*(context: var ParserContext): FExpr
 
@@ -135,14 +135,20 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
     return blk
   elif ('a' <= context.curchar and context.curchar <= 'z') or
        ('A' <= context.curchar and context.curchar <= 'Z'): # ident
-    var ident = ""
     let span = context.span()
+    var idents = newSeq[string]()
+    var curstr = ""
     while true:
       if context.isSeparateSymbol or context.curchar == ' ':
         break
-      ident.add(context.curchar)
+      elif context.curchar == '.':
+        idents.add(curstr)
+        curstr = ""
+      curstr.add(context.curchar)
       context.inc
-    return fident(span, ident)
+    if curstr != "":
+      idents.add(curstr)
+    return fident(span, name(idents))
   elif context.curchar in PrefixSymbols: # special ident
     var ident = ""
     let span = context.span()
@@ -151,7 +157,7 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
         break
       ident.add(context.curchar)
       context.inc
-    return fprefix(span, ident)
+    return fprefix(span, name(ident))
   elif context.curchar in InfixSymbols: # special ident
     var ident = ""
     let span = context.span()
@@ -160,12 +166,12 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
         break
       ident.add(context.curchar)
       context.inc
-    return finfix(span, ident)
+    return finfix(span, name(ident))
   elif context.curchar == '`': # quote
     let span = context.span()
     context.inc
     return fquote(span, context.parseFExprElem())
-  elif '0' <= context.curchar and context.curchar <= '9': # digit
+  elif '0' <= context.curchar and context.curchar <= '9': # intlit
     let span = context.span
     var s = ""
     while true:
@@ -174,7 +180,7 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       s &= context.curchar
       context.inc
     return fintlit(span, parseInt(s))
-  elif context.curchar == '"':
+  elif context.curchar == '"': # strlit
     var s = ""
     let span = context.span
     context.inc
@@ -191,15 +197,13 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
 proc rewriteToCall*(fexpr: FExpr): FExpr =
   if fexpr.kind == fexprSeq and fexpr.len == 1:
     return rewriteToCall(fexpr[0])
-  elif fexpr.len == 2 and fexpr[1].kind == fexprList:
-    return fcall(fexpr.span, fexpr[0], fexpr[1].sons)
   elif fexpr.kind == fexprSeq:
     let stack = fseq(fexpr.span)
     for i, son in fexpr.sons:
       if son.kind == fexprInfix:
         let left = rewriteToCall(stack)
         let right = rewriteToCall(fexpr[i+1..^1])
-        return fcall(son.span, son, @[left, right])
+        return fseq(son.span, @[son, left, right])
       else:
         stack.addSon(son)
     return fexpr

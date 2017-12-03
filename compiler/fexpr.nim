@@ -11,7 +11,7 @@ export types.FExpr
 
 const fexprAtoms* = {fexprIdent..fexprStrLit}
 const fexprNames* = {fexprIdent, fexprPrefix, fexprInfix}
-const fexprContainer* = {fexprSeq..fexprCall}
+const fexprContainer* = {fexprSeq, fexprArray, fexprList, fexprBlock}
 
 proc `$`*(fexpr: FExpr): string
 
@@ -31,16 +31,16 @@ template internalSpan*(): Span =
   const internalline = instantiationInfo().line
   Span(line: 0, linepos: 0, internal: (internalname, internalline))
 
-proc fident*(span: Span, ident: string): FExpr =
-  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprIdent, ident: ident)
-proc fprefix*(span: Span, ident: string): FExpr =
-  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprPrefix, ident: ident)
-proc finfix*(span: Span, ident: string): FExpr =
-  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprInfix, ident: ident)
-proc fsymbol*(span: Span, sym: Symbol): FExpr =
-  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprSymbol, symbol: sym)
+proc fident*(span: Span, name: Name): FExpr =
+  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprIdent, idname: name)
+proc fprefix*(span: Span, name: Name): FExpr =
+  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprPrefix, idname: name)
+proc finfix*(span: Span, name: Name): FExpr =
+  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprInfix, idname: name)
 proc fquote*(span: Span, q: FExpr): FExpr =
   FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprQuote, quoted: q)
+proc fsymbol*(span: Span, sym: Symbol): FExpr =
+  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprSymbol, symbol: sym)
 proc fintlit*(span: Span, x: int64): FExpr =
   FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprIntLit, intval: x)
 proc fstrlit*(span: Span, s: string): FExpr =
@@ -53,8 +53,6 @@ proc flist*(span: Span, sons = newSeq[FExpr]()): FExpr =
   FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprList, sons: sons)
 proc fblock*(span: Span, sons = newSeq[FExpr]()): FExpr =
   FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprBlock, sons: sons)
-proc fcall*(span: Span, call: FExpr, args = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprCall, sons: @[call] & args)
 
 iterator items*(fexpr: FExpr): FExpr =
   case fexpr.kind
@@ -100,8 +98,6 @@ proc `[]`*(fexpr: FExpr, sl: Slice[int]): FExpr =
     result = flist(fexpr[sl.a].span, fexpr.sons[sl])
   of fexprBlock:
     result = fblock(fexpr[sl.a].span, fexpr.sons[sl])
-  of fexprCall:
-    result = flist(fexpr[sl.a].span, fexpr.sons[sl])
   else:
     fexpr.error("$# isn't container, couldn't use as slice." % $fexpr.kind)
 proc `[]`*(fexpr: FExpr, sl: HSlice[int, BackwardsIndex]): FExpr =
@@ -118,29 +114,26 @@ proc genIndent*(indent: int): string =
 
 proc toString*(fexpr: FExpr, indent: int): string =
   case fexpr.kind
-  of fexprIdent:
-    fexpr.ident
-  of fexprPrefix:
-    fexpr.ident
-  of fexprInfix:
-    fexpr.ident
-  of fexprSymbol:
-    $fexpr.symbol
+  of fexprIdent, fexprPrefix, fexprInfix:
+    $fexpr.idname
   of fexprQuote:
     "`" & fexpr.quoted.toString(indent)
+  of fexprSymbol:
+    $fexpr.symbol
   of fexprIntLit:
     $fexpr.intval
   of fexprStrLit:
     "\"" & fexpr.strval & "\""
   of fexprSeq:
-    fexpr.sons.mapIt(it.toString(indent)).join(" ")
+    if fexpr.len == 2 and fexpr[1].kind in {fexprList, fexprArray}:
+      fexpr.sons[0].toString(indent) & fexpr.sons[1..^1].mapIt(it.toString(indent)).join(" ")
+    else:
+      fexpr.sons.mapIt(it.toString(indent)).join(" ")
   of fexprArray:
     "[" & fexpr.sons.mapIt(it.toString(indent)).join(", ") & "]"
   of fexprList:
     "(" & fexpr.sons.mapIt(it.toString(indent)).join(", ") & ")"
   of fexprBlock:
     "{" & "\n" & genIndent(indent + 2) & fexpr.sons.mapIt(it.toString(indent + 2)).join("\n" & genIndent(indent + 2)) & "\n" & "}"
-  of fexprCall:
-    $fexpr.sons[0] & "(" & fexpr.sons[1..^1].mapIt($it).join(", ") & ")"
 
 proc `$`*(fexpr: FExpr): string = fexpr.toString(0)
