@@ -20,11 +20,6 @@ proc name*(fexpr: FExpr): Name =
     return name($fexpr)
   else:
     fexpr.error("$# is not name." % $fexpr)
-# proc typename*(fexpr: FExpr): Name =
-#   if fexpr.kind == fexprList and $fexpr[0] == "type":
-#     return name($fexpr[1])
-#   else:
-#     fexpr.error("$# is not typename." % $fexpr)
 
 proc addInternalEval*(scope: Scope, n: Name, p: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)) =
   let status = scope.addFunc(ProcDecl(isInternal: true, internalproc: p, name: n, argtypes: @[], sym: scope.symbol(n, symbolInternal, fident(internalSpan, "internal")))) # FIXME: returntype

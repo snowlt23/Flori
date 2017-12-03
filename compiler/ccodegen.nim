@@ -54,7 +54,7 @@ proc codegenSymbol*(sym: Symbol): string =
 proc codegenSymbol*(fexpr: FExpr): string =
   if fexpr.kind != fexprSymbol:
     fexpr.error("$# isn't symbol." % $fexpr)
-  ($fexpr).replace(".", "_")
+  return codegenSymbol(fexpr.symbol)
 
 proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: seq[FExpr], ret: string = nil) =
   if body.len == 0:

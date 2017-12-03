@@ -79,7 +79,7 @@ proc parseDefn*(fexpr: FExpr): DefnExpr =
   else:
     result.ret = voidtypeExpr(fexpr.span)
 
-  if fexpr[pos].isPragmaExpr:
+  if fexpr.len > pos and fexpr[pos].isPragmaExpr:
     result.pragma = fexpr[pos][1]
     pos.inc
   else:
@@ -136,6 +136,9 @@ proc parseDef*(fexpr: FExpr): DefExpr =
 # Evaluater
 #
 
+proc isGenerics*(defn: DefnExpr): bool = defn.generics.isSome
+proc isGenerics*(deftype: DeftypeExpr): bool = deftype.generics.isSome
+
 proc addInternalPragma*(fexpr: FExpr, pragma: FExpr) =
   var ipragma = InternalPragma()
   for key, value in pragma.map:
@@ -188,6 +191,7 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let fsym = fsymbol(fexpr[0].span, sym)
   fexpr[1] = fsym
   parsed.name = fsym
+  parsed.ret = fsymbol(parsed.ret.span, rettype)
   # internal metadata for postprocess phase
   fexpr.addInternalPragma(parsed.pragma)
   fexpr.internalMark = internalDefn
@@ -201,6 +205,7 @@ proc evalDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   if not status:
     fexpr.error("redefinition $# type." % $sname)
   fexpr.typ = some(sym)
+  
   # symbol resolve
   let fsym = fsymbol(fexpr[0].span, sym)
   fexpr[1] = fsym
