@@ -32,39 +32,34 @@ type
     names*: seq[string]
   FExprKind* = enum
     fexprIdent
-    fexprAttr
+    fexprPrefix
+    fexprInfix
     fexprSymbol
+    fexprQuote
     fexprIntLit
     fexprStrLit
-    fexprNil
-    fexprList
+    fexprSeq
     fexprArray
-    fexprMap
+    fexprList
+    fexprBlock
+    fexprCall
   FExpr* = ref object
     span*: Span
     typ*: Option[Symbol]
     metadata*: Table[string, Metadata]
-    reader*: Option[string]
     case kind*: FExprKind
-    of fexprIdent:
+    of fexprIdent, fexprPrefix, fexprInfix:
       ident*: string
-    of fexprAttr:
-      attr*: string
     of fexprSymbol:
       symbol*: Symbol
+    of fexprQuote:
+      quoted*: FExpr
     of fexprIntLit:
       intval*: int64
     of fexprStrLit:
       strval*: string
-    of fexprNil:
-      discard
-    of fexprList:
-      car*: FExpr
-      cdr*: FExpr
-    of fexprArray:
+    of fexprSeq, fexprArray, fexprList, fexprBlock, fexprCall:
       sons*: seq[FExpr]
-    of fexprMap:
-      tbl*: OrderedTable[Name, FExpr]
   ProcDecl* = object
     isInternal*: bool
     internalProc*: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)

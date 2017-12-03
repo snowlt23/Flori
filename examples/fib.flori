@@ -1,19 +1,22 @@
 
-(deftype void ${:importc "void" :header nodeclc})
-(deftype bool ${:importc "bool" :header "stdbool.h"})
-(deftype cstring ${:importc "char*" :header nodeclc})
-(deftype int ${:importc "int64_t" :header "stdint.h"})
-(deftype int32 ${:importc "int32_t" :header "stdint.h"})
-(deftype int64 ${:importc "int64_t" :header "stdint.h"})
+type Void $[importc "void", header nodeclc]
+type Bool $[importc "bool", header "stdbool.h"]
+type CString $[importc "char*", header nodeclc]
+type Int $[importc "int64_t", header "stdint.h"]
+type Int32 $[importc "int32_t", header "stdint.h"]
+type Int64 $[importc "int64_t", header "stdint.h"]
 
-(defn + [^int a ^int b] ^int ${:importc "+" :header nodeclc :pattern infixc})
-(defn - [^int a ^int b] ^int ${:importc "-" :header nodeclc :pattern infixc})
-(defn < [^int a ^int b] ^bool ${:importc "<" :header nodeclc :pattern infixc})
-(defn printf [^cstring fmt ^int value] ${:importc "printf" :header "stdio.h"})
+fn `+(a Int, b Int) Int $[importc "+", header nodeclc, pattern infixc]
+fn `-(a Int, b Int) Int $[importc "-", header nodeclc, pattern infixc]
+fn `<(a Int, b Int) Bool $[importc "<", header nodeclc, pattern infixc]
+fn printf(fmt CString, value Int) $[importc "printf", header "stdio.h"]
 
-(defn fib [^int n] ^int
-  (if (< n 2)
-      n
-      (+ (fib (- n 1)) (fib (- n 2)))))
+fn fib(n Int) Int {
+  if (n < 2) {
+    n
+  } else {
+    fib(n-1) + fib(n-2)
+  }
+}
 
-(printf "%d\n" (fib 38))
+printf("%d\n", fib(38))

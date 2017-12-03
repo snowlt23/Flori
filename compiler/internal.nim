@@ -27,9 +27,8 @@ type
     pragma*: FExpr
     body*: FExpr
   IfExpr* = object
-    cond*: FExpr
-    tbody*: FExpr
-    fbody*: FExpr
+    elifbranch*: seq[tuple[cond: FExpr, body: FExpr]]
+    elsebranch*: FExpr
   WhileExpr* = object
     cond*: FExpr
     body*: FExpr
@@ -61,17 +60,17 @@ proc parseDefn*(fexpr: FExpr): DefnExpr =
   result.name = fexpr[pos]
   pos.inc
 
-  if fexpr[pos].isGenericsExpr:
+  if fexpr[pos].kind == fexprArray:
     result.generics = some(fexpr[pos])
     pos.inc
   else:
     result.generics = none(FExpr)
 
-  if fexpr[pos].kind == fexprArray:
+  if fexpr[pos].kind == fexprList:
     result.args = fexpr[pos]
     pos.inc
   else:
-    fexpr[pos].error("function arguments should be ^farray.")
+    fexpr[pos].error("function arguments should be FList.")
 
   if fexpr[pos].isTypeExpr:
     result.ret = fexpr[pos]
@@ -79,16 +78,21 @@ proc parseDefn*(fexpr: FExpr): DefnExpr =
   else:
     result.ret = voidtypeExpr(fexpr.span)
 
-  if fexpr.len > pos and fexpr[pos].isPragmaExpr:
-    result.pragma = fexpr[pos][1]
+  if fexpr.len > pos and fexpr[pos].isPragmaPrefix:
+    pos.inc
+    if fexpr[pos].kind != fexprArray:
+      fexpr[pos].error("pragma should be FArray.")
+    result.pragma = fexpr[pos]
     pos.inc
   else:
-    result.pragma = fmap(fexpr.span)
+    result.pragma = farray(fexpr.span)
 
   if fexpr.len > pos:
-    result.body = fexpr[pos..^1]
+    if fexpr[pos].kind != fexprBlock:
+      fexpr[pos].error("function body should be FBlock.")
+    result.body = fexpr[pos]
   else:
-    result.body = fnil(fexpr.span)
+    result.body = fblock(fexpr.span)
 
 proc parseDeftype*(fexpr: FExpr): DeftypeExpr =
   var pos = 1
@@ -96,39 +100,76 @@ proc parseDeftype*(fexpr: FExpr): DeftypeExpr =
   result.name = fexpr[pos]
   pos.inc
 
-  if fexpr[pos].isGenericsExpr:
+  if fexpr[pos].kind == fexprArray:
     result.generics = some(fexpr[pos])
     pos.inc
   else:
     result.generics = none(FExpr)
 
-  if fexpr[pos].isPragmaExpr:
-    result.pragma = fexpr[pos][1]
+  if fexpr[pos].isPragmaPrefix:
+    pos.inc
+    if fexpr[pos].kind != fexprArray:
+      fexpr[pos].error("pragma should be FArray.")
+    result.pragma = fexpr[pos]
     pos.inc
   else:
-    result.pragma = fmap(fexpr.span)
+    result.pragma = farray(fexpr.span)
   
   if fexpr.len > pos:
-    result.body = fexpr[pos..^1]
+    if fexpr[pos].kind != fexprBlock:
+      fexpr[pos].error("function body should be FBlock.")
+    result.body = fexpr[pos]
   else:
-    result.body = fnil(fexpr.span)
+    result.body = fblock(fexpr.span)
 
 proc parseIf*(fexpr: FExpr): IfExpr =
-  if fexpr.len != 4:
-    fexpr.error("if expression require 3 arguments.")
-  result.cond = fexpr[1]
-  result.tbody = fexpr[2]
-  result.fbody = fexpr[3]
+  if fexpr.len < 3:
+    fexpr.error("if expression require greater than 3 arguments.")
+  result.elifbranch = @[]
+  
+  var pos = 1
+
+  if fexpr[pos].kind != fexprList:
+    fexpr[pos].error("if cond should be FList.")
+  if fexpr[pos+1].kind != fexprBlock:
+    fexpr[pos+1].error("if body should be FBlock.")
+  result.elifbranch.add((fexpr[pos], fexpr[pos+1]))
+  pos += 2
+
+  while fexpr.len > pos:
+    if $fexpr[pos] == "elif":
+      pos.inc
+      let cond = fexpr[pos]
+      if cond.kind != fexprList:
+        fexpr[pos].error("elif cond should be FList.")
+      pos.inc
+      let body = fexpr[pos]
+      if body.kind != fexprBlock:
+        fexpr[pos].error("elif body should be FBlock.")
+      pos.inc
+      result.elifbranch.add((fexpr[pos], fexpr[pos+1]))
+    else:
+      pos.inc
+      let body = fexpr[pos]
+      if body.kind != fexprBlock:
+        fexpr[pos].error("else body should be FBlock.")
+      pos.inc
+      result.elsebranch = body
+      break
 
 proc parseWhile*(fexpr: FExpr): WhileExpr =
-  if fexpr.len < 2:
+  if fexpr.len < 3:
     fexpr.error("while statement require arguments greater than 2")
   result.cond = fexpr[1]
-  result.body = fexpr[2..^1]
+  result.body = fexpr[2]
+  if result.cond.kind != fexprList:
+    result.cond.error("while cond should be FBlock.")
+  if result.body.kind != fexprBlock:
+    result.body.error("while body should be FBlock.")
 
 proc parseDef*(fexpr: FExpr): DefExpr =
   if fexpr.len != 3:
-    fexpr.error("if expression require 2 arguments.")
+    fexpr.error("def expression require 2 arguments.")
   result.name = fexpr[1]
   result.value = fexpr[2]
 
@@ -141,25 +182,35 @@ proc isGenerics*(deftype: DeftypeExpr): bool = deftype.generics.isSome
 
 proc addInternalPragma*(fexpr: FExpr, pragma: FExpr) =
   var ipragma = InternalPragma()
-  for key, value in pragma.map:
-    if $key == "importc":
-      if value.kind != fexprStrLit:
-        value.error("importc pragma requires fstrlit.")
-      ipragma.importc = some(value.strval)
-    elif $key == "header":
-      if $value == "nodeclc":
+  if pragma.kind != fexprArray:
+    pragma.error("$# isn't internal pragma." % $pragma)
+
+  for key in pragma:
+    if key.kind != fexprSeq:
+      key.error("pragma should be FSeq.")
+    if key.len != 2:
+      key.error("pragma.len != 2")
+    
+    case $key[0]
+    of "importc":
+      if key[1].kind != fexprStrLit:
+        key[1].error("importc value should be FStrLit.")
+      ipragma.importc = some(key[1].strval)
+    of "header":
+      if $key[1] == "nodeclc":
         ipragma.header = none(string)
       else:
-        if value.kind != fexprStrLit:
-          value.error("importc pragma requires fstrlit.")
-        ipragma.header = some(value.strval)
-    elif $key == "pattern":
-      if $value == "infixc":
+        if key[1].kind != fexprStrLit:
+          key[1].error("header value should be FStrLit.")
+        ipragma.header = some(key[1].strval)
+    of "pattern":
+      if $key[1] == "infixc":
         ipragma.infixc = true
       else:
-        value.error("unknown pragma.")
+        key[1].error("pattern is support infixc only. (in currently)")
     else:
-      value.error("unknown pragma.")
+      key[0].error("$# is unknown pragma." % $key[0])
+
   fexpr.internalPragma = ipragma
 
 proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
@@ -169,9 +220,9 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let rettype = ctx.evalType(fnscope, parsed.ret)
   var argtypes = newSeq[Symbol]() # for procdecl
 
-  for i in countup(0, parsed.args.len-1, 2):
-    let n = parsed.args[i+1]
-    let sym = ctx.evalType(fnscope, parsed.args[i])
+  for arg in parsed.args:
+    let n = arg[0]
+    let sym = ctx.evalType(fnscope, arg[1])
     n.typ = some(sym)
     argtypes.add(sym)
     let status = fnscope.addDecl(name(n), sym)
@@ -183,9 +234,7 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   if not status:
     fexpr.error("redefinition $# function." % $parsed.name)
 
-  if parsed.body.kind != fexprNil:
-    for e in parsed.body:
-      ctx.evalFExpr(fnscope, e)
+  ctx.evalFExpr(fnscope, parsed.body)
 
   # symbol resolve
   let fsym = fsymbol(fexpr[0].span, sym)
@@ -215,21 +264,32 @@ proc evalDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   fexpr.internalMark = internalDeftype
   fexpr.internalDeftypeExpr = parsed
 
+proc isEqualTypes*(types: seq[Symbol]): bool =
+  var first = types[0]
+  for t in types[1..^1]:
+    if first != t:
+      return false
+  return true
+
 proc evalIf*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let parsed = parseIf(fexpr)
-  ctx.evalFExpr(scope, parsed.cond)
-  ctx.evalFExpr(scope, parsed.tbody)
-  ctx.evalFExpr(scope, parsed.fbody)
+  var types = newSeq[Symbol]()
 
-  if parsed.cond.typ.get.name != name("bool"):
-    parsed.cond.error("if expression cond should be ^bool")
-  
-  if parsed.tbody.typ.get == parsed.fbody.typ.get:
-    fexpr.typ = parsed.tbody.typ
+  for branch in parsed.elifbranch:
+    ctx.evalFExpr(scope, branch.cond)
+    if not branch.cond.typ.get.isBoolType:
+      branch.cond.error("if expression cond should be Bool")
+    ctx.evalFExpr(scope, branch.body)
+    types.add(branch.body.typ.get)
+  ctx.evalFExpr(scope, parsed.elsebranch)
+  types.add(parsed.elsebranch.typ.get)
+
+  if isEqualTypes(types):
+    fexpr.typ = some(types[0])
   else:
-    let opt = scope.getDecl(name("void"))
+    let opt = scope.getDecl(name("Void"))
     if opt.isNone:
-      fexpr.error("undeclared ^void type.")
+      fexpr.error("undeclared Void type.")
     fexpr.typ = opt
   # internal metadata for postprocess phase
   fexpr.internalMark = internalIf
@@ -239,11 +299,10 @@ proc evalWhile*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let parsed = parseWhile(fexpr)
 
   ctx.evalFExpr(scope, parsed.cond)
-  if parsed.cond.typ.get.name != name("bool"):
-    parsed.cond.error("while statement cond should be ^bool")
+  if not parsed.cond.typ.get.isBoolType:
+    parsed.cond.error("while statement cond should be Bool")
 
-  for b in parsed.body:
-    ctx.evalFExpr(scope, b)
+  ctx.evalFExpr(scope, parsed.body)
 
   scope.resolveByVoid(fexpr)
 
@@ -254,7 +313,7 @@ proc evalWhile*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
 proc evalDef*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   var parsed = parseDef(fexpr)
   if parsed.name.kind != fexprIdent:
-    parsed.name.error("def name should be fident.")
+    parsed.name.error("define name should be FIdent.")
 
   let sym = scope.symbol(name(parsed.name), symbolVar, parsed.value)
   let status = scope.addDecl(name(parsed.name), sym)
@@ -263,7 +322,7 @@ proc evalDef*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
 
   ctx.evalFExpr(scope, parsed.value)
   if parsed.value.typ.get.isVoidType:
-    parsed.value.error("value is void.")
+    parsed.value.error("value is Void.")
   scope.resolveByVoid(fexpr)
 
   # symbol resolve
@@ -275,11 +334,11 @@ proc evalDef*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   fexpr.internalDefExpr = parsed
 
 proc initInternalEval*(scope: Scope) =
-  scope.addInternalEval(name("defn"), evalDefn)
-  scope.addInternalEval(name("deftype"), evalDeftype)
+  scope.addInternalEval(name("fn"), evalDefn)
+  scope.addInternalEval(name("type"), evalDeftype)
   scope.addInternalEval(name("if"), evalIf)
   scope.addInternalEval(name("while"), evalWhile)
-  scope.addInternalEval(name("def"), evalDef)
+  scope.addInternalEval(name(":="), evalDef)
 
 proc initInternalScope*(ctx: SemanticContext) =
   let scope = newScope(name("internal"))

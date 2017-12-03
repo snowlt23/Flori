@@ -86,18 +86,19 @@ proc codegenDefn*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     src &= codegenSymbol(fn.name)
     src &= "("
     if fn.args.len >= 1:
-      let t = fn.args[0]
-      let n = fn.args[1]
+      let n = fn.args[0][0]
+      let t = fn.args[0][1]
       src &= codegenSymbol(t)
       src &= " "
       src &= $n
-    for i in countup(2, fn.args.len-1, 2):
-      let t = fn.args[i]
-      let n = fn.args[i+1]
-      src &= ", "
-      src &= codegenSymbol(t)
-      src &= " "
-      src &= $n
+    if fn.args.len >= 2:
+      for arg in fn.args[1..^1]:
+        let n = arg[0]
+        let t = arg[1]
+        src &= ", "
+        src &= codegenSymbol(t)
+        src &= " "
+        src &= $n
     src &= ") {\n"
     if fn.body[^1].typ.get.isVoidType:
       ctx.codegenBody(src, fn.body)
@@ -124,33 +125,39 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 
   if not fexpr.typ.get.isVoidType: # temporary return variable declaration.
     src.prev &= codegenSymbol(fexpr.typ.get) & " " & tmpret & ";\n"
+  let ret = if not fexpr.typ.get.isVoidType:
+              tmpret & " = "
+            else:
+              nil
 
-  var condsrc = initSrcExpr()
-  var tbodysrc = initSrcExpr()
-  var fbodysrc = initSrcExpr()
-  ctx.codegenFExpr(condsrc, fexpr.internalIfExpr.cond)
-  ctx.codegenFExpr(tbodysrc, fexpr.internalIfExpr.tbody)
-  ctx.codegenFExpr(fbodysrc, fexpr.internalIfExpr.fbody)
+  let elifbranch = fexpr.internalIfExpr.elifbranch
 
-  src.prev &= condsrc.prev
-  src.prev &= "if ("
-  src.prev &= condsrc.exp
-  src.prev &= ") {\n"
+  var ifcondsrc = initSrcExpr()
+  var ifbodysrc = initSrcExpr()
+  ctx.codegenFExpr(ifcondsrc, elifbranch[0].cond[0])
+  ctx.codegenBody(ifbodysrc, elifbranch[0].body, ret)
+  src.prev &= ifcondsrc.prev
+  src.prev &= "if (" & ifcondsrc.exp & ") {\n"
+  src.prev &= ifbodysrc.prev
+  src.prev &= ifbodysrc.exp
+  src.prev &= "}"
 
-  # tbody
-  src.prev &= tbodysrc.prev
-  if not fexpr.typ.get.isVoidType:
-    src.prev &= tmpret & " = " & tbodysrc.exp & ";\n"
-  else:
-    src.prev &= tbodysrc.exp & ";\n"
+  for branch in elifbranch[1..^1]:
+    var elifcondsrc = initSrcExpr()
+    var elifbodysrc = initSrcExpr()
+    ctx.codegenFExpr(elifcondsrc, branch.cond[0])
+    ctx.codegenBody(elifbodysrc, branch.body, ret)
+    src.prev &= elifcondsrc.prev
+    src.prev &= " else if (" & elifcondsrc.exp & ") {\n"
+    src.prev &= elifbodysrc.prev
+    src.prev &= elifbodysrc.exp
+    src.prev &= "}"
 
-  # fbody
-  src.prev &= "} else {\n"
-  src.prev &= fbodysrc.prev
-  if not fexpr.typ.get.isVoidType:
-    src.prev &= tmpret & " = " & fbodysrc.exp & ";\n"
-  else:
-    src.prev &= fbodysrc.exp & ";\n"
+  var elsebodysrc = initSrcExpr()
+  ctx.codegenBody(elsebodysrc, fexpr.internalIfExpr.elsebranch, ret)
+  src.prev &= " else {\n"
+  src.prev &= elsebodysrc.prev
+  src.prev &= elsebodysrc.exp
   src.prev &= "}"
 
   # return temporary variable.
@@ -159,7 +166,7 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 
 proc codegenWhile*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "while ("
-  ctx.codegenFExpr(src, fexpr.internalWhileExpr.cond)
+  ctx.codegenFExpr(src, fexpr.internalWhileExpr.cond[0])
   src &= ") {\n"
   ctx.codegenBody(src, fexpr.internalWhileExpr.body)
   src &= "}"
@@ -260,19 +267,19 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     src &= $fexpr
   of fexprStrLit:
     src &= $fexpr
-  of fexprList:
+  of fexprArray, fexprList, fexprBlock:
+    fexpr.error("unsupported $# in C Codegen." % $fexpr.kind)
+  of fexprCall, fexprSeq:
     if fexpr.hasinternalMark:
       ctx.codegenInternal(src, fexpr, toplevel = false)
     else:
       ctx.codegenCall(src, fexpr)
-  of fexprArray..fexprMap:
-    fexpr.error("unsupported $# in C Codegen." % $fexpr.kind)
   else:
     fexpr.error("$# is unsupported expression in eval." % $fexpr.kind)
 
 proc codegenToplevel*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   case fexpr.kind
-  of fexprList:
+  of fexprSeq, fexprCall:
     if fexpr.hasinternalMark:
       ctx.codegenInternal(src, fexpr, toplevel = true)
   else:

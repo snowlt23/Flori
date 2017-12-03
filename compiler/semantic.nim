@@ -16,25 +16,25 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr)
 
 proc name*(fexpr: FExpr): Name =
   case fexpr.kind
-  of fexprIdent:
+  of fexprNames:
     return name($fexpr)
+  of fexprQuote:
+    return name(fexpr.quoted)
   else:
     fexpr.error("$# is not name." % $fexpr)
 
 proc addInternalEval*(scope: Scope, n: Name, p: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)) =
   let status = scope.addFunc(ProcDecl(isInternal: true, internalproc: p, name: n, argtypes: @[], sym: scope.symbol(n, symbolInternal, fident(internalSpan, "internal")))) # FIXME: returntype
   if not status:
-    fnil(internalSpan).error("redefinition $# function." % $n)
+    fseq(internalSpan).error("redefinition $# function." % $n)
 
 proc voidtypeExpr*(span: Span): FExpr =
-  flist(span, fident(span, "type"), fident(span, "void"))  
+  return fident(span, "Void")
 
 proc isTypeExpr*(fexpr: FExpr): bool =
-  fexpr.kind == fexprList and $fexpr[0] == "type"
-proc isPragmaExpr*(fexpr: FExpr): bool =
-  fexpr.kind == fexprList and $fexpr[0] == "pragma" and fexpr[1].kind == fexprMap
-proc isGenericsExpr*(fexpr: FExpr): bool =
-  fexpr.kind == fexprList and $fexpr[0] == "pragma" and fexpr[1].kind == fexprArray
+  fexpr.kind == fexprIdent
+proc isPragmaPrefix*(fexpr: FExpr): bool =
+  fexpr.kind == fexprPrefix and $fexpr == "$"
 
 proc resolveByType*(scope: Scope, fexpr: FExpr, n: Name) =
   let opt = scope.getDecl(n)
@@ -42,32 +42,29 @@ proc resolveByType*(scope: Scope, fexpr: FExpr, n: Name) =
     fexpr.error("$# type is undefined." % $n)
   fexpr.typ = opt
 proc resolveByVoid*(scope: Scope, fexpr: FExpr) =
-  scope.resolveByType(fexpr, name("void"))
+  scope.resolveByType(fexpr, name("Void"))
   
-proc evalTypeInside*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr): Symbol =
-  if fexpr.kind == fexprList:
-    if fexpr.len <= 1:
-      fexpr.error("type list requires 2 arguments.")
-    let opt = scope.getDecl(name(fexpr[0]))
-    if opt.isNone:
-      fexpr.error("undeclared $# type." % $fexpr[0])
-    var sym = opt.get
-    for arg in fexpr[1..^1].mitems:
-      sym.types.add(ctx.evalTypeInside(scope, arg))
-    fexpr[0] = fsymbol(fexpr[0].span, sym)
-    return sym
-  else:
-    let opt = scope.getDecl(name(fexpr))
-    if opt.isNone:
-      fexpr.error("undeclared $# type." % $fexpr)
-    fexpr = fsymbol(fexpr.span, opt.get)
-    return opt.get
-
 proc evalType*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr): Symbol =
-  if fexpr.kind != fexprList or $fexpr[0] != "type":
-    fexpr.error("$# isn't type." % $fexpr)
-  result = ctx.evalTypeInside(scope, fexpr[1])
-  fexpr = fsymbol(fexpr.span, result)
+  if fexpr.kind != fexprIdent:
+    fexpr.error("$# isn't type. ($#)" % [$fexpr, $fexpr.kind])
+
+  let opt = scope.getDecl(name(fexpr))
+  if opt.isNone:
+    fexpr.error("undeclared $# type." % $fexpr)
+  fexpr = fsymbol(fexpr.span, opt.get)
+  return opt.get
+
+  # if fexpr.kind == fexprSeq: # parametric type
+  #   if fexpr.len <= 1:
+  #     fexpr.error("type fseq requires 2 arguments.")
+  #   let opt = scope.getDecl(name(fexpr[0]))
+  #   if opt.isNone:
+  #     fexpr.error("undeclared $# type." % $fexpr[0])
+  #   var sym = opt.get
+  #   for arg in fexpr[1..^1].mitems:
+  #     sym.types.add(ctx.evalType(scope, arg))
+  #   fexpr[0] = fsymbol(fexpr[0].span, sym)
+  #   return sym
 
 proc internalScope*(ctx: SemanticContext): Scope =
   ctx.modules[name("internal")]
@@ -82,16 +79,22 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   of fexprSymbol:
     discard
   of fexprIntLit:
-    let opt = scope.getDecl(name("int"))
+    let opt = scope.getDecl(name("Int"))
     if opt.isNone:
-      fexpr.error("undeclared ^int type.")
+      fexpr.error("undeclared Int type.")
     fexpr.typ = opt
   of fexprStrLit:
-    let opt = scope.getDecl(name("cstring"))
+    let opt = scope.getDecl(name("CString"))
     if opt.isNone:
-      fexpr.error("undeclared ^cstring type.")
+      fexpr.error("undeclared CString type.")
     fexpr.typ = opt
-  of fexprList:
+  of fexprArray, fexprList, fexprBlock:
+    if fexpr.len == 0:
+      return
+    for son in fexpr:
+      ctx.evalFExpr(scope, son)
+    fexpr.typ = fexpr[^1].typ
+  of fexprCall, fexprSeq:
     let fn = fexpr[0]
     let internalopt = scope.getFunc(procname(name(fn), @[]))
     if internalopt.isSome:
