@@ -1,11 +1,12 @@
 
-(require prelude :refer :all)
-(require io :refer :all)
-(require vec :refer :all)
+import prelude
+import io
+import vec
 
-(defn main []
-  (def v (new-vec ^int 10))
-  (set! (nth v 5) 9)
-  (print (nth v 5)))
+fn main() {
+  v := new_vec!Int(10)
+  v!5 = 9
+  print(v!5)
+}
 
-(main)
+main()

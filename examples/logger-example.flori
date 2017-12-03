@@ -1,16 +1,17 @@
 
-(require prelude :refer :all)
-(require fileio :refer :all)
-(require logger :refer :all)
-(require vec :refer :all)
+import prelude
+import fileio
+import logger
 
-(defn main []
-  (let [l (new-logger)]
-    (add-file l stdout)
-    (add-file l (open-file "voiceroids.txt) "w")
-    (log l "Yukari\n")
-    (log l "Maki\n")
-    (log l "Akane\n")
-    (log l "Aoi\n")))
+fn main() {
+  l := new_logger()
+  add_file(l, stdout)
+  add_file(l, open_file("voiceroids.txt", "w"))
+  (log l "Yukari\n")
+  (log l "Maki\n")
+  (log l "Akane\n")
+  (log l "Aoi\n")
+}
 
-(main)
+main()
+

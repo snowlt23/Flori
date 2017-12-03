@@ -1,25 +1,25 @@
 
-struct Vec[T] {
+type Vec[T] {
   p Ptr![:a]
   len Int32
 }
 
-fn new_vec(T Typedesc, len Int32) Vec![T] {
+fn new_vec[T](len Int32) Vec!T {
   Vec(alloc(sizeof(T)*len), len)
 }
 
-fn `!=[T](vec &Vec![T], index Int32, value T) {
+fn `![T](vec &Vec!T, index Int32) &T {
   vec.p!index = value
 }
 
-fn push[T](vec &Vec![T], value T) {
+fn push[T](vec &Vec!T, value T) {
   vec.p = realloc(vec.p, sizeof(T)*(vec.len+1))
   vec!(vec.len-1) = value
   vec.len += 1
 }
 
 fn vec_main() {
-  var top = new_vec(Int32, 1) # top.cnt 1
+  var top = new_vec!Int32(1) # top.cnt 1
   top!0 = 9
   for i in 0..5 {
     v := new_vec(Int32, 1) # v.cnt 1

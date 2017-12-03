@@ -1,71 +1,90 @@
 
-;;; require
+# import
 
-(require prelude :refer :all)
+import prelude
 
-;;; importc
+# importc
 
-(deftype void ${:importc "void" :header nodeclc})
-(deftype bool ${:importc "bool" :header "stdbool.h"})
-(deftype cstring ${:importc "char*" :header nodeclc})
-(deftype int ${:importc "int64_t" :header "stdint.h"})
-(deftype int32 ${:importc "int32_t" :header "stdint.h"})
-(deftype int64 ${:importc "int64_t" :header "stdint.h"})
+type Void $[importc "void", header nodeclc]
+type Bool $[importc "bool", header "stdbool.h"]
+type CString $[importc "char*", header nodeclc]
+type Int $[importc "int64_t", header "stdint.h"]
+type Int32 $[importc "int32_t", header "stdint.h"]
+type Int64 $[importc "int64_t", header "stdint.h"]
 
-(defn + [^int a ^int b] ^int ${:importc "+" :header nodeclc :pattern infixc})
-(defn += [^&int a ^int b] ${:importc "+=" :header nodeclc :pattern infixc})
-(defn - [^int a ^int b] ^int ${:importc "-" :header nodeclc :pattern infixc})
-(defn < [^int a ^int b] ^bool ${:importc "<" :header nodeclc :pattern infixc})
+fn `+(a Int, b Int) Int $[importc "+", header nodeclc, pattern infixc]
+fn `+=(a &Int, b Int) $[importc "+=", header nodeclc, pattern infixc]
+fn `-(a Int, b Int) Int $[importc "-", header nodeclc, pattern infixc]
+fn `<(a Int, b Int) Bool $[importc "<", header nodeclc, pattern infixc]
+fn printf(fmt CString, x Int) $[importc "printf", header "stdio.h"]
 
-;;; fib
+# fib
 
-(defn fib [^int n] ^int
-  (if (< n 2)
-      n
-      (+ (fib (- n 1)) (fib (- n 2)))))
+fn fib(n Int) Int {
+  if (n < 2) {
+    n
+  } else {
+    fib(n-1) + fib(n-2)
+  }
+}
 
-;;; vec type
+# vec type
 
-(deftype vec $[:a] [^(ptr :a) p ^int len])
+type Vec[T] {
+  p Ptr!Int
+  len Int
+}
 
-(defn new-vec [^typedesc :a ^int len] ^(vec :a)
-  (vec
-    (alloc (* (sizeof :a) len)
-    len)))
+fn new_vec[T](len Int) Vec!T {
+  Vec(cast[Ptr!T](alloc(sizeof(T)*len)), len)
+}
 
-(defn nth $[:a] [^&(vec :a) vec ^int index] ^:a
-  (nth (:p vec) index) value)
-(defn nth-set! $[:a] [^&(vec :a) vec ^int index ^:a value]
-  (set! (nth (:p vec) index) value))
+fn `![T](vec &Vec!T, index Int) &T {
+  vec.p!index
+}
 
-(defn push $[:a] [^&(vec :a) vec ^:a value]
-  (set! (:p vec) (realloc (:p vec) (* (sizeof :a) (+ (:len vec) 1))))
-  (set! (nth vec (:len vec)) value)
-  (+= (:len vec) 1))
+fn push[T](vec &Vec!T, index Int, value T) {
+  vec.p = realloc(vec.p, sizeof(T)*(vec.len + 1))
+  vec!index = value
+  vec.len += 1
+}
 
-;;; for macro
+# for macro
 
-(defmacro for [^fexpr i ^flist iter ^frest body]
-  `(,(append (car iter) `-iter) ,i ,body ,@(cdr iter)))
+macro for(i FIdent, in FIdent, iter FList, body FBlock) {
+  if (in != `in) {
+    error(in, "for syntax: for $(name) in $(iter) {...}")
+  }
+  quote {
+    $(append(iter!0, `_iter))($(i), $(body), $@(rest(iter)))
+  }
+}
 
-(defmacro defiter [^fident name ^farray args ^frest body]
-  `(defmacro ,(append name `-iter) ,args ,@body))
+macro iterator(name FIdent, args FArray, body FBlock) {
+  quote {
+    defmacro $(append name `_iter)$(args) $(body)
+  }
+}
 
-(defiter countup [^fexpr i ^fexpr body ^int a ^int b]
-  `(let [,i ,a]
-    (while (<= ,i ,b)
-      ,body)))
+iterator `..(i FIdent, body FBlock, a Int, b Int) {
+  quote {
+    $(i) := $(a)
+    while ($(i) <= $(b)) $(body)
+  }
+}
 
-;;; main
+# main
 
-(defn main []
-  (let [top (new-vec ^int 1)]
-    (set! (nth top 0) 9)
-    (for i (countup 0 5)
-      (let [v (new-vec ^int 1)]
-        (set! (nth v 0) 9)
-        (push v 10)
-        (push v (nth top 0))
-        (set! top v)))))
+fn main() {
+  top := new_vec!Int(1)
+  top!0 = 9
+  for i in 0..5 {
+    v := new_vec!Int(1)
+    v!0 = 9
+    push(v, 10)
+    push(v, top!0)
+    top = v
+  }
+}
 
-(main)
+main()
