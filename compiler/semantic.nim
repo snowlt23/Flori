@@ -52,10 +52,10 @@ proc parseType*(fexpr: FExpr): TypeExpr =
   else:
     fexpr.error("$# isn't type." % $fexpr)
 
-proc isTypeExpr*(fexpr: FExpr): bool =
-  fexpr.kind == fexprIdent
 proc isParametricTypeExpr*(fexpr: FExpr): bool =
-  fexpr.kind == fexprSeq and fexpr[0].kind == fexprIdent and fexpr[1].kind == fexprArray
+  fexpr.kind == fexprSeq and $fexpr[0] == "|" and fexpr[1].kind == fexprIdent and fexpr[2].kind in {fexprIdent, fexprList}
+proc isTypeExpr*(fexpr: FExpr): bool =
+  fexpr.kind == fexprIdent or isParametricTypeExpr(fexpr)
 proc isPragmaPrefix*(fexpr: FExpr): bool =
   fexpr.kind == fexprPrefix and $fexpr == "$"
 
@@ -77,13 +77,18 @@ proc evalType*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr): Symbol =
   elif fexpr.isParametricTypeExpr: # parametric type (generics)
     if fexpr.len <= 1:
       fexpr.error("parametric type requires greater than 2 arguments.")
-    let opt = scope.getDecl(name(fexpr[0]))
+    let opt = scope.getDecl(name(fexpr[1]))
     if opt.isNone:
-      fexpr.error("undeclared $# type." % $fexpr[0])
+      fexpr.error("undeclared $# type." % $fexpr[1])
     var sym = opt.get
-    for arg in fexpr[1].mitems:
-      sym.types.add(ctx.evalType(scope, arg))
-    fexpr[0] = fsymbol(fexpr[0].span, sym)
+    if fexpr[2].kind == fexprIdent:
+      sym.types.add(ctx.evalType(scope, fexpr[2]))
+    elif fexpr[2].kind == fexprList:
+      for arg in fexpr[2].mitems:
+        sym.types.add(ctx.evalType(scope, arg))
+    else:
+      fexpr.error("$# is not parametric type expression." % $fexpr)
+    fexpr = fsymbol(fexpr[0].span, sym)
     return sym
   else:
     fexpr.error("$# isn't type. ($#)" % [$fexpr, $fexpr.kind])

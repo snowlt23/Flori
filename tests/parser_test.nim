@@ -54,6 +54,14 @@ suite "F expression parser test":
     check fexpr[1][0].kind == fexprStrLit
     check $fexpr[1][0] == "\"Hello Yukari!\""
     check $fexpr == "println(\"Hello Yukari!\")"
+  test "short symbol":
+    let fexpr = parseToplevel("test.flori", """
+    Vec|Int
+    """)[0]
+    check fexpr[0].kind == fexprShort
+    check $fexpr[0] == "|"
+    check $fexpr[1] == "Vec"
+    check $fexpr[2] == "Int"
   test "if":
     let fexpr = parseToplevel("test.flori", """
     if (true) {

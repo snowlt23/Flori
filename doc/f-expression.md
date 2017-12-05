@@ -8,6 +8,7 @@ F Expression is new flexible meta syntax, it's looks like C or Go. (like Lisp an
 - identifiers
   - FIdent : `scope.ident`
   - FPrefix : `$`
+  - FShort : `|`
   - FInfix : `+`
 - identifier wrappers
   - FQuote : backquote

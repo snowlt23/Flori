@@ -57,14 +57,14 @@ defMetadata(internalPragma, InternalPragma)
 proc parseDefn*(fexpr: FExpr): DefnExpr =
   var pos = 1
 
-  result.name = fexpr[pos]
-  pos.inc
-
-  if fexpr[pos].kind == fexprArray:
-    result.generics = some(fexpr[pos])
+  if fexpr[pos].isParametricTypeExpr:
+    result.name = fexpr[pos][1]
+    result.generics = some(fexpr[2])
     pos.inc
   else:
+    result.name = fexpr[pos]
     result.generics = none(FExpr)
+    pos.inc
 
   if fexpr[pos].kind == fexprList:
     result.args = fexpr[pos]
@@ -72,10 +72,7 @@ proc parseDefn*(fexpr: FExpr): DefnExpr =
   else:
     fexpr[pos].error("function arguments should be FList.")
 
-  if fexpr.len > pos+1 and fexpr[pos..pos+1].isParametricTypeExpr:
-    result.ret = fexpr[pos..pos+1]
-    pos += 2
-  elif fexpr[pos].isTypeExpr:
+  if fexpr[pos].isTypeExpr:
     result.ret = fexpr[pos]
     pos.inc
   else:
@@ -100,14 +97,14 @@ proc parseDefn*(fexpr: FExpr): DefnExpr =
 proc parseDeftype*(fexpr: FExpr): DeftypeExpr =
   var pos = 1
 
-  result.name = fexpr[pos]
-  pos.inc
-
-  if fexpr[pos].kind == fexprArray:
-    result.generics = some(fexpr[pos])
+  if fexpr[pos].isParametricTypeExpr:
+    result.name = fexpr[pos][1]
+    result.generics = some(fexpr[pos][2])
     pos.inc
   else:
+    result.name = fexpr[pos]
     result.generics = none(FExpr)
+    pos.inc
 
   if fexpr[pos].isPragmaPrefix:
     pos.inc
@@ -243,7 +240,6 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let fsym = fsymbol(fexpr[0].span, sym)
   fexpr[1] = fsym
   parsed.name = fsym
-  parsed.ret = fsymbol(parsed.ret.span, rettype)
   # internal metadata for postprocess phase
   fexpr.addInternalPragma(parsed.pragma)
   fexpr.internalMark = internalDefn

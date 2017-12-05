@@ -16,8 +16,10 @@ type
 const StartList* = {'(', '[', '{'}
 const EndList* = {')', ']', '}', ','}
 const PrefixSymbols* = {'$', '&', '?', '@'}
-const InfixSymbols* = {'!', '%', '*', '.', '+', '-', '/', '<', '=', '>', '^', ':'}
-const SeparateSymbols* = StartList + EndList + PrefixSymbols + InfixSymbols
+const ShortSymbols* = {'.', '|'}
+const InfixSymbols* = {'!', '%', '+', '-', '*', '/', '<', '=', '>', ':'}
+const SpecialSymbols* = PrefixSymbols + ShortSymbols + InfixSymbols
+const SeparateSymbols* = StartList + EndList + SpecialSymbols
 
 proc parseFExpr*(context: var ParserContext): FExpr
 
@@ -153,16 +155,25 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
     var ident = ""
     let span = context.span()
     while true:
-      if context.curchar notin PrefixSymbols + InfixSymbols:
+      if context.curchar notin SpecialSymbols:
         break
       ident.add(context.curchar)
       context.inc
     return fprefix(span, name(ident))
+  elif context.curchar in ShortSymbols: # short ident
+    var ident = ""
+    let span = context.span()
+    while true:
+      if context.curchar notin SpecialSymbols:
+        break
+      ident.add(context.curchar)
+      context.inc
+    return fshort(span, name(ident))
   elif context.curchar in InfixSymbols: # special ident
     var ident = ""
     let span = context.span()
     while true:
-      if context.curchar notin PrefixSymbols + InfixSymbols:
+      if context.curchar notin SpecialSymbols:
         break
       ident.add(context.curchar)
       context.inc
@@ -199,14 +210,22 @@ proc rewriteToCall*(fexpr: FExpr): FExpr =
     return rewriteToCall(fexpr[0])
   elif fexpr.kind == fexprSeq:
     let stack = fseq(fexpr.span)
-    for i, son in fexpr.sons:
-      if son.kind == fexprInfix:
+    var i = 0
+    while i < fexpr.len:
+      if fexpr[i].kind == fexprInfix:
         let left = rewriteToCall(stack)
         let right = rewriteToCall(fexpr[i+1..^1])
-        return fseq(son.span, @[son, left, right])
+        return fseq(fexpr[i].span, @[fexpr[i], left, right])
+      elif fexpr[i].kind == fexprShort:
+        stack[^1] = fseq(fexpr[i].span, @[fexpr[i], stack[^1], fexpr[i+1]])
+        i += 2
       else:
-        stack.addSon(son)
-    return fexpr
+        stack.addSon(fexpr[i])
+        i.inc
+    if stack.len == 1:
+      return stack[0]
+    else:
+      return stack
   else:
     return fexpr
 

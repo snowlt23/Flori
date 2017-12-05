@@ -33,6 +33,7 @@ type
   FExprKind* = enum
     fexprIdent
     fexprPrefix
+    fexprShort
     fexprInfix
 
     fexprQuote
@@ -51,7 +52,7 @@ type
     typ*: Option[Symbol]
     metadata*: Table[string, Metadata]
     case kind*: FExprKind
-    of fexprIdent, fexprPrefix, fexprInfix:
+    of fexprIdent, fexprPrefix, fexprShort, fexprInfix:
       idname*: Name
     of fexprQuote:
       quoted*: FExpr

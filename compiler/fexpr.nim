@@ -10,7 +10,7 @@ export types.FExprKind
 export types.FExpr
 
 const fexprAtoms* = {fexprIdent..fexprStrLit}
-const fexprNames* = {fexprIdent, fexprPrefix, fexprInfix}
+const fexprNames* = {fexprIdent, fexprPrefix, fexprShort, fexprInfix}
 const fexprContainer* = {fexprSeq, fexprArray, fexprList, fexprBlock}
 
 proc `$`*(fexpr: FExpr): string
@@ -35,6 +35,8 @@ proc fident*(span: Span, name: Name): FExpr =
   FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprIdent, idname: name)
 proc fprefix*(span: Span, name: Name): FExpr =
   FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprPrefix, idname: name)
+proc fshort*(span: Span, name: Name): FExpr =
+  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprShort, idname: name)
 proc finfix*(span: Span, name: Name): FExpr =
   FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprInfix, idname: name)
 proc fquote*(span: Span, q: FExpr): FExpr =
@@ -108,13 +110,15 @@ proc `[]=`*(fexpr: FExpr, i: int, f: FExpr) =
     fexpr.sons[i] = f
   else:
     fexpr.error("$# isn't container" % $fexpr.kind)
+proc `[]=`*(fexpr: FExpr, i: BackwardsIndex, f: FExpr) =
+  fexpr[fexpr.len-int(i)] = f
 
 proc genIndent*(indent: int): string =
   repeat(' ', indent)
 
 proc toString*(fexpr: FExpr, indent: int): string =
   case fexpr.kind
-  of fexprIdent, fexprPrefix, fexprInfix:
+  of fexprIdent, fexprPrefix, fexprShort, fexprInfix:
     $fexpr.idname
   of fexprQuote:
     "`" & fexpr.quoted.toString(indent)
@@ -127,6 +131,8 @@ proc toString*(fexpr: FExpr, indent: int): string =
   of fexprSeq:
     if fexpr.len == 2 and fexpr[1].kind in {fexprList, fexprArray}:
       fexpr.sons[0].toString(indent) & fexpr.sons[1..^1].mapIt(it.toString(indent)).join(" ")
+    elif fexpr.len == 3 and fexpr[0].kind == fexprShort:
+      fexpr.sons[1].toString(indent) & fexpr.sons[0].toString(indent) & fexpr.sons[2].toString(indent)
     else:
       fexpr.sons.mapIt(it.toString(indent)).join(" ")
   of fexprArray:
