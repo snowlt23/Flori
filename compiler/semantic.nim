@@ -46,10 +46,7 @@ proc name*(fexpr: FExpr): Name =
 proc getType*(fexpr: FExpr): Symbol =
   if fexpr.typ.isNone:
     fexpr.error("this expression undecide type.")
-  if fexpr.typ.get.instance.isSome:
-    return fexpr.typ.get.instance.get
-  else:
-    return fexpr.typ.get
+  return fexpr.typ.get
 
 proc addInternalEval*(scope: Scope, n: Name, p: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)) =
   let status = scope.addFunc(ProcDecl(isInternal: true, internalproc: p, name: n, argtypes: @[], sym: scope.symbol(n, symbolInternal, fident(internalSpan, name("internal"))))) # FIXME: returntype
@@ -83,10 +80,15 @@ proc isPragmaPrefix*(fexpr: FExpr): bool =
   fexpr.kind == fexprPrefix and $fexpr == "$"
 
 proc isSpecSymbol*(sym: Symbol): bool =
-  for t in sym.types:
-    if t.kind != symbolType:
-      return false
-  return true
+  if sym.kind == symbolType:
+    return true
+  elif sym.kind == symbolGenerics:
+    return false
+  else:
+    for t in sym.types:
+      if t.kind != symbolType:
+        return false
+    return true
 proc isSpecTypes*(types: seq[Symbol]): bool =
   for t in types:
     if not t.isSpecSymbol:

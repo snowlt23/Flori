@@ -21,16 +21,12 @@ type
   FieldAccessExpr* = object
     value*: FExpr
     fieldname*: FExpr
-  InitExpr* = object
-    typ*: FExpr
-    body*: FExpr
 
 defMetadata(internalToplevel, bool)
 defMetadata(internalIfExpr, IfExpr)
 defMetadata(internalWhileExpr, WhileExpr)
 defMetadata(internalDefExpr, DefExpr)
 defMetadata(internalFieldAccessExpr, FieldAccessExpr)
-defMetadata(internalInitExpr, InitExpr)
 
 #
 # Parser
@@ -223,14 +219,12 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
     if not status:
       n.error("redefinition $# variable." % $n)
 
+  ctx.evalFExpr(fnscope, parsed.body)
+
   let sym = scope.symbol(name(parsed.name), symbolFunc, fexpr)
   let status = scope.addFunc(ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, returntype: rettype, sym: sym))
   if not status:
     fexpr.error("redefinition $# function." % $parsed.name)
-
-  # if parsed.generics.isNone:
-  #   ctx.evalFExpr(fnscope, parsed.body)
-  ctx.evalFExpr(fnscope, parsed.body)
 
   # symbol resolve
   let fsym = fsymbol(fexpr[0].span, sym)

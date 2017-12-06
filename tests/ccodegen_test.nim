@@ -225,4 +225,25 @@ testmodule_Wrap_testmodule_Int{9};
     semctx.evalModule(name("testmodule"), fexprs)
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
-    check readFile("floricache/testmodule.c") == ""
+    check readFile("floricache/testmodule.c") == """
+#include "stdint.h"
+#include "stdio.h"
+#include "stdbool.h"
+
+typedef void testmodule_Void;
+typedef bool testmodule_Bool;
+typedef char* testmodule_CString;
+typedef int64_t testmodule_Int;
+
+typedef struct {
+x testmodule_Int;
+} testmodule_Wrap_testmodule_Int;
+
+testmodule_Wrap_testmodule_Int testmodule_testmodule_wrap_testmodule_Int(testmodule_Int x) {
+return testmodule_Wrap_testmodule_Int{x};
+}
+
+void testmodule_init() {
+testmodule_testmodule_wrap_testmodule_Int(9);
+}
+"""

@@ -109,7 +109,6 @@ proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
       src &= " "
       src &= $n
   src &= ") {\n"
-  echo fn.body[^1]
   if fn.body[^1].typ.get.isVoidType:
     ctx.codegenBody(src, fn.body)
   else:
@@ -291,7 +290,7 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   of fexprIdent:
     src &= $fexpr
   of fexprSymbol:
-    if not fexpr.hasinternalMark:
+    if not fexpr.symbol.fexpr.hasinternalMark:
       src &= codegenSymbol(fexpr)
   of fexprIntLit:
     src &= $fexpr

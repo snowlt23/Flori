@@ -105,5 +105,8 @@ suite "semantic":
     semctx.evalModule(name("testmodule"), fexprs)
     let wrapfn = fexprs[^1]
     check $wrapfn.typ.get == "testmodule.Wrap|(testmodule.Int)"
-    let opt = semctx.modules[name("testmodule")].getDecl(name("Wrap_testmodule.Int"))
-    check opt.isSome
+    let topt = semctx.modules[name("testmodule")].getDecl(name("Wrap_testmodule.Int"))
+    check topt.isSome
+    let f = semctx.modules[name("testmodule")].toplevels[^3]
+    check $f.internalDefnExpr.ret == "testmodule.Wrap|(testmodule.Int)"
+    check $f.internalDefnExpr.body[^1].typ.get == "testmodule.Wrap|(testmodule.Int)"
