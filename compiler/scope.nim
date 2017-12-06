@@ -40,7 +40,12 @@ proc match*(a, b: Symbol): bool =
   if b.kind == symbolGenerics:
     return true
   elif a.kind == symbolTypeGenerics and b.kind == symbolTypeGenerics:
-    return match(a.fexpr[0], b.fexpr[0])
+    if a != b: return false
+    if a.types.len != b.types.len: return false
+    for i in 0..<a.types.len:
+      if not a.types[i].match(b.types[i]):
+        return false
+    return true
   else:
     return a == b
 proc match*(a, b: FExpr): bool =

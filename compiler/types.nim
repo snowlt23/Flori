@@ -1,7 +1,7 @@
 
 import options
 import tables, hashes
-import strutils
+import strutils, sequtils
 
 type
   Metadata* = ref object of RootObj
@@ -21,13 +21,14 @@ type
     symbolFuncGenerics
     symbolMacro
     symbolInternal
-  Symbol* = object
+  Symbol* = ref object
     scope*: Scope
     isImported*: bool
     name*: Name
     kind*: SymbolKind
     types*: seq[Symbol]
     fexpr*: FExpr
+    instance*: Option[Symbol]
   Name* = object
     names*: seq[string]
   FExprKind* = enum
@@ -105,4 +106,7 @@ proc symbol*(scope: Scope, name: Name, kind: SymbolKind, fexpr: FExpr): Symbol =
 proc `==`*(a, b: Symbol): bool =
   a.name == b.name and a.scope == b.scope
 proc `$`*(sym: Symbol): string =
-  $sym.scope.name & "." & $sym.name
+  if sym.types.len == 0:
+    $sym.scope.name & "." & $sym.name
+  else:
+    $sym.scope.name & "." & $sym.name & "|(" & sym.types.mapIt($it).join(", ") & ")"

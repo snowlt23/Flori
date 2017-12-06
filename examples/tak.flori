@@ -1,0 +1,22 @@
+
+type Void $[importc "void", header nodeclc]
+type Bool $[importc "bool", header "stdbool.h"]
+type CString $[importc "char*", header nodeclc]
+type Int $[importc "int64_t", header "stdint.h"]
+
+fn `-(a Int, b Int) Int $[importc "-", header nodeclc, pattern infixc]
+fn `<=(a Int, b Int) Bool $[importc "<=", header nodeclc, pattern infixc]
+fn printf(fmt CString, value Int) $[importc "printf", header "stdio.h"]
+
+fn tak(x Int, y Int, z Int) Int {
+  if (x <= y) {
+    y
+  } else {
+    tak(
+      tak(x-1, y, z),
+      tak(y-1, z, x),
+      tak(z-1, x, y))
+  }
+}
+
+printf("%d\n", tak(12, 6, 0))

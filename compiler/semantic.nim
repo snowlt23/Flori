@@ -13,9 +13,24 @@ export types.SemanticContext
 import metadata
 
 type
+  InternalMarkKind* = enum
+    internalDefn
+    internalDeftype
+    internalIf
+    internalWhile
+    internalDef
+    internalFieldAccess
+    internalInit
+  InternalPragma* = object
+    importc*: Option[string]
+    header*: Option[string]
+    infixc*: bool
   TypeExpr* = object
     name*: FExpr
     generics*: FExpr
+
+defMetadata(internalMark, InternalMarkKind)
+defMetadata(internalPragma, InternalPragma)
 
 proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr)
 
@@ -27,6 +42,14 @@ proc name*(fexpr: FExpr): Name =
     return name(fexpr.quoted)
   else:
     fexpr.error("$# is not name." % $fexpr)
+
+proc getType*(fexpr: FExpr): Symbol =
+  if fexpr.typ.isNone:
+    fexpr.error("this expression undecide type.")
+  if fexpr.typ.get.instance.isSome:
+    return fexpr.typ.get.instance.get
+  else:
+    return fexpr.typ.get
 
 proc addInternalEval*(scope: Scope, n: Name, p: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)) =
   let status = scope.addFunc(ProcDecl(isInternal: true, internalproc: p, name: n, argtypes: @[], sym: scope.symbol(n, symbolInternal, fident(internalSpan, name("internal"))))) # FIXME: returntype
@@ -59,6 +82,17 @@ proc isTypeExpr*(fexpr: FExpr): bool =
 proc isPragmaPrefix*(fexpr: FExpr): bool =
   fexpr.kind == fexprPrefix and $fexpr == "$"
 
+proc isSpecSymbol*(sym: Symbol): bool =
+  for t in sym.types:
+    if t.kind != symbolType:
+      return false
+  return true
+proc isSpecTypes*(types: seq[Symbol]): bool =
+  for t in types:
+    if not t.isSpecSymbol:
+      return false
+  return true
+
 proc resolveByType*(scope: Scope, fexpr: FExpr, n: Name) =
   let opt = scope.getDecl(n)
   if opt.isNone:
@@ -66,7 +100,7 @@ proc resolveByType*(scope: Scope, fexpr: FExpr, n: Name) =
   fexpr.typ = opt
 proc resolveByVoid*(scope: Scope, fexpr: FExpr) =
   scope.resolveByType(fexpr, name("Void"))
-  
+
 proc evalType*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr): Symbol =
   if fexpr.kind == fexprIdent:
     let opt = scope.getDecl(name(fexpr))
@@ -80,7 +114,7 @@ proc evalType*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr): Symbol =
     let opt = scope.getDecl(name(fexpr[1]))
     if opt.isNone:
       fexpr.error("undeclared $# type." % $fexpr[1])
-    var sym = opt.get
+    var sym = opt.get.scope.symbol(opt.get.name, opt.get.kind, opt.get.fexpr)
     if fexpr[2].kind == fexprIdent:
       sym.types.add(ctx.evalType(scope, fexpr[2]))
     elif fexpr[2].kind == fexprList:
@@ -100,7 +134,7 @@ proc evalInfixCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   ctx.evalFExpr(scope, left)
   ctx.evalFExpr(scope, right)
 
-  let argtypes = @[left.typ.get, right.typ.get]
+  let argtypes = @[left.getType, right.getType]
 
   let opt = scope.getFunc(procname(name(fn), argtypes))
   if opt.isNone:
@@ -108,19 +142,27 @@ proc evalInfixCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   fexpr.typ = some(opt.get.returntype)
   # symbol resolve
   fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
+
+# Instantiation
+include instantiate
 
 proc evalFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let fn = fexpr[0]
   for arg in fexpr[1]:
     ctx.evalFExpr(scope, arg)
-  let argtypes = fexpr[1].mapIt(it.typ.get)
+  let argtypes = fexpr[1].mapIt(it.getType)
 
   let opt = scope.getFunc(procname(name(fn), argtypes))
   if opt.isNone:
     fexpr.error("undeclared $#($#) function." % [$fn, argtypes.mapIt($it).join(", ")])
-  fexpr.typ = some(opt.get.returntype)
-  # symbol resolve
-  fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
+  if opt.get.sym.fexpr.internalDefnExpr.generics.isSome: # generics
+    # symbol resolve
+    fexpr[0] = ctx.instantiateDefn(scope, opt.get.sym.fexpr, argtypes)
+    fexpr.typ = some(fexpr[0].internalDefnExpr.ret.symbol)
+  else:
+    fexpr.typ = some(opt.get.returntype)
+    # symbol resolve
+    fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
 
 proc internalScope*(ctx: SemanticContext): Scope =
   ctx.modules[name("internal")]

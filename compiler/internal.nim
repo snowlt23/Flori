@@ -4,28 +4,10 @@ import scope, semantic
 import metadata
 
 import options
-import strutils
+import strutils, sequtils
 import tables
 
 type
-  InternalMarkKind* = enum
-    internalDefn
-    internalDeftype
-    internalIf
-    internalWhile
-    internalDef
-  DefnExpr* = object
-    name*: FExpr
-    generics*: Option[FExpr]
-    args*: FExpr
-    ret*: FExpr
-    pragma*: FExpr
-    body*: FExpr
-  DeftypeExpr* = object
-    name*: FExpr
-    generics*: Option[FExpr]
-    pragma*: FExpr
-    body*: FExpr
   IfExpr* = object
     elifbranch*: seq[tuple[cond: FExpr, body: FExpr]]
     elsebranch*: FExpr
@@ -36,19 +18,19 @@ type
     name*: FExpr
     value*: FExpr
     isToplevel*: bool
-  InternalPragma = object
-    importc*: Option[string]
-    header*: Option[string]
-    infixc*: bool
+  FieldAccessExpr* = object
+    value*: FExpr
+    fieldname*: FExpr
+  InitExpr* = object
+    typ*: FExpr
+    body*: FExpr
 
 defMetadata(internalToplevel, bool)
-defMetadata(internalMark, InternalMarkKind)
-defMetadata(internalDefnExpr, DefnExpr)
-defMetadata(internalDeftypeExpr, DeftypeExpr)
 defMetadata(internalIfExpr, IfExpr)
 defMetadata(internalWhileExpr, WhileExpr)
 defMetadata(internalDefExpr, DefExpr)
-defMetadata(internalPragma, InternalPragma)
+defMetadata(internalFieldAccessExpr, FieldAccessExpr)
+defMetadata(internalInitExpr, InitExpr)
 
 #
 # Parser
@@ -59,7 +41,7 @@ proc parseDefn*(fexpr: FExpr): DefnExpr =
 
   if fexpr[pos].isParametricTypeExpr:
     result.name = fexpr[pos][1]
-    result.generics = some(fexpr[2])
+    result.generics = some(fexpr[pos][2])
     pos.inc
   else:
     result.name = fexpr[pos]
@@ -215,12 +197,24 @@ proc addInternalPragma*(fexpr: FExpr, pragma: FExpr) =
 
 proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   var parsed = parseDefn(fexpr)
+  parsed.scope = scope
 
   let fnscope = scope.extendScope()
+  # add generics variable to scope
+  if parsed.generics.isSome:
+    for g in parsed.generics.get:
+      let sym = fnscope.symbol(name(g), symbolGenerics, g)
+      let status = fnscope.addDecl(name(g), sym)
+      g.typ = some(sym) # FIXME:
+      if not status:
+        g.error("redefinition $# generics." % $g)
+
   let rettype = ctx.evalType(fnscope, parsed.ret)
   var argtypes = newSeq[Symbol]() # for procdecl
 
   for arg in parsed.args:
+    if arg.len != 2:
+      arg.error("fn arg require type declaration.")
     let n = arg[0]
     let sym = ctx.evalType(fnscope, arg[1])
     n.typ = some(sym)
@@ -234,6 +228,8 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   if not status:
     fexpr.error("redefinition $# function." % $parsed.name)
 
+  # if parsed.generics.isNone:
+  #   ctx.evalFExpr(fnscope, parsed.body)
   ctx.evalFExpr(fnscope, parsed.body)
 
   # symbol resolve
@@ -245,14 +241,36 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   fexpr.internalMark = internalDefn
   fexpr.internalDefnExpr = parsed
 
+proc getFieldType*(fexpr: FExpr, fieldname: string): Option[Symbol] =
+  if not fexpr.hasinternalDeftypeExpr:
+    fexpr.error("$# isn't structure type." % $fexpr)
+  for field in fexpr.internalDeftypeExpr.body:
+    if $field[0] == fieldname:
+      return some(field[1].symbol)
+  return none(Symbol)
+
 proc evalDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   var parsed = parseDeftype(fexpr)
+  parsed.scope = scope
+
+  let typescope = scope.extendScope()
+  # add generics variable to scope
+  if parsed.generics.isSome:
+    for g in parsed.generics.get:
+      let status = typescope.addDecl(name(g), typescope.symbol(name(g), symbolGenerics, g))
+      if not status:
+        g.error("redefinition $# generics." % $g)
+
   let sname = parsed.name
   let sym = scope.symbol(name(sname), if parsed.generics.isSome: symbolTypeGenerics else: symbolType, fexpr)
   let status = scope.addDecl(name(sname), sym)
   if not status:
     fexpr.error("redefinition $# type." % $sname)
   fexpr.typ = some(sym)
+
+  for field in parsed.body:
+    let s = ctx.evalType(typescope, field[1])
+    sym.types.add(s)
   
   # symbol resolve
   let fsym = fsymbol(fexpr[0].span, sym)
@@ -332,12 +350,53 @@ proc evalDef*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   fexpr.internalMark = internalDef
   fexpr.internalDefExpr = parsed
 
+proc evalFieldAccess*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+  let value = fexpr[1]
+  let fieldname = fexpr[2]
+  if fieldname.kind != fexprIdent:
+    fieldname.error("fieldname should be FIdent.")
+  ctx.evalFExpr(scope, value)
+  let fieldopt = value.getType.fexpr.getFieldType($fieldname)
+  if fieldopt.isNone:
+    fieldname.error("value hasn't $# field." % $fieldname)
+  fexpr.typ = fieldopt
+
+  # internal metadata for postprocess phase
+  fexpr.internalMark = internalFieldAccess
+  fexpr.internalFieldAccessExpr = FieldAccessExpr(value: value, fieldname: fieldname)
+
+proc evalInit*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+  if fexpr.len != 3:
+    fexpr.error("init require 2 arguments.")
+  if fexpr[1].kind != fexprList:
+    fexpr.error("init type should be FList.")
+  if fexpr[1].len != 1:
+    fexpr.error("init type should be single argument.")
+  if fexpr[2].kind != fexprBlock:
+    fexpr.error("init body should be FBlock.")
+  let sym = ctx.evalType(scope, fexpr[1][0])
+  ctx.evalFExpr(scope, fexpr[2])
+
+  let types = fexpr[2].mapIt(it.typ.get)
+  let t = ctx.instantiateDeftype(scope, sym.fexpr, types)
+
+  # symbol resolve
+  fexpr.typ = some(t.symbol)
+  # internal metadata for postprocess phase
+  fexpr.internalInitExpr = InitExpr(
+    typ: t,
+    body: fexpr[2],
+  )
+  fexpr.internalMark = internalInit
+
 proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("fn"), evalDefn)
   scope.addInternalEval(name("type"), evalDeftype)
   scope.addInternalEval(name("if"), evalIf)
   scope.addInternalEval(name("while"), evalWhile)
   scope.addInternalEval(name(":="), evalDef)
+  scope.addInternalEval(name("."), evalFieldAccess)
+  scope.addInternalEval(name("init"), evalInit)
 
 proc initInternalScope*(ctx: SemanticContext) =
   let scope = newScope(name("internal"))

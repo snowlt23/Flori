@@ -55,6 +55,13 @@ proc flist*(span: Span, sons = newSeq[FExpr]()): FExpr =
   FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprList, sons: sons)
 proc fblock*(span: Span, sons = newSeq[FExpr]()): FExpr =
   FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprBlock, sons: sons)
+proc fcontainer*(span: Span, kind: FExprKind, sons = newSeq[FExpr]()): FExpr =
+  new result
+  result.span = span
+  result.typ = none(Symbol)
+  result.metadata = initTable[string, Metadata]()
+  result.kind = kind
+  result.sons = sons
 
 iterator items*(fexpr: FExpr): FExpr =
   case fexpr.kind
@@ -62,14 +69,14 @@ iterator items*(fexpr: FExpr): FExpr =
     for e in fexpr.sons:
       yield(e)
   else:
-    fexpr.error("$# shouldn't be use as container" % $fexpr.kind)
+    yield(fexpr)
 iterator mitems*(fexpr: FExpr): var FExpr =
   case fexpr.kind
   of fexprContainer:
     for e in fexpr.sons.mitems:
       yield(e)
   else:
-    fexpr.error("$# shouldn't be use as container" % $fexpr.kind)
+    fexpr.error("this fexpr isn't container type.")
 
 proc len*(fexpr: FExpr): int =
   case fexpr.kind

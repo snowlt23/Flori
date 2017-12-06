@@ -16,8 +16,8 @@ type
 const StartList* = {'(', '[', '{'}
 const EndList* = {')', ']', '}', ','}
 const PrefixSymbols* = {'$', '&', '?', '@'}
-const ShortSymbols* = {'.', '|'}
-const InfixSymbols* = {'!', '%', '+', '-', '*', '/', '<', '=', '>', ':'}
+const ShortSymbols* = {'|'}
+const InfixSymbols* = {'.', '!', '%', '+', '-', '*', '/', '<', '=', '>', ':'}
 const SpecialSymbols* = PrefixSymbols + ShortSymbols + InfixSymbols
 const SeparateSymbols* = StartList + EndList + SpecialSymbols
 

@@ -77,22 +77,33 @@ suite "semantic":
     semctx.evalModule(name("testmodule"), fexprs)
     check fexprs[^1][3][0].internalMark == internalDef
     check $fexprs[^1][3][0].typ.get == "testmodule.Void"
-  test "deftype generics":
+  test "generics init":
     let semctx = newSemanticContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
-      type Vec|T {
-        p Ptr|T
-        len Int
+      type Wrap|T {
+        x T
       }
-      fn id(x Vec|Int) Vec|Int {
-        x
-      }
+      init(Wrap){9}
     """)
     semctx.evalModule(name("testmodule"), fexprs)
-    check fexprs[^2].internalDeftypeExpr.generics.isSome
-    let args = fexprs[^1].internalDefnExpr.args
-    let retsym = fexprs[^1].internalDefnExpr.ret.symbol
-    check $args[0][1].symbol == "testmodule.Vec"
-    check $args[0][1].symbol.types[0] == "testmodule.Int"
-    check $retsym == "testmodule.Vec"
-    check $retsym.types[0] == "testmodule.Int"
+    check $fexprs[^1].typ.get.name == "Wrap"
+    check $fexprs[^1].typ.get.types[0] == "testmodule.Int"
+    check $fexprs[^1].typ.get == "testmodule.Wrap|(testmodule.Int)"
+    let opt = semctx.modules[name("testmodule")].getDecl(name("Wrap_testmodule.Int"))
+    check opt.isSome
+  test "generics":
+    let semctx = newSemanticContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
+      type Wrap|T {
+        x T
+      }
+      fn wrap|T(x T) Wrap|T {
+        init(Wrap){x}
+      }
+      wrap(9)
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+    let wrapfn = fexprs[^1]
+    check $wrapfn.typ.get == "testmodule.Wrap|(testmodule.Int)"
+    let opt = semctx.modules[name("testmodule")].getDecl(name("Wrap_testmodule.Int"))
+    check opt.isSome

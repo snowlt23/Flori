@@ -180,3 +180,49 @@ void testmodule_init() {
 ;
 }
 """
+  test "generics init":
+    let semctx = newSemanticContext()
+    let genctx = newCCodegenContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
+      type Wrap|T {
+        x T
+      }
+      init(Wrap){9}
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+    genctx.codegen(semctx)
+    genctx.writeModules("floricache")
+    check readFile("floricache/testmodule.c") == """
+#include "stdint.h"
+#include "stdio.h"
+#include "stdbool.h"
+
+typedef void testmodule_Void;
+typedef bool testmodule_Bool;
+typedef char* testmodule_CString;
+typedef int64_t testmodule_Int;
+
+typedef struct {
+x testmodule_Int;
+} testmodule_Wrap_testmodule_Int;
+
+void testmodule_init() {
+testmodule_Wrap_testmodule_Int{9};
+}
+"""
+  test "generics":
+    let semctx = newSemanticContext()
+    let genctx = newCCodegenContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
+      type Wrap|T {
+        x T
+      }
+      fn wrap|T(x T) Wrap|T {
+        init(Wrap){x}
+      }
+      wrap(9)
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+    genctx.codegen(semctx)
+    genctx.writeModules("floricache")
+    check readFile("floricache/testmodule.c") == ""
