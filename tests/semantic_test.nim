@@ -110,3 +110,33 @@ suite "semantic":
     let f = semctx.modules[name("testmodule")].toplevels[^3]
     check $f.internalDefnExpr.ret == "testmodule.Wrap|(testmodule.Int)"
     check $f.internalDefnExpr.body[^1].typ.get == "testmodule.Wrap|(testmodule.Int)"
+  test "field access":
+    let semctx = newSemanticContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
+      type Wrap|T {
+        x T
+      }
+      fn wrap|T(x T) Wrap|T {
+        init(Wrap){x}
+      }
+      wrap(9).x
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+    check $fexprs[^1].typ.get == "testmodule.Int"
+  test "generics fn":
+    let semctx = newSemanticContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
+      type Wrap|T {
+        x T
+      }
+      fn wrap|T(x T) Wrap|T {
+        init(Wrap){x}
+      }
+      fn id|T(x Wrap|T) Wrap|T {
+        x
+      }
+      id(wrap(9))
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+    check $fexprs[^1].typ.get == "testmodule.Wrap|(testmodule.Int)"
+

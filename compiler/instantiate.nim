@@ -66,7 +66,7 @@ proc instantiateFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr): FExpr 
       of internalInit:
         ctx.instantiateInternalInit(scope, fexpr)
       else:
-        discard
+        discard # FIXME:
     if fexpr.typ.isSome:
       cont.typ = some(ctx.instantiateSymbol(scope, fexpr.typ.get))
     cont.metadata = fexpr.metadata
@@ -74,19 +74,28 @@ proc instantiateFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr): FExpr 
   else:
     return fexpr
 
+proc applyInstance*(sym: Symbol, instance: Symbol) =
+  if sym.kind == symbolGenerics:
+    sym.instance = some(instance)
+  elif sym.kind == symbolTypeGenerics:
+    sym.instance = some(instance)
+    for i in 0..<sym.types.len:
+      sym.types[i].applyInstance(instance.types[i])
+  else:
+    sym.instance = some(instance)
+
 proc instantiateDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: seq[Symbol]): FExpr =
   # if types.isSpecTypes:
   let tbody = fexpr.internalDeftypeExpr.body
   if tbody.len != types.len:
     fexpr.error("exists uninitialized field.")
   for i in 0..<tbody.len:
-    tbody[i][1].symbol.instance = some(types[i])
+    tbody[i][1].symbol.applyInstance(types[i])
     
   let name = fexpr.internalDeftypeExpr.name.symbol.name
   let manglingname = name($name & "_" & types.mapIt($it).join("_"))
   let fbody = ctx.instantiateFExpr(scope, fexpr.internalDeftypeExpr.body)
   let fname = fident(fexpr.internalDeftypeExpr.name.span, manglingname)
-  fname.internalMark = internalDeftype
 
   let sym = fexpr.internalDeftypeExpr.scope.symbol(name, symbolType, fname)
   sym.types = types
@@ -100,6 +109,8 @@ proc instantiateDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types
     pragma: fexpr.internalDeftypeExpr.pragma,
     body: fbody
   )
+  fname.internalMark = internalDeftype
+  fname.internalDeftypeExpr = deftypeexpr
 
   if fexpr.internalDeftypeExpr.scope.addDecl(manglingname, sym):
     result = fsym
@@ -115,7 +126,7 @@ proc instantiateDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types
 proc instantiateDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: seq[Symbol]): FExpr =
   let fnargs = fexpr.internalDefnExpr.args
   for i in 0..<fnargs.len:
-    fnargs[i][1].symbol.instance = some(types[i])
+    fnargs[i][1].symbol.applyInstance(types[i])
 
   let manglingname = name($fexpr.internalDefnExpr.name & "_" & types.mapIt($it).join("_"))
   let fbody = ctx.instantiateFExpr(scope, fexpr.internalDefnExpr.body)
