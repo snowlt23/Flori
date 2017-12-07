@@ -12,6 +12,8 @@ type CString $[importc "char*", header nodeclc]
 type Int $[importc "int64_t", header "stdint.h"]
 
 fn `+(a Int, b Int) Int $[importc "+", header nodeclc, pattern infixc]
+fn `-(a Int, b Int) Int $[importc "-", header nodeclc, pattern infixc]
+fn `<(a Int, b Int) Bool $[importc "<", header nodeclc, pattern infixc]
 fn `==(a Int, b Int) Bool $[importc "==", header nodeclc, pattern infixc]
 fn printf(fmt CString, x Int) $[importc "printf", header "stdio.h"]
 """
@@ -139,4 +141,26 @@ suite "semantic":
     """)
     semctx.evalModule(name("testmodule"), fexprs)
     check $fexprs[^1].typ.get == "testmodule.Wrap|(testmodule.Int)"
+  test "recursion call":
+    let semctx = newSemanticContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
+      fn fib(n Int) Int {
+        if (n < 2) {
+          n
+        } else {
+          fib(n-1) + fib(n-2)
+        }
+      }
+      
+      printf("%d\n", fib(38))
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+  test "import":
+    let semctx = newSemanticContext()
+    let fexprs = parseToplevel("testmodule.flori", """
+      import core.prelude
 
+      printf("%d\n", 9)
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+    check $fexprs[^1][0] == "core.prelude.printf"

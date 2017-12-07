@@ -85,7 +85,7 @@ type
     importscopes*: OrderedTable[Name, Scope]
     toplevels*: seq[FExpr]
   SemanticContext* = ref object
-    modules*: Table[Name, Scope]
+    modules*: OrderedTable[Name, Scope]
   
 #
 # Name

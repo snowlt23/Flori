@@ -21,6 +21,7 @@ type
     internalDef
     internalFieldAccess
     internalInit
+    internalImport
   InternalPragma* = object
     importc*: Option[string]
     header*: Option[string]
@@ -157,7 +158,7 @@ proc evalFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let opt = scope.getFunc(procname(name(fn), argtypes))
   if opt.isNone:
     fexpr.error("undeclared $#($#) function." % [$fn, argtypes.mapIt($it).join(", ")])
-  if opt.get.sym.fexpr.internalDefnExpr.generics.isSome: # generics
+  if opt.get.sym.fexpr.hasinternalDefnExpr and opt.get.sym.fexpr.internalDefnExpr.generics.isSome: # generics
     # symbol resolve
     fexpr[0] = ctx.instantiateDefn(scope, opt.get.sym.fexpr, argtypes)
     fexpr.typ = some(fexpr[0].internalDefnExpr.ret.symbol)
@@ -216,8 +217,9 @@ proc evalModule*(ctx: SemanticContext, name: Name, fexprs: seq[FExpr]) =
     scope.toplevels.add(f)
   ctx.modules[name] = scope
 
-proc evalFile*(ctx: SemanticContext, filepath: string) =
+proc evalFile*(ctx: SemanticContext, filepath: string): Name {.discardable.} =
   let (dir, file, _) = filepath.splitFile()
-  let n = name((dir / file).replace("/", "_").replace("\\", "_"))
+  let modname = name((dir & "." & file).split("."))
   let fexprs = parseToplevel(filepath, readFile(filepath))
-  ctx.evalModule(n, fexprs)
+  ctx.evalModule(modname, fexprs)
+  return modname

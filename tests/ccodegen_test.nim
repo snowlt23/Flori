@@ -36,6 +36,7 @@ typedef bool testmodule_Bool;
 typedef char* testmodule_CString;
 typedef int64_t testmodule_Int;
 
+
 void testmodule_init() {
 printf("%d", 5);
 }
@@ -61,6 +62,7 @@ typedef void testmodule_Void;
 typedef bool testmodule_Bool;
 typedef char* testmodule_CString;
 typedef int64_t testmodule_Int;
+testmodule_Int testmodule_add5(testmodule_Int x);
 
 testmodule_Int testmodule_add5(testmodule_Int x) {
 return (x + 5);
@@ -93,6 +95,7 @@ typedef bool testmodule_Bool;
 typedef char* testmodule_CString;
 typedef int64_t testmodule_Int;
 
+
 void testmodule_init() {
 if ((1 == 2)) {
 printf("%d", 4);
@@ -122,6 +125,7 @@ typedef bool testmodule_Bool;
 typedef char* testmodule_CString;
 typedef int64_t testmodule_Int;
 
+
 void testmodule_init() {
 while ((1 == 2)) {
 printf("%d", 9);
@@ -146,6 +150,7 @@ typedef void testmodule_Void;
 typedef bool testmodule_Bool;
 typedef char* testmodule_CString;
 typedef int64_t testmodule_Int;
+extern testmodule_Int testmodule_nine;
 testmodule_Int testmodule_nine;
 void testmodule_init() {
 testmodule_nine = 9;
@@ -171,6 +176,7 @@ typedef void testmodule_Void;
 typedef bool testmodule_Bool;
 typedef char* testmodule_CString;
 typedef int64_t testmodule_Int;
+testmodule_Void testmodule_test();
 
 testmodule_Void testmodule_test() {
 testmodule_CString testmodule_name = "feelsgoodman";
@@ -201,10 +207,10 @@ typedef void testmodule_Void;
 typedef bool testmodule_Bool;
 typedef char* testmodule_CString;
 typedef int64_t testmodule_Int;
-
 typedef struct {
 x testmodule_Int;
 } testmodule_Wrap_testmodule_Int;
+
 
 void testmodule_init() {
 testmodule_Wrap_testmodule_Int{9};
@@ -234,10 +240,10 @@ typedef void testmodule_Void;
 typedef bool testmodule_Bool;
 typedef char* testmodule_CString;
 typedef int64_t testmodule_Int;
-
 typedef struct {
 x testmodule_Int;
 } testmodule_Wrap_testmodule_Int;
+testmodule_Wrap_testmodule_Int testmodule_testmodule_wrap_testmodule_Int(testmodule_Int x);
 
 testmodule_Wrap_testmodule_Int testmodule_testmodule_wrap_testmodule_Int(testmodule_Int x) {
 return testmodule_Wrap_testmodule_Int{x};
@@ -271,10 +277,10 @@ typedef void testmodule_Void;
 typedef bool testmodule_Bool;
 typedef char* testmodule_CString;
 typedef int64_t testmodule_Int;
-
 typedef struct {
 x testmodule_Int;
 } testmodule_Wrap_testmodule_Int;
+testmodule_Wrap_testmodule_Int testmodule_testmodule_wrap_testmodule_Int(testmodule_Int x);
 
 testmodule_Wrap_testmodule_Int testmodule_testmodule_wrap_testmodule_Int(testmodule_Int x) {
 return testmodule_Wrap_testmodule_Int{x};

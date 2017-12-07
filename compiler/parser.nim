@@ -141,11 +141,12 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
     var idents = newSeq[string]()
     var curstr = ""
     while true:
-      if context.isSeparateSymbol or context.curchar == ' ':
-        break
-      elif context.curchar == '.':
+      if context.curchar == '.':
+        context.inc
         idents.add(curstr)
         curstr = ""
+      elif context.isSeparateSymbol or context.curchar == ' ':
+        break
       curstr.add(context.curchar)
       context.inc
     if curstr != "":

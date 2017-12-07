@@ -21,12 +21,16 @@ type
   FieldAccessExpr* = object
     value*: FExpr
     fieldname*: FExpr
+  ImportExpr* = object
+    modname*: Name
+    importname*: Name
 
 defMetadata(internalToplevel, bool)
 defMetadata(internalIfExpr, IfExpr)
 defMetadata(internalWhileExpr, WhileExpr)
 defMetadata(internalDefExpr, DefExpr)
 defMetadata(internalFieldAccessExpr, FieldAccessExpr)
+defMetadata(internalImportExpr, ImportExpr)
 
 #
 # Parser
@@ -219,12 +223,14 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
     if not status:
       n.error("redefinition $# variable." % $n)
 
-  ctx.evalFExpr(fnscope, parsed.body)
-
   let sym = scope.symbol(name(parsed.name), symbolFunc, fexpr)
-  let status = scope.addFunc(ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, returntype: rettype, sym: sym))
+  let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, returntype: rettype, sym: sym)
+  let status = scope.addFunc(pd)
   if not status:
     fexpr.error("redefinition $# function." % $parsed.name)
+  discard fnscope.addFunc(pd)
+    
+  ctx.evalFExpr(fnscope, parsed.body)
 
   # symbol resolve
   let fsym = fsymbol(fexpr[0].span, sym)
@@ -383,6 +389,18 @@ proc evalInit*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   )
   fexpr.internalMark = internalInit
 
+proc evalImport*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+  let importname = name(fexpr[1])
+  let filepath = replace($importname, ".", "/") & ".flori"
+  let modname = ctx.evalFile(filepath)
+  scope.importScope(importname, ctx.modules[modname])
+  # internal metadata for postprocess phase
+  fexpr.internalMark = internalImport
+  fexpr.internalImportExpr = ImportExpr(
+    importname: importname,
+    modname: modname
+  )
+
 proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("fn"), evalDefn)
   scope.addInternalEval(name("type"), evalDeftype)
@@ -391,6 +409,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name(":="), evalDef)
   scope.addInternalEval(name("."), evalFieldAccess)
   scope.addInternalEval(name("init"), evalInit)
+  scope.addInternalEval(name("import"), evalImport)
 
 proc initInternalScope*(ctx: SemanticContext) =
   let scope = newScope(name("internal"))
@@ -399,5 +418,5 @@ proc initInternalScope*(ctx: SemanticContext) =
 
 proc newSemanticContext*(): SemanticContext =
   new result
-  result.modules = initTable[Name, Scope]()
+  result.modules = initOrderedTable[Name, Scope]()
   result.initInternalScope()
