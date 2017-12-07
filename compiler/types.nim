@@ -23,7 +23,6 @@ type
     symbolInternal
   Symbol* = ref object
     scope*: Scope
-    isImported*: bool
     name*: Name
     kind*: SymbolKind
     types*: seq[Symbol]
@@ -83,6 +82,7 @@ type
     level*: int
     decls*: Table[Name, Symbol]
     procdecls*: Table[Name, ProcDeclGroup]
+    importscopes*: OrderedTable[Name, Scope]
     toplevels*: seq[FExpr]
   SemanticContext* = ref object
     modules*: Table[Name, Scope]
@@ -102,7 +102,7 @@ proc `==`*(a, b: Name): bool =
 proc `$`*(name: Name): string = name.names.join(".")
 
 proc symbol*(scope: Scope, name: Name, kind: SymbolKind, fexpr: FExpr): Symbol =
-  Symbol(scope: scope, isImported: false, name: name, kind: kind, types: @[], fexpr: fexpr)
+  Symbol(scope: scope, name: name, kind: kind, types: @[], fexpr: fexpr)
 proc `==`*(a, b: Symbol): bool =
   a.name == b.name and a.scope == b.scope
 proc `$`*(sym: Symbol): string =

@@ -210,7 +210,7 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
 
 proc evalModule*(ctx: SemanticContext, name: Name, fexprs: seq[FExpr]) =
   let scope = newScope(name)
-  scope.importScope(ctx.internalScope)
+  scope.importScope(name("internal"), ctx.internalScope)
   for f in fexprs:
     ctx.evalFExpr(scope, f)
     scope.toplevels.add(f)
