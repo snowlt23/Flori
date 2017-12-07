@@ -164,3 +164,15 @@ suite "semantic":
     """)
     semctx.evalModule(name("testmodule"), fexprs)
     check $fexprs[^1][0] == "core.prelude.printf"
+  test "generics cannot instantiate":
+    let semctx = newSemanticContext()
+    expect(FExprError):
+      let fexprs = parseToplevel("testmodule.flori", prelude & """
+        type Wrap|T {
+          x T
+        }
+        fn wrap|T(x Int) Wrap|T {
+        }
+        wrap(9)
+      """)
+      semctx.evalModule(name("testmodule"), fexprs)

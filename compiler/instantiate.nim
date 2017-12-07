@@ -29,7 +29,7 @@ proc instantiateDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: s
 proc instantiateSymbol*(ctx: SemanticContext, scope: Scope, sym: Symbol): Symbol =
   if sym.kind == symbolGenerics:
     if sym.instance.isNone:
-      sym.fexpr.error("cannot instantiate $#." % $sym)
+      sym.fexpr.error("cannot instantiate $#." % $sym, ctx)
     result = sym.instance.get
   elif sym.kind == symbolTypeGenerics:
     var types = newSeq[Symbol]()
@@ -88,7 +88,7 @@ proc instantiateDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types
   # if types.isSpecTypes:
   let tbody = fexpr.internalDeftypeExpr.body
   if tbody.len != types.len:
-    fexpr.error("exists uninitialized field.")
+    fexpr.error("exists uninitialized field.", ctx)
   for i in 0..<tbody.len:
     tbody[i][1].symbol.applyInstance(types[i])
     
@@ -117,7 +117,7 @@ proc instantiateDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types
   else:
     let opt = fexpr.internalDeftypeExpr.scope.getDecl(manglingname)
     if opt.isNone:
-      fexpr.error("cannot find instantiate type.")
+      fexpr.error("cannot find instantiate type.", ctx)
     result = fsymbol(fexpr.span, opt.get)
   result.internalPragma = fexpr.internalPragma
   result.internalDeftypeExpr = deftypeexpr
@@ -158,7 +158,7 @@ proc instantiateDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: s
   else:
     let opt = fexpr.internalDefnExpr.scope.getFunc(procname(manglingname, @[]))
     if opt.isNone:
-      fexpr.error("cannot find instantiate function.")
+      fexpr.error("cannot find instantiate function.", ctx)
     result = fsymbol(fexpr.span, opt.get.sym)
   result.internalPragma = fexpr.internalPragma
   result.internalDefnExpr = defnexpr

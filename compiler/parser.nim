@@ -82,6 +82,7 @@ proc skipSpaces*(context: var ParserContext) =
     else:
       break
 proc span*(context: ParserContext): Span =
+  new result
   result.filename = context.filename
   result.line = context.line
   result.linepos = context.linepos

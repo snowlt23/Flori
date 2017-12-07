@@ -6,6 +6,7 @@ import metadata
 import options
 import strutils, sequtils
 import tables
+import deques
 
 type
   IfExpr* = object
@@ -418,5 +419,6 @@ proc initInternalScope*(ctx: SemanticContext) =
 
 proc newSemanticContext*(): SemanticContext =
   new result
+  result.expandspans = initDeque[Span]()
   result.modules = initOrderedTable[Name, Scope]()
   result.initInternalScope()

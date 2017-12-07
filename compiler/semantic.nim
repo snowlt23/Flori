@@ -6,6 +6,7 @@ import tables
 import options
 import strutils, sequtils
 import os
+import deques
 
 import types
 export types.SemanticContext
@@ -160,8 +161,9 @@ proc evalFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
     fexpr.error("undeclared $#($#) function." % [$fn, argtypes.mapIt($it).join(", ")])
   if opt.get.sym.fexpr.hasinternalDefnExpr and opt.get.sym.fexpr.internalDefnExpr.generics.isSome: # generics
     # symbol resolve
-    fexpr[0] = ctx.instantiateDefn(scope, opt.get.sym.fexpr, argtypes)
-    fexpr.typ = some(fexpr[0].internalDefnExpr.ret.symbol)
+    ctx.expandBy(fexpr.span):
+      fexpr[0] = ctx.instantiateDefn(scope, opt.get.sym.fexpr, argtypes)
+      fexpr.typ = some(fexpr[0].internalDefnExpr.ret.symbol)
   else:
     fexpr.typ = some(opt.get.returntype)
     # symbol resolve

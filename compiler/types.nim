@@ -2,11 +2,12 @@
 import options
 import tables, hashes
 import strutils, sequtils
+import deques
 
 type
   Metadata* = ref object of RootObj
   FExprError* = object of Exception
-  Span* = object
+  Span* = ref object
     filename*: string
     line*: int
     linepos*: int
@@ -85,6 +86,7 @@ type
     importscopes*: OrderedTable[Name, Scope]
     toplevels*: seq[FExpr]
   SemanticContext* = ref object
+    expandspans*: Deque[Span]
     modules*: OrderedTable[Name, Scope]
   
 #
@@ -110,3 +112,12 @@ proc `$`*(sym: Symbol): string =
     $sym.scope.name & "." & $sym.name
   else:
     $sym.scope.name & "." & $sym.name & "|(" & sym.types.mapIt($it).join(", ") & ")"
+
+#
+# SemanticContext
+#
+
+template expandBy*(ctx: SemanticContext, span: Span, body: untyped) =
+  ctx.expandspans.addLast(span)
+  body
+  ctx.expandspans.popLast()
