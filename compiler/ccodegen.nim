@@ -239,36 +239,35 @@ proc codegenImport*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   let modname = fexpr.internalImportExpr.modname
   src.decls &= ctx.modulesrcs[modname].getDecls()
 
-proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, toplevel: bool) =
+proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topcodegen: bool) =
   case fexpr.internalMark
   of internalDefn:
-    if toplevel:
+    if topcodegen:
       ctx.codegenDefn(src, fexpr)
   of internalDeftype:
-    if toplevel:
+    if topcodegen:
       ctx.codegenDeftype(src, fexpr)
   of internalIf:
-    if not toplevel:
+    if not topcodegen:
       ctx.codegenIf(src, fexpr)
   of internalWhile:
-    if not toplevel:
+    if not topcodegen:
       ctx.codegenWhile(src, fexpr)
   of internalDef:
-    if toplevel:
+    if topcodegen and fexpr.isToplevel:
       ctx.codegenDefDecl(src, fexpr)
-      fexpr.internalToplevel = true
-    elif fexpr.hasinternalToplevel and fexpr.internalToplevel:
+    elif fexpr.isToplevel:
       ctx.codegenDefValue(src, fexpr)
     else:
       ctx.codegenDef(src, fexpr)
   of internalFieldAccess:
-    if not toplevel:
+    if not topcodegen:
       ctx.codegenFieldAccess(src, fexpr)
   of internalInit:
-    if not toplevel:
+    if not topcodegen:
       ctx.codegenInit(src, fexpr)
   of internalImport:
-    if toplevel:
+    if topcodegen:
       ctx.codegenImport(src, fexpr)
 
 proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
@@ -319,7 +318,7 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     fexpr.error("unsupported $# in C Codegen." % $fexpr.kind)
   of fexprSeq:
     if fexpr.hasinternalMark:
-      ctx.codegenInternal(src, fexpr, toplevel = false)
+      ctx.codegenInternal(src, fexpr, topcodegen = false)
     else:
       ctx.codegenCall(src, fexpr)
   else:
@@ -327,7 +326,7 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 
 proc codegenToplevel*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.hasinternalMark:
-    ctx.codegenInternal(src, fexpr, toplevel = true)
+    ctx.codegenInternal(src, fexpr, topcodegen = true)
 
 proc codegenModule*(ctx: CCodegenContext, name: Name, scope: Scope) =
   var modsrc = initSrcExpr()

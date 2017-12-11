@@ -18,7 +18,6 @@ type
   DefExpr* = object
     name*: FExpr
     value*: FExpr
-    isToplevel*: bool
   FieldAccessExpr* = object
     value*: FExpr
     fieldname*: FExpr
@@ -26,7 +25,6 @@ type
     modname*: Name
     importname*: Name
 
-defMetadata(internalToplevel, bool)
 defMetadata(internalIfExpr, IfExpr)
 defMetadata(internalWhileExpr, WhileExpr)
 defMetadata(internalDefExpr, DefExpr)

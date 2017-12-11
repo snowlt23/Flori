@@ -31,8 +31,11 @@ type
     name*: FExpr
     generics*: FExpr
 
+defMetadata(internalToplevel, bool)
 defMetadata(internalMark, InternalMarkKind)
 defMetadata(internalPragma, InternalPragma)
+
+proc isToplevel*(fexpr: FExpr): bool = fexpr.hasInternalToplevel
 
 proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr)
 
@@ -215,6 +218,7 @@ proc evalModule*(ctx: SemanticContext, name: Name, fexprs: seq[FExpr]) =
   let scope = newScope(name)
   scope.importScope(name("internal"), ctx.internalScope)
   for f in fexprs:
+    f.internalToplevel = true
     ctx.evalFExpr(scope, f)
     scope.toplevels.add(f)
   ctx.modules[name] = scope
