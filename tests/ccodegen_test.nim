@@ -243,14 +243,14 @@ typedef int64_t testmodule_Int;
 typedef struct {
 x testmodule_Int;
 } testmodule_Wrap_testmodule_Int;
-testmodule_Wrap_testmodule_Int testmodule_testmodule_wrap_testmodule_Int(testmodule_Int x);
+testmodule_Wrap_testmodule_Int testmodule_wrap_testmodule_Int(testmodule_Int x);
 
-testmodule_Wrap_testmodule_Int testmodule_testmodule_wrap_testmodule_Int(testmodule_Int x) {
+testmodule_Wrap_testmodule_Int testmodule_wrap_testmodule_Int(testmodule_Int x) {
 return testmodule_Wrap_testmodule_Int{x};
 }
 
 void testmodule_init() {
-testmodule_testmodule_wrap_testmodule_Int(9);
+testmodule_wrap_testmodule_Int(9);
 }
 """
   test "field access":
@@ -280,13 +280,13 @@ typedef int64_t testmodule_Int;
 typedef struct {
 x testmodule_Int;
 } testmodule_Wrap_testmodule_Int;
-testmodule_Wrap_testmodule_Int testmodule_testmodule_wrap_testmodule_Int(testmodule_Int x);
+testmodule_Wrap_testmodule_Int testmodule_wrap_testmodule_Int(testmodule_Int x);
 
-testmodule_Wrap_testmodule_Int testmodule_testmodule_wrap_testmodule_Int(testmodule_Int x) {
+testmodule_Wrap_testmodule_Int testmodule_wrap_testmodule_Int(testmodule_Int x) {
 return testmodule_Wrap_testmodule_Int{x};
 }
 
 void testmodule_init() {
-testmodule_testmodule_wrap_testmodule_Int(9).x;
+testmodule_wrap_testmodule_Int(9).x;
 }
 """

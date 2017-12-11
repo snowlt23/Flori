@@ -21,22 +21,20 @@ proc hint*(span: Span, msg: string) =
   let h = " $#($#:$#): " % [span.filename, $span.line, $span.linepos] & msg
   styledEcho(fgGreen, "[Hint] ", resetStyle, h)
 proc error*(span: Span, msg: string, ctx: SemanticContext) =
-  ctx.expandBy(span):
-    if ctx != nil:
-      var spans = toSeq(ctx.expandspans.items)
-      spans.reverse()
-      for expand in spans:
-        let e = "$#($#:$#): template expansion" % [expand.filename, $expand.line, $expand.linepos]
-        styledEcho(fgGreen, "[Expand] ", resetStyle, e)
+  ctx.printExpand()
 
-  let firstspan = ctx.expandspans.peekFirst()
-  let e = "$#($#:$#): " % [firstspan.filename, $firstspan.line, $firstspan.linepos] & msg
+  let e = "$#($#:$#): " % [span.filename, $span.line, $span.linepos] & msg
   styledEcho(fgRed, "[Error] ", resetStyle, e)
 
   when defined(release) or defined(noExceptionError):
     quit()
   else:
     raise newException(FExprError, e)
+
+template assert*(fexpr: FExpr, b: typed) =
+  when not defined(release):
+    if not b:
+      fexpr.error("internal error.")
 
 proc hint*(fexpr: FExpr, msg: string) = fexpr.span.hint(msg)
 proc error*(fexpr: FExpr, msg: string, ctx: SemanticContext = nil) = fexpr.span.error(msg, ctx)
@@ -90,6 +88,20 @@ iterator mitems*(fexpr: FExpr): var FExpr =
   of fexprContainer:
     for e in fexpr.sons.mitems:
       yield(e)
+  else:
+    fexpr.error("this fexpr isn't container type.")
+iterator pairs*(fexpr: FExpr): (int, FExpr) =
+  case fexpr.kind
+  of fexprContainer:
+    for i, e in fexpr.sons:
+      yield(i, e)
+  else:
+    yield(0, fexpr)
+iterator mpairs*(fexpr: FExpr): (int, var FExpr) =
+  case fexpr.kind
+  of fexprContainer:
+    for i, e in fexpr.sons.mpairs:
+      yield(i, e)
   else:
     fexpr.error("this fexpr isn't container type.")
 

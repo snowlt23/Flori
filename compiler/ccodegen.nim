@@ -102,14 +102,12 @@ proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: FExpr, ret: stri
   ctx.codegenBody(src, toSeq(body.items), ret)
 
 proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  let fn = fexpr.internalDefnExpr
-
   var decl = initSrcExpr()
-  decl &= codegenSymbol(fn.ret)
+  decl &= codegenSymbol(fexpr.defn.ret)
   decl &= " "
-  decl &= codegenSymbol(fn.name)
+  decl &= codegenSymbol(fexpr.defn.name)
   decl &= "("
-  ctx.codegenArguments(decl, fn.args) do (s: var SrcExpr, arg: FExpr):
+  ctx.codegenArguments(decl, fexpr.defn.args) do (s: var SrcExpr, arg: FExpr):
     s &= codegenSymbol(arg[1])
     s &= " "
     s &= $arg[0]
@@ -119,41 +117,40 @@ proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
 
   src &= decl
   src &= " {\n"
-  if fn.body[^1].typ.get.isVoidType:
-    ctx.codegenBody(src, fn.body)
+  if fexpr.defn.body[^1].typ.get.isVoidType:
+    ctx.codegenBody(src, fexpr.defn.body)
   else:
-    ctx.codegenBody(src, fn.body, ret = "return ")
+    ctx.codegenBody(src, fexpr.defn.body, ret = "return ")
   src &= "}\n"
 
 proc codegenDefn*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.internalPragma.header.isSome:
     src.addHeader(fexpr.internalPragma.header.get)
   if fexpr.internalPragma.importc.isNone:
-    if fexpr.internalDefnExpr.generics.isNone:
+    if fexpr.defn.generics.isNone:
       ctx.codegenDefnInstance(src, fexpr)
 
 proc codegenDeftypeStruct*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src.decls &= "typedef struct {\n"
-  for field in fexpr.internalDeftypeExpr.body:
+  for field in fexpr.deftype.body:
     src.decls &= $field[0]
     src.decls &= " "
     src.decls &= codegenSymbol(field[1].symbol)
     src.decls &= ";\n"
-  src.decls &= "} $#;\n" % codegenSymbol(fexpr.internalDeftypeExpr.name.symbol)
+  src.decls &= "} $#;\n" % codegenSymbol(fexpr.deftype.name.symbol)
 
 proc codegenDeftype*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.internalPragma.header.isSome:
     src.addHeader(fexpr.internalPragma.header.get)
   if fexpr.internalPragma.importc.isSome:
-    let deftype = fexpr.internalDeftypeExpr
     let fname = fexpr.internalPragma.importc.get
     src.decls &= "typedef "
     src.decls &= fname
     src.decls &= " "
-    src.decls &= codegenSymbol(deftype.name)
+    src.decls &= codegenSymbol(fexpr.deftype.name)
     src.decls &= ";\n"
   else:
-    if fexpr.internalDeftypeExpr.generics.isNone:
+    if fexpr.deftype.generics.isNone:
       ctx.codegenDeftypeStruct(src, fexpr)
 
 proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
@@ -229,9 +226,9 @@ proc codegenFieldAccess*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   ctx.codegenFExpr(src, fexpr.internalFieldAccessExpr.fieldname)
 
 proc codegenInit*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  src &= codegenSymbol(fexpr.internalInitExpr.typ)
+  src &= codegenSymbol(fexpr.initexpr.typ)
   src &= "{"
-  ctx.codegenArguments(src, fexpr.internalInitExpr.body) do (s: var SrcExpr, arg: FExpr):
+  ctx.codegenArguments(src, fexpr.initexpr.body) do (s: var SrcExpr, arg: FExpr):
     ctx.codegenFExpr(s, arg)
   src &= "}"
 

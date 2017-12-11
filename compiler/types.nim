@@ -3,6 +3,7 @@ import options
 import tables, hashes
 import strutils, sequtils
 import deques
+import terminal
 
 type
   Metadata* = ref object of RootObj
@@ -121,3 +122,9 @@ template expandBy*(ctx: SemanticContext, span: Span, body: untyped) =
   ctx.expandspans.addLast(span)
   body
   ctx.expandspans.popLast()
+proc printExpand*(ctx: SemanticContext) =
+  if ctx != nil:
+    if ctx.expandspans.len != 0:
+      for span in ctx.expandspans:
+        let e = "$#($#:$#): template expansion" % [span.filename, $span.line, $span.linepos]
+        styledEcho(fgGreen, "[Expand] ", resetStyle, e)

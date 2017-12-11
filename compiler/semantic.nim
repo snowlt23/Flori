@@ -31,6 +31,7 @@ type
     name*: FExpr
     generics*: FExpr
 
+defMetadata(internalScope, Scope)
 defMetadata(internalToplevel, bool)
 defMetadata(internalMark, InternalMarkKind)
 defMetadata(internalPragma, InternalPragma)
@@ -162,11 +163,11 @@ proc evalFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let opt = scope.getFunc(procname(name(fn), argtypes))
   if opt.isNone:
     fexpr.error("undeclared $#($#) function." % [$fn, argtypes.mapIt($it).join(", ")])
-  if opt.get.sym.fexpr.hasinternalDefnExpr and opt.get.sym.fexpr.internalDefnExpr.generics.isSome: # generics
+  if opt.get.sym.fexpr.hasDefn and opt.get.sym.fexpr.defn.generics.isSome: # generics
     # symbol resolve
     ctx.expandBy(fexpr.span):
       fexpr[0] = ctx.instantiateDefn(scope, opt.get.sym.fexpr, argtypes)
-      fexpr.typ = some(fexpr[0].internalDefnExpr.ret.symbol)
+      fexpr.typ = some(fexpr[0].defn.ret.symbol)
   else:
     fexpr.typ = some(opt.get.returntype)
     # symbol resolve
@@ -176,6 +177,7 @@ proc internalScope*(ctx: SemanticContext): Scope =
   ctx.modules[name("internal")]
 
 proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+  fexpr.internalScope = scope
   case fexpr.kind
   of fexprIdent:
     let opt = scope.getDecl(name(fexpr))

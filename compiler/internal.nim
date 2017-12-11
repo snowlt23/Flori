@@ -196,7 +196,6 @@ proc addInternalPragma*(fexpr: FExpr, pragma: FExpr) =
 
 proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   var parsed = parseDefn(fexpr)
-  parsed.scope = scope
 
   let fnscope = scope.extendScope()
   # add generics variable to scope
@@ -238,19 +237,18 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   # internal metadata for postprocess phase
   fexpr.addInternalPragma(parsed.pragma)
   fexpr.internalMark = internalDefn
-  fexpr.internalDefnExpr = parsed
+  fexpr.defn = parsed
 
 proc getFieldType*(fexpr: FExpr, fieldname: string): Option[Symbol] =
-  if not fexpr.hasinternalDeftypeExpr:
+  if not fexpr.hasDeftype:
     fexpr.error("$# isn't structure type." % $fexpr)
-  for field in fexpr.internalDeftypeExpr.body:
+  for field in fexpr.deftype.body:
     if $field[0] == fieldname:
       return some(field[1].symbol)
   return none(Symbol)
 
 proc evalDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   var parsed = parseDeftype(fexpr)
-  parsed.scope = scope
 
   let typescope = scope.extendScope()
   # add generics variable to scope
@@ -278,7 +276,7 @@ proc evalDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   # internal metadata for postprocess phase
   fexpr.addInternalPragma(parsed.pragma)
   fexpr.internalMark = internalDeftype
-  fexpr.internalDeftypeExpr = parsed
+  fexpr.deftype = parsed
 
 proc isEqualTypes*(types: seq[Symbol]): bool =
   var first = types[0]
@@ -382,7 +380,7 @@ proc evalInit*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   # symbol resolve
   fexpr.typ = some(t.symbol)
   # internal metadata for postprocess phase
-  fexpr.internalInitExpr = InitExpr(
+  fexpr.initexpr = InitExpr(
     typ: t,
     body: fexpr[2],
   )
