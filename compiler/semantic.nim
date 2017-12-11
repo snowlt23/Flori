@@ -78,10 +78,21 @@ proc parseType*(fexpr: FExpr): TypeExpr =
   else:
     fexpr.error("$# isn't type." % $fexpr)
 
-proc isParametricTypeExpr*(fexpr: FExpr): bool =
-  fexpr.kind == fexprSeq and $fexpr[0] == "|" and fexpr[1].kind == fexprIdent and fexpr[2].kind in {fexprIdent, fexprList}
-proc isTypeExpr*(fexpr: FExpr): bool =
-  fexpr.kind == fexprIdent or isParametricTypeExpr(fexpr)
+proc isParametricTypeExpr*(fexpr: FExpr, pos: int): bool =
+  if fexpr.kind != fexprSeq: return false
+  if fexpr.len <= pos+1: return false
+  return fexpr[pos].kind == fexprIdent and fexpr[pos+1].kind == fexprArray
+proc parseTypeExpr*(fexpr: FExpr, pos: var int): tuple[typ: FExpr, generics: Option[FExpr]] =
+  if fexpr.kind in {fexprIdent, fexprQuote}:
+    result = (fexpr, none(FExpr))
+  elif fexpr.isParametricTypeExpr(pos):
+    result = (fexpr[pos], some(fexpr[pos+1]))
+    pos += 2
+  elif fexpr[pos].kind in {fexprIdent, fexprQuote}:
+    result = (fexpr[pos], none(FExpr))
+    pos += 1
+  else:
+    fexpr[pos].error("$# isn't type expression." % $fexpr[pos])
 proc isPragmaPrefix*(fexpr: FExpr): bool =
   fexpr.kind == fexprPrefix and $fexpr == "$"
 
@@ -109,31 +120,26 @@ proc resolveByType*(scope: Scope, fexpr: FExpr, n: Name) =
 proc resolveByVoid*(scope: Scope, fexpr: FExpr) =
   scope.resolveByType(fexpr, name("Void"))
 
-proc evalType*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr): Symbol =
-  if fexpr.kind == fexprIdent:
-    let opt = scope.getDecl(name(fexpr))
+proc evalType*(ctx: SemanticContext, scope: Scope, typ: FExpr, generics: Option[FExpr]): Symbol =
+  if generics.isSome:
+    let opt = scope.getDecl(name(typ))
     if opt.isNone:
-      fexpr.error("undeclared $# type." % $fexpr)
-    fexpr = fsymbol(fexpr.span, opt.get)
-    return opt.get
-  elif fexpr.isParametricTypeExpr: # parametric type (generics)
-    if fexpr.len <= 1:
-      fexpr.error("parametric type requires greater than 2 arguments.")
-    let opt = scope.getDecl(name(fexpr[1]))
-    if opt.isNone:
-      fexpr.error("undeclared $# type." % $fexpr[1])
+      typ.error("undeclared $# type." % $typ[1])
     var sym = opt.get.scope.symbol(opt.get.name, opt.get.kind, opt.get.fexpr)
-    if fexpr[2].kind == fexprIdent:
-      sym.types.add(ctx.evalType(scope, fexpr[2]))
-    elif fexpr[2].kind == fexprList:
-      for arg in fexpr[2].mitems:
-        sym.types.add(ctx.evalType(scope, arg))
-    else:
-      fexpr.error("$# is not parametric type expression." % $fexpr)
-    fexpr = fsymbol(fexpr[0].span, sym)
+
+    for arg in generics.get.mitems:
+      var pos = 0
+      let argtyp = arg.parseTypeExpr(pos)
+      sym.types.add(ctx.evalType(scope, argtyp.typ, argtyp.generics))
+
     return sym
   else:
-    fexpr.error("$# isn't type. ($#)" % [$fexpr, $fexpr.kind])
+    let opt = scope.getDecl(name(typ))
+    if opt.isNone:
+      typ.error("undeclared $# type." % $typ)
+    return opt.get
+proc replaceByTypesym*(fexpr: var FExpr, sym: Symbol) =
+  fexpr = fsymbol(fexpr.span, sym)
 
 proc evalInfixCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let fn = fexpr[0]

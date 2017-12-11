@@ -190,7 +190,7 @@ void testmodule_init() {
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
-      type Wrap|T {
+      type Wrap[T] {
         x T
       }
       init(Wrap){9}
@@ -220,10 +220,10 @@ testmodule_Wrap_testmodule_Int{9};
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
-      type Wrap|T {
+      type Wrap[T] {
         x T
       }
-      fn wrap|T(x T) Wrap|T {
+      fn wrap[T](x T) Wrap[T] {
         init(Wrap){x}
       }
       wrap(9)
@@ -257,10 +257,10 @@ testmodule_wrap_testmodule_Int(9);
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
-      type Wrap|T {
+      type Wrap[T] {
         x T
       }
-      fn wrap|T(x T) Wrap|T {
+      fn wrap[T](x T) Wrap[T] {
         init(Wrap){x}
       }
       wrap(9).x

@@ -5,6 +5,7 @@ type
     generics*: Option[FExpr]
     args*: FExpr
     ret*: FExpr
+    retgenerics*: Option[FExpr]
     pragma*: FExpr
     body*: FExpr
   DeftypeExpr* = object
@@ -17,7 +18,6 @@ type
     body*: FExpr
 
 defMetadata(initexpr, InitExpr)
-
 defMetadata(defn, DefnExpr)
 defMetadata(deftype, DeftypeExpr)
 

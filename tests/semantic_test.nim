@@ -82,7 +82,7 @@ suite "semantic":
   test "generics init":
     let semctx = newSemanticContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
-      type Wrap|T {
+      type Wrap[T] {
         x T
       }
       init(Wrap){9}
@@ -96,10 +96,10 @@ suite "semantic":
   test "generics":
     let semctx = newSemanticContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
-      type Wrap|T {
+      type Wrap[T] {
         x T
       }
-      fn wrap|T(x T) Wrap|T {
+      fn wrap[T](x T) Wrap[T] {
         init(Wrap){x}
       }
       wrap(9)
@@ -112,10 +112,10 @@ suite "semantic":
   test "field access":
     let semctx = newSemanticContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
-      type Wrap|T {
+      type Wrap[T] {
         x T
       }
-      fn wrap|T(x T) Wrap|T {
+      fn wrap[T](x T) Wrap[T] {
         init(Wrap){x}
       }
       wrap(9).x
@@ -125,13 +125,13 @@ suite "semantic":
   test "generics fn":
     let semctx = newSemanticContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
-      type Wrap|T {
+      type Wrap[T] {
         x T
       }
-      fn wrap|T(x T) Wrap|T {
+      fn wrap[T](x T) Wrap[T] {
         init(Wrap){x}
       }
-      fn id|T(x Wrap|T) Wrap|T {
+      fn id[T](x Wrap[T]) Wrap[T] {
         x
       }
       id(wrap(9))
@@ -165,10 +165,10 @@ suite "semantic":
     let semctx = newSemanticContext()
     expect(FExprError):
       let fexprs = parseToplevel("testmodule.flori", prelude & """
-        type Wrap|T {
+        type Wrap[T] {
           x T
         }
-        fn wrap|T(x Int) Wrap|T {
+        fn wrap[T](x Int) Wrap[T] {
         }
         wrap(9)
       """)
@@ -176,7 +176,7 @@ suite "semantic":
   test "recsursion generics":
     let semctx = newSemanticContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
-      fn fib|T(n T) T {
+      fn fib[T](n T) T {
         if (n < 2) {
           n
         } else {

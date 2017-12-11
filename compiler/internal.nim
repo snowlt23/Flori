@@ -38,26 +38,23 @@ defMetadata(internalImportExpr, ImportExpr)
 proc parseDefn*(fexpr: FExpr): DefnExpr =
   var pos = 1
 
-  if fexpr[pos].isParametricTypeExpr:
-    result.name = fexpr[pos][1]
-    result.generics = some(fexpr[pos][2])
-    pos.inc
-  else:
-    result.name = fexpr[pos]
-    result.generics = none(FExpr)
-    pos.inc
+  let ftyp = fexpr.parseTypeExpr(pos)
+  result.name = ftyp.typ
+  result.generics = ftyp.generics
 
   if fexpr[pos].kind == fexprList:
     result.args = fexpr[pos]
     pos.inc
   else:
     fexpr[pos].error("function arguments should be FList.")
-
-  if fexpr[pos].isTypeExpr:
-    result.ret = fexpr[pos]
-    pos.inc
+  
+  if fexpr.isParametricTypeExpr(pos) or fexpr[pos].kind == fexprIdent:
+    let rtyp = fexpr.parseTypeExpr(pos)
+    result.ret = rtyp.typ
+    result.retgenerics = rtyp.generics
   else:
     result.ret = voidtypeExpr(fexpr.span)
+    result.retgenerics = none(FExpr)
 
   if fexpr.len > pos and fexpr[pos].isPragmaPrefix:
     pos.inc
@@ -78,14 +75,9 @@ proc parseDefn*(fexpr: FExpr): DefnExpr =
 proc parseDeftype*(fexpr: FExpr): DeftypeExpr =
   var pos = 1
 
-  if fexpr[pos].isParametricTypeExpr:
-    result.name = fexpr[pos][1]
-    result.generics = some(fexpr[pos][2])
-    pos.inc
-  else:
-    result.name = fexpr[pos]
-    result.generics = none(FExpr)
-    pos.inc
+  let ttyp = fexpr.parseTypeExpr(pos)
+  result.name = ttyp.typ
+  result.generics = ttyp.generics
 
   if fexpr[pos].isPragmaPrefix:
     pos.inc
@@ -207,19 +199,19 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
       if not status:
         g.error("redefinition $# generics." % $g)
 
-  let rettype = ctx.evalType(fnscope, parsed.ret)
+  let rettype = ctx.evalType(fnscope, parsed.ret, parsed.generics)
+  parsed.ret.replaceByTypesym(rettype)
   var argtypes = newSeq[Symbol]() # for procdecl
 
   for arg in parsed.args:
-    if arg.len != 2:
-      arg.error("fn arg require type declaration.")
-    let n = arg[0]
-    let sym = ctx.evalType(fnscope, arg[1])
-    n.typ = some(sym)
+    var pos = 1
+    let argtyp = arg.parseTypeExpr(pos)
+    let sym = ctx.evalType(fnscope, argtyp.typ, argtyp.generics)
+    arg[1].replaceByTypesym(sym)
     argtypes.add(sym)
-    let status = fnscope.addDecl(name(n), sym)
+    let status = fnscope.addDecl(name(arg[0]), sym)
     if not status:
-      n.error("redefinition $# variable." % $n)
+      arg[0].error("redefinition $# variable." % $arg[0])
 
   let sym = scope.symbol(name(parsed.name), symbolFunc, fexpr)
   let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, returntype: rettype, sym: sym)
@@ -266,7 +258,10 @@ proc evalDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   fexpr.typ = some(sym)
 
   for field in parsed.body:
-    let s = ctx.evalType(typescope, field[1])
+    var pos = 1
+    let fieldtyp = field.parseTypeExpr(pos)
+    let s = ctx.evalType(typescope, fieldtyp.typ, fieldtyp.generics)
+    field[1].replaceByTypesym(s)
     sym.types.add(s)
   
   # symbol resolve
@@ -371,7 +366,10 @@ proc evalInit*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
     fexpr.error("init type should be single argument.")
   if fexpr[2].kind != fexprBlock:
     fexpr.error("init body should be FBlock.")
-  let sym = ctx.evalType(scope, fexpr[1][0])
+  var pos = 0
+  let inittyp = fexpr[1][0].parseTypeExpr(pos)
+  let sym = ctx.evalType(scope, inittyp.typ, inittyp.generics)
+  fexpr[1][0].replaceByTypesym(sym)
   ctx.evalFExpr(scope, fexpr[2])
 
   let types = fexpr[2].mapIt(it.typ.get)
