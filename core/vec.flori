@@ -1,36 +1,38 @@
 
-(require prelude :refer :all)
+import core.prelude
+import core.pointer
 
-(defstruct Vec
-  (data (Ptr :a))
-  (len Size))
+type Vec[T] {
+  data Ptr[T]
+  len Int
+}
 
-@(: (Typedesc :a) Size -> (Vec :a))
-(defn vec [len]
-  (Vec. (new-ptr-array :a len) len))
+fn vec[T](len Int) {
+  init(Vec) {
+    alloc[T](len)
+    len
+  }
+}
 
-@(: &(Vec :a) :a)
-(defn push [vec value]
-  (realloc (cast Pointer (.data vec)) (* (sizeof :a) (+ (.len vec) (size 1))))
-  (set! (nth (.data vec) (.len vec)) value)
-  (set! (.len vec) (+ (.len vec) (size 1))))
+fn push[T](v Vec[T], value T) {
+  v.data = realloc(realloc(vec.data, vec.len+1))
+  v.data[vec.len] = value
+  v.len += 1
+}
 
-@(: (Vec :a) -> Size)
-(defn len [vec]
-  (.len vec))
+fn len[T](v Vec[T]) {
+  v.len
+}
 
-@(: (Vec :a) Size -> :a)
-(defn nth [vec index]
-  (nth (.data vec) index))
-@(: &(Vec :a) Size :a)
-(defn set-nth! [vec index value]
-  (set! (nth (.data vec) index) value))
+fn `[][T](v Vec[T], i Int) T {
+  v.data[i]
+}
 
-@(: (Vec :a))
-(defn destructor [vec]
-  (var i (size 0))
-  (when (is :a Destructable)
-    (while (< i (len vec))
-      (destructor (nth vec i))
-      (set! i (+ i (size 1)))))
-  (dealloc (cast Pointer (.data vec))))
+fn destructor[T](v Vec[T]) {
+  when (is_destructable(T)) {
+    for i in 0..<v.len {
+      destructor(v[i])
+    }
+  }
+  dealloc(vec.data)
+}
