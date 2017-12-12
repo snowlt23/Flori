@@ -139,8 +139,9 @@ proc instantiateDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: s
   fexpr.assert(fexpr.hasInternalScope)
   fexpr.assert(fexpr.defn.args.len == types.len)
 
-  let manglingname = genManglingName(fexpr.defn.name.symbol.name, types)
-  let specopt = fexpr.internalScope.getFunc(procname(manglingname, types))
+  # let manglingname = genManglingName(fexpr.defn.name.symbol.name, types)
+  let fname = fexpr.defn.name.symbol.name
+  let specopt = fexpr.internalScope.getSpecFunc(procname(fname, types))
   if specopt.isSome:
     let fsym = fsymbol(fexpr.span, specopt.get.sym)
     fsym.metadata = specopt.get.sym.fexpr.metadata
@@ -151,9 +152,9 @@ proc instantiateDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: s
     arg[1].assert(arg[1].kind == fexprSymbol)
     arg[1].symbol.applyInstance(types[i])
 
-  let instident = fident(fexpr.defn.name.span, manglingname)
+  let instident = fident(fexpr.defn.name.span, fname)
 
-  let sym = fexpr.internalScope.symbol(manglingname, symbolFunc, instident)
+  let sym = fexpr.internalScope.symbol(fname, symbolFunc, instident)
   let fsym = fsymbol(fexpr.span, sym)
   let args = ctx.instantiateFExpr(fexpr.internalScope, fexpr.defn.args)
   let ret = ctx.instantiateFExpr(fexpr.internalScope, fexpr.defn.ret)
@@ -173,13 +174,12 @@ proc instantiateDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: s
 
   let pd = ProcDecl(
     isInternal: false,
-    name: manglingname,
+    name: fname,
     argtypes: args.mapIt(it[1].symbol),
     returntype: ret.symbol,
     sym: sym
   )
   fexpr.internalScope.addSpecFunc(pd)
-  fexpr.defn.body.internalScope.addSpecFunc(pd)
   fexpr.internalScope.toplevels.add(fsym) # register instantiate function to toplevel of module
 
   fexpr.defn.body.internalScope.importScope(name("flori_current_scope"), scope)

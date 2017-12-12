@@ -39,7 +39,7 @@ typedef char* testmodule_CString;
 typedef int64_t testmodule_Int;
 
 
-void testmodule_init() {
+void __flori_testmodule_init() {
 printf("%d", 5);
 }
 """
@@ -64,14 +64,14 @@ typedef void testmodule_Void;
 typedef bool testmodule_Bool;
 typedef char* testmodule_CString;
 typedef int64_t testmodule_Int;
-testmodule_Int testmodule_add5(testmodule_Int x);
+testmodule_Int testmodule_add5_testmodule_Int(testmodule_Int x);
 
-testmodule_Int testmodule_add5(testmodule_Int x) {
+testmodule_Int testmodule_add5_testmodule_Int(testmodule_Int x) {
 return (x + 5);
 }
 
-void testmodule_init() {
-printf("%d", testmodule_add5(4));
+void __flori_testmodule_init() {
+printf("%d", testmodule_add5_testmodule_Int(4));
 }
 """
   test "if":
@@ -98,7 +98,7 @@ typedef char* testmodule_CString;
 typedef int64_t testmodule_Int;
 
 
-void testmodule_init() {
+void __flori_testmodule_init() {
 if ((1 == 2)) {
 printf("%d", 4);
 } else {
@@ -128,7 +128,7 @@ typedef char* testmodule_CString;
 typedef int64_t testmodule_Int;
 
 
-void testmodule_init() {
+void __flori_testmodule_init() {
 while ((1 == 2)) {
 printf("%d", 9);
 };
@@ -154,7 +154,7 @@ typedef char* testmodule_CString;
 typedef int64_t testmodule_Int;
 extern testmodule_Int testmodule_nine;
 testmodule_Int testmodule_nine;
-void testmodule_init() {
+void __flori_testmodule_init() {
 testmodule_nine = 9;
 }
 """
@@ -178,13 +178,13 @@ typedef void testmodule_Void;
 typedef bool testmodule_Bool;
 typedef char* testmodule_CString;
 typedef int64_t testmodule_Int;
-testmodule_Void testmodule_test();
+testmodule_Void testmodule_test_();
 
-testmodule_Void testmodule_test() {
+testmodule_Void testmodule_test_() {
 testmodule_CString testmodule_name = "feelsgoodman";
 }
 
-void testmodule_init() {
+void __flori_testmodule_init() {
 ;
 }
 """
@@ -214,7 +214,7 @@ x testmodule_Int;
 } testmodule_Wrap_testmodule_Int;
 
 
-void testmodule_init() {
+void __flori_testmodule_init() {
 testmodule_Wrap_testmodule_Int{9};
 }
 """
@@ -251,7 +251,7 @@ testmodule_Wrap_testmodule_Int testmodule_wrap_testmodule_Int(testmodule_Int x) 
 return testmodule_Wrap_testmodule_Int{x};
 }
 
-void testmodule_init() {
+void __flori_testmodule_init() {
 testmodule_wrap_testmodule_Int(9);
 }
 """
@@ -288,7 +288,7 @@ testmodule_Wrap_testmodule_Int testmodule_wrap_testmodule_Int(testmodule_Int x) 
 return testmodule_Wrap_testmodule_Int{x};
 }
 
-void testmodule_init() {
+void __flori_testmodule_init() {
 testmodule_wrap_testmodule_Int(9).x;
 }
 """
@@ -317,8 +317,9 @@ typedef void testmodule_Void;
 typedef bool testmodule_Bool;
 typedef char* testmodule_CString;
 typedef int64_t testmodule_Int;
+testmodule_Int testmodule_fib_testmodule_Int(testmodule_Int n);
 
-testmodule_Int testmodule_fib_testmodule_int(testmodule_Int n) {
+testmodule_Int testmodule_fib_testmodule_Int(testmodule_Int n) {
 testmodule_Int __floritmp0;
 if ((n < 2)) {
 __floritmp0 = n;
@@ -327,7 +328,7 @@ __floritmp0 = (testmodule_fib_testmodule_Int((n - 1)) + testmodule_fib_testmodul
 }return __floritmp0;
 }
 
-void testmodule_init() {
+void __flori_testmodule_init() {
 printf("%d", testmodule_fib_testmodule_Int(38));
 }
 """

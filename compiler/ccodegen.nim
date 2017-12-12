@@ -50,16 +50,21 @@ proc gentmpsym*(ctx: CCodegenContext): string =
 proc generateInitDecls*(ctx: CCodegenContext): string =
   result = ""
   for si, module in ctx.modulesrcs:
-    result &= "void " & replace($si, ".", "_") & "_init();\n"
+    result &= "void __flori_" & replace($si, ".", "_") & "_init();\n"
 proc generateInits*(ctx: CCodegenContext): string =
   result = ""
   for si, module in ctx.modulesrcs:
-    result &= replace($si, ".", "_") & "_init();\n"
-proc generateMain*(ctx: CCodegenContext): string =
+    result &= "__flori_" & replace($si, ".", "_") & "_init();\n"
+proc generateFloriMain*(ctx: CCodegenContext): string =
   result = ""
   result &= ctx.generateInitDecls()
-  result &= "int main() {\n"
+  result &= "int flori_main() {\n"
   result &= ctx.generateInits()
+  result &= "}\n"
+proc generateCMain*(ctx: CCodegenContext): string =
+  result = ""
+  result &= "int main() {\n"
+  result &= "flori_main();\n"
   result &= "}\n"
 
 proc codegenSymbol*(sym: Symbol): string =
@@ -72,6 +77,9 @@ proc codegenSymbol*(fexpr: FExpr): string =
   if fexpr.kind != fexprSymbol:
     fexpr.error("$# isn't symbol." % $fexpr)
   return codegenSymbol(fexpr.symbol)
+
+proc codegenMangling*(sym: Symbol, types: seq[Symbol]): string =
+  codegenSymbol(sym) & "_" & types.mapIt(codegenSymbol(it)).join("_")
 
 proc codegenArguments*(ctx: CCodegenContext, src: var SrcExpr, args: FExpr, p: proc (s: var SrcExpr, arg: FExpr)) =
   if args.len >= 1:
@@ -105,7 +113,7 @@ proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
   var decl = initSrcExpr()
   decl &= codegenSymbol(fexpr.defn.ret)
   decl &= " "
-  decl &= codegenSymbol(fexpr.defn.name)
+  decl &= codegenMangling(fexpr.defn.name.symbol, fexpr.defn.args.mapIt(it[1].symbol))
   decl &= "("
   ctx.codegenArguments(decl, fexpr.defn.args) do (s: var SrcExpr, arg: FExpr):
     s &= codegenSymbol(arg[1])
@@ -294,7 +302,7 @@ proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fn.hasinternalPragma and fn.internalPragma.importc.isSome:
     ctx.codegenCCall(src, fexpr)
   else: # normal call
-    src &= codegenSymbol(fexpr[0])
+    src &= codegenMangling(fexpr[0].symbol, fexpr[1].mapIt(it.getType))
     src &= "("
     ctx.codegenArguments(src, fexpr[1]) do (s: var SrcExpr, arg: FExpr):
       ctx.codegenFExpr(s, arg)
@@ -331,7 +339,7 @@ proc codegenModule*(ctx: CCodegenContext, name: Name, scope: Scope) =
     ctx.codegenToplevel(modsrc, f)
 
   modsrc &= "\n"
-  modsrc &= "void $#_init() {\n" % replace($name, ".", "_")
+  modsrc &= "void __flori_$#_init() {\n" % replace($name, ".", "_")
   ctx.codegenBody(modsrc, scope.toplevels)
   modsrc &= "}\n"
 
@@ -352,4 +360,4 @@ proc writeModules*(ctx: CCodegenContext, dir: string) =
     createDir(dir)
   for si, modsrc in ctx.modulesrcs:
     writeFile(dir / $si & ".c", modsrc.getSrc)
-  writeFile(dir / "main.c", ctx.generateMain())
+  writeFile(dir / "main.c", ctx.generateFloriMain() & ctx.generateCMain())
