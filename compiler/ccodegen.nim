@@ -167,7 +167,7 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 
   var ifcondsrc = initSrcExpr()
   var ifbodysrc = initSrcExpr()
-  ctx.codegenFExpr(ifcondsrc, elifbranch[0].cond[0])
+  ctx.codegenFExpr(ifcondsrc, elifbranch[0].cond)
   ctx.codegenBody(ifbodysrc, elifbranch[0].body, ret)
   src.decls &= ifcondsrc.decls
   src.prev &= ifcondsrc.prev
@@ -178,7 +178,7 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   for branch in elifbranch[1..^1]:
     var elifcondsrc = initSrcExpr()
     var elifbodysrc = initSrcExpr()
-    ctx.codegenFExpr(elifcondsrc, branch.cond[0])
+    ctx.codegenFExpr(elifcondsrc, branch.cond)
     ctx.codegenBody(elifbodysrc, branch.body, ret)
     src.decls &= elifcondsrc.decls
     src.prev &= elifcondsrc.prev

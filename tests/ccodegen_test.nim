@@ -12,6 +12,8 @@ type CString $[importc "char*", header nodeclc]
 type Int $[importc "int64_t", header "stdint.h"]
 
 fn `+(a Int, b Int) Int $[importc "+", header nodeclc, pattern infixc]
+fn `-(a Int, b Int) Int $[importc "-", header nodeclc, pattern infixc]
+fn `<(a Int, b Int) Bool $[importc "<", header nodeclc, pattern infixc]
 fn `==(a Int, b Int) Bool $[importc "==", header nodeclc, pattern infixc]
 fn printf(fmt CString, x Int) $[importc "printf", header "stdio.h"]
 """
@@ -288,5 +290,44 @@ return testmodule_Wrap_testmodule_Int{x};
 
 void testmodule_init() {
 testmodule_wrap_testmodule_Int(9).x;
+}
+"""
+  test "recursion generics":
+    let semctx = newSemanticContext()
+    let genctx = newCCodegenContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
+      fn fib[T](n T) T {
+        if (n < 2) {
+          n
+        } else {
+          fib(n-1) + fib(n-2)
+        }
+      }
+      printf("%d", fib(38))
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+    genctx.codegen(semctx)
+    genctx.writeModules("floricache")
+    check readFile("floricache/testmodule.c") == """
+#include "stdint.h"
+#include "stdio.h"
+#include "stdbool.h"
+
+typedef void testmodule_Void;
+typedef bool testmodule_Bool;
+typedef char* testmodule_CString;
+typedef int64_t testmodule_Int;
+
+testmodule_Int testmodule_fib_testmodule_int(testmodule_Int n) {
+testmodule_Int __floritmp0;
+if ((n < 2)) {
+__floritmp0 = n;
+} else {
+__floritmp0 = (testmodule_fib_testmodule_Int((n - 1)) + testmodule_fib_testmodule_Int((n - 2)));
+}return __floritmp0;
+}
+
+void testmodule_init() {
+printf("%d", testmodule_fib_testmodule_Int(38));
 }
 """

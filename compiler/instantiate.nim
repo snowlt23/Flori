@@ -13,6 +13,10 @@ type
     generics*: Option[FExpr]
     pragma*: FExpr
     body*: FExpr
+  ProtocolExpr* = object
+    name*: FExpr
+    generics*: Option[FExpr]
+    body*: FExpr
   InitExpr* = object
     typ*: FExpr
     body*: FExpr
@@ -20,6 +24,7 @@ type
 defMetadata(initexpr, InitExpr)
 defMetadata(defn, DefnExpr)
 defMetadata(deftype, DeftypeExpr)
+defMetadata(protocol, ProtocolExpr)
 
 proc genManglingName*(name: Name, types: seq[Symbol]): Name =
   name($name & "_" & types.mapIt($it).join("_"))
@@ -63,8 +68,8 @@ proc instantiateFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr): FExpr 
       cont.addSon(ctx.instantiateFExpr(scope, e))
 
     # instantiate function by arguments
-    if fexpr.len >= 1 and fexpr[0].kind == fexprSymbol and fexpr[0].symbol.fexpr.hasDefn:
-      discard ctx.instantiateDefn(scope, fexpr[0].symbol.fexpr, fexpr[1..^1].mapIt(it.typ.get))
+    if fexpr.len >= 2 and fexpr[0].kind == fexprSymbol and fexpr[1].kind == fexprList and fexpr[0].symbol.fexpr.hasDefn:
+      discard ctx.instantiateDefn(scope, fexpr[0].symbol.fexpr, fexpr[1].mapIt(it.getType))
     # instantiate internal
     elif fexpr.hasInternalMark:
       case fexpr.internalMark
@@ -131,45 +136,64 @@ proc instantiateDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types
     
 proc instantiateDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: seq[Symbol]): FExpr =
   fexpr.assert(fexpr.hasDefn)
+  fexpr.assert(fexpr.hasInternalScope)
   fexpr.assert(fexpr.defn.args.len == types.len)
+
+  let manglingname = genManglingName(fexpr.defn.name.symbol.name, types)
+  let specopt = fexpr.internalScope.getFunc(procname(manglingname, types))
+  if specopt.isSome:
+    let fsym = fsymbol(fexpr.span, specopt.get.sym)
+    fsym.metadata = specopt.get.sym.fexpr.metadata
+    return fsym
 
   # apply type parameter to generics for instantiate
   for i, arg in fexpr.defn.args:
     arg[1].assert(arg[1].kind == fexprSymbol)
     arg[1].symbol.applyInstance(types[i])
 
-  let manglingname = genManglingName(fexpr.defn.name.symbol.name, types)
-  let instbody = ctx.instantiateFExpr(scope, fexpr.defn.body)
   let instident = fident(fexpr.defn.name.span, manglingname)
 
   let sym = fexpr.internalScope.symbol(manglingname, symbolFunc, instident)
   let fsym = fsymbol(fexpr.span, sym)
+  let args = ctx.instantiateFExpr(fexpr.internalScope, fexpr.defn.args)
+  let ret = ctx.instantiateFExpr(fexpr.internalScope, fexpr.defn.ret)
 
-  let defnexpr = DefnExpr(
+  var defnexpr = DefnExpr(
     name: fsym,
     generics: if types.isSpecTypes(): none(FExpr) else: some(flist(fexpr.span)),
-    args: ctx.instantiateFExpr(scope, fexpr.defn.args),
-    ret: ctx.instantiateFExpr(scope, fexpr.defn.ret),
+    args: args,
+    ret: ret,
     pragma: fexpr.defn.pragma,
-    body: instbody
+    body: fexpr.defn.body
   )
+  instident.internalScope = fexpr.internalScope
+  instident.internalPragma = fexpr.internalPragma
   instident.internalMark = internalDefn
   instident.defn = defnexpr
 
-  if fexpr.internalScope.addFunc(ProcDecl(
+  let pd = ProcDecl(
     isInternal: false,
     name: manglingname,
-    argtypes: defnexpr.args.mapIt(it[1].symbol),
-    returntype: defnexpr.ret.symbol,
+    argtypes: args.mapIt(it[1].symbol),
+    returntype: ret.symbol,
     sym: sym
-  )):
-    result = fsym
-    fexpr.internalScope.toplevels.add(fsym) # register instantiate function to toplevel of module
-  else:
-    let opt = fexpr.internalScope.getFunc(procname(manglingname, @[]))
-    if opt.isNone:
-      fexpr.error("cannot find instantiate function.", ctx)
-    result = fsymbol(fexpr.span, opt.get.sym)
+  )
+  fexpr.internalScope.addSpecFunc(pd)
+  fexpr.defn.body.internalScope.addSpecFunc(pd)
+  fexpr.internalScope.toplevels.add(fsym) # register instantiate function to toplevel of module
+
+  fexpr.defn.body.internalScope.importScope(name("flori_current_scope"), scope)
+  let instbody = if types.isSpecTypes:
+                  ctx.evalFExpr(fexpr.defn.body.internalScope, fexpr.defn.body)
+                  ctx.instantiateFExpr(scope, fexpr.defn.body)
+                 else:
+                  fexpr.defn.body
+
+  defnexpr.body = instbody
+  instident.defn = defnexpr
+
+  result = fsym
+  result.internalScope = fexpr.internalScope
   result.internalPragma = fexpr.internalPragma
   result.internalMark = internalDefn
   result.defn = defnexpr

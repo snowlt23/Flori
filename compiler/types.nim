@@ -21,6 +21,7 @@ type
     symbolTypeGenerics
     symbolFunc
     symbolFuncGenerics
+    symbolInfix
     symbolMacro
     symbolInternal
   Symbol* = ref object
@@ -112,7 +113,7 @@ proc `$`*(sym: Symbol): string =
   if sym.types.len == 0:
     $sym.scope.name & "." & $sym.name
   else:
-    $sym.scope.name & "." & $sym.name & "|(" & sym.types.mapIt($it).join(", ") & ")"
+    $sym.scope.name & "." & $sym.name & "[" & sym.types.mapIt($it).join(",") & "]"
 
 #
 # SemanticContext

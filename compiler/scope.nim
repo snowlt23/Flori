@@ -37,7 +37,6 @@ proc extendScope*(scope: Scope): Scope =
 proc `==`*(a, b: Scope): bool =
   a.name == b.name and a.level == b.level
 
-proc match*(a, b: FExpr): bool
 proc match*(a, b: Symbol): bool =
   if b.kind == symbolGenerics:
     return true
@@ -50,11 +49,6 @@ proc match*(a, b: Symbol): bool =
     return true
   else:
     return a == b
-proc match*(a, b: FExpr): bool =
-  if a.kind == fexprSymbol and b.kind == fexprSymbol:
-    return a.symbol.match(b.symbol)
-  else:
-    return false
 
 proc procname*(name: Name, argtypes: seq[Symbol]): ProcName =
   ProcName(name: name, argtypes: argtypes)
@@ -65,6 +59,17 @@ proc match*(a: ProcName, b: ProcDecl): bool =
   if a.argtypes.len != b.argtypes.len: return false
   for i in 0..<a.argtypes.len:
     if not a.argtypes[i].match(b.argtypes[i]): return false
+  return true
+
+proc spec*(a, b: Symbol): bool =
+  if a.kind == symbolType and b.kind == symbolType:
+    return a == b
+  else:
+    return false
+proc spec*(a: ProcName, b: ProcDecl): bool =
+  if a.argtypes.len != b.argtypes.len: return false
+  for i in 0..<a.argtypes.len:
+    if not a.argtypes[i].spec(b.argtypes[i]): return false
   return true
 
 proc initProcIdentGroup*(): ProcDeclGroup =
@@ -105,7 +110,30 @@ proc getFunc*(scope: Scope, pd: ProcName, importscope = true): Option[ProcDecl] 
     return none(ProcDecl)
   else:
     return none(ProcDecl)
-  
+proc getSpecFunc*(scope: Scope, pd: ProcName, importscope = true): Option[ProcDecl] =
+  if not scope.procdecls.hasKey(pd.name):
+    if importscope:
+      for s in scope.importscopes.values:
+        let opt = s.getSpecFunc(pd, importscope = false)
+        if opt.isSome:
+          return opt
+      return none(ProcDecl)
+    else:
+      return none(ProcDecl)
+
+  let group = scope.procdecls[pd.name]
+  for decl in group.decls:
+    if pd.spec(decl):
+      return some(decl)
+
+  if importscope:
+    for s in scope.importscopes.values:
+      let opt = s.getSpecFunc(pd, importscope = false)
+      if opt.isSome:
+        return opt
+    return none(ProcDecl)
+  else:
+    return none(ProcDecl)
 
 proc addDecl*(scope: Scope, n: Name, v: Symbol): bool =
   if scope.getDecl(n).isSome: return false
@@ -118,6 +146,10 @@ proc addFunc*(scope: Scope, decl: ProcDecl): bool =
     scope.procdecls[decl.name] = initProcIdentGroup()
   scope.procdecls[decl.name].decls.add(decl)
   return true
+proc addSpecFunc*(scope: Scope, decl: ProcDecl) =
+  if not scope.procdecls.hasKey(decl.name):
+    scope.procdecls[decl.name] = initProcIdentGroup()
+  scope.procdecls[decl.name].decls.add(decl)
 
 proc importScope*(scope: Scope, name: Name, importscope: Scope) =
   scope.importscopes[name] = importscope

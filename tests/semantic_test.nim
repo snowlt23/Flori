@@ -90,7 +90,7 @@ suite "semantic":
     semctx.evalModule(name("testmodule"), fexprs)
     check $fexprs[^1].typ.get.name == "Wrap"
     check $fexprs[^1].typ.get.types[0] == "testmodule.Int"
-    check $fexprs[^1].typ.get == "testmodule.Wrap|(testmodule.Int)"
+    check $fexprs[^1].typ.get == "testmodule.Wrap[testmodule.Int]"
     let opt = semctx.modules[name("testmodule")].getDecl(name("Wrap_testmodule.Int"))
     check opt.isSome
   test "generics":
@@ -106,7 +106,7 @@ suite "semantic":
     """)
     semctx.evalModule(name("testmodule"), fexprs)
     let wrapfn = fexprs[^1]
-    check $wrapfn.typ.get == "testmodule.Wrap|(testmodule.Int)"
+    check $wrapfn.typ.get == "testmodule.Wrap[testmodule.Int]"
     let topt = semctx.modules[name("testmodule")].getDecl(name("Wrap_testmodule.Int"))
     check topt.isSome
   test "field access":
@@ -137,7 +137,7 @@ suite "semantic":
       id(wrap(9))
     """)
     semctx.evalModule(name("testmodule"), fexprs)
-    check $fexprs[^1].typ.get == "testmodule.Wrap|(testmodule.Int)"
+    check $fexprs[^1].typ.get == "testmodule.Wrap[testmodule.Int]"
   test "recursion call":
     let semctx = newSemanticContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
@@ -186,4 +186,4 @@ suite "semantic":
       printf("%d", fib(38))
     """)
     semctx.evalModule(name("testmodule"), fexprs)
-
+    check $fexprs[^1][1][1].getType == "testmodule.Int"

@@ -27,9 +27,6 @@ type
     importc*: Option[string]
     header*: Option[string]
     infixc*: bool
-  TypeExpr* = object
-    name*: FExpr
-    generics*: FExpr
 
 defMetadata(internalScope, Scope)
 defMetadata(internalToplevel, bool)
@@ -46,6 +43,8 @@ proc name*(fexpr: FExpr): Name =
     return name($fexpr)
   of fexprQuote:
     return name(fexpr.quoted)
+  of fexprSymbol:
+    return fexpr.symbol.name
   else:
     fexpr.error("$# is not name." % $fexpr)
 
@@ -61,22 +60,6 @@ proc addInternalEval*(scope: Scope, n: Name, p: proc (ctx: SemanticContext, scop
 
 proc voidtypeExpr*(span: Span): FExpr =
   return fident(span, name("Void"))
-
-proc parseType*(fexpr: FExpr): TypeExpr =
-  if fexpr.kind == fexprSeq:
-    if fexpr[0].kind != fexprIdent:
-      fexpr[0].error("$# isn't type name." % $fexpr[0])
-    if fexpr[1].kind == fexprArray:
-      result.name = fexpr[0]
-      result.generics = fexpr[1]
-    else:
-      result.name = fexpr[0]
-      result.generics = farray(fexpr.span)
-  elif fexpr.kind == fexprIdent:
-    result.name = fexpr
-    result.generics = farray(fexpr.span)
-  else:
-    fexpr.error("$# isn't type." % $fexpr)
 
 proc isParametricTypeExpr*(fexpr: FExpr, pos: int): bool =
   if fexpr.kind != fexprSeq: return false
@@ -103,7 +86,7 @@ proc isSpecSymbol*(sym: Symbol): bool =
     return false
   else:
     for t in sym.types:
-      if t.kind != symbolType:
+      if not t.isSpecSymbol:
         return false
     return true
 proc isSpecTypes*(types: seq[Symbol]): bool =
@@ -183,13 +166,17 @@ proc internalScope*(ctx: SemanticContext): Scope =
   ctx.modules[name("internal")]
 
 proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
-  fexpr.internalScope = scope
+  if not fexpr.hasInternalScope:
+    fexpr.internalScope = scope
   case fexpr.kind
   of fexprIdent:
     let opt = scope.getDecl(name(fexpr))
     if opt.isNone:
       fexpr.error("undeclared $# ident." % $fexpr)
-    fexpr.typ = opt.get.fexpr.typ
+    if opt.get.instance.isSome:
+      fexpr.typ = opt.get.instance
+    else:
+      fexpr.typ = opt.get.fexpr.typ
   of fexprSymbol:
     discard
   of fexprIntLit:
@@ -215,10 +202,12 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
       internalopt.get.internalproc(ctx, scope, fexpr)
     elif fexpr.len == 2 and fexpr[1].kind == fexprList: # function call
       ctx.evalFuncCall(scope, fexpr)
+    elif fexpr[0].kind == fexprSymbol and fexpr[0].symbol.kind == symbolInfix:
+      ctx.evalInfixCall(scope, fexpr)
     elif fexpr[0].kind == fexprInfix:
       ctx.evalInfixCall(scope, fexpr)
     else:
-      fexpr.error("unsupported FSeq call.")
+      fexpr.error("unsupported `$#` FSeq call." % $fexpr)
   else:
     fexpr.error("$# is unsupported expression in eval." % $fexpr.kind)
 

@@ -102,25 +102,25 @@ proc parseIf*(fexpr: FExpr): IfExpr =
   
   var pos = 1
 
-  if fexpr[pos].kind != fexprList:
-    fexpr[pos].error("if cond should be FList.")
+  if fexpr[pos].kind != fexprList or fexpr[pos].len != 1:
+    fexpr[pos].error("if cond should be single FList.")
   if fexpr[pos+1].kind != fexprBlock:
     fexpr[pos+1].error("if body should be FBlock.")
-  result.elifbranch.add((fexpr[pos], fexpr[pos+1]))
+  result.elifbranch.add((fexpr[pos][0], fexpr[pos+1]))
   pos += 2
 
   while fexpr.len > pos:
     if $fexpr[pos] == "elif":
       pos.inc
       let cond = fexpr[pos]
-      if cond.kind != fexprList:
-        fexpr[pos].error("elif cond should be FList.")
+      if cond.kind != fexprList or cond.len != 1:
+        fexpr[pos].error("elif cond should be single FList.")
       pos.inc
       let body = fexpr[pos]
       if body.kind != fexprBlock:
         fexpr[pos].error("elif body should be FBlock.")
       pos.inc
-      result.elifbranch.add((fexpr[pos], fexpr[pos+1]))
+      result.elifbranch.add((fexpr[pos][0], fexpr[pos+1]))
     else:
       pos.inc
       let body = fexpr[pos]
@@ -199,7 +199,7 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
       if not status:
         g.error("redefinition $# generics." % $g)
 
-  let rettype = ctx.evalType(fnscope, parsed.ret, parsed.generics)
+  let rettype = ctx.evalType(fnscope, parsed.ret, parsed.retgenerics)
   parsed.ret.replaceByTypesym(rettype)
   var argtypes = newSeq[Symbol]() # for procdecl
 
@@ -212,15 +212,18 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
     let status = fnscope.addDecl(name(arg[0]), sym)
     if not status:
       arg[0].error("redefinition $# variable." % $arg[0])
-
-  let sym = scope.symbol(name(parsed.name), symbolFunc, fexpr)
+  
+  let symkind = if parsed.name.kind == fexprQuote: symbolInfix else: symbolFunc
+  let sym = scope.symbol(name(parsed.name), symkind, fexpr)
   let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, returntype: rettype, sym: sym)
   let status = scope.addFunc(pd)
   if not status:
     fexpr.error("redefinition $# function." % $parsed.name)
   discard fnscope.addFunc(pd)
     
-  ctx.evalFExpr(fnscope, parsed.body)
+  parsed.body.internalScope = fnscope
+  if parsed.generics.isNone:
+    ctx.evalFExpr(fnscope, parsed.body)
 
   # symbol resolve
   let fsym = fsymbol(fexpr[0].span, sym)
