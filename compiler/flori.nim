@@ -16,6 +16,8 @@ Options:
   -o=<outname>   Specialize output filename.
   --opt=<level>  Optimize level.
   --cc=<cc>      Select C Compiler.
+    gcc  GNU C Compiler (default)
+    tcc  Tiny C Compiler
 """
 
 proc parseCC*(val: Value): CCKind =
