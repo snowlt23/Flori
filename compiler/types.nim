@@ -94,7 +94,7 @@ type
 #
 # Name
 #
-  
+
 proc name*(s: varargs[string]): Name = Name(names: @s)
 proc hash*(name: Name): Hash = hash(name.names.join("_"))
 proc `==`*(a, b: Name): bool =
