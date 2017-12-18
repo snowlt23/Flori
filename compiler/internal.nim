@@ -30,6 +30,7 @@ defMetadata(internalWhileExpr, WhileExpr)
 defMetadata(internalDefExpr, DefExpr)
 defMetadata(internalFieldAccessExpr, FieldAccessExpr)
 defMetadata(internalImportExpr, ImportExpr)
+defMetadata(parent, FExpr)
 
 #
 # Parser
@@ -146,19 +147,61 @@ proc parseDef*(fexpr: FExpr): DefExpr =
   result.name = fexpr[1]
   result.value = fexpr[2]
 
-#
-# Evaluater
-#
-
 proc isGenerics*(defn: DefnExpr): bool = defn.generics.isSome
 proc isGenerics*(deftype: DeftypeExpr): bool = deftype.generics.isSome
 
-proc addInternalPragma*(fexpr: FExpr, pragma: FExpr) =
+#
+# Pragma
+#
+
+proc evalImportc*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+  if fexpr.len == 1:
+    let name = $fexpr.parent[0]
+    fexpr.parent.internalPragma.importc = some(name)
+  else:
+    if fexpr[1].kind != fexprStrLit:
+      fexpr[1].error("importc argument should be FStrLit")
+    let name = fexpr[1].strval
+    fexpr.parent.internalPragma.importc = some(name)
+
+proc evalHeader*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+  if fexpr.len == 2:
+    if $fexpr[1] == "nodeclc":
+      fexpr.parent.internalPragma.header = none(string)
+    elif fexpr[1].kind == fexprStrLit:
+      let name = fexpr[1].strval
+      fexpr.parent.internalPragma.header = some(name)
+    else:
+      fexpr[1].error("header argument should be FStrLit")
+  else:
+    fexpr.error("usage: `header \"headername.h\"`")
+
+proc evalPattern*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+  if fexpr.len == 2:
+    let arg = $fexpr[1]
+    case arg
+    of "infixc":
+      fexpr.parent.internalPragma.infixc = true
+    else:
+      fexpr[1].error("unsupported in pattern pragma")
+  else:
+    fexpr.error("usage: `pattern infixc`")
+
+proc evalPragma*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, pragma: FExpr) =
   var ipragma = InternalPragma()
   if pragma.kind != fexprArray:
     pragma.error("$# isn't internal pragma." % $pragma)
+  fexpr.internalPragma = InternalPragma()
 
   for key in pragma:
+    key.parent = fexpr
+    let pragmaname = name(key[0])
+    let internalopt = scope.getFunc(procname(pragmaname, @[]))
+    if internalopt.isSome:
+      internalopt.get.internalproc(ctx, scope, key)
+    else:
+      key[0].error("undeclared $# pragma." % $pragmaname)
+
     if key.kind != fexprSeq:
       key.error("pragma should be FSeq.")
     if key.len != 2:
@@ -185,6 +228,10 @@ proc addInternalPragma*(fexpr: FExpr, pragma: FExpr) =
       key[0].error("$# is unknown pragma." % $key[0])
 
   fexpr.internalPragma = ipragma
+
+#
+# Evaluater
+#
 
 proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   var parsed = parseDefn(fexpr)
@@ -230,7 +277,7 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   fexpr[1] = fsym
   parsed.name = fsym
   # internal metadata for postprocess phase
-  fexpr.addInternalPragma(parsed.pragma)
+  ctx.evalPragma(scope, fexpr, parsed.pragma)
   fexpr.internalMark = internalDefn
   fexpr.defn = parsed
 
@@ -272,7 +319,7 @@ proc evalDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   fexpr[1] = fsym
   parsed.name = fsym
   # internal metadata for postprocess phase
-  fexpr.addInternalPragma(parsed.pragma)
+  ctx.evalPragma(scope, fexpr, parsed.pragma)
   fexpr.internalMark = internalDeftype
   fexpr.deftype = parsed
 
@@ -408,6 +455,10 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("."), evalFieldAccess)
   scope.addInternalEval(name("init"), evalInit)
   scope.addInternalEval(name("import"), evalImport)
+
+  scope.addInternalEval(name("importc"), evalImportc)
+  scope.addInternalEval(name("header"), evalHeader)
+  scope.addInternalEval(name("pattern"), evalPattern)
 
 proc initInternalScope*(ctx: SemanticContext) =
   let scope = newScope(name("internal"))

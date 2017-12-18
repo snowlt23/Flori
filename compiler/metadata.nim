@@ -14,7 +14,7 @@ macro defMetadata*(key: untyped, T: typed): untyped =
       data: `T`
     proc `keyhas`*(fexpr: FExpr): bool =
       fexpr.metadata.hasKey(`keystr`)
-    proc `keyget`*(fexpr: FExpr): `T` =
+    proc `keyget`*(fexpr: FExpr): var `T` =
       `tsym`(fexpr.metadata[`keystr`]).data
     proc `keyset`*(fexpr: FExpr, value: `T`) =
       fexpr.metadata[`keystr`] = `tsym`(data: value)
