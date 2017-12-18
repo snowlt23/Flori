@@ -27,6 +27,7 @@ type
     importc*: Option[string]
     header*: Option[string]
     infixc*: bool
+    pattern*: Option[string]
 
 defMetadata(internalScope, Scope)
 defMetadata(internalToplevel, bool)

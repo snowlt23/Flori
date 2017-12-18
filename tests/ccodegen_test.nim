@@ -332,3 +332,29 @@ void __flori_testmodule_init() {
 printf("%d", testmodule_fib_testmodule_Int(38));
 }
 """
+  test "pattern codegen":
+    let semctx = newSemanticContext()
+    let genctx = newCCodegenContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
+      fn `add(x Int, y Int) $[importc, header nodeclc, pattern "$1+$2"]
+      add(1, 2)
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+    genctx.codegen(semctx)
+    genctx.writeModules("floricache")
+    check readFile("floricache/testmodule.c") == """
+#include "stdint.h"
+#include "stdio.h"
+#include "stdbool.h"
+
+typedef void testmodule_Void;
+typedef bool testmodule_Bool;
+typedef char* testmodule_CString;
+typedef int64_t testmodule_Int;
+
+
+void __flori_testmodule_init() {
+1+2;
+}
+"""
+

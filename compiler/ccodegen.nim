@@ -275,6 +275,19 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
     if topcodegen:
       ctx.codegenImport(src, fexpr)
 
+proc codegenPatternCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, fn: FExpr) =
+  var pattern = fn.internalPragma.pattern.get
+  for i, arg in fexpr[1]:
+    var comp = initSrcExpr()
+    ctx.codegenFExpr(comp, arg)
+    src.decls &= comp.decls
+    src.prev &= comp.prev
+    pattern = pattern.replace("$" & $(i+1), comp.exp)
+  if fn.defn.generics.isSome:
+    for i, g in fn.defn.generics.get:
+      pattern = pattern.replace("#" & $(i+1), codegenSymbol(g.getType()))
+  src &= pattern
+
 proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   let fn = fexpr[0].symbol.fexpr
   let fname = fn.internalPragma.importc.get
@@ -288,6 +301,8 @@ proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     src &= " "
     ctx.codegenFExpr(src, fexpr[2])
     src &= ")"
+  elif fn.internalPragma.pattern.isSome:
+    ctx.codegenPatternCCall(src, fexpr, fn)
   else:
     src &= fname
     src &= "("

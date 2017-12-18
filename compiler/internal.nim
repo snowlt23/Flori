@@ -155,7 +155,7 @@ proc isGenerics*(deftype: DeftypeExpr): bool = deftype.generics.isSome
 #
 
 proc evalImportc*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
-  if fexpr.len == 1:
+  if fexpr.kind == fexprIdent:
     let name = $fexpr.parent[0]
     fexpr.parent.internalPragma.importc = some(name)
   else:
@@ -178,56 +178,31 @@ proc evalHeader*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
 
 proc evalPattern*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   if fexpr.len == 2:
-    let arg = $fexpr[1]
-    case arg
-    of "infixc":
+    if $fexpr[1] == "infixc":
       fexpr.parent.internalPragma.infixc = true
+    elif fexpr[1].kind == fexprStrLit:
+      fexpr.parent.internalPragma.pattern = some(fexpr[1].strval)
     else:
       fexpr[1].error("unsupported in pattern pragma")
   else:
-    fexpr.error("usage: `pattern infixc`")
+    fexpr.error("usage: `pattern \"#1($1)\"` or `pattern infixc`")
 
 proc evalPragma*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, pragma: FExpr) =
-  var ipragma = InternalPragma()
   if pragma.kind != fexprArray:
     pragma.error("$# isn't internal pragma." % $pragma)
   fexpr.internalPragma = InternalPragma()
 
   for key in pragma:
     key.parent = fexpr
-    let pragmaname = name(key[0])
+    let pragmaname = if key.kind in fexprContainer:
+                       name(key[0])
+                     else:
+                       name(key)
     let internalopt = scope.getFunc(procname(pragmaname, @[]))
     if internalopt.isSome:
       internalopt.get.internalproc(ctx, scope, key)
     else:
       key[0].error("undeclared $# pragma." % $pragmaname)
-
-    if key.kind != fexprSeq:
-      key.error("pragma should be FSeq.")
-    if key.len != 2:
-      key.error("pragma.len != 2")
-    
-    case $key[0]
-    of "importc":
-      if key[1].kind != fexprStrLit:
-        key[1].error("importc value should be FStrLit.")
-      ipragma.importc = some(key[1].strval)
-    of "header":
-      if $key[1] == "nodeclc":
-        ipragma.header = none(string)
-      else:
-        if key[1].kind != fexprStrLit:
-          key[1].error("header value should be FStrLit.")
-        ipragma.header = some(key[1].strval)
-    of "pattern":
-      if $key[1] == "infixc":
-        ipragma.infixc = true
-      else:
-        key[1].error("pattern is support infixc only. (in currently)")
-    else:
-      key[0].error("$# is unknown pragma." % $key[0])
-
-  fexpr.internalPragma = ipragma
 
 #
 # Evaluater
