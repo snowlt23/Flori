@@ -357,4 +357,29 @@ void __flori_testmodule_init() {
 1+2;
 }
 """
+  test "generics pattern codegen":
+    let semctx = newSemanticContext()
+    let genctx = newCCodegenContext()
+    let fexprs = parseToplevel("testmodule.flori", prelude & """
+      fn cast[T, F](val F) $[importc, header nodeclc, pattern "((#1)($1))"]
+      cast[Int](1)
+    """)
+    semctx.evalModule(name("testmodule"), fexprs)
+    genctx.codegen(semctx)
+    genctx.writeModules("floricache")
+    check readFile("floricache/testmodule.c") == """
+#include "stdint.h"
+#include "stdio.h"
+#include "stdbool.h"
+
+typedef void testmodule_Void;
+typedef bool testmodule_Bool;
+typedef char* testmodule_CString;
+typedef int64_t testmodule_Int;
+
+
+void __flori_testmodule_init() {
+((testmodule_Int)(1));
+}
+"""
 

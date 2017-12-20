@@ -80,6 +80,9 @@ proc parseTypeExpr*(fexpr: FExpr, pos: var int): tuple[typ: FExpr, generics: Opt
 proc isPragmaPrefix*(fexpr: FExpr): bool =
   fexpr.kind == fexprPrefix and $fexpr == "$"
 
+proc isGenericsFuncCall*(fexpr: FExpr): bool =
+  fexpr.kind == fexprSeq and fexpr.len == 3 and fexpr[1].kind == fexprArray and fexpr[2].kind == fexprList
+
 proc isSpecSymbol*(sym: Symbol): bool =
   if sym.kind == symbolType:
     return true
@@ -153,7 +156,9 @@ proc evalFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let opt = scope.getFunc(procname(name(fn), argtypes))
   if opt.isNone:
     fexpr.error("undeclared $#($#) function." % [$fn, argtypes.mapIt($it).join(", ")])
-  if opt.get.sym.fexpr.hasDefn and opt.get.sym.fexpr.defn.generics.isSome: # generics
+
+  # generics
+  if opt.get.sym.fexpr.hasDefn and opt.get.sym.fexpr.defn.generics.isSome:
     # symbol resolve
     ctx.expandBy(fexpr.span):
       fexpr[0] = ctx.instantiateDefn(scope, opt.get.sym.fexpr, argtypes)
@@ -162,6 +167,37 @@ proc evalFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
     fexpr.typ = some(opt.get.returntype)
     # symbol resolve
     fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
+
+proc evalGenericsFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: Fexpr) =
+  let fn = fexpr[0]
+  for arg in fexpr[2]:
+    ctx.evalFExpr(scope, arg)
+  let argtypes = fexpr[2].mapIt(it.getType)
+
+  var gtypes = newSeq[Symbol]()
+  for g in fexpr[1].mitems:
+    var pos = 0
+    let gtype = parseTypeExpr(g, pos)
+    let t = ctx.evalType(scope, gtype.typ, gtype.generics)
+    gtypes.add(t)
+    g = fsymbol(g.span, t)
+
+  let opt = scope.getFunc(procname(name(fn), argtypes))
+  if opt.isNone:
+    fexpr.error("undeclared $#($#) function." % [$fn, argtypes.mapIt($it).join(", ")])
+
+  # generics 
+  if opt.get.sym.fexpr.hasDefn and opt.get.sym.fexpr.defn.generics.isSome:
+    let generics = opt.get.sym.fexpr.defn.generics.get
+    if generics.len < gtypes.len:
+      fexpr.error("wrong of generics length: requires $#" % $generics)
+    for i, gtyp in gtypes:
+      generics[i].typ.get.instance = some(gtyp)
+    ctx.expandBy(fexpr.span):
+      fexpr[0] = ctx.instantiateDefn(scope, opt.get.sym.fexpr, argtypes)
+      fexpr.typ = some(fexpr[0].defn.ret.symbol)
+  else:
+    fexpr.error("wrong function call, $# isn't generics function." % $fn)
 
 proc internalScope*(ctx: SemanticContext): Scope =
   ctx.modules[name("internal")]
@@ -203,6 +239,8 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
       internalopt.get.internalproc(ctx, scope, fexpr)
     elif fexpr.len == 2 and fexpr[1].kind == fexprList: # function call
       ctx.evalFuncCall(scope, fexpr)
+    elif fexpr.isGenericsFuncCall: # generics function call
+      ctx.evalGenericsFuncCall(scope, fexpr)
     elif fexpr[0].kind == fexprSymbol and fexpr[0].symbol.kind == symbolInfix:
       ctx.evalInfixCall(scope, fexpr)
     elif fexpr[0].kind == fexprInfix:

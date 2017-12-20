@@ -134,10 +134,22 @@ proc instantiateDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types
   result.internalMark = internalDeftype
   result.deftype = deftypeexpr
     
+proc checkInstantiateGenerics*(generics: FExpr) =
+  for g in generics:
+    if g.typ.get.instance.isNone:
+      g.error("cannot instantiate $#." % $g)
+
 proc instantiateDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: seq[Symbol]): FExpr =
   fexpr.assert(fexpr.hasDefn)
   fexpr.assert(fexpr.hasInternalScope)
   fexpr.assert(fexpr.defn.args.len == types.len)
+
+  # apply type parameter to generics for instantiate
+  for i, arg in fexpr.defn.args:
+    arg[1].assert(arg[1].kind == fexprSymbol)
+    arg[1].symbol.applyInstance(types[i])
+  if types.isSpecTypes() and fexpr.defn.generics.isSome:
+    checkInstantiateGenerics(fexpr.defn.generics.get)
 
   # let manglingname = genManglingName(fexpr.defn.name.symbol.name, types)
   let fname = fexpr.defn.name.symbol.name
@@ -146,11 +158,6 @@ proc instantiateDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: s
     let fsym = fsymbol(fexpr.span, specopt.get.sym)
     fsym.metadata = specopt.get.sym.fexpr.metadata
     return fsym
-
-  # apply type parameter to generics for instantiate
-  for i, arg in fexpr.defn.args:
-    arg[1].assert(arg[1].kind == fexprSymbol)
-    arg[1].symbol.applyInstance(types[i])
 
   let instident = fident(fexpr.defn.name.span, fname)
 

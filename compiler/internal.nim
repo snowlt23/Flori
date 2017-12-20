@@ -214,7 +214,7 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let fnscope = scope.extendScope()
   # add generics variable to scope
   if parsed.generics.isSome:
-    for g in parsed.generics.get:
+    for g in parsed.generics.get.mitems:
       let sym = fnscope.symbol(name(g), symbolGenerics, g)
       let status = fnscope.addDecl(name(g), sym)
       g.typ = some(sym) # FIXME:
