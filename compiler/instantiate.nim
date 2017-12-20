@@ -97,7 +97,8 @@ proc applyInstance*(sym: Symbol, instance: Symbol) =
 
 proc instantiateDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: seq[Symbol]): FExpr =
   fexpr.assert(fexpr.hasDeftype)
-  fexpr.assert(fexpr.deftype.body.len == types.len)
+  if fexpr.internalPragma.pattern.isNone:
+    fexpr.assert(fexpr.deftype.body.len == types.len)
 
   # apply type parameter to generics for instantiate
   for i, field in fexpr.deftype.body:

@@ -67,6 +67,8 @@ proc generateCMain*(ctx: CCodegenContext): string =
   result &= "flori_main();\n"
   result &= "}\n"
 
+proc codegenSymbol*(sym: Symbol): string
+
 proc codegenSymbol*(sym: Symbol): string =
   if sym.types.len != 0:
     result = $sym.scope.name & "_" & $sym.name & "_" & sym.types.mapIt(codegenSymbol(it)).join("_")
@@ -125,10 +127,11 @@ proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
 
   src &= decl
   src &= " {\n"
-  if fexpr.defn.body[^1].typ.get.isVoidType:
-    ctx.codegenBody(src, fexpr.defn.body)
-  else:
-    ctx.codegenBody(src, fexpr.defn.body, ret = "return ")
+  if fexpr.defn.body.len != 0:
+    if fexpr.defn.body[^1].typ.get.isVoidType:
+      ctx.codegenBody(src, fexpr.defn.body)
+    else:
+      ctx.codegenBody(src, fexpr.defn.body, ret = "return ")
   src &= "}\n"
 
 proc codegenDefn*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
@@ -147,16 +150,29 @@ proc codegenDeftypeStruct*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr)
     src.decls &= ";\n"
   src.decls &= "} $#;\n" % codegenSymbol(fexpr.deftype.name.symbol)
 
+proc codegenTypePattern*(pattern: string, types: seq[Symbol]): string =
+  result = pattern
+  for i, typ in types:
+    result = result.replace("#" & $(i+1), codegenSymbol(typ))
+
 proc codegenDeftype*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.internalPragma.header.isSome:
     src.addHeader(fexpr.internalPragma.header.get)
   if fexpr.internalPragma.importc.isSome:
-    let fname = fexpr.internalPragma.importc.get
-    src.decls &= "typedef "
-    src.decls &= fname
-    src.decls &= " "
-    src.decls &= codegenSymbol(fexpr.deftype.name)
-    src.decls &= ";\n"
+    if fexpr.internalPragma.pattern.isSome:
+      if fexpr.deftype.generics.isNone:
+        src.decls &= "typedef "
+        src.decls &= codegenTypePattern(fexpr.internalPragma.pattern.get, fexpr.deftype.name.symbol.types)
+        src.decls &= " "
+        src.decls &= codegenSymbol(fexpr.deftype.name)
+        src.decls &= ";\n"
+    else:
+      let fname = fexpr.internalPragma.importc.get
+      src.decls &= "typedef "
+      src.decls &= fname
+      src.decls &= " "
+      src.decls &= codegenSymbol(fexpr.deftype.name)
+      src.decls &= ";\n"
   else:
     if fexpr.deftype.generics.isNone:
       ctx.codegenDeftypeStruct(src, fexpr)
