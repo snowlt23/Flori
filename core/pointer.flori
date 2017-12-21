@@ -1,4 +1,6 @@
 
+import core.prelude
+
 type Pointer $[importc "void*", header nodeclc]
 type Ptr[T] $[importc, header nodeclc, pattern "#1*"]
 
@@ -6,10 +8,10 @@ fn cast[T, F](val F) T $[importc, header nodeclc, pattern "((#1)($1))"]
 fn unsafe_malloc(size Int) Pointer $[importc "malloc", header "stdlib.h"]
 fn unsafe_realloc(ptr Pointer, size Int) $[importc "realloc", header "stdlib.h"]
 fn unsafe_free(ptr Pointer) $[importc "free", header "stdlib.h"]
-fn sizeof(T Typedesc) $[importc "sizeof", header nodeclc, pattern "sizeof($1)"]
+fn sizeof[T]() Int $[importc "sizeof", header nodeclc, pattern "sizeof(#1)"]
 
 fn alloc[T](len Int) Ptr[T] {
-  cast[Ptr[T]](unsafe_malloc(sizeof(T)*len))
+  cast[Ptr[T]](unsafe_malloc(sizeof[T]()*len))
 }
 fn realloc[T](ptr Ptr[T], len Int) Ptr[T] {
   cast[Ptr[T]](unsafe_realloc(cast[Pointer](ptr), len))

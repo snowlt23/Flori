@@ -55,7 +55,14 @@ proc getType*(fexpr: FExpr): Symbol =
   return fexpr.typ.get
 
 proc addInternalEval*(scope: Scope, n: Name, p: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)) =
-  let status = scope.addFunc(ProcDecl(isInternal: true, internalproc: p, name: n, argtypes: @[], sym: scope.symbol(n, symbolInternal, fident(internalSpan, name("internal"))))) # FIXME: returntype
+  let status = scope.addFunc(ProcDecl(
+    isInternal: true,
+    internalproc: p,
+    name: n,
+    argtypes: @[],
+    generics: @[],
+    sym: scope.symbol(n, symbolInternal, fident(internalSpan, name("internal")))
+  )) # FIXME: returntype
   if not status:
     fseq(internalSpan).error("redefinition $# function." % $n)
 
@@ -235,7 +242,7 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   of fexprSeq:
     let fn = fexpr[0]
     let internalopt = scope.getFunc(procname(name(fn), @[]))
-    if internalopt.isSome:
+    if internalopt.isSome and internalopt.get.isInternal:
       internalopt.get.internalproc(ctx, scope, fexpr)
     elif fexpr.len == 2 and fexpr[1].kind == fexprList: # function call
       ctx.evalFuncCall(scope, fexpr)

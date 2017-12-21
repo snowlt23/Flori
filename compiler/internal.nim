@@ -213,6 +213,7 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
 
   let fnscope = scope.extendScope()
   # add generics variable to scope
+  var generics = newSeq[Symbol]()
   if parsed.generics.isSome:
     for g in parsed.generics.get.mitems:
       let sym = fnscope.symbol(name(g), symbolGenerics, g)
@@ -220,6 +221,7 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
       g.typ = some(sym) # FIXME:
       if not status:
         g.error("redefinition $# generics." % $g)
+      generics.add(sym)
 
   let rettype = ctx.evalType(fnscope, parsed.ret, parsed.retgenerics)
   parsed.ret.replaceByTypesym(rettype)
@@ -237,7 +239,7 @@ proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   
   let symkind = if parsed.name.kind == fexprQuote: symbolInfix else: symbolFunc
   let sym = scope.symbol(name(parsed.name), symkind, fexpr)
-  let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, returntype: rettype, sym: sym)
+  let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
   let status = scope.addFunc(pd)
   if not status:
     fexpr.error("redefinition $# function." % $parsed.name)

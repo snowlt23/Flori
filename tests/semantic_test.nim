@@ -173,7 +173,7 @@ suite "semantic":
         wrap(9)
       """)
       semctx.evalModule(name("testmodule"), fexprs)
-  test "recsursion generics":
+  test "recursion generics":
     let semctx = newSemanticContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
       fn fib[T](n T) T {

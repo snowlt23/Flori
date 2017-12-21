@@ -72,11 +72,13 @@ type
     internalProc*: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)
     name*: Name
     argtypes*: seq[Symbol]
+    generics*: seq[Symbol]
     returntype*: Symbol
     sym*: Symbol
   ProcName* = object
     name*: Name
     argtypes*: seq[Symbol]
+    generics*: seq[Symbol]
   ProcDeclGroup* = object
     decls*: seq[ProcDecl]
   Scope* = ref object
@@ -90,6 +92,13 @@ type
   SemanticContext* = ref object
     expandspans*: Deque[Span]
     modules*: OrderedTable[Name, Scope]
+
+#
+# Scope
+#
+
+proc `==`*(a, b: Scope): bool =
+  a.name == b.name and a.level == b.level
   
 #
 # Name
@@ -104,6 +113,10 @@ proc `==`*(a, b: Name): bool =
       return false
   return true
 proc `$`*(name: Name): string = name.names.join(".")
+
+#
+# Symbol
+#
 
 proc symbol*(scope: Scope, name: Name, kind: SymbolKind, fexpr: FExpr): Symbol =
   Symbol(scope: scope, name: name, kind: kind, types: @[], fexpr: fexpr)

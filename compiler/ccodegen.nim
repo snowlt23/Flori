@@ -338,11 +338,18 @@ proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fn.hasinternalPragma and fn.internalPragma.importc.isSome:
     ctx.codegenCCall(src, fexpr)
   else: # normal call
-    src &= codegenMangling(fexpr[0].symbol, fexpr[1].mapIt(it.getType))
-    src &= "("
-    ctx.codegenArguments(src, fexpr[1]) do (s: var SrcExpr, arg: FExpr):
-      ctx.codegenFExpr(s, arg)
-    src &= ")"
+    if fexpr.isGenericsFuncCall:
+      src &= codegenMangling(fexpr[0].symbol, fexpr[2].mapIt(it.getType))
+      src &= "("
+      ctx.codegenArguments(src, fexpr[2]) do (s: var SrcExpr, arg: FExpr):
+        ctx.codegenFExpr(s, arg)
+      src &= ")"
+    else:
+      src &= codegenMangling(fexpr[0].symbol, fexpr[1].mapIt(it.getType))
+      src &= "("
+      ctx.codegenArguments(src, fexpr[1]) do (s: var SrcExpr, arg: FExpr):
+        ctx.codegenFExpr(s, arg)
+      src &= ")"
 
 proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   case fexpr.kind

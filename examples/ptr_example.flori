@@ -1,0 +1,5 @@
+
+import core.prelude
+import core.pointer
+
+p := alloc[Int](5)

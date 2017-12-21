@@ -34,9 +34,6 @@ proc extendScope*(scope: Scope): Scope =
   result.importscopes = scope.importscopes
   result.toplevels = @[]
 
-proc `==`*(a, b: Scope): bool =
-  a.name == b.name and a.level == b.level
-
 proc match*(a, b: Symbol): bool =
   if b.kind == symbolGenerics:
     return true
@@ -50,8 +47,8 @@ proc match*(a, b: Symbol): bool =
   else:
     return a == b
 
-proc procname*(name: Name, argtypes: seq[Symbol]): ProcName =
-  ProcName(name: name, argtypes: argtypes)
+proc procname*(name: Name, argtypes: seq[Symbol], generics = newSeq[Symbol]()): ProcName =
+  ProcName(name: name, argtypes: argtypes, generics: generics)
 
 proc match*(a: ProcName, b: ProcDecl): bool =
   if a.name != b.name: return false
@@ -64,12 +61,17 @@ proc match*(a: ProcName, b: ProcDecl): bool =
 proc spec*(a, b: Symbol): bool =
   if a.kind == symbolType and b.kind == symbolType:
     return a == b
+  elif a.kind == symbolGenerics and b.kind == symbolGenerics:
+    return a == b
   else:
     return false
 proc spec*(a: ProcName, b: ProcDecl): bool =
   if a.argtypes.len != b.argtypes.len: return false
+  if a.generics.len != b.generics.len: return false
   for i in 0..<a.argtypes.len:
     if not a.argtypes[i].spec(b.argtypes[i]): return false
+  for i in 0..<a.generics.len:
+    if not a.generics[i].spec(b.generics[i]): return false
   return true
 
 proc initProcIdentGroup*(): ProcDeclGroup =
@@ -86,6 +88,21 @@ proc getDecl*(scope: Scope, n: Name, importscope = true): Option[Symbol] =
     else:
       return none(Symbol)
   return some scope.decls[n]
+proc getSpecType*(scope: Scope, n: Name, types: seq[Symbol], importscope = true): Option[Symbol] =
+  if scope.decls.hasKey(n):
+    if scope.decls[n].types == types:
+      return some(scope.decls[n])
+    else:
+      return none(Symbol)
+  else:
+    if importscope:
+      for s in scope.importscopes.values:
+        let opt = s.getDecl(n, importscope = false)
+        if opt.isSome:
+          return opt
+      return none(Symbol)
+    else:
+      return none(Symbol)
 proc getFunc*(scope: Scope, pd: ProcName, importscope = true): Option[ProcDecl] =
   if not scope.procdecls.hasKey(pd.name):
     if importscope:

@@ -120,6 +120,7 @@ proc instantiateDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types
     pragma: fexpr.deftype.pragma,
     body: instbody
   )
+  instident.internalPragma = fexpr.internalPragma
   instident.internalMark = internalDeftype
   instident.deftype = deftypeexpr
 
@@ -154,7 +155,12 @@ proc instantiateDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: s
 
   # let manglingname = genManglingName(fexpr.defn.name.symbol.name, types)
   let fname = fexpr.defn.name.symbol.name
-  let specopt = fexpr.internalScope.getSpecFunc(procname(fname, types))
+  var genericstypes = newSeq[Symbol]()
+  if fexpr.defn.generics.isSome:
+    for g in fexpr.defn.generics.get:
+      if g.typ.get.isSpecSymbol:
+        genericstypes.add(g.typ.get)
+  let specopt = fexpr.internalScope.getSpecFunc(procname(fname, types, genericstypes))
   if specopt.isSome:
     let fsym = fsymbol(fexpr.span, specopt.get.sym)
     fsym.metadata = specopt.get.sym.fexpr.metadata
@@ -184,6 +190,7 @@ proc instantiateDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: s
     isInternal: false,
     name: fname,
     argtypes: args.mapIt(it[1].symbol),
+    generics: genericstypes,
     returntype: ret.symbol,
     sym: sym
   )
