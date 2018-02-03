@@ -306,22 +306,34 @@ proc codegenPatternCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, 
       pattern = pattern.replace("#" & $(i+1), codegenSymbol(g))
     ctx.codegenPatternArgs(src, fexpr[2], pattern)
   else:
-    ctx.codegenPatternArgs(src, fexpr[1], pattern)
+    if fexpr[0].symbol.kind == symbolInfix:    
+      ctx.codegenPatternArgs(src, fexpr[1..^1], pattern)
+    else:
+      ctx.codegenPatternArgs(src, fexpr[1], pattern)
   src &= pattern
 
 proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   let fn = fexpr[0].symbol.fexpr
   let fname = fn.internalPragma.importc.get
   if fn.internalPragma.infixc:
-    if fexpr.len != 3:
+    if fexpr.len == 3:
+      src &= "("
+      ctx.codegenFExpr(src, fexpr[1])
+      src &= " "
+      src &= fname
+      src &= " "
+      ctx.codegenFExpr(src, fexpr[2])
+      src &= ")"
+    elif fexpr[1].len == 2:
+      src &= "("
+      ctx.codegenFExpr(src, fexpr[1][0])
+      src &= " "
+      src &= fname
+      src &= " "
+      ctx.codegenFExpr(src, fexpr[1][1])
+      src &= ")"
+    else:
       fexpr.error("$# is not infix expression." % $fexpr)
-    src &= "("
-    ctx.codegenFExpr(src, fexpr[1])
-    src &= " "
-    src &= fname
-    src &= " "
-    ctx.codegenFExpr(src, fexpr[2])
-    src &= ")"
   elif fn.internalPragma.pattern.isSome:
     ctx.codegenPatternCCall(src, fexpr, fn)
   else:
@@ -354,7 +366,11 @@ proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   case fexpr.kind
   of fexprIdent:
-    src &= $fexpr
+    if fexpr.resolve.isNil: fexpr.error("fexpr unresolved by symbol.")
+    if fexpr.resolve.symbol.kind == symbolVar:
+      src &= codegenSymbol(fexpr.resolve)
+    else:
+      src &= $fexpr
   of fexprSymbol:
     if not fexpr.symbol.fexpr.hasinternalMark:
       src &= codegenSymbol(fexpr)

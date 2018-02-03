@@ -1,7 +1,5 @@
 
 import core.prelude
 
-fn pow(a Float, b Float) Float $[importc, header "math.h"]
-fn pow(a Int, b Int) Int {
-  cast[Int](pow(cast[Float](a), cast[Float](b)))
-}
+fn xor(a Int, b Int) Int $[importc "^", header nodeclc, pattern infixc]
+fn xor(a UInt32, b UInt32) UInt32 $[importc "^", header nodeclc, pattern infixc]

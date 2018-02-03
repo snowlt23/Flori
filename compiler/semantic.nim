@@ -221,6 +221,7 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
       fexpr.typ = opt.get.instance
     else:
       fexpr.typ = opt.get.fexpr.typ
+    fexpr.resolve = fsymbol(fexpr.span, opt.get)
   of fexprSymbol:
     discard
   of fexprIntLit:

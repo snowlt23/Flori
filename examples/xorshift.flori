@@ -8,13 +8,15 @@ z := 521288629
 w := 88675123
 
 fn xor128() Int {
-  t := pow(x, x << 11)
+  t := xor(x, x << 11)
   x = y
   y = z
   z = w
-  w = pow(pow(w, w >> 19), pow(t, t >> 8))
+  w = xor(xor(w, w >> 19), xor(t, t >> 8))
   w
 }
 
+printf("%d\n", xor128())
+printf("%d\n", xor128())
 printf("%d\n", xor128())
 printf("%d\n", xor128())

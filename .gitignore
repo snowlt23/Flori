@@ -11,7 +11,4 @@ tests/parser_test
 tests/tester.exe
 tests/tester
 
-fib.exe
-fib
-tak.exe
-tak
+/*.exe

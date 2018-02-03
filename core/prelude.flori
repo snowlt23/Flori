@@ -5,6 +5,7 @@ type CString $[importc "char*", header nodeclc]
 type Int $[importc "int64_t", header "stdint.h"]
 type Int32 $[importc "int32_t", header "stdint.h"]
 type Int64 $[importc "int64_t", header "stdint.h"]
+type UInt32 $[importc "uint32_t", header "stdint.h"]
 type Float $[importc "float", header nodeclc]
 
 fn `+(a Int, b Int) Int $[importc "+", header nodeclc, pattern infixc]
@@ -23,3 +24,20 @@ fn printf(fmt CString, x Int) $[importc "printf", header "stdio.h"]
 fn `=(a Int, b Int) $[importc, header nodeclc, pattern "$1 = $2"]
 
 fn cast[T, F](val F) T $[importc, header nodeclc, pattern "((#1)($1))"]
+
+fn `=(a UInt32, b UInt32) $[importc, header nodeclc, pattern "$1 = $2"]
+fn `<<(a UInt32, b UInt32) UInt32 $[importc "<<", header nodeclc, pattern infixc]
+fn `>>(a UInt32, b UInt32) UInt32 $[importc ">>", header nodeclc, pattern infixc]
+
+fn uint32(x Int) UInt32 {
+  cast[UInt32](x)
+}
+fn int(x UInt32) Int {
+  cast[Int](x)
+}
+fn float(x Int) Float {
+  cast[Float](x)
+}
+fn float(x UInt32) Float {
+  cast[Float](x)
+}

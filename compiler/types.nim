@@ -57,6 +57,7 @@ type
     case kind*: FExprKind
     of fexprIdent, fexprPrefix, fexprShort, fexprInfix:
       idname*: Name
+      resolve*: FExpr
     of fexprQuote:
       quoted*: FExpr
     of fexprSymbol:
