@@ -1,6 +1,7 @@
 
 import core.prelude
 import core.math
+import core.io
 
 x := 123456789
 y := 362436069
@@ -16,7 +17,7 @@ fn xor128() Int {
   w
 }
 
-printf("%d\n", xor128())
-printf("%d\n", xor128())
-printf("%d\n", xor128())
-printf("%d\n", xor128())
+println(xor128())
+println(xor128())
+println(xor128())
+println(xor128())

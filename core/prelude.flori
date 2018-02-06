@@ -20,7 +20,6 @@ fn `>(a Int, b Int) Bool $[importc ">", header nodeclc, pattern infixc]
 fn `>=(a Int, b Int) Bool $[importc ">=", header nodeclc, pattern infixc]
 fn `==(a Int, b Int) Bool $[importc "==", header nodeclc, pattern infixc]
 fn `!=(a Int, b Int) Bool $[importc "!=", header nodeclc, pattern infixc]
-fn printf(fmt CString, x Int) $[importc "printf", header "stdio.h"]
 fn `=(a Int, b Int) $[importc, header nodeclc, pattern "$1 = $2"]
 
 fn cast[T, F](val F) T $[importc, header nodeclc, pattern "((#1)($1))"]

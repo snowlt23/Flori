@@ -1,5 +1,6 @@
 
 import core.prelude
+import core.io
 
 fn fib(n Int) Int {
   if (n < 2) {
@@ -9,4 +10,4 @@ fn fib(n Int) Int {
   }
 }
 
-printf("%d\n", fib(38))
+println(fib(38))

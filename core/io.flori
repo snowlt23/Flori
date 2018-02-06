@@ -1,23 +1,21 @@
 
-(require prelude :refer :all)
+import core.prelude
 
-@(^ (:a All))
-@(: CString :a)
-(c-func printf :name "printf" :header "stdio.h")
-@(: CString)
-(c-func print :name "printf" :header "stdio.h")
+fn print(fmt CString) $[importc "printf", header "stdio.h"]
+fn printf[T](fmt CString, x T) $[importc "printf", header "stdio.h"]
 
-@(: UInt8)
-(defn print [x]
-  (printf "%c" x))
-@(: Int32)
-(defn print [x]
-  (printf "%d" x))
-@(: UInt32)
-(defn print [x]
-  (printf "%u" x))
-@(: Bool)
-(defn print [x]
-  (if x
-    (print "true")
-    (print "false")))
+fn print(x Int) {
+  printf("%d", x)
+}
+fn print(x Bool) {
+  if (x) {
+    print("true")
+  } else {
+    print("false")
+  }
+}
+
+fn println[T](x T) {
+  print(x)
+  print("\n")
+}

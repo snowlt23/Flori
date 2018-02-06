@@ -1,5 +1,6 @@
 
 import core.prelude
+import core.io
 
 fn tak(x Int, y Int, z Int) Int {
   if (x <= y) {
@@ -12,4 +13,4 @@ fn tak(x Int, y Int, z Int) Int {
   }
 }
 
-printf("%d\n", tak(12, 6, 0))
+println(tak(12, 6, 0))

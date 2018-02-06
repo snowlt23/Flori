@@ -336,7 +336,7 @@ printf("%d", testmodule_fib_testmodule_Int(38));
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
     let fexprs = parseToplevel("testmodule.flori", prelude & """
-      fn `add(x Int, y Int) $[importc, header nodeclc, pattern "$1+$2"]
+      fn add(x Int, y Int) $[importc, header nodeclc, pattern "$1+$2"]
       add(1, 2)
     """)
     semctx.evalModule(name("testmodule"), fexprs)

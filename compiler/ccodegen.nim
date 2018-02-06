@@ -366,8 +366,9 @@ proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   case fexpr.kind
   of fexprIdent:
-    if fexpr.resolve.isNil: fexpr.error("fexpr unresolved by symbol.")
-    if fexpr.resolve.symbol.kind == symbolVar:
+    if fexpr.resolve.isNil:
+      src &= $fexpr
+    elif fexpr.resolve.symbol.kind == symbolVar:
       src &= codegenSymbol(fexpr.resolve)
     else:
       src &= $fexpr
