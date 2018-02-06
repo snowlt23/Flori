@@ -156,11 +156,8 @@ suite "semantic":
     let semctx = newSemanticContext()
     let fexprs = parseToplevel("testmodule.flori", """
       import core.prelude
-
-      printf("%d\n", 9)
     """)
     semctx.evalModule(name("testmodule"), fexprs)
-    check $fexprs[^1][0] == "core.prelude.printf"
   test "generics cannot instantiate":
     let semctx = newSemanticContext()
     expect(FExprError):
