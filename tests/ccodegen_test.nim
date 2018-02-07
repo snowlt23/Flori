@@ -29,14 +29,7 @@ suite "C codegen":
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
+#include "flori_decls.h"
 
 
 void __flori_testmodule_init() {
@@ -56,15 +49,7 @@ printf("%d", 5);
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
-testmodule_Int testmodule_add5_testmodule_Int(testmodule_Int x);
+#include "flori_decls.h"
 
 testmodule_Int testmodule_add5_testmodule_Int(testmodule_Int x) {
 return (x + 5);
@@ -88,14 +73,7 @@ printf("%d", testmodule_add5_testmodule_Int(4));
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
+#include "flori_decls.h"
 
 
 void __flori_testmodule_init() {
@@ -118,14 +96,7 @@ printf("%d", 5);
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
+#include "flori_decls.h"
 
 
 void __flori_testmodule_init() {
@@ -144,15 +115,8 @@ printf("%d", 9);
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
+#include "flori_decls.h"
 
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
-extern testmodule_Int testmodule_nine;
 testmodule_Int testmodule_nine;
 void __flori_testmodule_init() {
 testmodule_nine = 9;
@@ -170,15 +134,7 @@ testmodule_nine = 9;
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
-testmodule_Void testmodule_test_();
+#include "flori_decls.h"
 
 testmodule_Void testmodule_test_() {
 testmodule_CString testmodule_name = "feelsgoodman";
@@ -201,17 +157,7 @@ void __flori_testmodule_init() {
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
-typedef struct {
-x testmodule_Int;
-} testmodule_Wrap_testmodule_Int;
+#include "flori_decls.h"
 
 
 void __flori_testmodule_init() {
@@ -234,18 +180,7 @@ testmodule_Wrap_testmodule_Int{9};
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
-typedef struct {
-x testmodule_Int;
-} testmodule_Wrap_testmodule_Int;
-testmodule_Wrap_testmodule_Int testmodule_wrap_testmodule_Int(testmodule_Int x);
+#include "flori_decls.h"
 
 testmodule_Wrap_testmodule_Int testmodule_wrap_testmodule_Int(testmodule_Int x) {
 return testmodule_Wrap_testmodule_Int{x};
@@ -271,18 +206,7 @@ testmodule_wrap_testmodule_Int(9);
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
-typedef struct {
-x testmodule_Int;
-} testmodule_Wrap_testmodule_Int;
-testmodule_Wrap_testmodule_Int testmodule_wrap_testmodule_Int(testmodule_Int x);
+#include "flori_decls.h"
 
 testmodule_Wrap_testmodule_Int testmodule_wrap_testmodule_Int(testmodule_Int x) {
 return testmodule_Wrap_testmodule_Int{x};
@@ -309,15 +233,7 @@ testmodule_wrap_testmodule_Int(9).x;
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
-testmodule_Int testmodule_fib_testmodule_Int(testmodule_Int n);
+#include "flori_decls.h"
 
 testmodule_Int testmodule_fib_testmodule_Int(testmodule_Int n) {
 testmodule_Int __floritmp0;
@@ -343,14 +259,7 @@ printf("%d", testmodule_fib_testmodule_Int(38));
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
+#include "flori_decls.h"
 
 
 void __flori_testmodule_init() {
@@ -368,14 +277,7 @@ void __flori_testmodule_init() {
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
+#include "flori_decls.h"
 
 
 void __flori_testmodule_init() {
@@ -395,16 +297,7 @@ void __flori_testmodule_init() {
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
-typedef testmodule_Int* testmodule_Ptr_testmodule_Int;
-testmodule_Ptr_testmodule_Int testmodule_f_testmodule_Int(testmodule_Int x);
+#include "flori_decls.h"
 
 testmodule_Ptr_testmodule_Int testmodule_f_testmodule_Int(testmodule_Int x) {
 }

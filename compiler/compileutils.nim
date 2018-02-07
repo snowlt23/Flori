@@ -44,14 +44,16 @@ proc setupFFI*(handle: LibHandle) =
     cast[ptr pointer](handle.checkedSymAddr(name))[] = prc
   ffi "flori_new_fident", ffiNewFIdent
   ffi "flori_new_fblock", ffiNewFBlock
+  ffi "flori_parse_fexpr", ffiParseFExpr
+  ffi "flori_print_fexpr", ffiPrintFExpr
 
 proc reloadMacroLibrary*(semctx: SemanticContext, scope: Scope) =
   if semctx.macrolib != nil:
     unloadLib(semctx.macrolib)
   semctx.compileMacroLibrary(scope)
-  let handle = loadLib(macrolib)
-  if handle.isNil:
+  semctx.macrolib = loadLib(macrolib)
+  if semctx.macrolib.isNil:
     raise newException(IOError, "couldn't load flori macro library.")
-  handle.setupFFI()
+  semctx.macrolib.setupFFI()
   for mp in semctx.macroprocs:
-    mp.call = cast[proc (f: FExpr): FExpr {.cdecl.}](handle.checkedSymAddr(mp.importname))
+    mp.call = cast[proc (f: FExpr): FExpr {.cdecl.}](semctx.macrolib.checkedSymAddr(mp.importname))

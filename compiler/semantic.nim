@@ -242,6 +242,8 @@ proc evalModule*(ctx: SemanticContext, name: Name, fexprs: var seq[FExpr]) =
 proc evalFile*(ctx: SemanticContext, filepath: string): Name {.discardable.} =
   let (dir, file, _) = filepath.splitFile()
   let modname = name((dir & "." & file).split("."))
+  if ctx.modules.hasKey(modname):
+    return modname
   var fexprs = parseToplevel(filepath, readFile(filepath))
   ctx.evalModule(modname, fexprs)
   return modname

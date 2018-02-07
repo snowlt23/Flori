@@ -7,5 +7,18 @@ macro hellomacro(fexpr FExpr) FExpr {
   new_fident("hello")
 }
 
+macro def_add5(fexpr FExpr) FExpr {
+  parsed := parse_fexpr("
+fn add5(x Int) Int {
+    x + 5
+}
+")
+  println(parsed)
+  parsed
+}
+
 hello := "Hello Yukari!"
 println(hellomacro())
+
+def_add5()
+println(add5(4))
