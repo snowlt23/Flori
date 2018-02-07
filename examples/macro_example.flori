@@ -1,0 +1,11 @@
+
+import core.prelude
+import core.io
+import core.macros
+
+macro hellomacro(fexpr FExpr) FExpr {
+  new_fident("hello")
+}
+
+hello := "Hello Yukari!"
+println(hellomacro())

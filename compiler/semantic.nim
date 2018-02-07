@@ -13,30 +13,7 @@ export types.SemanticContext
 
 import metadata
 
-type
-  InternalMarkKind* = enum
-    internalDefn
-    internalDeftype
-    internalIf
-    internalWhile
-    internalDef
-    internalFieldAccess
-    internalInit
-    internalImport
-  InternalPragma* = object
-    importc*: Option[string]
-    header*: Option[string]
-    infixc*: bool
-    pattern*: Option[string]
-
-defMetadata(internalScope, Scope)
-defMetadata(internalToplevel, bool)
-defMetadata(internalMark, InternalMarkKind)
-defMetadata(internalPragma, InternalPragma)
-
-proc isToplevel*(fexpr: FExpr): bool = fexpr.hasInternalToplevel
-
-proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr)
+proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr)
 
 proc name*(fexpr: FExpr): Name =
   case fexpr.kind
@@ -69,10 +46,6 @@ proc addInternalEval*(scope: Scope, n: Name, p: proc (ctx: SemanticContext, scop
 proc voidtypeExpr*(span: Span): FExpr =
   return fident(span, name("Void"))
 
-proc isParametricTypeExpr*(fexpr: FExpr, pos: int): bool =
-  if fexpr.kind != fexprSeq: return false
-  if fexpr.len <= pos+1: return false
-  return fexpr[pos].kind == fexprIdent and fexpr[pos+1].kind == fexprArray
 proc parseTypeExpr*(fexpr: FExpr, pos: var int): tuple[typ: FExpr, generics: Option[FExpr]] =
   if fexpr.kind in {fexprIdent, fexprQuote}:
     result = (fexpr, none(FExpr))
@@ -84,11 +57,6 @@ proc parseTypeExpr*(fexpr: FExpr, pos: var int): tuple[typ: FExpr, generics: Opt
     pos += 1
   else:
     fexpr[pos].error("$# isn't type expression." % $fexpr[pos])
-proc isPragmaPrefix*(fexpr: FExpr): bool =
-  fexpr.kind == fexprPrefix and $fexpr == "$"
-
-proc isGenericsFuncCall*(fexpr: FExpr): bool =
-  fexpr.kind == fexprSeq and fexpr.len == 3 and fexpr[1].kind == fexprArray and fexpr[2].kind == fexprList
 
 proc isSpecSymbol*(sym: Symbol): bool =
   if sym.kind == symbolType:
@@ -137,8 +105,8 @@ proc replaceByTypesym*(fexpr: var FExpr, sym: Symbol) =
 
 proc evalInfixCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let fn = fexpr[0]
-  let left = fexpr[1]
-  let right = fexpr[2]
+  var left = fexpr[1]
+  var right = fexpr[2]
   ctx.evalFExpr(scope, left)
   ctx.evalFExpr(scope, right)
 
@@ -156,7 +124,7 @@ include instantiate
 
 proc evalFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let fn = fexpr[0]
-  for arg in fexpr[1]:
+  for arg in fexpr[1].mitems:
     ctx.evalFExpr(scope, arg)
   let argtypes = fexpr[1].mapIt(it.getType)
 
@@ -177,7 +145,7 @@ proc evalFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
 
 proc evalGenericsFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: Fexpr) =
   let fn = fexpr[0]
-  for arg in fexpr[2]:
+  for arg in fexpr[2].mitems:
     ctx.evalFExpr(scope, arg)
   let argtypes = fexpr[2].mapIt(it.getType)
 
@@ -209,7 +177,7 @@ proc evalGenericsFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: Fexpr) =
 proc internalScope*(ctx: SemanticContext): Scope =
   ctx.modules[name("internal")]
 
-proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
   if not fexpr.hasInternalScope:
     fexpr.internalScope = scope
   case fexpr.kind
@@ -237,7 +205,7 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   of fexprArray, fexprList, fexprBlock:
     if fexpr.len == 0:
       return
-    for son in fexpr:
+    for son in fexpr.mitems:
       ctx.evalFExpr(scope, son)
     fexpr.typ = fexpr[^1].typ
   of fexprSeq:
@@ -245,6 +213,10 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
     let internalopt = scope.getFunc(procname(name(fn), @[]))
     if internalopt.isSome and internalopt.get.isInternal:
       internalopt.get.internalproc(ctx, scope, fexpr)
+    elif internalopt.isSome and internalopt.get.isMacro:
+      var called = internalopt.get.macroproc.call(fexpr)
+      ctx.evalFExpr(scope, called)
+      fexpr = called
     elif fexpr.len == 2 and fexpr[1].kind == fexprList: # function call
       ctx.evalFuncCall(scope, fexpr)
     elif fexpr.isGenericsFuncCall: # generics function call
@@ -258,10 +230,10 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   else:
     fexpr.error("$# is unsupported expression in eval." % $fexpr.kind)
 
-proc evalModule*(ctx: SemanticContext, name: Name, fexprs: seq[FExpr]) =
+proc evalModule*(ctx: SemanticContext, name: Name, fexprs: var seq[FExpr]) =
   let scope = newScope(name)
   scope.importScope(name("internal"), ctx.internalScope)
-  for f in fexprs:
+  for f in fexprs.mitems:
     f.internalToplevel = true
     ctx.evalFExpr(scope, f)
     scope.toplevels.add(f)
@@ -270,6 +242,6 @@ proc evalModule*(ctx: SemanticContext, name: Name, fexprs: seq[FExpr]) =
 proc evalFile*(ctx: SemanticContext, filepath: string): Name {.discardable.} =
   let (dir, file, _) = filepath.splitFile()
   let modname = name((dir & "." & file).split("."))
-  let fexprs = parseToplevel(filepath, readFile(filepath))
+  var fexprs = parseToplevel(filepath, readFile(filepath))
   ctx.evalModule(modname, fexprs)
   return modname

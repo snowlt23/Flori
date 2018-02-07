@@ -1,6 +1,6 @@
 
 import types, fexpr
-import scope, semantic, internal
+import scope, metadata
 
 import tables
 import options
@@ -16,6 +16,7 @@ type
   CCodegenContext* = ref object
     modulesrcs*: Table[Name, SrcExpr]
     tmpcount*: int
+    macrogen*: bool
   
 proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr)
 
@@ -41,8 +42,8 @@ proc getSrc*(src: SrcExpr): string =
 proc addHeader*(src: var SrcExpr, s: string) =
   src.headers[s] = true
 
-proc newCCodegenContext*(): CCodegenContext =
-  CCodegenContext(modulesrcs: initTable[Name, SrcExpr](), tmpcount: 0)
+proc newCCodegenContext*(macrogen = false): CCodegenContext =
+  CCodegenContext(modulesrcs: initTable[Name, SrcExpr](), tmpcount: 0, macrogen: macrogen)
 proc gentmpsym*(ctx: CCodegenContext): string =
   result = "__floritmp" & $ctx.tmpcount
   ctx.tmpcount.inc
@@ -265,6 +266,9 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
   of internalDefn:
     if topcodegen:
       ctx.codegenDefn(src, fexpr)
+  of internalMacro:
+    if topcodegen and ctx.macrogen:
+      ctx.codegenDefn(src, fexpr)
   of internalDeftype:
     if topcodegen:
       ctx.codegenDeftype(src, fexpr)
@@ -351,13 +355,13 @@ proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     ctx.codegenCCall(src, fexpr)
   else: # normal call
     if fexpr.isGenericsFuncCall:
-      src &= codegenMangling(fexpr[0].symbol, fexpr[2].mapIt(it.getType))
+      src &= codegenMangling(fexpr[0].symbol, fexpr[2].mapIt(it.typ.get))
       src &= "("
       ctx.codegenArguments(src, fexpr[2]) do (s: var SrcExpr, arg: FExpr):
         ctx.codegenFExpr(s, arg)
       src &= ")"
     else:
-      src &= codegenMangling(fexpr[0].symbol, fexpr[1].mapIt(it.getType))
+      src &= codegenMangling(fexpr[0].symbol, fexpr[1].mapIt(it.typ.get))
       src &= "("
       ctx.codegenArguments(src, fexpr[1]) do (s: var SrcExpr, arg: FExpr):
         ctx.codegenFExpr(s, arg)

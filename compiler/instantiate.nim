@@ -1,31 +1,4 @@
 
-type
-  DefnExpr* = object
-    name*: FExpr
-    generics*: Option[FExpr]
-    args*: FExpr
-    ret*: FExpr
-    retgenerics*: Option[FExpr]
-    pragma*: FExpr
-    body*: FExpr
-  DeftypeExpr* = object
-    name*: FExpr
-    generics*: Option[FExpr]
-    pragma*: FExpr
-    body*: FExpr
-  ProtocolExpr* = object
-    name*: FExpr
-    generics*: Option[FExpr]
-    body*: FExpr
-  InitExpr* = object
-    typ*: FExpr
-    body*: FExpr
-
-defMetadata(initexpr, InitExpr)
-defMetadata(defn, DefnExpr)
-defMetadata(deftype, DeftypeExpr)
-defMetadata(protocol, ProtocolExpr)
-
 proc genManglingName*(name: Name, types: seq[Symbol]): Name =
   name($name & "_" & types.mapIt($it).join("_"))
 

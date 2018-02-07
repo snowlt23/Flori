@@ -22,7 +22,7 @@ suite "C codegen":
   test "c ffi":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       printf("%d", 5)
     """)
     semctx.evalModule(name("testmodule"), fexprs)
@@ -46,7 +46,7 @@ printf("%d", 5);
   test "defn":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       fn add5(x Int) Int {
         x + 5
       }
@@ -77,7 +77,7 @@ printf("%d", testmodule_add5_testmodule_Int(4));
   test "if":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       if (1 == 2) {
         printf("%d", 4)
       } else {
@@ -109,7 +109,7 @@ printf("%d", 5);
   test "while":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       while (1 == 2) {
         printf("%d", 9)
       }
@@ -137,7 +137,7 @@ printf("%d", 9);
   test "toplevel def":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       nine := 9
     """)
     semctx.evalModule(name("testmodule"), fexprs)
@@ -161,7 +161,7 @@ testmodule_nine = 9;
   test "local def":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       fn test() {
         name := "feelsgoodman"
       }
@@ -191,7 +191,7 @@ void __flori_testmodule_init() {
   test "generics init":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       type Wrap[T] {
         x T
       }
@@ -221,7 +221,7 @@ testmodule_Wrap_testmodule_Int{9};
   test "generics":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       type Wrap[T] {
         x T
       }
@@ -258,7 +258,7 @@ testmodule_wrap_testmodule_Int(9);
   test "field access":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       type Wrap[T] {
         x T
       }
@@ -295,7 +295,7 @@ testmodule_wrap_testmodule_Int(9).x;
   test "recursion generics":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       fn fib[T](n T) T {
         if (n < 2) {
           n
@@ -335,7 +335,7 @@ printf("%d", testmodule_fib_testmodule_Int(38));
   test "pattern codegen":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       fn add(x Int, y Int) $[importc, header nodeclc, pattern "$1+$2"]
       add(1, 2)
     """)
@@ -360,7 +360,7 @@ void __flori_testmodule_init() {
   test "generics fn pattern codegen":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       fn cast[T, F](val F) $[importc, header nodeclc, pattern "((#1)($1))"]
       cast[Int](1)
     """)
@@ -385,7 +385,7 @@ void __flori_testmodule_init() {
   test "generics type pattern codegen":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       type Ptr[T] $[importc, header nodeclc, pattern "#1*"]
       fn f[T](x T) Ptr[T] {
       }

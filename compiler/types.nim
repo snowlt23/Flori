@@ -4,6 +4,7 @@ import tables, hashes
 import strutils, sequtils
 import deques
 import terminal
+import dynlib
 
 type
   Metadata* = ref object of RootObj
@@ -68,9 +69,14 @@ type
       strval*: string
     of fexprSeq, fexprArray, fexprList, fexprBlock:
       sons*: seq[FExpr]
+  MacroProc* = ref object
+    importname*: string
+    call*: proc (fexpr: FExpr): FExpr {.cdecl.}
   ProcDecl* = object
     isInternal*: bool
     internalProc*: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)
+    isMacro*: bool
+    macroproc*: MacroProc
     name*: Name
     argtypes*: seq[Symbol]
     generics*: seq[Symbol]
@@ -93,6 +99,8 @@ type
   SemanticContext* = ref object
     expandspans*: Deque[Span]
     modules*: OrderedTable[Name, Scope]
+    macrolib*: LibHandle
+    macroprocs*: seq[MacroProc]
 
 #
 # Scope

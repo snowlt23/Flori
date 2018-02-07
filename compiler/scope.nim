@@ -53,6 +53,7 @@ proc procname*(name: Name, argtypes: seq[Symbol], generics = newSeq[Symbol]()): 
 proc match*(a: ProcName, b: ProcDecl): bool =
   if a.name != b.name: return false
   if b.isInternal: return true
+  if b.isMacro: return true
   if a.argtypes.len != b.argtypes.len: return false
   for i in 0..<a.argtypes.len:
     if not a.argtypes[i].match(b.argtypes[i]): return false

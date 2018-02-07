@@ -177,3 +177,15 @@ proc toString*(fexpr: FExpr, indent: int): string =
     "{" & "\n" & genIndent(indent + 2) & fexpr.sons.mapIt(it.toString(indent + 2)).join("\n" & genIndent(indent + 2)) & "\n" & "}"
 
 proc `$`*(fexpr: FExpr): string = fexpr.toString(0)
+
+
+
+proc isParametricTypeExpr*(fexpr: FExpr, pos: int): bool =
+  if fexpr.kind != fexprSeq: return false
+  if fexpr.len <= pos+1: return false
+  return fexpr[pos].kind == fexprIdent and fexpr[pos+1].kind == fexprArray
+proc isPragmaPrefix*(fexpr: FExpr): bool =
+  fexpr.kind == fexprPrefix and $fexpr == "$"
+
+proc isGenericsFuncCall*(fexpr: FExpr): bool =
+  fexpr.kind == fexprSeq and fexpr.len == 3 and fexpr[1].kind == fexprArray and fexpr[2].kind == fexprList

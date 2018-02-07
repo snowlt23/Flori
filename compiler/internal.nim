@@ -2,35 +2,12 @@
 import types, fexpr, parser
 import scope, semantic
 import metadata
+import compileutils
 
 import options
 import strutils, sequtils
 import tables
 import deques
-
-type
-  IfExpr* = object
-    elifbranch*: seq[tuple[cond: FExpr, body: FExpr]]
-    elsebranch*: FExpr
-  WhileExpr* = object
-    cond*: FExpr
-    body*: FExpr
-  DefExpr* = object
-    name*: FExpr
-    value*: FExpr
-  FieldAccessExpr* = object
-    value*: FExpr
-    fieldname*: FExpr
-  ImportExpr* = object
-    modname*: Name
-    importname*: Name
-
-defMetadata(internalIfExpr, IfExpr)
-defMetadata(internalWhileExpr, WhileExpr)
-defMetadata(internalDefExpr, DefExpr)
-defMetadata(internalFieldAccessExpr, FieldAccessExpr)
-defMetadata(internalImportExpr, ImportExpr)
-defMetadata(parent, FExpr)
 
 #
 # Parser
@@ -208,55 +185,89 @@ proc evalPragma*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, pragma: FExpr
 # Evaluater
 #
 
-proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
-  var parsed = parseDefn(fexpr)
+proc declGenerics*(ctx: SemanticContext, scope: Scope, fexpr: FExpr): seq[Symbol] =
+  result = @[]
+  for g in fexpr.mitems:
+    let sym = scope.symbol(name(g), symbolGenerics, g)
+    let status = scope.addDecl(name(g), sym)
+    g.typ = some(sym)
+    if not status:
+      g.error("redefinition $# generics." % $g)
+    result.add(sym)
 
-  let fnscope = scope.extendScope()
-  # add generics variable to scope
-  var generics = newSeq[Symbol]()
-  if parsed.generics.isSome:
-    for g in parsed.generics.get.mitems:
-      let sym = fnscope.symbol(name(g), symbolGenerics, g)
-      let status = fnscope.addDecl(name(g), sym)
-      g.typ = some(sym) # FIXME:
-      if not status:
-        g.error("redefinition $# generics." % $g)
-      generics.add(sym)
-
-  let rettype = ctx.evalType(fnscope, parsed.ret, parsed.retgenerics)
-  parsed.ret.replaceByTypesym(rettype)
-  var argtypes = newSeq[Symbol]() # for procdecl
-
-  for arg in parsed.args:
+proc declArgtypes*(ctx: SemanticContext, scope: Scope, fexpr: FExpr): seq[Symbol] =
+  result = @[]
+  for arg in fexpr:
     var pos = 1
     let argtyp = arg.parseTypeExpr(pos)
-    let sym = ctx.evalType(fnscope, argtyp.typ, argtyp.generics)
+    let sym = ctx.evalType(scope, argtyp.typ, argtyp.generics)
     arg[1].replaceByTypesym(sym)
-    argtypes.add(sym)
-    let status = fnscope.addDecl(name(arg[0]), sym)
+    result.add(sym)
+    let status = scope.addDecl(name(arg[0]), sym)
     if not status:
       arg[0].error("redefinition $# variable." % $arg[0])
+
+proc evalFunc*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, parsed: var DefnExpr): (Scope, seq[Symbol], seq[Symbol], Symbol, Symbol) =
+  let fnscope = scope.extendScope()
+  let generics = if parsed.generics.isSome:
+                   ctx.declGenerics(fnscope, parsed.generics.get)
+                 else:
+                   @[]
+  let argtypes = ctx.declArgtypes(fnscope, parsed.args)
+  let rettype = ctx.evalType(fnscope, parsed.ret, parsed.retgenerics)
+  parsed.ret.replaceByTypesym(rettype)
   
   let symkind = if parsed.name.kind == fexprQuote: symbolInfix else: symbolFunc
   let sym = scope.symbol(name(parsed.name), symkind, fexpr)
   let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
-  let status = scope.addFunc(pd)
-  if not status:
-    fexpr.error("redefinition $# function." % $parsed.name)
   discard fnscope.addFunc(pd)
-    
+
   parsed.body.internalScope = fnscope
   if parsed.generics.isNone:
     ctx.evalFExpr(fnscope, parsed.body)
+  ctx.evalPragma(scope, fexpr, parsed.pragma)
 
   # symbol resolve
   let fsym = fsymbol(fexpr[0].span, sym)
   fexpr[1] = fsym
   parsed.name = fsym
+  
+  return (fnscope, generics, argtypes, rettype, sym)
+
+proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+  var parsed = parseDefn(fexpr)
+  let (fnscope, generics, argtypes, rettype, sym) = ctx.evalFunc(scope, fexpr, parsed)
+
+  let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
+  let status = scope.addFunc(pd)
+  if not status:
+    fexpr.error("redefinition $# function." % $parsed.name)
+
   # internal metadata for postprocess phase
-  ctx.evalPragma(scope, fexpr, parsed.pragma)
   fexpr.internalMark = internalDefn
   fexpr.defn = parsed
+
+# TODO: macroproc in evalMacro
+proc evalMacro*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+  var parsed = parseDefn(fexpr)
+  let (fnscope, generics, argtypes, rettype, sym) = ctx.evalFunc(scope, fexpr, parsed)
+
+  let mp = MacroProc(importname: codegenMangling(sym, argtypes))
+  let pd = ProcDecl(isInternal: false, isMacro: true, macroproc: mp, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
+  let status = scope.addFunc(pd)
+  if not status:
+    fexpr.error("redefinition $# macro." % $parsed.name)
+  
+  # internal metadata for postprocess phase
+  fexpr.internalMark = internalMacro
+  fexpr.defn = parsed
+
+  scope.toplevels.add(fexpr)
+  defer: scope.toplevels.del(high(scope.toplevels))
+
+  # load library
+  ctx.macroprocs.add(mp)
+  ctx.reloadMacroLibrary(scope)
 
 proc getFieldType*(fexpr: FExpr, fieldname: string): Option[Symbol] =
   if not fexpr.hasDeftype:
@@ -308,10 +319,10 @@ proc isEqualTypes*(types: seq[Symbol]): bool =
   return true
 
 proc evalIf*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
-  let parsed = parseIf(fexpr)
+  var parsed = parseIf(fexpr)
   var types = newSeq[Symbol]()
 
-  for branch in parsed.elifbranch:
+  for branch in parsed.elifbranch.mitems:
     ctx.evalFExpr(scope, branch.cond)
     if not branch.cond.typ.get.isBoolType:
       branch.cond.error("if expression cond should be Bool")
@@ -332,7 +343,7 @@ proc evalIf*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   fexpr.internalIfExpr = parsed
 
 proc evalWhile*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
-  let parsed = parseWhile(fexpr)
+  var parsed = parseWhile(fexpr)
 
   ctx.evalFExpr(scope, parsed.cond)
   if not parsed.cond.typ.get.isBoolType:
@@ -370,7 +381,7 @@ proc evalDef*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   fexpr.internalDefExpr = parsed
 
 proc evalFieldAccess*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
-  let value = fexpr[1]
+  var value = fexpr[1]
   let fieldname = fexpr[2]
   if fieldname.kind != fexprIdent:
     fieldname.error("fieldname should be FIdent.")
@@ -425,6 +436,7 @@ proc evalImport*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
 
 proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("fn"), evalDefn)
+  scope.addInternalEval(name("macro"), evalMacro)
   scope.addInternalEval(name("type"), evalDeftype)
   scope.addInternalEval(name("if"), evalIf)
   scope.addInternalEval(name("while"), evalWhile)
@@ -446,4 +458,5 @@ proc newSemanticContext*(): SemanticContext =
   new result
   result.expandspans = initDeque[Span]()
   result.modules = initOrderedTable[Name, Scope]()
+  result.macroprocs = @[]
   result.initInternalScope()
