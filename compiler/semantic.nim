@@ -1,6 +1,6 @@
 
 import fexpr, parser
-import scope
+import scope, ctrc
 
 import tables
 import options
@@ -47,7 +47,7 @@ proc voidtypeExpr*(span: Span): FExpr =
   return fident(span, name("Void"))
 
 proc parseTypeExpr*(fexpr: FExpr, pos: var int): tuple[typ: FExpr, generics: Option[FExpr]] =
-  if fexpr.kind in {fexprIdent, fexprQuote}:
+  if fexpr.kind in {fexprIdent, fexprSymbol, fexprQuote}:
     result = (fexpr, none(FExpr))
   elif fexpr.isParametricTypeExpr(pos):
     result = (fexpr[pos], some(fexpr[pos+1]))
@@ -103,6 +103,25 @@ proc evalType*(ctx: SemanticContext, scope: Scope, typ: FExpr, generics: Option[
 proc replaceByTypesym*(fexpr: var FExpr, sym: Symbol) =
   fexpr = fsymbol(fexpr.span, sym)
 
+proc genCall*(name: FExpr, args: varargs[FExpr]): FExpr =
+  fseq(name.span, @[name, flist(name.span, @args)])
+
+proc genDestructorCall*(value: FExpr): FExpr =
+  genCall(fident(value.span, name("destructor")), value)
+
+proc expandDestructor*(ctx: SemanticContext, scope: Scope, body: FExpr) =
+  for v in scope.scopevalues:
+    v.ctrc.dec
+    if v.ctrc.destroyed:
+      let opt = scope.getFunc(procname(name("destructor"), @[v.typ.get]))
+      if opt.isSome:
+        var dcall = genDestructorCall(v)
+        ctx.evalFExpr(scope, dcall)
+        body.addSon(dcall)
+
+# Instantiation
+include instantiate
+
 proc evalInfixCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let fn = fexpr[0]
   var left = fexpr[1]
@@ -118,9 +137,6 @@ proc evalInfixCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   fexpr.typ = some(opt.get.returntype)
   # symbol resolve
   fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
-
-# Instantiation
-include instantiate
 
 proc evalFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let fn = fexpr[0]

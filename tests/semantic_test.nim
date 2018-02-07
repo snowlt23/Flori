@@ -155,7 +155,7 @@ suite "semantic":
   test "import":
     let semctx = newSemanticContext()
     var fexprs = parseToplevel("testmodule.flori", """
-      import core.prelude
+      import core/prelude
     """)
     semctx.evalModule(name("testmodule"), fexprs)
   test "generics cannot instantiate":

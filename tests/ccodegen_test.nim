@@ -161,7 +161,7 @@ void __flori_testmodule_init() {
 
 
 void __flori_testmodule_init() {
-testmodule_Wrap_testmodule_Int{9};
+{9};
 }
 """
   test "generics":
@@ -183,7 +183,7 @@ testmodule_Wrap_testmodule_Int{9};
 #include "flori_decls.h"
 
 testmodule_Wrap_testmodule_Int testmodule_wrap_testmodule_Int(testmodule_Int x) {
-return testmodule_Wrap_testmodule_Int{x};
+return {x};
 }
 
 void __flori_testmodule_init() {
@@ -209,7 +209,7 @@ testmodule_wrap_testmodule_Int(9);
 #include "flori_decls.h"
 
 testmodule_Wrap_testmodule_Int testmodule_wrap_testmodule_Int(testmodule_Int x) {
-return testmodule_Wrap_testmodule_Int{x};
+return {x};
 }
 
 void __flori_testmodule_init() {

@@ -1,6 +1,6 @@
 
-import core.prelude
-import core.io
+import core/prelude
+import core/io
 
 fn fib(n Int) Int {
   if (n < 2) {

@@ -142,7 +142,7 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
     var idents = newSeq[string]()
     var curstr = ""
     while true:
-      if context.curchar == '.':
+      if context.curchar == '/':
         context.inc
         idents.add(curstr)
         curstr = ""

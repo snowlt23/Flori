@@ -173,7 +173,9 @@ proc instantiateDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: s
   fexpr.defn.body.internalScope.importScope(name("flori_current_scope"), scope)
   let instbody = if types.isSpecTypes:
                   ctx.evalFExpr(fexpr.defn.body.internalScope, fexpr.defn.body)
-                  ctx.instantiateFExpr(scope, fexpr.defn.body)
+                  let i = ctx.instantiateFExpr(scope, fexpr.defn.body)
+                  ctx.expandDestructor(fexpr.defn.body.internalScope, fexpr.defn.body)
+                  i
                  else:
                   fexpr.defn.body
 

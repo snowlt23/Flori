@@ -16,7 +16,7 @@ type
     prev*: string
     exp*: string
   CCodegenContext* = ref object
-    modulesrcs*: Table[Name, SrcExpr]
+    modulesrcs*: OrderedTable[Name, SrcExpr]
     tmpcount*: int
     macrogen*: bool
   
@@ -49,7 +49,7 @@ proc addHeader*(src: var SrcExpr, s: string) =
   src.headers[s] = true
 
 proc newCCodegenContext*(macrogen = false): CCodegenContext =
-  CCodegenContext(modulesrcs: initTable[Name, SrcExpr](), tmpcount: 0, macrogen: macrogen)
+  CCodegenContext(modulesrcs: initOrderedTable[Name, SrcExpr](), tmpcount: 0, macrogen: macrogen)
 proc gentmpsym*(ctx: CCodegenContext): string =
   result = "__floritmp" & $ctx.tmpcount
   ctx.tmpcount.inc
@@ -165,9 +165,9 @@ proc codegenDefn*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 proc codegenDeftypeStruct*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src.typedecls &= "typedef struct {\n"
   for field in fexpr.deftype.body:
-    src.typedecls &= $field[0]
-    src.typedecls &= " "
     src.typedecls &= codegenSymbol(field[1].symbol)
+    src.typedecls &= " "
+    src.typedecls &= $field[0]
     src.typedecls &= ";\n"
   src.typedecls &= "} $#;\n" % codegenSymbol(fexpr.deftype.name.symbol)
 
@@ -271,7 +271,6 @@ proc codegenFieldAccess*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   ctx.codegenFExpr(src, fexpr.internalFieldAccessExpr.fieldname)
 
 proc codegenInit*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  src &= codegenSymbol(fexpr.initexpr.typ)
   src &= "{"
   ctx.codegenArguments(src, fexpr.initexpr.body) do (s: var SrcExpr, arg: FExpr):
     ctx.codegenFExpr(s, arg)

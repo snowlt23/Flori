@@ -51,10 +51,16 @@ type
     fexprList
     fexprBlock
 
+  CTRC* = object
+    tracked*: bool
+    refcnt*: int
+    destroyed*: bool
+
   FExpr* = ref object
     span*: Span
     typ*: Option[Symbol]
     metadata*: Table[string, Metadata]
+    ctrc*: CTRC
     case kind*: FExprKind
     of fexprIdent, fexprPrefix, fexprShort, fexprInfix:
       idname*: Name
@@ -96,6 +102,7 @@ type
     procdecls*: Table[Name, ProcDeclGroup]
     importscopes*: OrderedTable[Name, Scope]
     toplevels*: seq[FExpr]
+    scopevalues*: seq[FExpr]
   SemanticContext* = ref object
     expandspans*: Deque[Span]
     modules*: OrderedTable[Name, Scope]

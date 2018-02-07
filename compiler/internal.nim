@@ -1,6 +1,6 @@
 
 import types, fexpr, parser
-import scope, semantic
+import scope, semantic, ctrc
 import metadata
 import compileutils
 
@@ -225,6 +225,7 @@ proc evalFunc*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, parsed: var Def
   parsed.body.internalScope = fnscope
   if parsed.generics.isNone:
     ctx.evalFExpr(fnscope, parsed.body)
+    ctx.expandDestructor(fnscope, parsed.body)
   ctx.evalPragma(scope, fexpr, parsed.pragma)
 
   # symbol resolve
@@ -371,6 +372,10 @@ proc evalDef*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   if parsed.value.typ.get.isVoidType:
     parsed.value.error("value is Void.")
   scope.resolveByVoid(fexpr)
+  parsed.name.typ = parsed.value.typ
+
+  parsed.name.ctrc = initCTRC()
+  scope.tracking(parsed.name)
 
   # symbol resolve
   let fsym = fsymbol(fexpr[0].span, sym)
@@ -411,7 +416,10 @@ proc evalInit*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   ctx.evalFExpr(scope, fexpr[2])
 
   let types = fexpr[2].mapIt(it.typ.get)
-  let t = ctx.instantiateDeftype(scope, sym.fexpr, types)
+  let t = if sym.fexpr.deftype.isGenerics:
+            ctx.instantiateDeftype(scope, sym.fexpr, types)
+          else:
+            fsymbol(inittyp.typ.span, sym)
 
   # symbol resolve
   fexpr.typ = some(t.symbol)
