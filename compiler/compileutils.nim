@@ -37,7 +37,7 @@ proc compileMacroLibrary*(semctx: SemanticContext, scope: Scope) =
   let genctx = newCCodegenContext(macrogen = true)
   genctx.codegen(semctx)
   genctx.writeModules(cachedir)
-  genctx.compileWithTCC(cachedir, "-shared -rdynamic -o$# -Iffi/ -Lbin/ -lflori" % [macrolib])
+  genctx.compileWithTCC(cachedir, "-shared -rdynamic -o$# -Iffi/" % [macrolib])
 
 proc setupFFI*(handle: LibHandle) =
   template ffi(name, prc) =
