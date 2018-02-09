@@ -12,10 +12,7 @@ fn destructor(mi MyInt) {
 }
 
 fn main() {
-  mi := init(MyInt){
-    1
-    2
-  }
+  mi := init(MyInt){1, 2}
   println(mi.x)
   println(mi.y)
 }

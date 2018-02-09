@@ -14,7 +14,7 @@ type
     pos*: int
 
 const StartList* = {'(', '[', '{'}
-const EndList* = {')', ']', '}', ','}
+const EndList* = {')', ']', '}', ',', ';'}
 const PrefixSymbols* = {'$', '&', '?', '@'}
 const ShortSymbols* = {'|'}
 const InfixSymbols* = {'.', '!', '%', '+', '-', '*', '/', '<', '=', '>', ':'}
@@ -134,6 +134,9 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       if context.curchar == '}':
         context.inc
         break
+      elif context.curchar in {',', ';'}:
+        context.inc
+        continue
       blk.addSon(context.parseFExpr())
     return blk
   elif ('a' <= context.curchar and context.curchar <= 'z') or
