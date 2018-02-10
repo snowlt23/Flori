@@ -1,7 +1,7 @@
 
-import core.prelude
-import core.math
-import core.io
+import core/prelude
+import core/math
+import core/io
 
 x := 123456789
 y := 362436069

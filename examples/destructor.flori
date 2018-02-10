@@ -13,6 +13,7 @@ fn destructor(mi MyInt) {
 
 fn main() {
   mi := init(MyInt){1, 2}
+  mi2 := init(MyInt){3, 4}
   println(mi.x)
   println(mi.y)
 }

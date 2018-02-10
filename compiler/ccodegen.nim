@@ -265,6 +265,11 @@ proc codegenDefValue*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= " = "
   ctx.codegenFExpr(src, fexpr.internalDefExpr.value)
 
+proc codegenSet*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  ctx.codegenFExpr(src, fexpr.internalSetExpr.dst)
+  src &= " = "
+  ctx.codegenFExpr(src, fexpr.internalSetExpr.value)
+
 proc codegenFieldAccess*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   ctx.codegenFExpr(src, fexpr.internalFieldAccessExpr.value)
   src &= "."
@@ -303,6 +308,9 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
       ctx.codegenDefValue(src, fexpr)
     else:
       ctx.codegenDef(src, fexpr)
+  of internalSet:
+    if not topcodegen:
+      ctx.codegenSet(src, fexpr)
   of internalFieldAccess:
     if not topcodegen:
       ctx.codegenFieldAccess(src, fexpr)
@@ -401,8 +409,10 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     src &= $fexpr
   of fexprStrLit:
     src &= $fexpr
-  of fexprArray, fexprList, fexprBlock:
+  of fexprArray, fexprList:
     fexpr.error("unsupported $# in C Codegen." % $fexpr.kind)
+  of fexprBlock:
+    ctx.codegenBody(src, toSeq(fexpr.items))
   of fexprSeq:
     if fexpr.hasinternalMark:
       ctx.codegenInternal(src, fexpr, topcodegen = false)
