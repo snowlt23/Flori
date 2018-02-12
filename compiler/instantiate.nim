@@ -30,19 +30,17 @@ proc instantiateInternalInit*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) 
   fexpr.typ = some(fsym.symbol)
 
 proc instantiateFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr): FExpr =
+  var fexpr = fexpr
   case fexpr.kind
   of fexprSymbol:
     result = fsymbol(fexpr.span, ctx.instantiateSymbol(scope, fexpr.symbol))
     result.metadata = fexpr.metadata
   of fexprIdent:
-    var f = fexpr
-    ctx.evalFExpr(scope, f)
-    return f
+    return fexpr
   of fexprContainer:
-    # instantiate arguments
+    ctx.evalFExpr(scope, fexpr)
     let cont = fcontainer(fexpr.span, fexpr.kind)
-    for e in fexpr.mitems:
-      ctx.evalFExpr(scope, e)
+    for e in fexpr:
       cont.addSon(ctx.instantiateFExpr(scope, e))
 
     # instantiate function by arguments
@@ -87,7 +85,10 @@ proc instantiateDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types
     
   let typename = fexpr.deftype.name.symbol.name
   let manglingname = genManglingName(typename, types)
-  let instbody = ctx.instantiateFExpr(scope, fexpr.deftype.body)
+  let instbody = fblock(fexpr.deftype.body.span)
+  for b in fexpr.deftype.body:
+    let iexpr = ctx.instantiateFExpr(scope, b[1])
+    instbody.addSon(fseq(b.span, @[b[0], iexpr]))
   let instident = fident(fexpr.deftype.name.span, manglingname)
 
   let sym = fexpr.internalScope.symbol(typename, symbolType, instident)
