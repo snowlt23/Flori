@@ -51,10 +51,9 @@ type
     fexprList
     fexprBlock
 
-  CTRC* = object
-    tracked*: bool
+  CTRC* = ref object
     refcnt*: int
-    destroyed*: bool
+    link*: CTRC
 
   FExpr* = ref object
     span*: Span
@@ -80,7 +79,7 @@ type
     call*: proc (fexpr: FExpr): FExpr {.cdecl.}
   ProcDecl* = object
     isInternal*: bool
-    internalProc*: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)
+    internalProc*: proc (ctx: SemanticContext, scope: Scope, fexpr: var FExpr)
     isMacro*: bool
     macroproc*: MacroProc
     name*: Name

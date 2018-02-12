@@ -20,11 +20,9 @@ fn `>(a Int, b Int) Bool $[importc ">", header nodeclc, pattern infixc]
 fn `>=(a Int, b Int) Bool $[importc ">=", header nodeclc, pattern infixc]
 fn `==(a Int, b Int) Bool $[importc "==", header nodeclc, pattern infixc]
 fn `!=(a Int, b Int) Bool $[importc "!=", header nodeclc, pattern infixc]
-fn `=(a Int, b Int) $[importc, header nodeclc, pattern "$1 = $2"]
 
 fn cast[T, F](val F) T $[importc, header nodeclc, pattern "((#1)($1))"]
 
-fn `=(a UInt32, b UInt32) $[importc, header nodeclc, pattern "$1 = $2"]
 fn `<<(a UInt32, b UInt32) UInt32 $[importc "<<", header nodeclc, pattern infixc]
 fn `>>(a UInt32, b UInt32) UInt32 $[importc ">>", header nodeclc, pattern infixc]
 

@@ -31,7 +31,7 @@ proc getType*(fexpr: FExpr): Symbol =
     fexpr.error("this expression undecide type.")
   return fexpr.typ.get
 
-proc addInternalEval*(scope: Scope, n: Name, p: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)) =
+proc addInternalEval*(scope: Scope, n: Name, p: proc (ctx: SemanticContext, scope: Scope, fexpr: var FExpr)) =
   let status = scope.addFunc(ProcDecl(
     isInternal: true,
     internalproc: p,
@@ -205,6 +205,9 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
       fexpr.typ = opt.get.instance
     else:
       fexpr.typ = opt.get.fexpr.typ
+    fexpr.ctrc = initCTRC()
+    fexpr.ctrc.link = opt.get.fexpr.ctrc
+    # fexpr = fsymbol(fexpr.span, opt.get)
     fexpr.resolve = fsymbol(fexpr.span, opt.get)
   of fexprSymbol:
     discard

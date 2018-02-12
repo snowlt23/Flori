@@ -29,6 +29,7 @@ type
     internalIf
     internalWhile
     internalDef
+    internalSet
     internalFieldAccess
     internalInit
     internalImport
@@ -70,6 +71,9 @@ type
   DefExpr* = object
     name*: FExpr
     value*: FExpr
+  SetExpr* = object
+    dst*: FExpr
+    value*: FExpr
   FieldAccessExpr* = object
     value*: FExpr
     fieldname*: FExpr
@@ -90,6 +94,7 @@ defMetadata(protocol, ProtocolExpr)
 defMetadata(internalIfExpr, IfExpr)
 defMetadata(internalWhileExpr, WhileExpr)
 defMetadata(internalDefExpr, DefExpr)
+defMetadata(internalSetExpr, SetExpr)
 defMetadata(internalFieldAccessExpr, FieldAccessExpr)
 defMetadata(internalImportExpr, ImportExpr)
 defMetadata(parent, FExpr)

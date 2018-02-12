@@ -35,8 +35,8 @@ fn vec_main() {
 voiceroids := ["Yukari", "Maki", "Akane", "Aoi"]
 
 fn read_file(filename String) {
-  f := open_file("voiceroids.txt", "r") # f.cnt 1
-  var s = "" # s.cnt 1
+  f := open_file(filename, "r") # f.cnt 1
+  s := "" # s.cnt 1
   for line in readline(f) { # f.cnt 1
     s &= line & "\n" # s.cnt 1
   }
