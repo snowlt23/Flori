@@ -8,7 +8,7 @@ let doc = """
 Flori programming language.
 
 Usage:
-  flori c <name> [-o=<outname>] [--opt=<level>] [--cc=<cc>]
+  flori c <name> [-o=<outname>] [--opt=<level>] [--cc=<cc>] [--bench]
 
 Options:
   -h --help      Show this screen.
@@ -18,6 +18,7 @@ Options:
   --cc=<cc>      Select C Compiler.
     gcc  GNU C Compiler (default)
     tcc  Tiny C Compiler
+  --bench        Show benchmark information.
 """
 
 proc parseCC*(val: Value): CCKind =
@@ -44,9 +45,10 @@ proc main() =
                      parseInt($args["--opt"])
                    else:
                      0
+    let bench = bool(args["--bench"])
     if optlevel < 0 or 3 < optlevel:
       quit "optlevel should be 0 <= level <= 3."
     let cc = parseCC(args["--cc"])
-    compileFlori(ccoptions(cc, filepath, outname, optlevel))
+    compileFlori(ccoptions(cc, filepath, outname, optlevel, bench))
 
 main()

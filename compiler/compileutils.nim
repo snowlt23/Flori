@@ -18,11 +18,6 @@ proc compileWithGCC*(pass: CCodegenContext, dir: string, options: string, files 
 proc compileWithTCC*(pass: CCodegenContext, dir: string, options: string, files = "") =
   discard execShellCmd "tcc $# $# $#" % [options, pass.cfilenames(dir).join(" "), files]
 
-proc exe*(s: string): string =
-  when defined(windows):
-    s & ".exe"
-  else:
-    s
 proc dll*(s: string): string =
   when defined(windows):
     s & ".dll"

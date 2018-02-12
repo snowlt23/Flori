@@ -3,16 +3,36 @@ import os
 import osproc
 import unittest
 import strutils
+import terminal
+
+proc exe*(s: string): string =
+  when defined(windows):
+    s & ".exe"
+  else:
+    s
 
 proc checkio*(filename: string, expectoutput: string) =
-  discard execProcess("compiler/flori c --cc=tcc $#" % filename)
+  let cout = execProcess("compiler/flori c --cc=tcc -obin/$# $#" % [filename.splitFile().name.exe, filename])
+  if cout != "":
+    echo cout
   let name = splitFile(filename).name
-  check execProcess(name) == expectoutput
+  try:
+    check execProcess("bin" / name) == expectoutput
+  except EOS:
+    styledEcho(fgRed, "[Error] ", resetStyle, getCurrentExceptionMsg())
+    fail
 
-suite "example":
-  echo "building flori compiler..."
+proc setup*() =
+  stdout.write("remove all executable...")
+  for f in walkPattern("bin/*.exe"):
+    removeFile(f)
+  echo " [done]"
+  stdout.write("building flori compiler...")
   discard execProcess("nim c compiler/flori.nim")
-  echo "done."
+  echo " [done]"
+  
+suite "example":
+  setup()
   test "fib":
     checkio "examples/fib.flori", "39088169\n"
   test "tak":

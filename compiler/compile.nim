@@ -16,23 +16,28 @@ type
     filepath*: string
     output*: string
     optlevel*: int
+    bench*: bool
 
 import times
 template bench*(name: string, body: untyped) =
-  let s = epochTime()
-  body
-  echo name, " Elapsed: ", epochTime() - s
+  if options.bench:
+    let s = epochTime()
+    body
+    echo name, " Elapsed: ", epochTime() - s
+  else:
+    body
 
 proc genGCCOptions*(options: CCOptions): string =
-  "-o$# -O$# -Iffi" % [options.output.exe, $options.optlevel]
+  "-o$# -O$# -Iffi" % [options.output, $options.optlevel]
 proc genTCCOptions*(options: CCOptions): string =
-  "-o$# -Iffi" % [options.output.exe]
+  "-o$# -Iffi" % [options.output]
 
-proc ccoptions*(cc: CCKind, filepath: string, output: string, optlevel: int): CCOptions =
+proc ccoptions*(cc: CCKind, filepath: string, output: string, optlevel: int, bench: bool): CCOptions =
   result.cc = cc
   result.filepath = filepath
   result.output = output
   result.optlevel = optlevel
+  result.bench = bench
 
 proc compileFlori*(options: CCOptions) =
   let semctx = newSemanticContext()
