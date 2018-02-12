@@ -15,10 +15,9 @@ type
 
 const StartList* = {'(', '[', '{'}
 const EndList* = {')', ']', '}', ',', ';'}
-const PrefixSymbols* = {'$', '&', '?', '@'}
-const ShortSymbols* = {'|'}
-const InfixSymbols* = {'.', '!', '%', '+', '-', '*', '/', '<', '=', '>', ':'}
-const SpecialSymbols* = PrefixSymbols + ShortSymbols + InfixSymbols
+const PrefixSymbols* = {'$', '?', '@'}
+const InfixSymbols* = {'.', '!', '%', '+', '-', '*', '/', '<', '=', '>', ':', '|', '&'}
+const SpecialSymbols* = PrefixSymbols + InfixSymbols
 const SeparateSymbols* = StartList + EndList + SpecialSymbols
 
 proc parseFExpr*(context: var ParserContext): FExpr
@@ -165,15 +164,6 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       ident.add(context.curchar)
       context.inc
     return fprefix(span, name(ident))
-  elif context.curchar in ShortSymbols: # short ident
-    var ident = ""
-    let span = context.span()
-    while true:
-      if context.curchar notin SpecialSymbols:
-        break
-      ident.add(context.curchar)
-      context.inc
-    return fshort(span, name(ident))
   elif context.curchar in InfixSymbols: # special ident
     var ident = ""
     let span = context.span()
@@ -221,9 +211,6 @@ proc rewriteToCall*(fexpr: FExpr): FExpr =
         let left = rewriteToCall(stack)
         let right = rewriteToCall(fexpr[i+1..^1])
         return fseq(fexpr[i].span, @[fexpr[i], left, right])
-      elif fexpr[i].kind == fexprShort:
-        stack[^1] = fseq(fexpr[i].span, @[fexpr[i], stack[^1], fexpr[i+1]])
-        i += 2
       else:
         stack.addSon(fexpr[i])
         i.inc

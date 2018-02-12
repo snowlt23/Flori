@@ -37,7 +37,6 @@ type
   FExprKind* = enum
     fexprIdent
     fexprPrefix
-    fexprShort
     fexprInfix
 
     fexprQuote
@@ -61,7 +60,7 @@ type
     metadata*: Table[string, Metadata]
     ctrc*: CTRC
     case kind*: FExprKind
-    of fexprIdent, fexprPrefix, fexprShort, fexprInfix:
+    of fexprIdent, fexprPrefix, fexprInfix:
       idname*: Name
       resolve*: FExpr
     of fexprQuote:
