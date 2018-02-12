@@ -27,14 +27,14 @@ Flori is statically typed programming language without GC for system/application
 
 ### Hello World
 ```
-import io
+import core/io
 
 println("Hello World!")
 ```
 
 ### Fibonacci
 ```
-import io
+import core/io
 
 fn fib(n Int) Int {
   if (n < 2) {
@@ -49,7 +49,7 @@ println(fib(38))
 
 ### File I/O
 ```
-import fileio
+import core/fileio
 
 fn main() {
   f := openFile("voiceroids.txt", "w")
