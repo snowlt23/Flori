@@ -143,7 +143,7 @@ proc evalFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   for arg in fexpr[1].mitems:
     ctx.evalFExpr(scope, arg)
   let argtypes = fexpr[1].mapIt(it.getType)
-
+  
   let opt = scope.getFunc(procname(name(fn), argtypes))
   if opt.isNone:
     fexpr.error("undeclared $#($#) function." % [$fn, argtypes.mapIt($it).join(", ")])

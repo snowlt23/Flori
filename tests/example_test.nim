@@ -12,21 +12,20 @@ proc exe*(s: string): string =
     s
 
 proc checkio*(filename: string, expectoutput: string) =
-  let cout = execProcess("compiler/flori c --cc=tcc -obin/$# $#" % [filename.splitFile().name.exe, filename])
+  let cout = execProcess("compiler/flori c --cc=tcc -otests/bin/$# $#" % [filename.splitFile().name.exe, filename])
   if cout != "":
     echo cout
   let name = splitFile(filename).name
   try:
-    check execProcess("bin" / name) == expectoutput
-  except EOS:
+    check execProcess("tests/bin" / name) == expectoutput
+  except OSError:
     styledEcho(fgRed, "[Error] ", resetStyle, getCurrentExceptionMsg())
     fail
 
 proc setup*() =
-  stdout.write("remove all executable...")
-  for f in walkPattern("bin/*.exe"):
-    removeFile(f)
-  echo " [done]"
+  if existsDir("tests/bin"):
+    removeDir("tests/bin")
+  createDir("tests/bin")
   stdout.write("building flori compiler...")
   discard execProcess("nim c compiler/flori.nim")
   echo " [done]"

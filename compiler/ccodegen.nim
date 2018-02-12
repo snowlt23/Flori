@@ -88,6 +88,9 @@ proc generateFloriDecls*(ctx: CCodegenContext): string =
     result.add(src.vardecls)
   result &= "\n"
 
+proc replaceSpecialSymbols*(s: string): string =
+  s.replace(".", "_").replace("+", "plus").replace("-", "minus").replace("*", "asterisk").replace("/", "slash")
+
 proc codegenSymbol*(sym: Symbol): string
 
 proc codegenSymbol*(sym: Symbol): string =
@@ -95,7 +98,7 @@ proc codegenSymbol*(sym: Symbol): string =
     result = $sym.scope.name & "_" & $sym.name & "_" & sym.types.mapIt(codegenSymbol(it)).join("_")
   else:
     result = $sym.scope.name & "_" & $sym.name
-  result = result.replace(".", "_")
+  result = result.replaceSpecialSymbols()
 proc codegenSymbol*(fexpr: FExpr): string =
   if fexpr.kind != fexprSymbol:
     fexpr.error("$# isn't symbol." % $fexpr)
@@ -373,6 +376,9 @@ proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
       ctx.codegenFExpr(s, arg)
     src &= ")"
 
+proc getCallTypes(fexpr: FExpr): seq[Symbol] =
+  fexpr[0].symbol.fexpr.defn.args.mapIt(it[1].symbol)
+    
 proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr[0].kind != fexprSymbol:
     fexpr[0].error("$# isn't symbol." % $fexpr[0])
@@ -381,13 +387,20 @@ proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     ctx.codegenCCall(src, fexpr)
   else: # normal call
     if fexpr.isGenericsFuncCall:
-      src &= codegenMangling(fexpr[0].symbol, fexpr[2].mapIt(it.typ.get))
+      src &= codegenMangling(fexpr[0].symbol, fexpr.getCallTypes())
       src &= "("
       ctx.codegenArguments(src, fexpr[2]) do (s: var SrcExpr, arg: FExpr):
         ctx.codegenFExpr(s, arg)
       src &= ")"
+    elif fexpr.len == 3 and fexpr[0].symbol.kind == symbolInfix:
+      src &= codegenMangling(fexpr[0].symbol, fexpr.getCallTypes())
+      src &= "("
+      ctx.codegenFExpr(src, fexpr[1])
+      src &= ", "
+      ctx.codegenFExpr(src, fexpr[2])
+      src &= ")"
     else:
-      src &= codegenMangling(fexpr[0].symbol, fexpr[1].mapIt(it.typ.get))
+      src &= codegenMangling(fexpr[0].symbol, fexpr.getCallTypes())
       src &= "("
       ctx.codegenArguments(src, fexpr[1]) do (s: var SrcExpr, arg: FExpr):
         ctx.codegenFExpr(s, arg)
@@ -409,8 +422,14 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     src &= $fexpr
   of fexprStrLit:
     src &= $fexpr
-  of fexprArray, fexprList:
+  of fexprArray:
     fexpr.error("unsupported $# in C Codegen." % $fexpr.kind)
+  of fexprList: # FIXME: multi element
+    if fexpr.len != 1:
+      fexpr.error("unsupported mutli element list. in c codegen.")
+    src &= "("
+    ctx.codegenFExpr(src, fexpr[0])
+    src &= ")"
   of fexprBlock:
     ctx.codegenBody(src, toSeq(fexpr.items))
   of fexprSeq:

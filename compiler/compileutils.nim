@@ -38,9 +38,13 @@ proc setupFFI*(handle: LibHandle) =
   template ffi(name, prc) =
     cast[ptr pointer](handle.checkedSymAddr(name))[] = prc
   ffi "flori_new_fident", ffiNewFIdent
+  ffi "flori_new_fseq", ffiNewFSeq
   ffi "flori_new_fblock", ffiNewFBlock
   ffi "flori_parse_fexpr", ffiParseFExpr
   ffi "flori_print_fexpr", ffiPrintFExpr
+  ffi "flori_add_son", ffiAddSon
+  ffi "flori_expect", ffiExpect
+  ffi "flori_access", ffiAccess
 
 proc reloadMacroLibrary*(semctx: SemanticContext, scope: Scope) =
   if semctx.macrolib != nil:

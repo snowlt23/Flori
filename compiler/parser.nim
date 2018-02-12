@@ -54,7 +54,7 @@ proc isSeparateSymbol*(context: ParserContext): bool =
   else:
     return false
 proc isEndSymbol*(context: ParserContext): bool =
-  if context.curchar in EndList or context.isNewline:
+  if context.curchar in EndList or context.isNewline or context.src.len <= context.pos:
     return true
   else:
     return false
@@ -94,8 +94,10 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
     var lst = flist(context.span)
     context.inc
     context.skipSpaces()
-    if context.curchar != ')':
-      lst.addSon(context.parseFExpr())
+    if context.curchar == ')':
+      context.inc
+      return lst
+    lst.addSon(context.parseFExpr())
     while true:
       context.skipSpaces()
       if context.curchar != ',' and context.curchar == ')':
@@ -110,8 +112,10 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
     var arr = farray(context.span)
     context.inc
     context.skipSpaces()
-    if context.curchar != ')':
-      arr.addSon(context.parseFExpr())
+    if context.curchar == ']':
+      context.inc
+      return arr
+    arr.addSon(context.parseFExpr())
     while true:
       context.skipSpaces()
       if context.curchar != ',' and context.curchar == ']':
@@ -126,8 +130,10 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
     var blk = fblock(context.span)
     context.inc
     context.skipSpaces()
-    if context.curchar != '}':
-      blk.addSon(context.parseFExpr())
+    if context.curchar == '}':
+      context.inc
+      return blk
+    blk.addSon(context.parseFExpr())
     while true:
       context.skipSpaces()
       if context.curchar == '}':
@@ -194,6 +200,15 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       if context.curchar == '"':
         context.inc
         break
+      elif context.curchar == '\\':
+        s.add(context.curchar)
+        context.inc
+        s.add(context.curchar)
+        context.inc
+        continue
+      elif context.curchar == 0x0d.char:
+        context.inc
+        continue
       s &= context.curchar
       context.inc
     return fstrlit(span, s)

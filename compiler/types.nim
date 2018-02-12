@@ -35,7 +35,7 @@ type
   Name* = object
     names*: seq[string]
   FExprKind* = enum
-    fexprIdent
+    fexprIdent = 0
     fexprPrefix
     fexprInfix
 

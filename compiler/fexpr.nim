@@ -163,6 +163,8 @@ proc toString*(fexpr: FExpr, indent: int): string =
   of fexprSeq:
     if fexpr.len == 2 and fexpr[1].kind in {fexprList, fexprArray}:
       fexpr.sons[0].toString(indent) & fexpr.sons[1..^1].mapIt(it.toString(indent)).join(" ")
+    elif fexpr.len == 3 and fexpr[0].kind == fexprInfix:
+      fexpr[1].toString(indent) & " " & $fexpr.sons[0] & " " & fexpr[2].toString(indent)
     else:
       fexpr.sons.mapIt(it.toString(indent)).join(" ")
   of fexprArray:
@@ -170,7 +172,7 @@ proc toString*(fexpr: FExpr, indent: int): string =
   of fexprList:
     "(" & fexpr.sons.mapIt(it.toString(indent)).join(", ") & ")"
   of fexprBlock:
-    "{" & "\n" & genIndent(indent + 2) & fexpr.sons.mapIt(it.toString(indent + 2)).join("\n" & genIndent(indent + 2)) & "\n" & "}"
+    "{" & "\n" & genIndent(indent + 2) & fexpr.sons.mapIt(it.toString(indent + 2)).join("\n" & genIndent(indent + 2)) & "\n" & genIndent(indent) & "}"
 
 proc `$`*(fexpr: FExpr): string = fexpr.toString(0)
 

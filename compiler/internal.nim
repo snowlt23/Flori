@@ -195,7 +195,7 @@ proc declGenerics*(ctx: SemanticContext, scope: Scope, fexpr: FExpr): seq[Symbol
       g.error("redefinition $# generics." % $g)
     result.add(sym)
 
-proc declArgtypes*(ctx: SemanticContext, scope: Scope, fexpr: FExpr): seq[Symbol] =
+proc declArgtypes*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, isGenerics: bool): seq[Symbol] =
   result = @[]
   for arg in fexpr:
     var pos = 1
@@ -203,9 +203,10 @@ proc declArgtypes*(ctx: SemanticContext, scope: Scope, fexpr: FExpr): seq[Symbol
     let sym = ctx.evalType(scope, argtyp.typ, argtyp.generics)
     arg[1].replaceByTypesym(sym)
     result.add(sym)
-    let status = scope.addDecl(name(arg[0]), sym)
-    if not status:
-      arg[0].error("redefinition $# variable." % $arg[0])
+    if not isGenerics:
+      let status = scope.addDecl(name(arg[0]), sym)
+      if not status:
+        arg[0].error("redefinition $# variable." % $arg[0])
 
 proc evalFunc*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, parsed: var DefnExpr): (Scope, seq[Symbol], seq[Symbol], Symbol, Symbol) =
   let fnscope = scope.extendScope()
@@ -213,7 +214,7 @@ proc evalFunc*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, parsed: var Def
                    ctx.declGenerics(fnscope, parsed.generics.get)
                  else:
                    @[]
-  let argtypes = ctx.declArgtypes(fnscope, parsed.args)
+  let argtypes = ctx.declArgtypes(fnscope, parsed.args, parsed.generics.isSome)
   let rettype = ctx.evalType(fnscope, parsed.ret, parsed.retgenerics)
   parsed.ret.replaceByTypesym(rettype)
   

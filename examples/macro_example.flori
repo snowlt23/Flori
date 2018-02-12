@@ -17,8 +17,30 @@ fn add5(x Int) Int {
   parsed
 }
 
+macro bench(fexpr FExpr) FExpr {
+  ret := new_fblock()
+  add_son(ret, parse_fexpr("starttime := get_clock()"))
+  add_son(ret, access(fexpr, 1))
+  add_son(ret, parse_fexpr("print(\"Elapsed: \")"))
+  add_son(ret, parse_fexpr("println((get_clock() - starttime) / 1000)"))
+  println(ret)
+  ret
+}
+
 hello := "Hello Yukari!"
 println(hellomacro())
 
 def_add5()
 println(add5(4))
+
+fn fib(n Int) Int {
+  if (n < 2) {
+    n
+  } else {
+    fib(n-1) + fib(n-2)
+  }
+}
+
+bench {
+  println(fib(30))
+}
