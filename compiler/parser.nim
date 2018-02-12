@@ -31,7 +31,7 @@ proc newParserContext*(filename: string, src: string): ParserContext =
 proc curchar*(context: ParserContext): char =
   return context.src[context.pos]
 proc isEOF*(context: ParserContext): bool =
-  context.curchar == 0x1a.char or context.curchar == '\0'
+  context.curchar == 0x1a.char or context.curchar == '\0' or context.src.len <= context.pos
 proc isNewline*(context: ParserContext): bool =
   let lf = 0x0a.char
   let cr = 0x0d.char
@@ -98,7 +98,7 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       context.inc
       return lst
     lst.addSon(context.parseFExpr())
-    while true:
+    while not context.isEOF:
       context.skipSpaces()
       if context.curchar != ',' and context.curchar == ')':
         context.inc
@@ -116,7 +116,7 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       context.inc
       return arr
     arr.addSon(context.parseFExpr())
-    while true:
+    while not context.isEOF:
       context.skipSpaces()
       if context.curchar != ',' and context.curchar == ']':
         context.inc
@@ -134,7 +134,7 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       context.inc
       return blk
     blk.addSon(context.parseFExpr())
-    while true:
+    while not context.isEOF:
       context.skipSpaces()
       if context.curchar == '}':
         context.inc
@@ -149,7 +149,7 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
     let span = context.span()
     var idents = newSeq[string]()
     var curstr = ""
-    while true:
+    while not context.isEOF:
       if context.curchar == '/':
         context.inc
         idents.add(curstr)
@@ -164,7 +164,7 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
   elif context.curchar in PrefixSymbols: # special ident
     var ident = ""
     let span = context.span()
-    while true:
+    while not context.isEOF:
       if context.curchar notin SpecialSymbols:
         break
       ident.add(context.curchar)
@@ -173,7 +173,7 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
   elif context.curchar in InfixSymbols: # special ident
     var ident = ""
     let span = context.span()
-    while true:
+    while not context.isEOF:
       if context.curchar notin SpecialSymbols:
         break
       ident.add(context.curchar)
@@ -186,7 +186,7 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
   elif '0' <= context.curchar and context.curchar <= '9': # intlit
     let span = context.span
     var s = ""
-    while true:
+    while not context.isEOF:
       if not ('0' <= context.curchar and context.curchar <= '9'):
         break
       s &= context.curchar

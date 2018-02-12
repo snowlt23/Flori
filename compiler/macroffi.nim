@@ -9,6 +9,8 @@ proc ffiNewFIdent*(ident: cstring): FExpr {.cdecl.} =
   fident(ffiSpan(), name($ident))
 proc ffiNewFSeq*(): FExpr {.cdecl.} =
   fseq(ffiSpan())
+proc ffiNewFList*(): FExpr {.cdecl.} =
+  flist(ffiSpan())
 proc ffiNewFBlock*(): FExpr {.cdecl.} =
   fblock(ffiSpan())
 proc ffiParseFExpr*(cstr: cstring): FExpr {.cdecl.} =

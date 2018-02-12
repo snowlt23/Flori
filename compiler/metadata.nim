@@ -42,7 +42,7 @@ type
 type
   DefnExpr* = object
     name*: FExpr
-    generics*: Option[FExpr]
+    generics*: FExpr
     args*: FExpr
     ret*: FExpr
     retgenerics*: Option[FExpr]
@@ -100,3 +100,6 @@ defMetadata(internalImportExpr, ImportExpr)
 defMetadata(parent, FExpr)
 
 proc isToplevel*(fexpr: FExpr): bool = fexpr.hasInternalToplevel
+
+proc isGenerics*(defn: DefnExpr): bool = not defn.generics.isSpecTypes
+proc isGenerics*(deftype: DeftypeExpr): bool = deftype.generics.isSome

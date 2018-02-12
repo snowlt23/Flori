@@ -119,6 +119,7 @@ proc instantiateDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types
     
 proc checkInstantiateGenerics*(generics: FExpr) =
   for g in generics:
+    if g.kind == fexprSymbol: continue
     if g.typ.get.instance.isNone:
       g.error("cannot instantiate $#." % $g)
 
@@ -131,16 +132,21 @@ proc instantiateDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: s
   for i, arg in fexpr.defn.args:
     arg[1].assert(arg[1].kind == fexprSymbol)
     arg[1].symbol.applyInstance(types[i])
-  if types.isSpecTypes() and fexpr.defn.generics.isSome:
-    checkInstantiateGenerics(fexpr.defn.generics.get)
+  if types.isSpecTypes():
+    checkInstantiateGenerics(fexpr.defn.generics)
     
   # let manglingname = genManglingName(fexpr.defn.name.symbol.name, types)
   let fname = fexpr.defn.name.symbol.name
   var genericstypes = newSeq[Symbol]()
-  if fexpr.defn.generics.isSome:
-    for g in fexpr.defn.generics.get:
-      if g.typ.get.isSpecSymbol:
-        genericstypes.add(g.typ.get)
+  let generics = farray(fexpr.defn.generics.span)
+  for g in fexpr.defn.generics:
+    if g.kind == fexprSymbol:
+      generics.addSon(g)
+      genericstypes.add(g.symbol)
+    else:
+      let t = g.typ.get.instance.get
+      generics.addSon(fsymbol(g.span, t))
+      genericstypes.add(t)
   let specopt = fexpr.internalScope.getSpecFunc(procname(fname, types, genericstypes))
   if specopt.isSome:
     let fsym = fsymbol(fexpr.span, specopt.get.sym)
@@ -159,11 +165,12 @@ proc instantiateDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: s
     let status = instscope.addDecl(name(arg[0]), iexpr.symbol)
     if not status:
       arg[0].error("redefinition $# variable." % $arg[0])
+  # let ret = fsymbol(fexpr.defn.ret.span, fexpr.defn.ret.symbol.instance.get)
   let ret = ctx.instantiateFExpr(fexpr.internalScope, fexpr.defn.ret)
 
   var defnexpr = DefnExpr(
     name: fsym,
-    generics: if types.isSpecTypes(): none(FExpr) else: some(flist(fexpr.span)),
+    generics: generics,
     args: args,
     ret: ret,
     pragma: fexpr.defn.pragma,

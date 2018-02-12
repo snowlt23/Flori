@@ -39,6 +39,7 @@ proc setupFFI*(handle: LibHandle) =
     cast[ptr pointer](handle.checkedSymAddr(name))[] = prc
   ffi "flori_new_fident", ffiNewFIdent
   ffi "flori_new_fseq", ffiNewFSeq
+  ffi "flori_new_flist", ffiNewFList
   ffi "flori_new_fblock", ffiNewFBlock
   ffi "flori_parse_fexpr", ffiParseFExpr
   ffi "flori_print_fexpr", ffiPrintFExpr
@@ -56,3 +57,5 @@ proc reloadMacroLibrary*(semctx: SemanticContext, scope: Scope) =
   semctx.macrolib.setupFFI()
   for mp in semctx.macroprocs:
     mp.call = cast[proc (f: FExpr): FExpr {.cdecl.}](semctx.macrolib.checkedSymAddr(mp.importname))
+  let florimain = cast[proc () {.cdecl.}](semctx.macrolib.checkedSymAddr("flori_main"))
+  florimain()

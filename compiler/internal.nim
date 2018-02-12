@@ -18,7 +18,10 @@ proc parseDefn*(fexpr: FExpr): DefnExpr =
 
   let ftyp = fexpr.parseTypeExpr(pos)
   result.name = ftyp.typ
-  result.generics = ftyp.generics
+  result.generics = if ftyp.generics.isSome:
+                      ftyp.generics.get
+                    else:
+                      farray(fexpr.span)
 
   if fexpr[pos].kind == fexprList:
     result.args = fexpr[pos]
@@ -124,9 +127,6 @@ proc parseDef*(fexpr: FExpr): DefExpr =
   result.name = fexpr[1]
   result.value = fexpr[2]
 
-proc isGenerics*(defn: DefnExpr): bool = defn.generics.isSome
-proc isGenerics*(deftype: DeftypeExpr): bool = deftype.generics.isSome
-
 #
 # Pragma
 #
@@ -210,11 +210,11 @@ proc declArgtypes*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, isGenerics:
 
 proc evalFunc*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, parsed: var DefnExpr): (Scope, seq[Symbol], seq[Symbol], Symbol, Symbol) =
   let fnscope = scope.extendScope()
-  let generics = if parsed.generics.isSome:
-                   ctx.declGenerics(fnscope, parsed.generics.get)
+  let generics = if parsed.isGenerics:
+                   ctx.declGenerics(fnscope, parsed.generics)
                  else:
                    @[]
-  let argtypes = ctx.declArgtypes(fnscope, parsed.args, parsed.generics.isSome)
+  let argtypes = ctx.declArgtypes(fnscope, parsed.args, parsed.isGenerics)
   let rettype = ctx.evalType(fnscope, parsed.ret, parsed.retgenerics)
   parsed.ret.replaceByTypesym(rettype)
   
@@ -224,7 +224,7 @@ proc evalFunc*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, parsed: var Def
   discard fnscope.addFunc(pd)
 
   parsed.body.internalScope = fnscope
-  if parsed.generics.isNone:
+  if parsed.generics.isSpecTypes:
     ctx.evalFExpr(fnscope, parsed.body)
     ctx.expandDestructor(fnscope, parsed.body)
   ctx.evalPragma(scope, fexpr, parsed.pragma)
@@ -254,7 +254,7 @@ proc evalMacro*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
   var parsed = parseDefn(fexpr)
   let (fnscope, generics, argtypes, rettype, sym) = ctx.evalFunc(scope, fexpr, parsed)
 
-  let mp = MacroProc(importname: codegenMangling(sym, argtypes))
+  let mp = MacroProc(importname: codegenMangling(sym, @[], argtypes)) # FIXME: support generics
   let pd = ProcDecl(isInternal: false, isMacro: true, macroproc: mp, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
   let status = scope.addFunc(pd)
   if not status:

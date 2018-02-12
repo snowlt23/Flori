@@ -104,8 +104,8 @@ proc codegenSymbol*(fexpr: FExpr): string =
     fexpr.error("$# isn't symbol." % $fexpr)
   return codegenSymbol(fexpr.symbol)
 
-proc codegenMangling*(sym: Symbol, types: seq[Symbol]): string =
-  codegenSymbol(sym) & "_" & types.mapIt(codegenSymbol(it)).join("_")
+proc codegenMangling*(sym: Symbol, generics: seq[Symbol], types: seq[Symbol]): string =
+  codegenSymbol(sym) & "G" & generics.mapIt(codegenSymbol(it)).join("_") & "G" & "_" & types.mapIt(codegenSymbol(it)).join("_")
 
 proc codegenArguments*(ctx: CCodegenContext, src: var SrcExpr, args: FExpr, p: proc (s: var SrcExpr, arg: FExpr)) =
   if args.len >= 1:
@@ -139,7 +139,7 @@ proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
   var decl = initSrcExpr()
   decl &= codegenSymbol(fexpr.defn.ret)
   decl &= " "
-  decl &= codegenMangling(fexpr.defn.name.symbol, fexpr.defn.args.mapIt(it[1].symbol))
+  decl &= codegenMangling(fexpr.defn.name.symbol, fexpr.defn.generics.mapIt(it.symbol), fexpr.defn.args.mapIt(it[1].symbol))
   decl &= "("
   ctx.codegenArguments(decl, fexpr.defn.args) do (s: var SrcExpr, arg: FExpr):
     s &= codegenSymbol(arg[1])
@@ -162,7 +162,7 @@ proc codegenDefn*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.internalPragma.header.isSome:
     src.addHeader(fexpr.internalPragma.header.get)
   if fexpr.internalPragma.importc.isNone:
-    if fexpr.defn.generics.isNone:
+    if fexpr.defn.generics.isSpecTypes:
       ctx.codegenDefnInstance(src, fexpr)
 
 proc codegenDeftypeStruct*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
@@ -375,7 +375,9 @@ proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     ctx.codegenArguments(src, fexpr[1]) do (s: var SrcExpr, arg: FExpr):
       ctx.codegenFExpr(s, arg)
     src &= ")"
-
+    
+proc getCallGenerics(fexpr: FExpr): seq[Symbol] =
+  fexpr[0].symbol.fexpr.defn.generics.mapIt(it.symbol)
 proc getCallTypes(fexpr: FExpr): seq[Symbol] =
   fexpr[0].symbol.fexpr.defn.args.mapIt(it[1].symbol)
     
@@ -387,20 +389,20 @@ proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     ctx.codegenCCall(src, fexpr)
   else: # normal call
     if fexpr.isGenericsFuncCall:
-      src &= codegenMangling(fexpr[0].symbol, fexpr.getCallTypes())
+      src &= codegenMangling(fexpr[0].symbol, fexpr.getCallGenerics(), fexpr.getCallTypes())
       src &= "("
       ctx.codegenArguments(src, fexpr[2]) do (s: var SrcExpr, arg: FExpr):
         ctx.codegenFExpr(s, arg)
       src &= ")"
     elif fexpr.len == 3 and fexpr[0].symbol.kind == symbolInfix:
-      src &= codegenMangling(fexpr[0].symbol, fexpr.getCallTypes())
+      src &= codegenMangling(fexpr[0].symbol, @[], fexpr.getCallTypes()) # FIXME: support generics
       src &= "("
       ctx.codegenFExpr(src, fexpr[1])
       src &= ", "
       ctx.codegenFExpr(src, fexpr[2])
       src &= ")"
     else:
-      src &= codegenMangling(fexpr[0].symbol, fexpr.getCallTypes())
+      src &= codegenMangling(fexpr[0].symbol, fexpr.getCallGenerics(), fexpr.getCallTypes())
       src &= "("
       ctx.codegenArguments(src, fexpr[1]) do (s: var SrcExpr, arg: FExpr):
         ctx.codegenFExpr(s, arg)

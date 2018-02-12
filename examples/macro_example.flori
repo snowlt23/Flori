@@ -8,7 +8,7 @@ macro hellomacro(fexpr FExpr) FExpr {
 }
 
 macro def_add5(fexpr FExpr) FExpr {
-  parsed := parse_fexpr("
+  parsed := parse("
 fn add5(x Int) Int {
     x + 5
 }
@@ -19,10 +19,10 @@ fn add5(x Int) Int {
 
 macro bench(fexpr FExpr) FExpr {
   ret := new_fblock()
-  add_son(ret, parse_fexpr("starttime := get_clock()"))
-  add_son(ret, access(fexpr, 1))
-  add_son(ret, parse_fexpr("print(\"Elapsed: \")"))
-  add_son(ret, parse_fexpr("println((get_clock() - starttime) / 1000)"))
+  push(ret, parse("starttime := get_clock()"))
+  push(ret, access(fexpr, 1))
+  push(ret, parse("print(\"Elapsed: \")"))
+  push(ret, parse("println((get_clock() - starttime) / 1000)"))
   println(ret)
   ret
 }

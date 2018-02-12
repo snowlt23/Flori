@@ -143,6 +143,31 @@ proc `$`*(sym: Symbol): string =
     $sym.scope.name & "." & $sym.name & "[" & sym.types.mapIt($it).join(",") & "]"
 
 #
+# is spec
+#
+  
+proc isSpecSymbol*(sym: Symbol): bool =
+  if sym.kind == symbolType:
+    return true
+  elif sym.kind == symbolGenerics:
+    return false
+  else:
+    for t in sym.types:
+      if not t.isSpecSymbol:
+        return false
+    return true
+proc isSpecTypes*(types: seq[Symbol]): bool =
+  for t in types:
+    if not t.isSpecSymbol:
+      return false
+  return true
+proc isSpecTypes*(types: FExpr): bool =
+  for t in types.sons:
+    if t.kind != fexprSymbol: return false
+    if not t.symbol.isSpecSymbol: return false
+  return true
+
+#
 # SemanticContext
 #
 

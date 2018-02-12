@@ -58,22 +58,6 @@ proc parseTypeExpr*(fexpr: FExpr, pos: var int): tuple[typ: FExpr, generics: Opt
   else:
     fexpr[pos].error("$# isn't type expression." % $fexpr[pos])
 
-proc isSpecSymbol*(sym: Symbol): bool =
-  if sym.kind == symbolType:
-    return true
-  elif sym.kind == symbolGenerics:
-    return false
-  else:
-    for t in sym.types:
-      if not t.isSpecSymbol:
-        return false
-    return true
-proc isSpecTypes*(types: seq[Symbol]): bool =
-  for t in types:
-    if not t.isSpecSymbol:
-      return false
-  return true
-
 proc resolveByType*(scope: Scope, fexpr: FExpr, n: Name) =
   let opt = scope.getDecl(n)
   if opt.isNone:
@@ -149,7 +133,7 @@ proc evalFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
     fexpr.error("undeclared $#($#) function." % [$fn, argtypes.mapIt($it).join(", ")])
 
   # generics
-  if opt.get.sym.fexpr.hasDefn and opt.get.sym.fexpr.defn.generics.isSome:
+  if opt.get.sym.fexpr.hasDefn and opt.get.sym.fexpr.defn.isGenerics:
     # symbol resolve
     ctx.expandBy(fexpr.span):
       fexpr[0] = ctx.instantiateDefn(scope, opt.get.sym.fexpr, argtypes)
@@ -178,8 +162,8 @@ proc evalGenericsFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: Fexpr) =
     fexpr.error("undeclared $#($#) function." % [$fn, argtypes.mapIt($it).join(", ")])
 
   # generics 
-  if opt.get.sym.fexpr.hasDefn and opt.get.sym.fexpr.defn.generics.isSome:
-    let generics = opt.get.sym.fexpr.defn.generics.get
+  if opt.get.sym.fexpr.hasDefn and opt.get.sym.fexpr.defn.isGenerics:
+    let generics = opt.get.sym.fexpr.defn.generics
     if generics.len < gtypes.len:
       fexpr.error("wrong of generics length: requires $#" % $generics)
     for i, gtyp in gtypes:
