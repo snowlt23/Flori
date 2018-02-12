@@ -2,6 +2,7 @@
 nimcache/
 nimsuggest.log
 
+bin/
 floricache/
 flori.exe
 flori
@@ -10,5 +11,6 @@ tests/parser_test.exe
 tests/parser_test
 tests/tester.exe
 tests/tester
+tests/bin/
 
 /*.exe

@@ -22,21 +22,14 @@ suite "C codegen":
   test "c ffi":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       printf("%d", 5)
     """)
     semctx.evalModule(name("testmodule"), fexprs)
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
+#include "flori_decls.h"
 
 
 void __flori_testmodule_init() {
@@ -46,7 +39,7 @@ printf("%d", 5);
   test "defn":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       fn add5(x Int) Int {
         x + 5
       }
@@ -56,15 +49,7 @@ printf("%d", 5);
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
-testmodule_Int testmodule_add5_testmodule_Int(testmodule_Int x);
+#include "flori_decls.h"
 
 testmodule_Int testmodule_add5_testmodule_Int(testmodule_Int x) {
 return (x + 5);
@@ -77,7 +62,7 @@ printf("%d", testmodule_add5_testmodule_Int(4));
   test "if":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       if (1 == 2) {
         printf("%d", 4)
       } else {
@@ -88,14 +73,7 @@ printf("%d", testmodule_add5_testmodule_Int(4));
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
+#include "flori_decls.h"
 
 
 void __flori_testmodule_init() {
@@ -109,7 +87,7 @@ printf("%d", 5);
   test "while":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       while (1 == 2) {
         printf("%d", 9)
       }
@@ -118,14 +96,7 @@ printf("%d", 5);
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
+#include "flori_decls.h"
 
 
 void __flori_testmodule_init() {
@@ -137,22 +108,15 @@ printf("%d", 9);
   test "toplevel def":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       nine := 9
     """)
     semctx.evalModule(name("testmodule"), fexprs)
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
+#include "flori_decls.h"
 
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
-extern testmodule_Int testmodule_nine;
 testmodule_Int testmodule_nine;
 void __flori_testmodule_init() {
 testmodule_nine = 9;
@@ -161,7 +125,7 @@ testmodule_nine = 9;
   test "local def":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       fn test() {
         name := "feelsgoodman"
       }
@@ -170,15 +134,7 @@ testmodule_nine = 9;
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
-testmodule_Void testmodule_test_();
+#include "flori_decls.h"
 
 testmodule_Void testmodule_test_() {
 testmodule_CString testmodule_name = "feelsgoodman";
@@ -191,7 +147,7 @@ void __flori_testmodule_init() {
   test "generics init":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       type Wrap[T] {
         x T
       }
@@ -201,27 +157,17 @@ void __flori_testmodule_init() {
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
-typedef struct {
-x testmodule_Int;
-} testmodule_Wrap_testmodule_Int;
+#include "flori_decls.h"
 
 
 void __flori_testmodule_init() {
-testmodule_Wrap_testmodule_Int{9};
+{9};
 }
 """
   test "generics":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       type Wrap[T] {
         x T
       }
@@ -234,21 +180,10 @@ testmodule_Wrap_testmodule_Int{9};
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
-typedef struct {
-x testmodule_Int;
-} testmodule_Wrap_testmodule_Int;
-testmodule_Wrap_testmodule_Int testmodule_wrap_testmodule_Int(testmodule_Int x);
+#include "flori_decls.h"
 
 testmodule_Wrap_testmodule_Int testmodule_wrap_testmodule_Int(testmodule_Int x) {
-return testmodule_Wrap_testmodule_Int{x};
+return {x};
 }
 
 void __flori_testmodule_init() {
@@ -258,7 +193,7 @@ testmodule_wrap_testmodule_Int(9);
   test "field access":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       type Wrap[T] {
         x T
       }
@@ -271,21 +206,10 @@ testmodule_wrap_testmodule_Int(9);
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
-typedef struct {
-x testmodule_Int;
-} testmodule_Wrap_testmodule_Int;
-testmodule_Wrap_testmodule_Int testmodule_wrap_testmodule_Int(testmodule_Int x);
+#include "flori_decls.h"
 
 testmodule_Wrap_testmodule_Int testmodule_wrap_testmodule_Int(testmodule_Int x) {
-return testmodule_Wrap_testmodule_Int{x};
+return {x};
 }
 
 void __flori_testmodule_init() {
@@ -295,7 +219,7 @@ testmodule_wrap_testmodule_Int(9).x;
   test "recursion generics":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       fn fib[T](n T) T {
         if (n < 2) {
           n
@@ -309,15 +233,7 @@ testmodule_wrap_testmodule_Int(9).x;
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
-testmodule_Int testmodule_fib_testmodule_Int(testmodule_Int n);
+#include "flori_decls.h"
 
 testmodule_Int testmodule_fib_testmodule_Int(testmodule_Int n) {
 testmodule_Int __floritmp0;
@@ -335,7 +251,7 @@ printf("%d", testmodule_fib_testmodule_Int(38));
   test "pattern codegen":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       fn add(x Int, y Int) $[importc, header nodeclc, pattern "$1+$2"]
       add(1, 2)
     """)
@@ -343,14 +259,7 @@ printf("%d", testmodule_fib_testmodule_Int(38));
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
+#include "flori_decls.h"
 
 
 void __flori_testmodule_init() {
@@ -360,7 +269,7 @@ void __flori_testmodule_init() {
   test "generics fn pattern codegen":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       fn cast[T, F](val F) $[importc, header nodeclc, pattern "((#1)($1))"]
       cast[Int](1)
     """)
@@ -368,14 +277,7 @@ void __flori_testmodule_init() {
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
+#include "flori_decls.h"
 
 
 void __flori_testmodule_init() {
@@ -385,7 +287,7 @@ void __flori_testmodule_init() {
   test "generics type pattern codegen":
     let semctx = newSemanticContext()
     let genctx = newCCodegenContext()
-    let fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
       type Ptr[T] $[importc, header nodeclc, pattern "#1*"]
       fn f[T](x T) Ptr[T] {
       }
@@ -395,16 +297,7 @@ void __flori_testmodule_init() {
     genctx.codegen(semctx)
     genctx.writeModules("floricache")
     check readFile("floricache/testmodule.c") == """
-#include "stdint.h"
-#include "stdio.h"
-#include "stdbool.h"
-
-typedef void testmodule_Void;
-typedef bool testmodule_Bool;
-typedef char* testmodule_CString;
-typedef int64_t testmodule_Int;
-typedef testmodule_Int* testmodule_Ptr_testmodule_Int;
-testmodule_Ptr_testmodule_Int testmodule_f_testmodule_Int(testmodule_Int x);
+#include "flori_decls.h"
 
 testmodule_Ptr_testmodule_Int testmodule_f_testmodule_Int(testmodule_Int x) {
 }

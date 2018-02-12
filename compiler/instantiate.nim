@@ -1,31 +1,4 @@
 
-type
-  DefnExpr* = object
-    name*: FExpr
-    generics*: Option[FExpr]
-    args*: FExpr
-    ret*: FExpr
-    retgenerics*: Option[FExpr]
-    pragma*: FExpr
-    body*: FExpr
-  DeftypeExpr* = object
-    name*: FExpr
-    generics*: Option[FExpr]
-    pragma*: FExpr
-    body*: FExpr
-  ProtocolExpr* = object
-    name*: FExpr
-    generics*: Option[FExpr]
-    body*: FExpr
-  InitExpr* = object
-    typ*: FExpr
-    body*: FExpr
-
-defMetadata(initexpr, InitExpr)
-defMetadata(defn, DefnExpr)
-defMetadata(deftype, DeftypeExpr)
-defMetadata(protocol, ProtocolExpr)
-
 proc genManglingName*(name: Name, types: seq[Symbol]): Name =
   name($name & "_" & types.mapIt($it).join("_"))
 
@@ -61,15 +34,20 @@ proc instantiateFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr): FExpr 
   of fexprSymbol:
     result = fsymbol(fexpr.span, ctx.instantiateSymbol(scope, fexpr.symbol))
     result.metadata = fexpr.metadata
+  of fexprIdent:
+    var f = fexpr
+    ctx.evalFExpr(scope, f)
+    return f
   of fexprContainer:
     # instantiate arguments
     let cont = fcontainer(fexpr.span, fexpr.kind)
-    for e in fexpr:
+    for e in fexpr.mitems:
+      ctx.evalFExpr(scope, e)
       cont.addSon(ctx.instantiateFExpr(scope, e))
 
     # instantiate function by arguments
     if fexpr.len >= 2 and fexpr[0].kind == fexprSymbol and fexpr[1].kind == fexprList and fexpr[0].symbol.fexpr.hasDefn:
-      discard ctx.instantiateDefn(scope, fexpr[0].symbol.fexpr, fexpr[1].mapIt(it.getType))
+      fexpr[0] = ctx.instantiateDefn(scope, fexpr[0].symbol.fexpr, fexpr[1].mapIt(it.getType))
     # instantiate internal
     elif fexpr.hasInternalMark:
       case fexpr.internalMark
@@ -83,7 +61,9 @@ proc instantiateFExpr*(ctx: SemanticContext, scope: Scope, fexpr: FExpr): FExpr 
     cont.metadata = fexpr.metadata # copy metadata
     return cont
   else:
-    return fexpr
+    var f = fexpr
+    ctx.evalFExpr(scope, f)
+    return f
 
 proc applyInstance*(sym: Symbol, instance: Symbol) =
   if sym.kind == symbolGenerics:
@@ -152,7 +132,7 @@ proc instantiateDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: s
     arg[1].symbol.applyInstance(types[i])
   if types.isSpecTypes() and fexpr.defn.generics.isSome:
     checkInstantiateGenerics(fexpr.defn.generics.get)
-
+    
   # let manglingname = genManglingName(fexpr.defn.name.symbol.name, types)
   let fname = fexpr.defn.name.symbol.name
   var genericstypes = newSeq[Symbol]()
@@ -168,9 +148,16 @@ proc instantiateDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: s
 
   let instident = fident(fexpr.defn.name.span, fname)
 
+  let instscope = fexpr.defn.body.internalScope.extendScope()
   let sym = fexpr.internalScope.symbol(fname, symbolFunc, instident)
   let fsym = fsymbol(fexpr.span, sym)
-  let args = ctx.instantiateFExpr(fexpr.internalScope, fexpr.defn.args)
+  let args = flist(fexpr.defn.args.span)
+  for arg in fexpr.defn.args:
+    let iexpr = ctx.instantiateFExpr(fexpr.internalScope, arg[1])
+    args.addSon(fseq(arg.span, @[arg[0], iexpr]))
+    let status = instscope.addDecl(name(arg[0]), iexpr.symbol)
+    if not status:
+      arg[0].error("redefinition $# variable." % $arg[0])
   let ret = ctx.instantiateFExpr(fexpr.internalScope, fexpr.defn.ret)
 
   var defnexpr = DefnExpr(
@@ -197,13 +184,13 @@ proc instantiateDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: s
   fexpr.internalScope.addSpecFunc(pd)
   fexpr.internalScope.toplevels.add(fsym) # register instantiate function to toplevel of module
 
-  fexpr.defn.body.internalScope.importScope(name("flori_current_scope"), scope)
+  instscope.importScope(name("flori_current_scope"), scope.top)
   let instbody = if types.isSpecTypes:
-                  ctx.evalFExpr(fexpr.defn.body.internalScope, fexpr.defn.body)
-                  ctx.instantiateFExpr(scope, fexpr.defn.body)
+                  let i = ctx.instantiateFExpr(instscope, fexpr.defn.body)
+                  ctx.expandDestructor(instscope, i)
+                  i
                  else:
                   fexpr.defn.body
-
   defnexpr.body = instbody
   instident.defn = defnexpr
 

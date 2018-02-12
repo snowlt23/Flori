@@ -2,6 +2,7 @@
 import fexpr, parser
 import scope, semantic, internal
 import ccodegen
+import compileutils
 
 import os
 import strutils
@@ -15,36 +16,28 @@ type
     filepath*: string
     output*: string
     optlevel*: int
-
-const cachedir* = "floricache"
+    bench*: bool
 
 import times
 template bench*(name: string, body: untyped) =
-  let s = epochTime()
-  body
-  echo name, " Elapsed: ", epochTime() - s
-
-proc compileWithGCC*(pass: CCodegenContext, dir: string, options: string) =
-  discard execShellCmd "gcc $# $#" % [options, pass.cfilenames(dir).join(" ")]
-proc compileWithTCC*(pass: CCodegenContext, dir: string, options: string) =
-  discard execShellCmd "tcc $# $#" % [options, pass.cfilenames(dir).join(" ")]
-
-proc exe*(s: string): string =
-  when defined(windows):
-    s & ".exe"
+  if options.bench:
+    let s = epochTime()
+    body
+    echo name, " Elapsed: ", epochTime() - s
   else:
-    s
+    body
 
 proc genGCCOptions*(options: CCOptions): string =
-  "-o$# -O$#" % [options.output.exe, $options.optlevel]
+  "-o$# -O$# -Iffi" % [options.output, $options.optlevel]
 proc genTCCOptions*(options: CCOptions): string =
-  "-o$#" % [options.output.exe]
+  "-o$# -Iffi" % [options.output]
 
-proc ccoptions*(cc: CCKind, filepath: string, output: string, optlevel: int): CCOptions =
+proc ccoptions*(cc: CCKind, filepath: string, output: string, optlevel: int, bench: bool): CCOptions =
   result.cc = cc
   result.filepath = filepath
   result.output = output
   result.optlevel = optlevel
+  result.bench = bench
 
 proc compileFlori*(options: CCOptions) =
   let semctx = newSemanticContext()

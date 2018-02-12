@@ -1,0 +1,22 @@
+
+import core/prelude
+import core/io
+
+type MyInt {
+  x Int
+  y Int
+}
+
+fn destructor(mi MyInt) {
+  println("MyInt destroyed!")
+}
+
+fn main() {
+  mi := init(MyInt){1, 2}
+  mi2 := init(MyInt){3, 4}
+  mi = mi2
+  println(mi.x)
+  println(mi.y)
+}
+
+main()

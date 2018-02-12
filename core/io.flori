@@ -1,5 +1,5 @@
 
-import core.prelude
+import core/prelude
 
 fn print(fmt CString) $[importc "printf", header "stdio.h"]
 fn printf[T](fmt CString, x T) $[importc "printf", header "stdio.h"]
@@ -7,12 +7,18 @@ fn printf[T](fmt CString, x T) $[importc "printf", header "stdio.h"]
 fn print(x Int) {
   printf("%d", x)
 }
+fn print(x Float) {
+  printf("%f", x)
+}
 fn print(x Bool) {
   if (x) {
     print("true")
   } else {
     print("false")
   }
+}
+fn print(x Clock) {
+  printf("%lld", x)
 }
 
 fn println[T](x T) {

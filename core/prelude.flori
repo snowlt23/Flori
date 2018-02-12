@@ -11,7 +11,6 @@ type Float $[importc "float", header nodeclc]
 fn `+(a Int, b Int) Int $[importc "+", header nodeclc, pattern infixc]
 fn `-(a Int, b Int) Int $[importc "-", header nodeclc, pattern infixc]
 fn `*(a Int, b Int) Int $[importc "*", header nodeclc, pattern infixc]
-fn `/(a Int, b Int) Int $[importc "/", header nodeclc, pattern infixc]
 fn `<<(a Int, b Int) Int $[importc "<<", header nodeclc, pattern infixc]
 fn `>>(a Int, b Int) Int $[importc ">>", header nodeclc, pattern infixc]
 fn `<(a Int, b Int) Bool $[importc "<", header nodeclc, pattern infixc]
@@ -20,11 +19,14 @@ fn `>(a Int, b Int) Bool $[importc ">", header nodeclc, pattern infixc]
 fn `>=(a Int, b Int) Bool $[importc ">=", header nodeclc, pattern infixc]
 fn `==(a Int, b Int) Bool $[importc "==", header nodeclc, pattern infixc]
 fn `!=(a Int, b Int) Bool $[importc "!=", header nodeclc, pattern infixc]
-fn `=(a Int, b Int) $[importc, header nodeclc, pattern "$1 = $2"]
 
 fn cast[T, F](val F) T $[importc, header nodeclc, pattern "((#1)($1))"]
 
-fn `=(a UInt32, b UInt32) $[importc, header nodeclc, pattern "$1 = $2"]
+fn `/(a Float, b Float) Float $[importc "/", header nodeclc, pattern infixc]
+fn `/(a Int, b Int) Float {
+  cast[Float](a) / cast[Float](b)
+}
+
 fn `<<(a UInt32, b UInt32) UInt32 $[importc "<<", header nodeclc, pattern infixc]
 fn `>>(a UInt32, b UInt32) UInt32 $[importc ">>", header nodeclc, pattern infixc]
 
@@ -39,4 +41,13 @@ fn float(x Int) Float {
 }
 fn float(x UInt32) Float {
   cast[Float](x)
+}
+
+# time.h
+type Clock $[importc "clock_t", header "time.h"]
+fn get_clock() Clock $[importc "clock", header "time.h"]
+fn `+(a Clock, b Clock) Clock $[importc "+", header nodeclc, pattern infixc]
+fn `-(a Clock, b Clock) Clock $[importc "-", header nodeclc, pattern infixc]
+fn `/(a Clock, b Int) Float {
+  cast[Float](a) / cast[Float](b)
 }

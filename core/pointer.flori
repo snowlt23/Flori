@@ -1,5 +1,5 @@
 
-import core.prelude
+import core/prelude
 
 type Pointer $[importc "void*", header nodeclc]
 type Ptr[T] $[importc, header nodeclc, pattern "#1*"]

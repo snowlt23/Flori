@@ -12,7 +12,7 @@ export types.FExprKind
 export types.FExpr
 
 const fexprAtoms* = {fexprIdent..fexprStrLit}
-const fexprNames* = {fexprIdent, fexprPrefix, fexprShort, fexprInfix}
+const fexprNames* = {fexprIdent, fexprPrefix, fexprInfix}
 const fexprContainer* = {fexprSeq, fexprArray, fexprList, fexprBlock}
 
 proc `$`*(fexpr: FExpr): string
@@ -48,8 +48,6 @@ proc fident*(span: Span, name: Name): FExpr =
   FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprIdent, idname: name)
 proc fprefix*(span: Span, name: Name): FExpr =
   FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprPrefix, idname: name)
-proc fshort*(span: Span, name: Name): FExpr =
-  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprShort, idname: name)
 proc finfix*(span: Span, name: Name): FExpr =
   FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprInfix, idname: name)
 proc fquote*(span: Span, q: FExpr): FExpr =
@@ -152,7 +150,7 @@ proc genIndent*(indent: int): string =
 
 proc toString*(fexpr: FExpr, indent: int): string =
   case fexpr.kind
-  of fexprIdent, fexprPrefix, fexprShort, fexprInfix:
+  of fexprIdent, fexprPrefix, fexprInfix:
     $fexpr.idname
   of fexprQuote:
     "`" & fexpr.quoted.toString(indent)
@@ -165,8 +163,8 @@ proc toString*(fexpr: FExpr, indent: int): string =
   of fexprSeq:
     if fexpr.len == 2 and fexpr[1].kind in {fexprList, fexprArray}:
       fexpr.sons[0].toString(indent) & fexpr.sons[1..^1].mapIt(it.toString(indent)).join(" ")
-    elif fexpr.len == 3 and fexpr[0].kind == fexprShort:
-      fexpr.sons[1].toString(indent) & fexpr.sons[0].toString(indent) & fexpr.sons[2].toString(indent)
+    elif fexpr.len == 3 and fexpr[0].kind == fexprInfix:
+      fexpr[1].toString(indent) & " " & $fexpr.sons[0] & " " & fexpr[2].toString(indent)
     else:
       fexpr.sons.mapIt(it.toString(indent)).join(" ")
   of fexprArray:
@@ -174,6 +172,18 @@ proc toString*(fexpr: FExpr, indent: int): string =
   of fexprList:
     "(" & fexpr.sons.mapIt(it.toString(indent)).join(", ") & ")"
   of fexprBlock:
-    "{" & "\n" & genIndent(indent + 2) & fexpr.sons.mapIt(it.toString(indent + 2)).join("\n" & genIndent(indent + 2)) & "\n" & "}"
+    "{" & "\n" & genIndent(indent + 2) & fexpr.sons.mapIt(it.toString(indent + 2)).join("\n" & genIndent(indent + 2)) & "\n" & genIndent(indent) & "}"
 
 proc `$`*(fexpr: FExpr): string = fexpr.toString(0)
+
+
+
+proc isParametricTypeExpr*(fexpr: FExpr, pos: int): bool =
+  if fexpr.kind != fexprSeq: return false
+  if fexpr.len <= pos+1: return false
+  return fexpr[pos].kind == fexprIdent and fexpr[pos+1].kind == fexprArray
+proc isPragmaPrefix*(fexpr: FExpr): bool =
+  fexpr.kind == fexprPrefix and $fexpr == "$"
+
+proc isGenericsFuncCall*(fexpr: FExpr): bool =
+  fexpr.kind == fexprSeq and fexpr.len == 3 and fexpr[1].kind == fexprArray and fexpr[2].kind == fexprList

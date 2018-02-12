@@ -4,6 +4,7 @@ import tables, hashes
 import strutils, sequtils
 import deques
 import terminal
+import dynlib
 
 type
   Metadata* = ref object of RootObj
@@ -34,9 +35,8 @@ type
   Name* = object
     names*: seq[string]
   FExprKind* = enum
-    fexprIdent
+    fexprIdent = 0
     fexprPrefix
-    fexprShort
     fexprInfix
 
     fexprQuote
@@ -50,12 +50,17 @@ type
     fexprList
     fexprBlock
 
+  CTRC* = ref object
+    refcnt*: int
+    link*: CTRC
+
   FExpr* = ref object
     span*: Span
     typ*: Option[Symbol]
     metadata*: Table[string, Metadata]
+    ctrc*: CTRC
     case kind*: FExprKind
-    of fexprIdent, fexprPrefix, fexprShort, fexprInfix:
+    of fexprIdent, fexprPrefix, fexprInfix:
       idname*: Name
       resolve*: FExpr
     of fexprQuote:
@@ -68,9 +73,14 @@ type
       strval*: string
     of fexprSeq, fexprArray, fexprList, fexprBlock:
       sons*: seq[FExpr]
+  MacroProc* = ref object
+    importname*: string
+    call*: proc (fexpr: FExpr): FExpr {.cdecl.}
   ProcDecl* = object
     isInternal*: bool
-    internalProc*: proc (ctx: SemanticContext, scope: Scope, fexpr: FExpr)
+    internalProc*: proc (ctx: SemanticContext, scope: Scope, fexpr: var FExpr)
+    isMacro*: bool
+    macroproc*: MacroProc
     name*: Name
     argtypes*: seq[Symbol]
     generics*: seq[Symbol]
@@ -90,9 +100,12 @@ type
     procdecls*: Table[Name, ProcDeclGroup]
     importscopes*: OrderedTable[Name, Scope]
     toplevels*: seq[FExpr]
+    scopevalues*: seq[FExpr]
   SemanticContext* = ref object
     expandspans*: Deque[Span]
     modules*: OrderedTable[Name, Scope]
+    macrolib*: LibHandle
+    macroprocs*: seq[MacroProc]
 
 #
 # Scope

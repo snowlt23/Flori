@@ -23,6 +23,7 @@ proc newScope*(name: Name): Scope =
   result.procdecls = initTable[Name, ProcDeclGroup]()
   result.importscopes = initOrderedTable[Name, Scope]()
   result.toplevels = @[]
+  result.scopevalues = @[]
 
 proc extendScope*(scope: Scope): Scope =
   new result
@@ -33,6 +34,7 @@ proc extendScope*(scope: Scope): Scope =
   result.procdecls = scope.procdecls
   result.importscopes = scope.importscopes
   result.toplevels = @[]
+  result.scopevalues = @[]
 
 proc match*(a, b: Symbol): bool =
   if b.kind == symbolGenerics:
@@ -53,6 +55,7 @@ proc procname*(name: Name, argtypes: seq[Symbol], generics = newSeq[Symbol]()): 
 proc match*(a: ProcName, b: ProcDecl): bool =
   if a.name != b.name: return false
   if b.isInternal: return true
+  if b.isMacro: return true
   if a.argtypes.len != b.argtypes.len: return false
   for i in 0..<a.argtypes.len:
     if not a.argtypes[i].match(b.argtypes[i]): return false
@@ -77,11 +80,13 @@ proc spec*(a: ProcName, b: ProcDecl): bool =
 proc initProcIdentGroup*(): ProcDeclGroup =
   result.decls = @[]
 
+proc isCurrentScope*(n: Name): bool = $n == "flori_current_scope"
+
 proc getDecl*(scope: Scope, n: Name, importscope = true): Option[Symbol] =
   if not scope.decls.hasKey(n):
     if importscope:
-      for s in scope.importscopes.values:
-        let opt = s.getDecl(n, importscope = false)
+      for scopename, s in scope.importscopes:
+        let opt = s.getDecl(n, importscope = scopename.isCurrentScope())
         if opt.isSome:
           return opt
       return none(Symbol)
@@ -96,8 +101,8 @@ proc getSpecType*(scope: Scope, n: Name, types: seq[Symbol], importscope = true)
       return none(Symbol)
   else:
     if importscope:
-      for s in scope.importscopes.values:
-        let opt = s.getDecl(n, importscope = false)
+      for scopename, s in scope.importscopes:
+        let opt = s.getDecl(n, importscope = scopename.isCurrentScope())
         if opt.isSome:
           return opt
       return none(Symbol)
@@ -106,8 +111,8 @@ proc getSpecType*(scope: Scope, n: Name, types: seq[Symbol], importscope = true)
 proc getFunc*(scope: Scope, pd: ProcName, importscope = true): Option[ProcDecl] =
   if not scope.procdecls.hasKey(pd.name):
     if importscope:
-      for s in scope.importscopes.values:
-        let opt = s.getFunc(pd, importscope = false)
+      for scopename, s in scope.importscopes:
+        let opt = s.getFunc(pd, importscope = scopename.isCurrentScope())
         if opt.isSome:
           return opt
       return none(ProcDecl)
@@ -120,8 +125,8 @@ proc getFunc*(scope: Scope, pd: ProcName, importscope = true): Option[ProcDecl] 
       return some(decl)
 
   if importscope:
-    for s in scope.importscopes.values:
-      let opt = s.getFunc(pd, importscope = false)
+    for scopename, s in scope.importscopes:
+      let opt = s.getFunc(pd, importscope = scopename.isCurrentScope())
       if opt.isSome:
         return opt
     return none(ProcDecl)
@@ -130,8 +135,8 @@ proc getFunc*(scope: Scope, pd: ProcName, importscope = true): Option[ProcDecl] 
 proc getSpecFunc*(scope: Scope, pd: ProcName, importscope = true): Option[ProcDecl] =
   if not scope.procdecls.hasKey(pd.name):
     if importscope:
-      for s in scope.importscopes.values:
-        let opt = s.getSpecFunc(pd, importscope = false)
+      for scopename, s in scope.importscopes:
+        let opt = s.getSpecFunc(pd, importscope = scopename.isCurrentScope())
         if opt.isSome:
           return opt
       return none(ProcDecl)
@@ -144,8 +149,8 @@ proc getSpecFunc*(scope: Scope, pd: ProcName, importscope = true): Option[ProcDe
       return some(decl)
 
   if importscope:
-    for s in scope.importscopes.values:
-      let opt = s.getSpecFunc(pd, importscope = false)
+    for scopename, s in scope.importscopes:
+      let opt = s.getSpecFunc(pd, importscope = scopename.isCurrentScope())
       if opt.isSome:
         return opt
     return none(ProcDecl)

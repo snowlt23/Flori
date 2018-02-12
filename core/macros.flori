@@ -1,25 +1,26 @@
 
-(require prelude :refer :all)
+import core/prelude
 
-;; builtin macro
-; quote -> quote-eval
-; backquote -> backquote-eval
+type FExpr $[importc "flori_fexpr", header "floriffi.h"]
+type FExprKind $[importc "int", header "floriffi.h"]
 
-(c-type SExpr :name "__flori_SExpr" :nodecl)
-(c-type BackquoteEvaluator :name "__flori_BackquoteEvaluator*" :nodecl)
+FEXPR_IDENT := cast[FExprKind](0)
+FEXPR_PREFIX := cast[FExprKind](1)
+FEXPR_INFIX := cast[FExprKind](2)
+FEXPR_QUOTE := cast[FExprKind](3)
+FEXPR_SYMBOL := cast[FExprKind](4)
+FEXPR_INTLIT := cast[FExprKind](5)
+FEXPR_STRLIT := cast[FExprKind](6)
+FEXPR_SEQ := cast[FExprKind](7)
+FEXPR_ARRAY := cast[FExprKind](8)
+FEXPR_LIST := cast[FExprKind](9)
+FEXPR_BLOCK := cast[FExprKind](10)
 
-@(: SExpr -> SExpr)
-(c-func first :name "__flori_first" :nodecl)
-@(: SExpr -> SExpr)
-(c-func rest :name "__flori_rest" :nodecl)
-
-@(: CString -> SExpr)
-(c-func quote-eval :name "__flori_quote_eval" :nodecl)
-
-@(: SExpr -> BackquoteEvaluator)
-(c-func new-backquote-evaluator :name "__flori_new_backquote_evaluator" :nodecl)
-@(: BackquoteEvaluator CString SExpr)
-(c-func backquote-eval :name "__flori_backquote_eval" :nodecl)
-@(: BackquoteEvaluator -> SExpr)
-(c-func backquote-get-sexpr :name "__flori_backquote_get_sexpr" :nodecl)
-
+fn new_fident(ident CString) FExpr $[importc "flori_new_fident", header "floriffi.h"]
+fn new_fseq() FExpr $[importc "flori_new_fseq", header "floriffi.h"]
+fn new_fblock() FExpr $[importc "flori_new_fblock", header "floriffi.h"]
+fn parse_fexpr(cstr CString) FExpr $[importc "flori_parse_fexpr", header "floriffi.h"]
+fn print(fexpr FExpr) $[importc "flori_print_fexpr", header "floriffi.h"]
+fn add_son(fexpr FExpr, son FExpr) $[importc "flori_add_son", header "floriffi.h"]
+fn expect(fexpr FExpr, kind FExprKind) $[importc "flori_expect", header "floriffi.h"]
+fn access(fexpr FExpr, i Int) FExpr $[importc "flori_access", header "floriffi.h"]

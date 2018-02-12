@@ -14,11 +14,10 @@ type
     pos*: int
 
 const StartList* = {'(', '[', '{'}
-const EndList* = {')', ']', '}', ','}
-const PrefixSymbols* = {'$', '&', '?', '@'}
-const ShortSymbols* = {'|'}
-const InfixSymbols* = {'.', '!', '%', '+', '-', '*', '/', '<', '=', '>', ':'}
-const SpecialSymbols* = PrefixSymbols + ShortSymbols + InfixSymbols
+const EndList* = {')', ']', '}', ',', ';'}
+const PrefixSymbols* = {'$', '?', '@'}
+const InfixSymbols* = {'.', '!', '%', '+', '-', '*', '/', '<', '=', '>', ':', '|', '&'}
+const SpecialSymbols* = PrefixSymbols + InfixSymbols
 const SeparateSymbols* = StartList + EndList + SpecialSymbols
 
 proc parseFExpr*(context: var ParserContext): FExpr
@@ -55,7 +54,7 @@ proc isSeparateSymbol*(context: ParserContext): bool =
   else:
     return false
 proc isEndSymbol*(context: ParserContext): bool =
-  if context.curchar in EndList or context.isNewline:
+  if context.curchar in EndList or context.isNewline or context.src.len <= context.pos:
     return true
   else:
     return false
@@ -95,8 +94,10 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
     var lst = flist(context.span)
     context.inc
     context.skipSpaces()
-    if context.curchar != ')':
-      lst.addSon(context.parseFExpr())
+    if context.curchar == ')':
+      context.inc
+      return lst
+    lst.addSon(context.parseFExpr())
     while true:
       context.skipSpaces()
       if context.curchar != ',' and context.curchar == ')':
@@ -111,8 +112,10 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
     var arr = farray(context.span)
     context.inc
     context.skipSpaces()
-    if context.curchar != ')':
-      arr.addSon(context.parseFExpr())
+    if context.curchar == ']':
+      context.inc
+      return arr
+    arr.addSon(context.parseFExpr())
     while true:
       context.skipSpaces()
       if context.curchar != ',' and context.curchar == ']':
@@ -127,13 +130,18 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
     var blk = fblock(context.span)
     context.inc
     context.skipSpaces()
-    if context.curchar != '}':
-      blk.addSon(context.parseFExpr())
+    if context.curchar == '}':
+      context.inc
+      return blk
+    blk.addSon(context.parseFExpr())
     while true:
       context.skipSpaces()
       if context.curchar == '}':
         context.inc
         break
+      elif context.curchar in {',', ';'}:
+        context.inc
+        continue
       blk.addSon(context.parseFExpr())
     return blk
   elif ('a' <= context.curchar and context.curchar <= 'z') or
@@ -142,7 +150,7 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
     var idents = newSeq[string]()
     var curstr = ""
     while true:
-      if context.curchar == '.':
+      if context.curchar == '/':
         context.inc
         idents.add(curstr)
         curstr = ""
@@ -162,15 +170,6 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       ident.add(context.curchar)
       context.inc
     return fprefix(span, name(ident))
-  elif context.curchar in ShortSymbols: # short ident
-    var ident = ""
-    let span = context.span()
-    while true:
-      if context.curchar notin SpecialSymbols:
-        break
-      ident.add(context.curchar)
-      context.inc
-    return fshort(span, name(ident))
   elif context.curchar in InfixSymbols: # special ident
     var ident = ""
     let span = context.span()
@@ -201,6 +200,15 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       if context.curchar == '"':
         context.inc
         break
+      elif context.curchar == '\\':
+        s.add(context.curchar)
+        context.inc
+        s.add(context.curchar)
+        context.inc
+        continue
+      elif context.curchar == 0x0d.char:
+        context.inc
+        continue
       s &= context.curchar
       context.inc
     return fstrlit(span, s)
@@ -218,9 +226,6 @@ proc rewriteToCall*(fexpr: FExpr): FExpr =
         let left = rewriteToCall(stack)
         let right = rewriteToCall(fexpr[i+1..^1])
         return fseq(fexpr[i].span, @[fexpr[i], left, right])
-      elif fexpr[i].kind == fexprShort:
-        stack[^1] = fseq(fexpr[i].span, @[fexpr[i], stack[^1], fexpr[i+1]])
-        i += 2
       else:
         stack.addSon(fexpr[i])
         i.inc

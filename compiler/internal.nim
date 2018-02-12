@@ -1,36 +1,13 @@
 
 import types, fexpr, parser
-import scope, semantic
+import scope, semantic, ctrc
 import metadata
+import compileutils
 
 import options
 import strutils, sequtils
 import tables
 import deques
-
-type
-  IfExpr* = object
-    elifbranch*: seq[tuple[cond: FExpr, body: FExpr]]
-    elsebranch*: FExpr
-  WhileExpr* = object
-    cond*: FExpr
-    body*: FExpr
-  DefExpr* = object
-    name*: FExpr
-    value*: FExpr
-  FieldAccessExpr* = object
-    value*: FExpr
-    fieldname*: FExpr
-  ImportExpr* = object
-    modname*: Name
-    importname*: Name
-
-defMetadata(internalIfExpr, IfExpr)
-defMetadata(internalWhileExpr, WhileExpr)
-defMetadata(internalDefExpr, DefExpr)
-defMetadata(internalFieldAccessExpr, FieldAccessExpr)
-defMetadata(internalImportExpr, ImportExpr)
-defMetadata(parent, FExpr)
 
 #
 # Parser
@@ -154,7 +131,7 @@ proc isGenerics*(deftype: DeftypeExpr): bool = deftype.generics.isSome
 # Pragma
 #
 
-proc evalImportc*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+proc evalImportc*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
   if fexpr.kind == fexprIdent:
     let name = $fexpr.parent[0]
     fexpr.parent.internalPragma.importc = some(name)
@@ -164,7 +141,7 @@ proc evalImportc*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
     let name = fexpr[1].strval
     fexpr.parent.internalPragma.importc = some(name)
 
-proc evalHeader*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+proc evalHeader*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
   if fexpr.len == 2:
     if $fexpr[1] == "nodeclc":
       fexpr.parent.internalPragma.header = none(string)
@@ -176,7 +153,7 @@ proc evalHeader*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   else:
     fexpr.error("usage: `header \"headername.h\"`")
 
-proc evalPattern*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+proc evalPattern*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
   if fexpr.len == 2:
     if $fexpr[1] == "infixc":
       fexpr.parent.internalPragma.infixc = true
@@ -192,7 +169,7 @@ proc evalPragma*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, pragma: FExpr
     pragma.error("$# isn't internal pragma." % $pragma)
   fexpr.internalPragma = InternalPragma()
 
-  for key in pragma:
+  for key in pragma.mitems:
     key.parent = fexpr
     let pragmaname = if key.kind in fexprContainer:
                        name(key[0])
@@ -208,55 +185,91 @@ proc evalPragma*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, pragma: FExpr
 # Evaluater
 #
 
-proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
-  var parsed = parseDefn(fexpr)
+proc declGenerics*(ctx: SemanticContext, scope: Scope, fexpr: FExpr): seq[Symbol] =
+  result = @[]
+  for g in fexpr.mitems:
+    let sym = scope.symbol(name(g), symbolGenerics, g)
+    let status = scope.addDecl(name(g), sym)
+    g.typ = some(sym)
+    if not status:
+      g.error("redefinition $# generics." % $g)
+    result.add(sym)
 
-  let fnscope = scope.extendScope()
-  # add generics variable to scope
-  var generics = newSeq[Symbol]()
-  if parsed.generics.isSome:
-    for g in parsed.generics.get.mitems:
-      let sym = fnscope.symbol(name(g), symbolGenerics, g)
-      let status = fnscope.addDecl(name(g), sym)
-      g.typ = some(sym) # FIXME:
-      if not status:
-        g.error("redefinition $# generics." % $g)
-      generics.add(sym)
-
-  let rettype = ctx.evalType(fnscope, parsed.ret, parsed.retgenerics)
-  parsed.ret.replaceByTypesym(rettype)
-  var argtypes = newSeq[Symbol]() # for procdecl
-
-  for arg in parsed.args:
+proc declArgtypes*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, isGenerics: bool): seq[Symbol] =
+  result = @[]
+  for arg in fexpr:
     var pos = 1
     let argtyp = arg.parseTypeExpr(pos)
-    let sym = ctx.evalType(fnscope, argtyp.typ, argtyp.generics)
+    let sym = ctx.evalType(scope, argtyp.typ, argtyp.generics)
     arg[1].replaceByTypesym(sym)
-    argtypes.add(sym)
-    let status = fnscope.addDecl(name(arg[0]), sym)
-    if not status:
-      arg[0].error("redefinition $# variable." % $arg[0])
+    result.add(sym)
+    if not isGenerics:
+      let status = scope.addDecl(name(arg[0]), sym)
+      if not status:
+        arg[0].error("redefinition $# variable." % $arg[0])
+
+proc evalFunc*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, parsed: var DefnExpr): (Scope, seq[Symbol], seq[Symbol], Symbol, Symbol) =
+  let fnscope = scope.extendScope()
+  let generics = if parsed.generics.isSome:
+                   ctx.declGenerics(fnscope, parsed.generics.get)
+                 else:
+                   @[]
+  let argtypes = ctx.declArgtypes(fnscope, parsed.args, parsed.generics.isSome)
+  let rettype = ctx.evalType(fnscope, parsed.ret, parsed.retgenerics)
+  parsed.ret.replaceByTypesym(rettype)
   
   let symkind = if parsed.name.kind == fexprQuote: symbolInfix else: symbolFunc
   let sym = scope.symbol(name(parsed.name), symkind, fexpr)
   let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
-  let status = scope.addFunc(pd)
-  if not status:
-    fexpr.error("redefinition $# function." % $parsed.name)
   discard fnscope.addFunc(pd)
-    
+
   parsed.body.internalScope = fnscope
   if parsed.generics.isNone:
     ctx.evalFExpr(fnscope, parsed.body)
+    ctx.expandDestructor(fnscope, parsed.body)
+  ctx.evalPragma(scope, fexpr, parsed.pragma)
 
   # symbol resolve
   let fsym = fsymbol(fexpr[0].span, sym)
   fexpr[1] = fsym
   parsed.name = fsym
+  
+  return (fnscope, generics, argtypes, rettype, sym)
+
+proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+  var parsed = parseDefn(fexpr)
+  let (fnscope, generics, argtypes, rettype, sym) = ctx.evalFunc(scope, fexpr, parsed)
+
+  let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
+  let status = scope.addFunc(pd)
+  if not status:
+    fexpr.error("redefinition $# function." % $parsed.name)
+
   # internal metadata for postprocess phase
-  ctx.evalPragma(scope, fexpr, parsed.pragma)
   fexpr.internalMark = internalDefn
   fexpr.defn = parsed
+
+# TODO: macroproc in evalMacro
+proc evalMacro*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+  var parsed = parseDefn(fexpr)
+  let (fnscope, generics, argtypes, rettype, sym) = ctx.evalFunc(scope, fexpr, parsed)
+
+  let mp = MacroProc(importname: codegenMangling(sym, argtypes))
+  let pd = ProcDecl(isInternal: false, isMacro: true, macroproc: mp, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
+  let status = scope.addFunc(pd)
+  if not status:
+    fexpr.error("redefinition $# macro." % $parsed.name)
+  
+  # internal metadata for postprocess phase
+  fexpr.internalMark = internalMacro
+  fexpr.defn = parsed
+
+  scope.toplevels.add(fexpr)
+  defer: scope.toplevels.del(high(scope.toplevels))
+
+  # load library
+  ctx.macroprocs.add(mp)
+  ctx.reloadMacroLibrary(scope)
 
 proc getFieldType*(fexpr: FExpr, fieldname: string): Option[Symbol] =
   if not fexpr.hasDeftype:
@@ -266,7 +279,7 @@ proc getFieldType*(fexpr: FExpr, fieldname: string): Option[Symbol] =
       return some(field[1].symbol)
   return none(Symbol)
 
-proc evalDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+proc evalDeftype*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
   var parsed = parseDeftype(fexpr)
 
   let typescope = scope.extendScope()
@@ -307,11 +320,11 @@ proc isEqualTypes*(types: seq[Symbol]): bool =
       return false
   return true
 
-proc evalIf*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
-  let parsed = parseIf(fexpr)
+proc evalIf*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+  var parsed = parseIf(fexpr)
   var types = newSeq[Symbol]()
 
-  for branch in parsed.elifbranch:
+  for branch in parsed.elifbranch.mitems:
     ctx.evalFExpr(scope, branch.cond)
     if not branch.cond.typ.get.isBoolType:
       branch.cond.error("if expression cond should be Bool")
@@ -331,8 +344,8 @@ proc evalIf*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   fexpr.internalMark = internalIf
   fexpr.internalIfExpr = parsed
 
-proc evalWhile*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
-  let parsed = parseWhile(fexpr)
+proc evalWhile*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+  var parsed = parseWhile(fexpr)
 
   ctx.evalFExpr(scope, parsed.cond)
   if not parsed.cond.typ.get.isBoolType:
@@ -346,7 +359,7 @@ proc evalWhile*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   fexpr.internalMark = internalWhile
   fexpr.internalWhileExpr = parsed
 
-proc evalDef*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+proc evalDef*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
   var parsed = parseDef(fexpr)
   if parsed.name.kind != fexprIdent:
     parsed.name.error("define name should be FIdent.")
@@ -360,6 +373,10 @@ proc evalDef*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   if parsed.value.typ.get.isVoidType:
     parsed.value.error("value is Void.")
   scope.resolveByVoid(fexpr)
+  parsed.name.typ = parsed.value.typ
+
+  parsed.name.ctrc = initCTRC()
+  scope.tracking(parsed.name)
 
   # symbol resolve
   let fsym = fsymbol(fexpr[0].span, sym)
@@ -369,8 +386,32 @@ proc evalDef*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   fexpr.internalMark = internalDef
   fexpr.internalDefExpr = parsed
 
-proc evalFieldAccess*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
-  let value = fexpr[1]
+proc evalSet*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+  var parsed = SetExpr(dst: fexpr[1], value: fexpr[2])
+
+  ctx.evalFExpr(scope, parsed.dst)
+  ctx.evalFExpr(scope, parsed.value)
+
+  fexpr.internalMark = internalSet
+  fexpr.internalSetExpr = parsed
+
+  parsed.dst.ctrc.dec
+  if parsed.dst.ctrc.destroyed: # FIXME:
+    if parsed.value.ctrc.tracked:
+      parsed.dst.ctrc.cnt = parsed.value.ctrc.cnt
+    else:
+      parsed.dst.ctrc = initCTRC()
+    let expand = fblock(fexpr.span)
+    var dcall = genDestructorCall(parsed.dst)
+    ctx.evalFExpr(scope, dcall)
+    expand.addSon(dcall)
+    expand.addSon(fexpr)
+    fexpr = expand
+  if parsed.value.ctrc.tracked:
+    parsed.value.ctrc.inc
+
+proc evalFieldAccess*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+  var value = fexpr[1]
   let fieldname = fexpr[2]
   if fieldname.kind != fexprIdent:
     fieldname.error("fieldname should be FIdent.")
@@ -384,7 +425,7 @@ proc evalFieldAccess*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   fexpr.internalMark = internalFieldAccess
   fexpr.internalFieldAccessExpr = FieldAccessExpr(value: value, fieldname: fieldname)
 
-proc evalInit*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+proc evalInit*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
   if fexpr.len != 3:
     fexpr.error("init require 2 arguments.")
   if fexpr[1].kind != fexprList:
@@ -400,7 +441,10 @@ proc evalInit*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   ctx.evalFExpr(scope, fexpr[2])
 
   let types = fexpr[2].mapIt(it.typ.get)
-  let t = ctx.instantiateDeftype(scope, sym.fexpr, types)
+  let t = if sym.fexpr.deftype.isGenerics:
+            ctx.instantiateDeftype(scope, sym.fexpr, types)
+          else:
+            fsymbol(inittyp.typ.span, sym)
 
   # symbol resolve
   fexpr.typ = some(t.symbol)
@@ -411,7 +455,7 @@ proc evalInit*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   )
   fexpr.internalMark = internalInit
 
-proc evalImport*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
+proc evalImport*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
   let importname = name(fexpr[1])
   let filepath = replace($importname, ".", "/") & ".flori"
   let modname = ctx.evalFile(filepath)
@@ -425,10 +469,12 @@ proc evalImport*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
 
 proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("fn"), evalDefn)
+  scope.addInternalEval(name("macro"), evalMacro)
   scope.addInternalEval(name("type"), evalDeftype)
   scope.addInternalEval(name("if"), evalIf)
   scope.addInternalEval(name("while"), evalWhile)
   scope.addInternalEval(name(":="), evalDef)
+  scope.addInternalEval(name("="), evalSet)
   scope.addInternalEval(name("."), evalFieldAccess)
   scope.addInternalEval(name("init"), evalInit)
   scope.addInternalEval(name("import"), evalImport)
@@ -446,4 +492,5 @@ proc newSemanticContext*(): SemanticContext =
   new result
   result.expandspans = initDeque[Span]()
   result.modules = initOrderedTable[Name, Scope]()
+  result.macroprocs = @[]
   result.initInternalScope()
