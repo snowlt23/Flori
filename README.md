@@ -63,6 +63,28 @@ fn main() {
 main()
 ```
 
+# Build
+
+**Requirements**
+
+- Nim (devel branch)
+  - nimble
+- GCC (GNU C Compiler)
+- TCC (Tiny C Compiler)
+
+```sh
+$ nimble install docopt
+$ nim c -d:release compiler/flori.nim
+```
+
+```sh
+$ compiler/flori c <filename>
+```
+
+```sh
+$ nim c -r tests/tester.nim
+```
+
 # TODO
 
 - CTRefCount

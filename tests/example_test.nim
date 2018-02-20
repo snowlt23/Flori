@@ -37,4 +37,4 @@ suite "example":
   test "tak":
     checkio "examples/tak.flori", "12\n"
   test "destructor":
-    checkio "examples/destructor.flori", "1\n2\nMyInt destroyed!\nMyInt destroyed!\n"
+    checkio "examples/destructor.flori", "MyInt destroyed!\n3\n4\nMyInt destroyed!\nMyInt destroyed!\n"
