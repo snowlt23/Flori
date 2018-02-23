@@ -11,7 +11,7 @@ macro for(fexpr FExpr) FExpr {
   expect(elem, FEXPR_IDENT)
   body := access(fexpr, 2)
   expect(body, FEXPR_BLOCK)
-  
+
   push(iter, elem)
   push(iter, body)
   iter
@@ -24,32 +24,13 @@ macro range(fexpr FExpr) FExpr {
   elem := access(fexpr, 2)
   body := access(fexpr, 3)
 
-  initexpr := new_fseq()
-  push(initexpr, parse(":="))
-  push(initexpr, elem)
-  push(initexpr, start)
-  
-  loopexpr := new_fseq()
-  push(loopexpr, parse("while"))
-  condlist := new_flist()
-  condexpr := new_fseq()
-  push(condexpr, parse("<="))
-  push(condexpr, elem)
-  push(condexpr, end)
-  push(condlist, condexpr)
-  push(loopexpr, condlist)
-  nextexpr := new_fseq()
-  push(nextexpr, parse("+="))
-  push(nextexpr, elem)
-  push(nextexpr, parse("1"))
-  push(body, nextexpr)
-  push(loopexpr, body)
-  
-  retexpr := new_fblock()
-  push(retexpr, initexpr)
-  push(retexpr, loopexpr)
-  println(retexpr)
-  retexpr
+  quote {
+    `elem := `start
+    while (`elem <= `end) {
+      `body
+      `elem += 1
+    }
+  }
 }
 
 for (i, range(1, 10)) {
