@@ -80,6 +80,7 @@ proc parseIf*(fexpr: FExpr): IfExpr =
   if fexpr.len < 3:
     fexpr.error("if expression require greater than 3 arguments.")
   result.elifbranch = @[]
+  result.elsebranch = fblock(fexpr.span)
   
   var pos = 1
 
@@ -328,8 +329,10 @@ proc evalIf*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
     ctx.evalFExpr(scope, branch.cond)
     if not branch.cond.typ.get.isBoolType:
       branch.cond.error("if expression cond should be Bool")
+    scope.resolveByVoid(branch.body)
     ctx.evalFExpr(scope, branch.body)
     types.add(branch.body.typ.get)
+  scope.resolveByVoid(parsed.elsebranch)
   ctx.evalFExpr(scope, parsed.elsebranch)
   types.add(parsed.elsebranch.typ.get)
 
@@ -364,16 +367,16 @@ proc evalDef*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
   if parsed.name.kind != fexprIdent:
     parsed.name.error("define name should be FIdent.")
 
-  let sym = scope.symbol(name(parsed.name), symbolVar, parsed.value)
-  let status = scope.addDecl(name(parsed.name), sym)
-  if not status:
-    fexpr.error("redefinition $# variable." % $parsed.name)
-
   ctx.evalFExpr(scope, parsed.value)
   if parsed.value.typ.get.isVoidType:
     parsed.value.error("value is Void.")
   scope.resolveByVoid(fexpr)
   parsed.name.typ = parsed.value.typ
+
+  let sym = scope.symbol(name(parsed.name), symbolVar, parsed.value)
+  let status = scope.addDecl(name(parsed.name), sym)
+  if not status:
+    fexpr.error("redefinition $# variable." % $parsed.name)
 
   parsed.name.ctrc = initCTRC()
   scope.tracking(parsed.name)
@@ -388,6 +391,8 @@ proc evalDef*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
 
 proc evalSet*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
   var parsed = SetExpr(dst: fexpr[1], value: fexpr[2])
+  
+  scope.resolveByVoid(fexpr)
 
   ctx.evalFExpr(scope, parsed.dst)
   ctx.evalFExpr(scope, parsed.value)
@@ -401,12 +406,14 @@ proc evalSet*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
       parsed.dst.ctrc.cnt = parsed.value.ctrc.cnt
     else:
       parsed.dst.ctrc = initCTRC()
-    let expand = fblock(fexpr.span)
-    var dcall = genDestructorCall(parsed.dst)
-    ctx.evalFExpr(scope, dcall)
-    expand.addSon(dcall)
-    expand.addSon(fexpr)
-    fexpr = expand
+    let opt = scope.getFunc(procname(name("destructor"), @[parsed.dst.typ.get]))
+    if opt.isSome:
+      let expand = fblock(fexpr.span)
+      var dcall = genDestructorCall(parsed.dst)
+      ctx.evalFExpr(scope, dcall)
+      expand.addSon(dcall)
+      expand.addSon(fexpr)
+      fexpr = expand
   if parsed.value.ctrc.tracked:
     parsed.value.ctrc.inc
 
@@ -467,6 +474,31 @@ proc evalImport*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
     modname: modname
   )
 
+proc collectQuotedItems*(fexpr: FExpr, collected: var seq[FExpr]) =
+  for son in fexpr:
+    if son.kind == fexprQuote and son.quoted.kind == fexprIdent:
+      collected.add(son.quoted)
+    elif son.kind in fexprContainer:
+      collectQuotedItems(son, collected)
+  
+proc evalQuote*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+  if fexpr[1].kind != fexprBlock:
+    fexpr[1].error("quote expected fblock, actually $#" % $fexpr[1].kind)
+  let str = fstrlit(fexpr[1].span, ($fexpr[1]).replace("\n", ";").replace("\"", "\\\""))
+  
+  let ret = fblock(fexpr.span)
+  let tmpid = fident(fexpr.span, ctx.genTmpName())
+  ret.addSon(fseq(fexpr.span, @[finfix(fexpr.span, name(":=")), tmpid, genCall(fident(fexpr.span, name("new_farray")))])) # tmpid := new_farray()
+  var collected = newSeq[FExpr]()
+  collectQuotedItems(fexpr[1], collected)
+  for c in collected:
+    ret.addSon(genCall(fident(fexpr.span, name("push")), tmpid, c)) # push(tmpid, c)
+  
+  ret.addSon(genCall(fident(fexpr.span, name("quote_expand")), genCall(fident(fexpr.span, name("parse")), str), tmpid)) # quote_expand(parse("..."), tmpid)
+  
+  fexpr = ret
+  ctx.evalFExpr(scope, fexpr)
+  
 proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("fn"), evalDefn)
   scope.addInternalEval(name("macro"), evalMacro)
@@ -478,6 +510,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("."), evalFieldAccess)
   scope.addInternalEval(name("init"), evalInit)
   scope.addInternalEval(name("import"), evalImport)
+  scope.addInternalEval(name("quote"), evalQuote)
 
   scope.addInternalEval(name("importc"), evalImportc)
   scope.addInternalEval(name("header"), evalHeader)

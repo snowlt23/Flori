@@ -43,6 +43,10 @@ proc addInternalEval*(scope: Scope, n: Name, p: proc (ctx: SemanticContext, scop
   if not status:
     fseq(internalSpan).error("redefinition $# function." % $n)
 
+proc genTmpName*(ctx: SemanticContext): Name =
+  result = name("tmpid" & $ctx.tmpcount)
+  ctx.tmpcount.inc
+    
 proc voidtypeExpr*(span: Span): FExpr =
   return fident(span, name("Void"))
 
@@ -180,6 +184,8 @@ proc internalScope*(ctx: SemanticContext): Scope =
 proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
   if not fexpr.hasInternalScope:
     fexpr.internalScope = scope
+  if not fexpr.hasInternalCtx:
+    fexpr.internalCtx = ctx
   case fexpr.kind
   of fexprIdent:
     let opt = scope.getDecl(name(fexpr))
@@ -212,6 +218,8 @@ proc evalFExpr*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
       ctx.evalFExpr(scope, son)
     fexpr.typ = fexpr[^1].typ
   of fexprSeq:
+    if fexpr.len == 0:
+      return
     let fn = fexpr[0]
     let internalopt = scope.getFunc(procname(name(fn), @[]))
     if internalopt.isSome and internalopt.get.isInternal:

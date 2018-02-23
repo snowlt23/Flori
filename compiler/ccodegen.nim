@@ -382,6 +382,9 @@ proc getCallTypes(fexpr: FExpr): seq[Symbol] =
   fexpr[0].symbol.fexpr.defn.args.mapIt(it[1].symbol)
     
 proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  if fexpr.len == 0:
+    return
+  
   if fexpr[0].kind != fexprSymbol:
     fexpr[0].error("$# isn't symbol." % $fexpr[0])
   let fn = fexpr[0].symbol.fexpr
@@ -433,7 +436,14 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     ctx.codegenFExpr(src, fexpr[0])
     src &= ")"
   of fexprBlock:
-    ctx.codegenBody(src, toSeq(fexpr.items))
+    if fexpr[^1].typ.get.isVoidType:
+      ctx.codegenBody(src, toSeq(fexpr.items))
+    else:
+      let tmp = ctx.gentmpsym()
+      var blocksrc = initSrcExpr()
+      ctx.codegenBody(blocksrc, toSeq(fexpr.items), ret = codegenSymbol(fexpr[^1].typ.get) & " " & tmp & " = ")
+      src.addPrev(blocksrc)
+      src &= tmp
   of fexprSeq:
     if fexpr.hasinternalMark:
       ctx.codegenInternal(src, fexpr, topcodegen = false)

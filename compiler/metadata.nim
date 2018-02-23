@@ -38,6 +38,7 @@ type
     header*: Option[string]
     infixc*: bool
     pattern*: Option[string]
+    internal*: bool
 
 type
   DefnExpr* = object
@@ -82,6 +83,7 @@ type
     importname*: Name
 
 defMetadata(internalScope, Scope)
+defMetadata(internalCtx, SemanticContext)
 defMetadata(internalToplevel, bool)
 defMetadata(internalMark, InternalMarkKind)
 defMetadata(internalPragma, InternalPragma)

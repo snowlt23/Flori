@@ -1,0 +1,28 @@
+
+import core/prelude
+import core/io
+import core/macros
+
+macro bench(fexpr FExpr) FExpr {
+  body := access(fexpr, 1)
+  quoted := quote {
+    starttime := get_clock()
+    `body
+    print("Elapsed: ")
+    println((get_clock() - starttime) / 1000)
+  }
+  println(quoted)
+  quoted
+}
+
+fn fib(n Int) Int {
+  if (n < 2) {
+    n
+  } else {
+    fib(n-1) + fib(n-2)
+  }
+}
+
+bench {
+  println(fib(30))
+}

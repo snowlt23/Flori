@@ -8,6 +8,9 @@ type Int64 $[importc "int64_t", header "stdint.h"]
 type UInt32 $[importc "uint32_t", header "stdint.h"]
 type Float $[importc "float", header nodeclc]
 
+fn `||(a Bool, b Bool) Bool $[importc "||", header nodeclc, pattern infixc]
+fn `&&(a Bool, b Bool) Bool $[importc "||", header nodeclc, pattern infixc]
+
 fn `+(a Int, b Int) Int $[importc "+", header nodeclc, pattern infixc]
 fn `+=(a Int, b Int) $[importc "+=", header nodeclc, pattern infixc]
 fn `-(a Int, b Int) Int $[importc "-", header nodeclc, pattern infixc]
