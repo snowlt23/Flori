@@ -48,6 +48,7 @@ proc setupFFI*(handle: LibHandle) =
   ffi "flori_push", ffiPush
   ffi "flori_kind", ffiKind
   ffi "flori_expect", ffiExpect
+  ffi "flori_error", ffiError
   ffi "flori_access", ffiAccess
   ffi "flori_set", ffiSet
 

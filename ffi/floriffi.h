@@ -12,5 +12,6 @@ int (*flori_length)(flori_fexpr fexpr);
 void (*flori_push)(flori_fexpr fexpr, flori_fexpr son);
 int (*flori_kind)(flori_fexpr fexpr);
 void (*flori_expect)(flori_fexpr fexpr, int kind);
+void (*flori_error)(flori_fexpr fexpr, char* msg);
 flori_fexpr (*flori_access)(flori_fexpr fexpr, int i);
 void (*flori_set)(flori_fexpr fexpr, int i, flori_fexpr value);

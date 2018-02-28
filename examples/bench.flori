@@ -5,14 +5,12 @@ import core/macros
 
 macro bench(fexpr FExpr) FExpr {
   body := access(fexpr, 1)
-  quoted := quote {
+  quote {
     starttime := get_clock()
     `body
     print("Elapsed: ")
     println((get_clock() - starttime) / 1000)
   }
-  println(quoted)
-  quoted
 }
 
 fn fib(n Int) Int {

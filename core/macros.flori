@@ -30,6 +30,7 @@ fn push(fexpr FExpr, son FExpr) $[importc "flori_push", header "floriffi.h"]
 fn length(fexpr FExpr) Int $[importc "flori_length", header "floriffi.h"]
 fn kind(fexpr FExpr) FExprKind $[importc "flori_kind", header "floriffi.h"]
 fn expect(fexpr FExpr, kind FExprKind) $[importc "flori_expect", header "floriffi.h"]
+fn error(fexpr FExpr, msg CString) $[importc "flori_error", header "floriffi.h"]
 fn access(fexpr FExpr, i Int) FExpr $[importc "flori_access", header "floriffi.h"]
 fn set(fexpr FExpr, i Int, value FExpr) $[importc "flori_set", header "floriffi.h"]
 

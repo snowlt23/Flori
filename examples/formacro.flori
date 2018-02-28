@@ -4,6 +4,10 @@ import core/io
 import core/macros
 
 macro for(fexpr FExpr) FExpr {
+  if ((length(fexpr) < 3) || (length(access(fexpr, 1)) < 2)) {
+    error(fexpr, "expect syntax: for (e, iter) {...}")
+  }
+  
   cond := access(fexpr, 1)
   expect(cond, FEXPR_LIST)
   elem := access(cond, 0)
@@ -18,7 +22,13 @@ macro for(fexpr FExpr) FExpr {
 }
 
 macro range(fexpr FExpr) FExpr {
+  if (length(fexpr) < 4) {
+    error(fexpr, "expect syntax: range(s, e) i {...}")
+  }
   args := access(fexpr, 1)
+  if (length(args) < 2) {
+    error(fexpr, "range: require 2 arguments")
+  }
   start := access(args, 0)
   end := access(args, 1)
   elem := access(fexpr, 2)
