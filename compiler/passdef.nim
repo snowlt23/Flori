@@ -48,8 +48,9 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   of fexprIdent:
     fexpr.error("unresolved $# ident by symbolResolve pass." % $fexpr)
   of fexprSymbol:
-    fexpr.typ = fexpr.symbol.fexpr.typ
-    scope.nextPass(fexpr)
+    if fexpr.symbol.types.isSpecTypes:
+      fexpr.typ = fexpr.symbol.fexpr.typ
+      scope.nextPass(fexpr)
   of fexprIntLit:
     let opt = scope.getDecl(name("Int"))
     if opt.isNone:

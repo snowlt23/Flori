@@ -30,7 +30,7 @@ proc resolveByVoid*(scope: Scope, fexpr: FExpr) =
 
 proc parseTypeExpr*(fexpr: FExpr, pos: var int): tuple[typ: FExpr, generics: FExpr] =
   if fexpr.kind in {fexprIdent, fexprSymbol, fexprQuote}:
-    result = (fexpr, farray(fexpr[pos].span))
+    result = (fexpr, farray(fexpr.span))
   elif fexpr.isParametricTypeExpr(pos):
     result = (fexpr[pos], fexpr[pos+1])
     pos += 2
@@ -213,7 +213,7 @@ proc semPragma*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, pragma: FExp
 proc semType*(scope: Scope, typ: FExpr, generics: FExpr): Symbol =
   let opt = scope.getDecl(name(typ))
   if opt.isNone:
-    typ.error("undeclared $# type." % $typ[1])
+    typ.error("undeclared $# type." % $typ)
     
   var sym = opt.get.scope.symbol(opt.get.name, opt.get.kind, opt.get.fexpr)
   for arg in generics.mitems:
@@ -299,6 +299,11 @@ proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if not status:
     fexpr.error("redefinition $# type." % $typename)
 
+  for g in parsed.generics:
+    let status = typescope.addDecl(name(g), typescope.symbol(name(g), symbolGenerics, g))
+    if not status:
+      g.error("redefinition $# generics." % $g)
+
   for field in parsed.body:
     var pos = 1
     let fieldtyp = field.parseTypeExpr(pos)
@@ -375,6 +380,31 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   parsed.name = fsym
   fexpr.internalMark = internalDef
   fexpr.internalDefExpr = parsed
+
+proc semInit*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.len != 3:
+    fexpr.error("init require 2 arguments.")
+  if fexpr[1].kind != fexprList:
+    fexpr.error("init type should be FList.")
+  if fexpr[1].len != 1:
+    fexpr.error("init type should be single argument.")
+  if fexpr[2].kind != fexprBlock:
+    fexpr.error("init body should be FBlock.")
+    
+  var pos = 0
+  let inittype = fexpr[1][0].parseTypeExpr(pos)
+  let typesym = scope.semType(inittype.typ, inittype.generics)
+  fexpr[1][0].replaceByTypesym(typesym)
+  fexpr.typ = typesym
+  scope.rootPass(fexpr[2])
+
+  let argtypes = fexpr[2].mapIt(it.typ)
+
+  fexpr.initexpr = InitExpr(
+    typ: fsymbol(inittype.typ.span, typesym),
+    body: fexpr[2]
+  )
+  fexpr.internalMark = internalInit
   
 #
 # Internal
@@ -398,6 +428,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("if"), semIf)
   scope.addInternalEval(name("while"), semWhile)
   scope.addInternalEval(name(":="), semDef)
+  scope.addInternalEval(name("init"), semInit)
 
   scope.addInternalEval(name("importc"), semImportc)
   scope.addInternalEval(name("header"), semHeader)

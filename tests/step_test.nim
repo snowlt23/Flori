@@ -77,3 +77,14 @@ printf("%d", nine)
     check $fexprs[^2].typ == "testmodule.Void"
     check $fexprs[^1][1][1] == "testmodule.nine"
     check $fexprs[^1][1][1].typ == "testmodule.Int"
+  test "generics init":
+    let ctx = newSemanticContext()
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
+type Wrap[T] {
+  x T
+}
+init(Wrap[Int]){9}
+""")
+    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    check fexprs[^1].internalMark == internalInit
+    check $fexprs[^1].typ == "testmodule.Wrap[testmodule.Int]"
