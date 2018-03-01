@@ -197,8 +197,17 @@ proc semPragma*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, pragma: FExp
 # Evaluater
 #
 
-proc semType*(scope: Scope, fexpr: FExpr, generics: FExpr): Symbol =
-  discard
+proc semType*(scope: Scope, typ: FExpr, generics: FExpr): Symbol =
+  let opt = scope.getDecl(name(typ))
+  if opt.isNone:
+    typ.error("undeclared $# type." % $typ[1])
+    
+  var sym = opt.get.scope.symbol(opt.get.name, opt.get.kind, opt.get.fexpr)
+  for arg in generics.mitems:
+    var pos = 0
+    let argtyp = arg.parseTypeExpr(pos)
+    sym.types.add(scope.semType(argtyp.typ, argtyp.generics))
+  return sym
 
 proc declGenerics*(scope: Scope, fexpr: FExpr): seq[Symbol] =
   result = @[]
@@ -237,7 +246,7 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: var De
   let sym = scope.symbol(name(parsed.name), symkind, fexpr)
   let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
   discard fnscope.addFunc(pd)
-
+  
   if parsed.generics.isSpecTypes:
     fnscope.rootPass(parsed.body)
   semPragma(rootPass, scope, fexpr, parsed.pragma)

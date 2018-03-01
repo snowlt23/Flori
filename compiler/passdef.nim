@@ -24,9 +24,11 @@ proc toplevelPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   of fexprArray, fexprList, fexprBlock:
     for son in fexpr.mitems:
       scope.rootPass(son)
+    scope.nextPass(fexpr)
   of fexprSeq:
     for i in 1..<fexpr.len:
       scope.rootPass(fexpr[i])
+    scope.nextPass(fexpr)
   else:
     scope.nextPass(fexpr)
     
@@ -61,6 +63,22 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
     fexpr.typ = opt.get
     scope.nextPass(fexpr)
   else:
-    scope.nextPass(fexpr)  
+    scope.nextPass(fexpr)
+
+proc overloadResolve*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+  case fexpr.kind
+  of fexprSeq:
+    if fexpr.len == 2 and fexpr[1].kind == fexprList:
+      let fnident = fexpr[0]
+      let argtypes = fexpr[1].mapIt(it.typ)
+      let opt = scope.getFunc(procname(name(fnident), argtypes))
+      if opt.isNone:
+        fexpr.error("undeclared $#($#) function." % [$fnident, argtypes.mapIt($it).join(", ")])
+      fexpr[0] = fsymbol(fexpr[1].span, opt.get.sym)
+      fexpr.typ = opt.get.returntype
+      
+    scope.nextPass(fexpr)
+  else:
+    scope.nextPass(fexpr)
     
 instPass SemPass, processSemPass

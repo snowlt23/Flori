@@ -25,3 +25,4 @@ printf("%d", 9)
     ctx.semModule(processSemPass, name("testmodule"), fexprs)
     check $fexprs[^1][1][0].typ == "testmodule.CString"
     check $fexprs[^1][1][1].typ == "testmodule.Int"
+    check $fexprs[^1].typ == "testmodule.Void"
