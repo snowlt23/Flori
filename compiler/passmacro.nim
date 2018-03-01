@@ -18,12 +18,12 @@ proc replaceNextPass*(procnode: NimNode, next: NimNode, root: NimNode): NimNode 
   let procbody = procnode[6]
   result = procnode
   result[6] = quote do:
-    template nextPass(scope: Scope, fexpr: var FExpr) =
+    template nextPass(scope: Scope, fexpr: var FExpr) {.used.} =
       `next`(scope, fexpr)
-    template nextPassProc(): PassProcType = `next`
-    template rootPass(scope: Scope, fexpr: var FExpr) =
+    template nextPassProc(): PassProcType {.used.} = `next`
+    template rootPass(scope: Scope, fexpr: var FExpr) {.used.} =
       `root`(scope, fexpr)
-    template rootPassProc(): PassProcType = `root`
+    template rootPassProc(): PassProcType {.used.} = `root`
     `procbody`
     
 proc toDecl*(procnode: NimNode): NimNode =
@@ -57,7 +57,7 @@ proc instPassImpl*(procname: string, passnodes: NimNode): NimNode =
     proc `rootid`*(scope: Scope, fexpr: var FExpr) =
       `firstpass`(scope, fexpr)
   
-  echo result.repr
+  # echo result.repr
   
 macro instPass*(passname: typed, procname: untyped): untyped =
   let sym = genSym(nskMacro, "instPassGen")

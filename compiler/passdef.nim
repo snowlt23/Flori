@@ -48,14 +48,14 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   of fexprIdent:
     fexpr.error("unresolved $# ident by symbolResolve pass." % $fexpr)
   of fexprSymbol:
-    # TODO: type infer for symbol
+    fexpr.typ = fexpr.symbol.fexpr.typ
     scope.nextPass(fexpr)
   of fexprIntLit:
     let opt = scope.getDecl(name("Int"))
     if opt.isNone:
       fexpr.error("undeclared Int type, please import prelude.")
     fexpr.typ = opt.get
-    scope.nextPass(fexpr)  
+    scope.nextPass(fexpr)
   of fexprStrLit:
     let opt = scope.getDecl(name("CString"))
     if opt.isNone:
@@ -65,16 +65,28 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   else:
     scope.nextPass(fexpr)
 
+# TODO:
+proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+  scope.nextPass(fexpr)
+
 proc overloadResolve*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   case fexpr.kind
   of fexprSeq:
-    if fexpr.len == 2 and fexpr[1].kind == fexprList:
+    if fexpr.len == 2 and fexpr[1].kind == fexprList: # call
       let fnident = fexpr[0]
       let argtypes = fexpr[1].mapIt(it.typ)
       let opt = scope.getFunc(procname(name(fnident), argtypes))
       if opt.isNone:
         fexpr.error("undeclared $#($#) function." % [$fnident, argtypes.mapIt($it).join(", ")])
-      fexpr[0] = fsymbol(fexpr[1].span, opt.get.sym)
+      fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
+      fexpr.typ = opt.get.returntype
+    elif fexpr.len == 3 and fexpr[0].kind == fexprInfix: # infix call
+      let fnident = fexpr[0]
+      let argtypes = @[fexpr[1].typ, fexpr[2].typ]
+      let opt = scope.getFunc(procname(name(fnident), argtypes))
+      if opt.isNone:
+        fexpr.error("undeclared `$#($#) function." % [$fnident, argtypes.mapIt($it).join(", ")])
+      fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
       fexpr.typ = opt.get.returntype
       
     scope.nextPass(fexpr)

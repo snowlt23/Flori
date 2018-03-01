@@ -224,11 +224,15 @@ proc declArgtypes*(scope: Scope, fexpr: FExpr, isGenerics: bool): seq[Symbol] =
   for arg in fexpr:
     var pos = 1
     let argtyp = arg.parseTypeExpr(pos)
-    let sym = scope.semType(argtyp.typ, argtyp.generics)
-    arg[1].replaceByTypesym(sym)
-    result.add(sym)
+    let typesym = scope.semType(argtyp.typ, argtyp.generics)
+    
+    let argsym = scope.symbol(name(arg[0]), symbolVar, arg[0])
+    arg[0].typ = typesym
+    arg[0].replaceByTypesym(argsym)
+    arg[1].replaceByTypesym(typesym)
+    result.add(typesym)
     if not isGenerics:
-      let status = scope.addDecl(name(arg[0]), sym)
+      let status = scope.addDecl(name(arg[0]), argsym)
       if not status:
         arg[0].error("redefinition $# variable." % $arg[0])
 
