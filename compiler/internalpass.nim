@@ -5,11 +5,24 @@ import options
 import strutils, sequtils
 import tables
 
+proc isEqualTypes*(types: seq[Symbol]): bool =
+  var first = types[0]
+  for t in types[1..^1]:
+    if first != t:
+      return false
+  return true
+
 proc replaceByTypesym*(fexpr: var FExpr, sym: Symbol) =
   fexpr = fsymbol(fexpr.span, sym)
 
 proc voidtypeExpr*(span: Span): FExpr =
   return fident(span, name("Void"))
+
+proc resolveByVoid*(scope: Scope, fexpr: FExpr) =
+  let opt = scope.getDecl(name("Void"))
+  if opt.isNone:
+    fexpr.error("undeclared Void type, please import prelude.")
+  fexpr.typ = opt.get
 
 #
 # Parser
@@ -302,6 +315,71 @@ proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.internalMark = internalDeftype
   fexpr.deftype = parsed
 
+proc semIf*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  var parsed = parseIf(fexpr)
+  var branchtypes = newSeq[Symbol]()
+  var isret = true
+
+  for branch in parsed.elifbranch.mitems:
+    scope.rootPass(branch.cond)
+    if not branch.cond.typ.isBoolType:
+      branch.cond.error("if expression cond type should be Bool.")
+    scope.rootPass(branch.body)
+    if branch.body.len != 0:
+      branchtypes.add(branch.body[^1].typ)
+    else:
+      isret = false
+  scope.rootPass(parsed.elsebranch)
+  if parsed.elsebranch.len != 0:
+    branchtypes.add(parsed.elsebranch[^1].typ)
+  else:
+    isret = false
+
+  if isret and branchtypes.isEqualTypes:
+    fexpr.typ = branchtypes[0]
+  else:
+    scope.resolveByVoid(fexpr)
+
+  fexpr.internalMark = internalIf
+  fexpr.internalIfExpr = parsed
+
+proc semWhile*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  var parsed = parseWhile(fexpr)
+  scope.rootPass(parsed.cond)
+  if not parsed.cond[0].typ.isBoolType:
+    parsed.cond.error("while statement cond type chould be Bool.")
+  scope.rootPass(parsed.body)
+  scope.resolveByVoid(fexpr)
+  fexpr.internalMark = internalWhile
+  fexpr.internalWhileExpr = parsed
+
+proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  var parsed = parseDef(fexpr)
+  if parsed.name.kind != fexprIdent:
+    parsed.name.error("variable name should be FIdent.")
+
+  scope.rootPass(parsed.value)
+  if parsed.value.typ.isVoidType:
+    parsed.value.error("value is Void.")
+  scope.resolveByVoid(fexpr)
+  parsed.name.typ = parsed.value.typ
+
+  let varsym = scope.symbol(name(parsed.name), symbolVar, parsed.name)
+  parsed.name.typ = parsed.value.typ
+  let status = scope.addDecl(name(parsed.name), varsym)
+  if not status:
+    fexpr.error("redefinition $# variable." % $parsed.name)
+
+  let fsym = fsymbol(fexpr[1].span, varsym)
+  fexpr[1] = fsym
+  parsed.name = fsym
+  fexpr.internalMark = internalDef
+  fexpr.internalDefExpr = parsed
+  
+#
+# Internal
+#
+  
 proc addInternalEval*(scope: Scope, n: Name, p: proc (rootPass: PassProcType, scope: Scope, fexpr: var FExpr)) =
   let status = scope.addFunc(ProcDecl(
     isInternal: true,
@@ -317,6 +395,9 @@ proc addInternalEval*(scope: Scope, n: Name, p: proc (rootPass: PassProcType, sc
 proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("fn"), semDefn)
   scope.addInternalEval(name("type"), semDeftype)
+  scope.addInternalEval(name("if"), semIf)
+  scope.addInternalEval(name("while"), semWhile)
+  scope.addInternalEval(name(":="), semDef)
 
   scope.addInternalEval(name("importc"), semImportc)
   scope.addInternalEval(name("header"), semHeader)
@@ -339,6 +420,7 @@ proc semModule*(ctx: SemanticContext, rootPass: PassProcType, name: Name, fexprs
   let scope = ctx.newScope(name)
   scope.importScope(name("internal"), ctx.internalScope)
   for f in fexprs.mitems:
+    f.internalToplevel = true
     scope.rootPass(f)
     scope.toplevels.add(f)
   ctx.modules[name] = scope

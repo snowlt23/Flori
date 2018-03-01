@@ -43,3 +43,37 @@ add5(4)
 """)
     ctx.semModule(processSemPass, name("testmodule"), fexprs)
     check $fexprs[^1].typ == "testmodule.Int"
+  test "if":
+    let ctx = newSemanticContext()
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
+if (1 == 1) {
+  1
+} else {
+  2
+}
+""")
+    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    check $fexprs[^1].typ == "testmodule.Int"
+    check fexprs[^1].internalMark == internalIf
+  test "while":
+    let ctx = newSemanticContext()
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
+while (1 == 2) {
+  printf("%d", 9)
+}
+""")
+    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    check $fexprs[^1].typ == "testmodule.Void"
+    check $fexprs[^1][0] == "while"
+    check fexprs[^1].internalMark == internalWhile
+  test "local def":
+    let ctx = newSemanticContext()
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
+nine := 9
+printf("%d", nine)
+""")
+    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    check fexprs[^2].internalMark == internalDef
+    check $fexprs[^2].typ == "testmodule.Void"
+    check $fexprs[^1][1][1] == "testmodule.nine"
+    check $fexprs[^1][1][1].typ == "testmodule.Int"
