@@ -56,9 +56,7 @@ type
 
   FExpr* = ref object
     span*: Span
-    typ*: Option[Symbol]
     metadata*: Table[string, Metadata]
-    ctrc*: CTRC
     case kind*: FExprKind
     of fexprIdent, fexprPrefix, fexprInfix:
       idname*: Name
@@ -76,9 +74,11 @@ type
   MacroProc* = ref object
     importname*: string
     call*: proc (fexpr: FExpr): FExpr {.cdecl.}
+  PassProcType* = proc (scope: Scope, fexpr: var FExpr)
+  InternalProcType* = proc (rootPass: PassProcType, scope: Scope, fexpr: var FExpr)
   ProcDecl* = object
     isInternal*: bool
-    internalProc*: proc (ctx: SemanticContext, scope: Scope, fexpr: var FExpr)
+    internalProc*: InternalProcType
     isMacro*: bool
     macroproc*: MacroProc
     name*: Name
@@ -93,6 +93,7 @@ type
   ProcDeclGroup* = object
     decls*: seq[ProcDecl]
   Scope* = ref object
+    ctx*: SemanticContext
     name*: Name
     top*: Scope
     level*: int
@@ -100,13 +101,8 @@ type
     procdecls*: Table[Name, ProcDeclGroup]
     importscopes*: OrderedTable[Name, Scope]
     toplevels*: seq[FExpr]
-    scopevalues*: seq[FExpr]
   SemanticContext* = ref object
-    expandspans*: Deque[Span]
     modules*: OrderedTable[Name, Scope]
-    macrolib*: LibHandle
-    macroprocs*: seq[MacroProc]
-    tmpcount*: int
 
 #
 # Scope
@@ -167,18 +163,3 @@ proc isSpecTypes*(types: FExpr): bool =
     if t.kind != fexprSymbol: return false
     if not t.symbol.isSpecSymbol: return false
   return true
-
-#
-# SemanticContext
-#
-
-template expandBy*(ctx: SemanticContext, span: Span, body: untyped) =
-  ctx.expandspans.addLast(span)
-  body
-  ctx.expandspans.popLast()
-proc printExpand*(ctx: SemanticContext) =
-  if ctx != nil:
-    if ctx.expandspans.len != 0:
-      for span in ctx.expandspans:
-        let e = "$#($#:$#): template expansion" % [span.filename, $span.line, $span.linepos]
-        styledEcho(fgGreen, "[Expand] ", resetStyle, e)

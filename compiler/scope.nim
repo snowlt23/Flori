@@ -14,8 +14,9 @@ export types.Scope
 
 import fexpr
 
-proc newScope*(name: Name): Scope =
+proc newScope*(ctx: SemanticContext, name: Name): Scope =
   new result
+  result.ctx = ctx
   result.name = name
   result.top = result
   result.level = 0
@@ -23,10 +24,10 @@ proc newScope*(name: Name): Scope =
   result.procdecls = initTable[Name, ProcDeclGroup]()
   result.importscopes = initOrderedTable[Name, Scope]()
   result.toplevels = @[]
-  result.scopevalues = @[]
 
 proc extendScope*(scope: Scope): Scope =
   new result
+  result.ctx = scope.ctx
   result.name = scope.name
   result.top = scope.top
   result.level = scope.level + 1
@@ -34,7 +35,6 @@ proc extendScope*(scope: Scope): Scope =
   result.procdecls = scope.procdecls
   result.importscopes = scope.importscopes
   result.toplevels = @[]
-  result.scopevalues = @[]
 
 proc match*(a, b: Symbol): bool =
   if b.kind == symbolGenerics:

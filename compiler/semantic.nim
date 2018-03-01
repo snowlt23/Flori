@@ -88,8 +88,6 @@ proc evalType*(ctx: SemanticContext, scope: Scope, typ: FExpr, generics: Option[
     if opt.isNone:
       typ.error("undeclared $# type." % $typ)
     return opt.get
-proc replaceByTypesym*(fexpr: var FExpr, sym: Symbol) =
-  fexpr = fsymbol(fexpr.span, sym)
 
 proc genCall*(name: FExpr, args: varargs[FExpr]): FExpr =
   fseq(name.span, @[name, flist(name.span, @args)])

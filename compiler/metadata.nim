@@ -20,7 +20,7 @@ macro defMetadata*(key: untyped, T: typed): untyped =
     proc `keyset`*(fexpr: FExpr, value: `T`) =
       fexpr.metadata[`keystr`] = `tsym`(data: value)
   # echo result.repr
-
+      
 type
   InternalMarkKind* = enum
     internalDefn
@@ -46,7 +46,7 @@ type
     generics*: FExpr
     args*: FExpr
     ret*: FExpr
-    retgenerics*: Option[FExpr]
+    retgenerics*: FExpr
     pragma*: FExpr
     body*: FExpr
   DeftypeExpr* = object
@@ -81,6 +81,8 @@ type
   ImportExpr* = object
     modname*: Name
     importname*: Name
+
+defMetadata(typ, Symbol)
 
 defMetadata(internalScope, Scope)
 defMetadata(internalCtx, SemanticContext)
