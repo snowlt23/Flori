@@ -58,7 +58,7 @@ proc parseDeftype*(fexpr: FExpr): DeftypeExpr =
 
   let ttyp = fexpr.parseTypeExpr(pos)
   result.name = ttyp.typ
-  result.generics = ttyp.generics
+  result.generics = if ttyp.generics.isSome: ttyp.generics.get else: farray(fexpr.span)
 
   if fexpr[pos].isPragmaPrefix:
     pos.inc
@@ -285,14 +285,15 @@ proc evalDeftype*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
 
   let typescope = scope.extendScope()
   # add generics variable to scope
-  if parsed.generics.isSome:
-    for g in parsed.generics.get:
-      let status = typescope.addDecl(name(g), typescope.symbol(name(g), symbolGenerics, g))
-      if not status:
-        g.error("redefinition $# generics." % $g)
+  # if parsed.isGenerics:
+  #   for g in parsed.generics:
+  #     let status = typescope.addDecl(name(g), typescope.symbol(name(g), symbolGenerics, g))
+  #     if not status:
+  #       g.error("redefinition $# generics." % $g)
+  discard ctx.declGenerics(typescope, parsed.generics)
 
   let sname = parsed.name
-  let sym = scope.symbol(name(sname), if parsed.generics.isSome: symbolTypeGenerics else: symbolType, fexpr)
+  let sym = scope.symbol(name(sname), if parsed.isGenerics: symbolTypeGenerics else: symbolType, fexpr)
   let status = scope.addDecl(name(sname), sym)
   if not status:
     fexpr.error("redefinition $# type." % $sname)
@@ -400,8 +401,9 @@ proc evalSet*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
   fexpr.internalMark = internalSet
   fexpr.internalSetExpr = parsed
 
-  parsed.dst.ctrc.dec
-  if parsed.dst.ctrc.destroyed: # FIXME:
+  if parsed.dst.ctrc.tracked:
+    parsed.dst.ctrc.dec
+  if parsed.dst.ctrc.tracked and parsed.dst.ctrc.destroyed: # FIXME:
     if parsed.value.ctrc.tracked:
       parsed.dst.ctrc.cnt = parsed.value.ctrc.cnt
     else:

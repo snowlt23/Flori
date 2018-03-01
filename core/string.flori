@@ -1,40 +1,32 @@
 
-(require prelude :refer :all)
-(require io :refer :all)
+import core/prelude
+import core/pointer
+import core/io
 
-(defstruct String
-  (data (Ptr UInt8))
-  (len Size))
+fn strlen(cs CString) Int $[importc, header "string.h"]
 
-@(: Size -> String)
-(defn str-cap [len]
-  (var str
-    (construct String
-      :data (cast (Ptr UInt8) (alloc (* (sizeof UInt8) (+ len (size 1)))))
-      :len len))
-  str)
-@(: CString -> String)
-(defn str [cstr]
-  (var bytesize (* (sizeof UInt8) (cast Size (+ (cast Int32 (strlen cstr)) 1))))
-  (var str
-    (construct String
-      :data (cast (Ptr UInt8) (alloc bytesize))
-      :len (strlen cstr)))
-  (memcpy (cast Pointer (str .data)) (cast Pointer cstr) bytesize)
-  str)
+type String {
+  p Ptr[Char]
+  len Int
+}
 
-@(: String Size -> UInt8)
-(defn nth [s index]
-  (nth (s .data) index))
+fn string(cs CString) String {
+  s := init(String){alloc[Char](strlen(cs) + 1); strlen(cs)}
+  memcpy(s.p, cast[Ptr[Char]](cs), strlen(cs))
+  s
+}
 
-@(: String -> Size)
-(defn len [s]
-  (s .len))
+fn length(s String) Int {
+  s.len
+}
 
-@(: String)
-(defn print [s]
-  (print (cast CString (s .data))))
+fn push(dest String, src String) {
+  len := length(dest) + length(src)
+  (dest.p) = realloc[Char](dest.p, len + 1)
+  memcpy((dest.p) +! length(dest), src.p, length(src))
+  (dest.len) = len
+}
 
-@(: String)
-(defn destructor [s]
-  (dealloc (cast Pointer (s .data))))
+fn print(s String) {
+  print(cast[CString](s.p))
+}

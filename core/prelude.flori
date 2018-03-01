@@ -2,6 +2,7 @@
 type Void $[importc "void", header nodeclc]
 type Bool $[importc "bool", header "stdbool.h"]
 type CString $[importc "char*", header nodeclc]
+type Char $[importc "char", header nodeclc]
 type Int $[importc "int64_t", header "stdint.h"]
 type Int32 $[importc "int32_t", header "stdint.h"]
 type Int64 $[importc "int64_t", header "stdint.h"]

@@ -1,0 +1,12 @@
+
+import core/prelude
+import core/io
+import core/string
+
+fn main() {
+  s := string("Hello Yukari!")
+  push(s, string(" and Maki!"))
+  println(s)
+}
+
+main()

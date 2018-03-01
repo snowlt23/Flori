@@ -51,7 +51,7 @@ type
     body*: FExpr
   DeftypeExpr* = object
     name*: FExpr
-    generics*: Option[FExpr]
+    generics*: FExpr
     pragma*: FExpr
     body*: FExpr
   ProtocolExpr* = object
@@ -104,4 +104,4 @@ defMetadata(parent, FExpr)
 proc isToplevel*(fexpr: FExpr): bool = fexpr.hasInternalToplevel
 
 proc isGenerics*(defn: DefnExpr): bool = not defn.generics.isSpecTypes
-proc isGenerics*(deftype: DeftypeExpr): bool = deftype.generics.isSome
+proc isGenerics*(deftype: DeftypeExpr): bool = not deftype.generics.isSpecTypes

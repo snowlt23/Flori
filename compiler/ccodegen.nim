@@ -184,7 +184,7 @@ proc codegenDeftype*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     src.addHeader(fexpr.internalPragma.header.get)
   if fexpr.internalPragma.importc.isSome:
     if fexpr.internalPragma.pattern.isSome:
-      if fexpr.deftype.generics.isNone:
+      if not fexpr.deftype.isGenerics:
         src.typedecls &= "typedef "
         src.typedecls &= codegenTypePattern(fexpr.internalPragma.pattern.get, fexpr.deftype.name.symbol.types)
         src.typedecls &= " "
@@ -198,7 +198,7 @@ proc codegenDeftype*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
       src.typedecls &= codegenSymbol(fexpr.deftype.name)
       src.typedecls &= ";\n"
   else:
-    if fexpr.deftype.generics.isNone:
+    if not fexpr.deftype.isGenerics:
       ctx.codegenDeftypeStruct(src, fexpr)
 
 proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =

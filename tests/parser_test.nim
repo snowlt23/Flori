@@ -102,3 +102,15 @@ suite "F expression parser test":
     check $fexpr[4][0][0] == "+"
     check $fexpr[4][0][1] == "x"
     check $fexpr[4][0][2] == "5"
+  test "generics operator":
+    let fexpr = parseToplevel("test.flori", """
+    fn `+![T](p Ptr[T], i Int) Ptr[T] {}
+    """)[0]
+    check fexpr.kind == fexprSeq
+    check fexpr[0].kind == fexprIdent
+    check $fexpr[0] == "fn"
+    check $fexpr[1] == "`+!"
+    check $fexpr[2] == "[T]"
+    check $fexpr[3] == "(p Ptr [T], i Int)"
+    check $fexpr[4] == "Ptr"
+    check $fexpr[5] == "[T]"

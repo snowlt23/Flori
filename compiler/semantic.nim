@@ -147,7 +147,7 @@ proc evalFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
     # symbol resolve
     fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
 
-proc evalGenericsFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: Fexpr) =
+proc evalGenericsFuncCall*(ctx: SemanticContext, scope: Scope, fexpr: FExpr) =
   let fn = fexpr[0]
   for arg in fexpr[2].mitems:
     ctx.evalFExpr(scope, arg)

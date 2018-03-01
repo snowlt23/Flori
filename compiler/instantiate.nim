@@ -95,9 +95,16 @@ proc instantiateDeftype*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types
   sym.types = types
   let fsym = fsymbol(fexpr.span, sym)
 
+  let generics = if types.len == 0:
+                   fexpr.deftype.generics
+                 elif types.isSpecTypes:
+                   farray(fexpr.deftype.generics.span)
+                 else:
+                   fexpr.deftype.generics
+  
   let deftypeexpr = DeftypeExpr(
     name: fsym,
-    generics: if types.isSpecTypes(): none(FExpr) else: some(flist(fexpr.span)),
+    generics: generics,
     pragma: fexpr.deftype.pragma,
     body: instbody
   )
@@ -162,6 +169,7 @@ proc instantiateDefn*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, types: s
   for arg in fexpr.defn.args:
     let iexpr = ctx.instantiateFExpr(fexpr.internalScope, arg[1])
     args.addSon(fseq(arg.span, @[arg[0], iexpr]))
+    iexpr.symbol.instance = some(iexpr.symbol)
     let status = instscope.addDecl(name(arg[0]), iexpr.symbol)
     if not status:
       arg[0].error("redefinition $# variable." % $arg[0])
