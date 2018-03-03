@@ -48,9 +48,10 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   of fexprIdent:
     fexpr.error("unresolved $# ident by symbolResolve pass." % $fexpr)
   of fexprSymbol:
-    if fexpr.symbol.types.isSpecTypes:
+    if fexpr.symbol.types.isSpecTypes and fexpr.symbol.fexpr.hasTyp:
       fexpr.typ = fexpr.symbol.fexpr.typ
       scope.nextPass(fexpr)
+    scope.nextPass(fexpr)
   of fexprIntLit:
     let opt = scope.getDecl(name("Int"))
     if opt.isNone:
@@ -77,12 +78,21 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
         fexpr.error("undeclared $#($#) function." % [$fnident, argtypes.mapIt($it).join(", ")])
       fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
       fexpr.typ = opt.get.returntype
+    elif fexpr.len == 3 and fexpr[1].kind == fexprArray and fexpr[2].kind == fexprList: # generics call
+      let fnident = fexpr[0]
+      let generics = fexpr[1]
+      let argtypes = fexpr[2].mapIt(it.typ)
+      let opt = scope.getFunc(procname(name(fnident), argtypes))
+      if opt.isNone:
+        fexpr.error("undeclared $#[$#]($#) function." % [$fnident, generics.mapIt($it).join(", "), argtypes.mapIt($it).join(", ")])
+      fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
+      fexpr.typ = opt.get.returntype
     elif fexpr.len == 3 and fexpr[0].kind == fexprInfix: # infix call
       let fnident = fexpr[0]
       let argtypes = @[fexpr[1].typ, fexpr[2].typ]
       let opt = scope.getFunc(procname(name(fnident), argtypes))
       if opt.isNone:
-        fexpr.error("undeclared `$#($#) function." % [$fnident, argtypes.mapIt($it).join(", ")])
+        fexpr.error("undeclared `$#($#) infix function." % [$fnident, argtypes.mapIt($it).join(", ")])
       fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
       fexpr.typ = opt.get.returntype
       
@@ -90,7 +100,6 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   else:
     scope.nextPass(fexpr)
 
-# TODO:
 proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   case fexpr.kind
   of fexprSeq:
@@ -101,6 +110,20 @@ proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
         let exsym = expandDefn(rootPassProc, scope, fnsym.symbol.fexpr, argtypes)
         fexpr[0] = exsym
         fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
+    elif fexpr.len == 3 and fexpr[1].kind == fexprArray and fexpr[2].kind == fexprList: # generics call
+      let fnsym = fexpr[0]
+      let genericstypes = fexpr[1].mapIt(it)
+      let argtypes = fexpr[2].mapIt(it.typ)
+      if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.generics.len != 0:
+        let defngenerics = fnsym.symbol.fexpr.defn.generics
+        for i, gtype in genericstypes:
+          defngenerics[i].assert(defngenerics[i].kind == fexprSymbol)
+          gtype.assert(gtype.kind == fexprSymbol)
+          defngenerics[i].symbol.instance = some(gtype.symbol)
+        let exsym = expandDefn(rootPassProc, scope, fnsym.symbol.fexpr, argtypes)
+        fexpr[0] = exsym
+        fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
+      
     scope.nextPass(fexpr)
   else:
     scope.nextPass(fexpr)

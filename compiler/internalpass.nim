@@ -5,6 +5,9 @@ import passutils
 import options
 import strutils, sequtils
 import tables
+import os
+
+proc semFile*(ctx: SemanticContext, rootPass: PassProcType, filepath: string): Name
 
 #
 # Parser
@@ -220,6 +223,9 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: var De
   let sym = scope.symbol(name(parsed.name), symkind, fexpr)
   let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
   discard fnscope.addFunc(pd)
+
+  fexpr.internalScope = fnscope
+  fexpr.defn = parsed
   
   if parsed.generics.isSpecTypes:
     fnscope.rootPass(parsed.body)
@@ -230,9 +236,12 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: var De
   fexpr[1] = fsym
   parsed.name = fsym
   
+  fexpr.defn = parsed
+  
   return (fnscope, generics, argtypes, rettype, sym)
 
 proc semDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  fexpr.internalMark = internalDefn
   var parsed = parseDefn(fexpr)
   let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed)
 
@@ -240,11 +249,6 @@ proc semDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let status = scope.addFunc(pd)
   if not status:
     fexpr.error("redefinition $# function." % $parsed.name)
-
-  # internal metadata for postprocess phase
-  fexpr.internalMark = internalDefn
-  fexpr.internalScope = fnscope
-  fexpr.defn = parsed
 
 proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var parsed = parseDeftype(fexpr)
@@ -361,6 +365,17 @@ proc semInit*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     body: fexpr[2]
   )
   fexpr.internalMark = internalInit
+
+proc semImport*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  let importname = name(fexpr[1])
+  let filepath = ($importname).replace(".", "/") & ".flori"
+  let modname = scope.ctx.semFile(rootPass, filepath)
+  scope.importScope(importname, scope.ctx.modules[modname])
+  fexpr.internalMark = internalImport
+  fexpr.internalImportExpr = ImportExpr(
+    importname: importname,
+    modname: modname
+  )
   
 #
 # Internal
@@ -385,6 +400,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("while"), semWhile)
   scope.addInternalEval(name(":="), semDef)
   scope.addInternalEval(name("init"), semInit)
+  scope.addInternalEval(name("import"), semImport)
 
   scope.addInternalEval(name("importc"), semImportc)
   scope.addInternalEval(name("header"), semHeader)
@@ -411,3 +427,13 @@ proc semModule*(ctx: SemanticContext, rootPass: PassProcType, name: Name, fexprs
     scope.rootPass(f)
     scope.toplevels.add(f)
   ctx.modules[name] = scope
+
+proc semFile*(ctx: SemanticContext, rootPass: PassProcType, filepath: string): Name =
+  var fexprs = parseToplevel(filepath, readFile(filepath))
+  let (dir, n, _) = filepath.splitFile()
+  let modname = if dir == "":
+                  name(dir.replace("/", ".") & "." & n)
+                else:
+                  name(n)
+  ctx.semModule(rootPass, modname, fexprs)
+  return modname

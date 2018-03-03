@@ -88,7 +88,7 @@ init(Wrap[Int]){9}
     ctx.semModule(processSemPass, name("testmodule"), fexprs)
     check fexprs[^1].internalMark == internalInit
     check $fexprs[^1].typ == "testmodule.Wrap[testmodule.Int]"
-  test "generics":
+  test "generics fn":
     let ctx = newSemanticContext()
     var fexprs = parseToplevel("testmodule.flori", prelude & """
 type Wrap[T] {
@@ -101,3 +101,39 @@ wrap(9)
 """)
     ctx.semModule(processSemPass, name("testmodule"), fexprs)
     check $fexprs[^1].typ == "testmodule.Wrap[testmodule.Int]"
+  test "recursion call":
+    let ctx = newSemanticContext()
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
+fn fib(n Int) Int {
+  if (n < 2) {
+    n
+  } else {
+    fib(n-1) + fib(n-2)
+  }
+}
+
+printf("%d\n", fib(30))
+""")
+    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    check $fexprs[^1][1][1].typ == "testmodule.Int"
+  test "generics call fn":
+    let ctx = newSemanticContext()
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
+type Wrap[T] {
+  x T
+}
+fn wrap[T](x T) Wrap[T] {
+  init(Wrap){x}
+}
+fn main() {
+  wrap[Int](9)
+}
+main()
+""")
+  test "import":
+    let ctx = newSemanticContext()
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
+import core/prelude
+""")
+    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    check fexprs[^1].internalMark == internalImport
