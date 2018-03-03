@@ -1,44 +1,14 @@
 
 import parser, types, fexpr, scope, metadata
+import passutils
 
 import options
 import strutils, sequtils
 import tables
 
-proc isEqualTypes*(types: seq[Symbol]): bool =
-  var first = types[0]
-  for t in types[1..^1]:
-    if first != t:
-      return false
-  return true
-
-proc replaceByTypesym*(fexpr: var FExpr, sym: Symbol) =
-  fexpr = fsymbol(fexpr.span, sym)
-
-proc voidtypeExpr*(span: Span): FExpr =
-  return fident(span, name("Void"))
-
-proc resolveByVoid*(scope: Scope, fexpr: FExpr) =
-  let opt = scope.getDecl(name("Void"))
-  if opt.isNone:
-    fexpr.error("undeclared Void type, please import prelude.")
-  fexpr.typ = opt.get
-
 #
 # Parser
 #
-
-proc parseTypeExpr*(fexpr: FExpr, pos: var int): tuple[typ: FExpr, generics: FExpr] =
-  if fexpr.kind in {fexprIdent, fexprSymbol, fexprQuote}:
-    result = (fexpr, farray(fexpr.span))
-  elif fexpr.isParametricTypeExpr(pos):
-    result = (fexpr[pos], fexpr[pos+1])
-    pos += 2
-  elif fexpr[pos].kind in {fexprIdent, fexprQuote}:
-    result = (fexpr[pos], farray(fexpr[pos].span))
-    pos += 1
-  else:
-    fexpr[pos].error("$# isn't type expression." % $fexpr[pos])
 
 proc parseDefn*(fexpr: FExpr): DefnExpr =
   var pos = 1
@@ -210,18 +180,6 @@ proc semPragma*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, pragma: FExp
 # Evaluater
 #
 
-proc semType*(scope: Scope, typ: FExpr, generics: FExpr): Symbol =
-  let opt = scope.getDecl(name(typ))
-  if opt.isNone:
-    typ.error("undeclared $# type." % $typ)
-    
-  var sym = opt.get.scope.symbol(opt.get.name, opt.get.kind, opt.get.fexpr)
-  for arg in generics.mitems:
-    var pos = 0
-    let argtyp = arg.parseTypeExpr(pos)
-    sym.types.add(scope.semType(argtyp.typ, argtyp.generics))
-  return sym
-
 proc declGenerics*(scope: Scope, fexpr: FExpr): seq[Symbol] =
   result = @[]
   for g in fexpr.mitems:
@@ -244,10 +202,9 @@ proc declArgtypes*(scope: Scope, fexpr: FExpr, isGenerics: bool): seq[Symbol] =
     arg[0].replaceByTypesym(argsym)
     arg[1].replaceByTypesym(typesym)
     result.add(typesym)
-    if not isGenerics:
-      let status = scope.addDecl(name(arg[0]), argsym)
-      if not status:
-        arg[0].error("redefinition $# variable." % $arg[0])
+    let status = scope.addDecl(name(arg[0]), argsym)
+    if not status:
+      arg[0].error("redefinition $# variable." % $arg[0])
 
 proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: var DefnExpr): (Scope, seq[Symbol], seq[Symbol], Symbol, Symbol) =
   let fnscope = scope.extendScope()
@@ -286,6 +243,7 @@ proc semDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
 
   # internal metadata for postprocess phase
   fexpr.internalMark = internalDefn
+  fexpr.internalScope = fnscope
   fexpr.defn = parsed
 
 proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
@@ -299,10 +257,8 @@ proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if not status:
     fexpr.error("redefinition $# type." % $typename)
 
-  for g in parsed.generics:
-    let status = typescope.addDecl(name(g), typescope.symbol(name(g), symbolGenerics, g))
-    if not status:
-      g.error("redefinition $# generics." % $g)
+  if parsed.isGenerics:
+    discard typescope.declGenerics(parsed.generics)
 
   for field in parsed.body:
     var pos = 1

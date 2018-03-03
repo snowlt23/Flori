@@ -88,3 +88,16 @@ init(Wrap[Int]){9}
     ctx.semModule(processSemPass, name("testmodule"), fexprs)
     check fexprs[^1].internalMark == internalInit
     check $fexprs[^1].typ == "testmodule.Wrap[testmodule.Int]"
+  test "generics":
+    let ctx = newSemanticContext()
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
+type Wrap[T] {
+  x T
+}
+fn wrap[T](x T) Wrap[T] {
+  init(Wrap[T]){x}
+}
+wrap(9)
+""")
+    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    check $fexprs[^1].typ == "testmodule.Wrap[testmodule.Int]"

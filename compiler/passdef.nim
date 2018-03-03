@@ -1,6 +1,6 @@
 
 import compiler.parser, compiler.types, compiler.fexpr, compiler.scope, compiler.metadata
-import compiler.passmacro
+import compiler.passmacro, compiler.expandpass
 
 import options
 import strutils, sequtils
@@ -66,10 +66,6 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   else:
     scope.nextPass(fexpr)
 
-# TODO:
-proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
-  scope.nextPass(fexpr)
-
 proc overloadResolve*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   case fexpr.kind
   of fexprSeq:
@@ -93,5 +89,20 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
     scope.nextPass(fexpr)
   else:
     scope.nextPass(fexpr)
-    
+
+# TODO:
+proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+  case fexpr.kind
+  of fexprSeq:
+    if fexpr.len == 2 and fexpr[1].kind == fexprList: # call
+      let fnsym = fexpr[0]
+      let argtypes = fexpr[1].mapIt(it.typ)
+      if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.generics.len != 0:
+        let exsym = expandDefn(rootPassProc, scope, fnsym.symbol.fexpr, argtypes)
+        fexpr[0] = exsym
+        fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
+    scope.nextPass(fexpr)
+  else:
+    scope.nextPass(fexpr)
+
 instPass SemPass, processSemPass
