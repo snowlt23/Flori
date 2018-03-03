@@ -130,6 +130,18 @@ fn main() {
 }
 main()
 """)
+  test "generics cannot instantiate":
+    let ctx = newSemanticContext()
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
+type Wrap[T] {
+  x T
+}
+fn wrap[T](x Int) Wrap[T] {
+}
+wrap(9)
+""")
+    expect(FExprError):
+      ctx.semModule(processSemPass, name("testmodule"), fexprs)
   test "import":
     let ctx = newSemanticContext()
     var fexprs = parseToplevel("testmodule.flori", prelude & """
@@ -137,3 +149,4 @@ import core/prelude
 """)
     ctx.semModule(processSemPass, name("testmodule"), fexprs)
     check fexprs[^1].internalMark == internalImport
+    
