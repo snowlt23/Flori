@@ -21,8 +21,6 @@ proc hint*(span: Span, msg: string) =
   let h = " $#($#:$#): " % [span.filename, $span.line, $span.linepos] & msg
   styledEcho(fgGreen, "[Hint] ", resetStyle, h)
 proc error*(span: Span, msg: string, ctx: SemanticContext) =
-  ctx.printExpand()
-
   let e = "$#($#:$#): " % [span.filename, $span.line, $span.linepos] & msg
   styledEcho(fgRed, "[Error] ", resetStyle, e)
 
@@ -45,31 +43,30 @@ template internalSpan*(): Span =
   Span(line: 0, linepos: 0, internal: (internalname, internalline))
 
 proc fident*(span: Span, name: Name): FExpr =
-  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprIdent, idname: name)
+  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprIdent, idname: name)
 proc fprefix*(span: Span, name: Name): FExpr =
-  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprPrefix, idname: name)
+  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprPrefix, idname: name)
 proc finfix*(span: Span, name: Name): FExpr =
-  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprInfix, idname: name)
+  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprInfix, idname: name)
 proc fquote*(span: Span, q: FExpr): FExpr =
-  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprQuote, quoted: q)
+  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprQuote, quoted: q)
 proc fsymbol*(span: Span, sym: Symbol): FExpr =
-  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprSymbol, symbol: sym)
+  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprSymbol, symbol: sym)
 proc fintlit*(span: Span, x: int64): FExpr =
-  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprIntLit, intval: x)
+  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprIntLit, intval: x)
 proc fstrlit*(span: Span, s: string): FExpr =
-  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprStrLit, strval: s)
+  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprStrLit, strval: s)
 proc fseq*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprSeq, sons: sons)
+  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprSeq, sons: sons)
 proc farray*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprArray, sons: sons)
+  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprArray, sons: sons)
 proc flist*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprList, sons: sons)
+  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprList, sons: sons)
 proc fblock*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, typ: none(Symbol), metadata: initTable[string, Metadata](), kind: fexprBlock, sons: sons)
+  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprBlock, sons: sons)
 proc fcontainer*(span: Span, kind: FExprKind, sons = newSeq[FExpr]()): FExpr =
   new result
   result.span = span
-  result.typ = none(Symbol)
   result.metadata = initTable[string, Metadata]()
   result.kind = kind
   result.sons = sons
@@ -175,6 +172,17 @@ proc toString*(fexpr: FExpr, indent: int): string =
     "{" & "\n" & genIndent(indent + 2) & fexpr.sons.mapIt(it.toString(indent + 2)).join("\n" & genIndent(indent + 2)) & "\n" & genIndent(indent) & "}"
 
 proc `$`*(fexpr: FExpr): string = fexpr.toString(0)
+    
+proc name*(fexpr: FExpr): Name =
+  case fexpr.kind
+  of fexprNames:
+    return name($fexpr)
+  of fexprQuote:
+    return name(fexpr.quoted)
+  of fexprSymbol:
+    return fexpr.symbol.name
+  else:
+    fexpr.error("$# is not name." % $fexpr)
 
 
 

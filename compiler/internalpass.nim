@@ -1,27 +1,33 @@
 
-import types, fexpr, parser
-import scope, semantic, ctrc
-import metadata
+import parser, types, fexpr, scope, metadata
+import passutils
 import compileutils
 
 import options
 import strutils, sequtils
 import tables
-import deques
+import os
+
+proc semFile*(ctx: SemanticContext, rootPass: PassProcType, filepath: string): Name
 
 #
 # Parser
 #
+
+proc getFieldType*(fexpr: FExpr, fieldname: string): Option[Symbol] =
+  if not fexpr.hasDeftype:
+    fexpr.error("$# isn't structure type."  % $fexpr)
+  for field in fexpr.deftype.body:
+    if $field[0] == fieldname:
+      return some(field[1].symbol)
+  return none(Symbol)
 
 proc parseDefn*(fexpr: FExpr): DefnExpr =
   var pos = 1
 
   let ftyp = fexpr.parseTypeExpr(pos)
   result.name = ftyp.typ
-  result.generics = if ftyp.generics.isSome:
-                      ftyp.generics.get
-                    else:
-                      farray(fexpr.span)
+  result.generics = ftyp.generics
 
   if fexpr[pos].kind == fexprList:
     result.args = fexpr[pos]
@@ -35,7 +41,7 @@ proc parseDefn*(fexpr: FExpr): DefnExpr =
     result.retgenerics = rtyp.generics
   else:
     result.ret = voidtypeExpr(fexpr.span)
-    result.retgenerics = none(FExpr)
+    result.retgenerics = farray(fexpr.span)
 
   if fexpr.len > pos and fexpr[pos].isPragmaPrefix:
     pos.inc
@@ -58,7 +64,7 @@ proc parseDeftype*(fexpr: FExpr): DeftypeExpr =
 
   let ttyp = fexpr.parseTypeExpr(pos)
   result.name = ttyp.typ
-  result.generics = if ttyp.generics.isSome: ttyp.generics.get else: farray(fexpr.span)
+  result.generics = ttyp.generics
 
   if fexpr[pos].isPragmaPrefix:
     pos.inc
@@ -132,7 +138,7 @@ proc parseDef*(fexpr: FExpr): DefExpr =
 # Pragma
 #
 
-proc evalImportc*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+proc semImportc*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.kind == fexprIdent:
     let name = $fexpr.parent[0]
     fexpr.parent.internalPragma.importc = some(name)
@@ -142,7 +148,7 @@ proc evalImportc*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
     let name = fexpr[1].strval
     fexpr.parent.internalPragma.importc = some(name)
 
-proc evalHeader*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+proc semHeader*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.len == 2:
     if $fexpr[1] == "nodeclc":
       fexpr.parent.internalPragma.header = none(string)
@@ -154,7 +160,7 @@ proc evalHeader*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
   else:
     fexpr.error("usage: `header \"headername.h\"`")
 
-proc evalPattern*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+proc semPattern*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.len == 2:
     if $fexpr[1] == "infixc":
       fexpr.parent.internalPragma.infixc = true
@@ -165,7 +171,7 @@ proc evalPattern*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
   else:
     fexpr.error("usage: `pattern \"#1($1)\"` or `pattern infixc`")
 
-proc evalPragma*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, pragma: FExpr) =
+proc semPragma*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, pragma: FExpr) =
   if pragma.kind != fexprArray:
     pragma.error("$# isn't internal pragma." % $pragma)
   fexpr.internalPragma = InternalPragma()
@@ -178,45 +184,50 @@ proc evalPragma*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, pragma: FExpr
                        name(key)
     let internalopt = scope.getFunc(procname(pragmaname, @[]))
     if internalopt.isSome:
-      internalopt.get.internalproc(ctx, scope, key)
+      internalopt.get.internalproc(rootPass, scope, key)
     else:
-      key[0].error("undeclared $# pragma." % $pragmaname)
+      key[0].error("undeclared $# pragma. (internal only support in currently)" % $pragmaname)
 
 #
 # Evaluater
 #
 
-proc declGenerics*(ctx: SemanticContext, scope: Scope, fexpr: FExpr): seq[Symbol] =
+proc declGenerics*(scope: Scope, fexpr: FExpr): seq[Symbol] =
   result = @[]
   for g in fexpr.mitems:
     let sym = scope.symbol(name(g), symbolGenerics, g)
     let status = scope.addDecl(name(g), sym)
-    g.typ = some(sym)
     if not status:
       g.error("redefinition $# generics." % $g)
+    g = fsymbol(g.span, sym)
     result.add(sym)
 
-proc declArgtypes*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, isGenerics: bool): seq[Symbol] =
+proc declArgtypes*(scope: Scope, fexpr: FExpr, isGenerics: bool): seq[Symbol] =
   result = @[]
   for arg in fexpr:
     var pos = 1
     let argtyp = arg.parseTypeExpr(pos)
-    let sym = ctx.evalType(scope, argtyp.typ, argtyp.generics)
-    arg[1].replaceByTypesym(sym)
-    result.add(sym)
+    let typesym = scope.semType(argtyp.typ, argtyp.generics)
+    
+    let argsym = scope.symbol(name(arg[0]), symbolVar, arg[0])
+    arg[0].typ = typesym
+    arg[0].replaceByTypesym(argsym)
+    arg[1].replaceByTypesym(typesym)
+    result.add(typesym)
+
     if not isGenerics:
-      let status = scope.addDecl(name(arg[0]), sym)
+      let status = scope.addDecl(name(arg[0]), argsym)
       if not status:
         arg[0].error("redefinition $# variable." % $arg[0])
 
-proc evalFunc*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, parsed: var DefnExpr): (Scope, seq[Symbol], seq[Symbol], Symbol, Symbol) =
+proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: var DefnExpr): (Scope, seq[Symbol], seq[Symbol], Symbol, Symbol) =
   let fnscope = scope.extendScope()
   let generics = if parsed.isGenerics:
-                   ctx.declGenerics(fnscope, parsed.generics)
+                   fnscope.declGenerics(parsed.generics)
                  else:
                    @[]
-  let argtypes = ctx.declArgtypes(fnscope, parsed.args, parsed.isGenerics)
-  let rettype = ctx.evalType(fnscope, parsed.ret, parsed.retgenerics)
+  let argtypes = fnscope.declArgtypes(parsed.args, parsed.isGenerics)
+  let rettype = fnscope.semType(parsed.ret, parsed.retgenerics)
   parsed.ret.replaceByTypesym(rettype)
   
   let symkind = if parsed.name.kind == fexprQuote: symbolInfix else: symbolFunc
@@ -224,85 +235,67 @@ proc evalFunc*(ctx: SemanticContext, scope: Scope, fexpr: FExpr, parsed: var Def
   let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
   discard fnscope.addFunc(pd)
 
-  parsed.body.internalScope = fnscope
+  fexpr.internalScope = fnscope
+  fexpr.defn = parsed
+
   if parsed.generics.isSpecTypes:
-    ctx.evalFExpr(fnscope, parsed.body)
-    ctx.expandDestructor(fnscope, parsed.body)
-  ctx.evalPragma(scope, fexpr, parsed.pragma)
+    fnscope.rootPass(parsed.body)
+  semPragma(rootPass, scope, fexpr, parsed.pragma)
 
   # symbol resolve
   let fsym = fsymbol(fexpr[0].span, sym)
   fexpr[1] = fsym
   parsed.name = fsym
   
+  fexpr.defn = parsed
+  
   return (fnscope, generics, argtypes, rettype, sym)
 
-proc evalDefn*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+proc semDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  fexpr.internalMark = internalDefn
   var parsed = parseDefn(fexpr)
-  let (fnscope, generics, argtypes, rettype, sym) = ctx.evalFunc(scope, fexpr, parsed)
+  let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed)
 
   let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
   let status = scope.addFunc(pd)
   if not status:
     fexpr.error("redefinition $# function." % $parsed.name)
 
-  # internal metadata for postprocess phase
-  fexpr.internalMark = internalDefn
-  fexpr.defn = parsed
-
-# TODO: macroproc in evalMacro
-proc evalMacro*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  fexpr.internalMark = internalMacro
   var parsed = parseDefn(fexpr)
-  let (fnscope, generics, argtypes, rettype, sym) = ctx.evalFunc(scope, fexpr, parsed)
+  let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed)
 
   let mp = MacroProc(importname: codegenMangling(sym, @[], argtypes)) # FIXME: support generics
   let pd = ProcDecl(isInternal: false, isMacro: true, macroproc: mp, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
   let status = scope.addFunc(pd)
   if not status:
     fexpr.error("redefinition $# macro." % $parsed.name)
-  
-  # internal metadata for postprocess phase
-  fexpr.internalMark = internalMacro
-  fexpr.defn = parsed
 
   scope.toplevels.add(fexpr)
   defer: scope.toplevels.del(high(scope.toplevels))
-
-  # load library
-  ctx.macroprocs.add(mp)
-  ctx.reloadMacroLibrary(scope)
-
-proc getFieldType*(fexpr: FExpr, fieldname: string): Option[Symbol] =
-  if not fexpr.hasDeftype:
-    fexpr.error("$# isn't structure type." % $fexpr)
-  for field in fexpr.deftype.body:
-    if $field[0] == fieldname:
-      return some(field[1].symbol)
-  return none(Symbol)
-
-proc evalDeftype*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+    
+  scope.ctx.macroprocs.add(mp)
+  scope.ctx.reloadMacroLibrary(scope)
+    
+proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var parsed = parseDeftype(fexpr)
 
   let typescope = scope.extendScope()
-  # add generics variable to scope
-  # if parsed.isGenerics:
-  #   for g in parsed.generics:
-  #     let status = typescope.addDecl(name(g), typescope.symbol(name(g), symbolGenerics, g))
-  #     if not status:
-  #       g.error("redefinition $# generics." % $g)
-  discard ctx.declGenerics(typescope, parsed.generics)
 
-  let sname = parsed.name
-  let sym = scope.symbol(name(sname), if parsed.isGenerics: symbolTypeGenerics else: symbolType, fexpr)
-  let status = scope.addDecl(name(sname), sym)
+  let typename = name(parsed.name)
+  let sym = scope.symbol(typename, symbolType, fexpr)
+  let status = scope.addDecl(typename, sym)
   if not status:
-    fexpr.error("redefinition $# type." % $sname)
-  fexpr.typ = some(sym)
+    fexpr.error("redefinition $# type." % $typename)
+
+  if parsed.isGenerics:
+    discard typescope.declGenerics(parsed.generics)
 
   for field in parsed.body:
     var pos = 1
     let fieldtyp = field.parseTypeExpr(pos)
-    let s = ctx.evalType(typescope, fieldtyp.typ, fieldtyp.generics)
+    let s = typescope.semType(fieldtyp.typ, fieldtyp.generics)
     field[1].replaceByTypesym(s)
     sym.types.add(s)
   
@@ -311,130 +304,98 @@ proc evalDeftype*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
   fexpr[1] = fsym
   parsed.name = fsym
   # internal metadata for postprocess phase
-  ctx.evalPragma(scope, fexpr, parsed.pragma)
+  semPragma(rootPass, scope, fexpr, parsed.pragma)
   fexpr.internalMark = internalDeftype
   fexpr.deftype = parsed
 
-proc isEqualTypes*(types: seq[Symbol]): bool =
-  var first = types[0]
-  for t in types[1..^1]:
-    if first != t:
-      return false
-  return true
-
-proc evalIf*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+proc semIf*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var parsed = parseIf(fexpr)
-  var types = newSeq[Symbol]()
+  var branchtypes = newSeq[Symbol]()
+  var isret = true
 
   for branch in parsed.elifbranch.mitems:
-    ctx.evalFExpr(scope, branch.cond)
-    if not branch.cond.typ.get.isBoolType:
-      branch.cond.error("if expression cond should be Bool")
-    scope.resolveByVoid(branch.body)
-    ctx.evalFExpr(scope, branch.body)
-    types.add(branch.body.typ.get)
-  scope.resolveByVoid(parsed.elsebranch)
-  ctx.evalFExpr(scope, parsed.elsebranch)
-  types.add(parsed.elsebranch.typ.get)
-
-  if isEqualTypes(types):
-    fexpr.typ = some(types[0])
+    scope.rootPass(branch.cond)
+    if not branch.cond.typ.isBoolType:
+      branch.cond.error("if expression cond type should be Bool.")
+    scope.rootPass(branch.body)
+    if branch.body.len != 0:
+      branchtypes.add(branch.body[^1].typ)
+    else:
+      isret = false
+  scope.rootPass(parsed.elsebranch)
+  if parsed.elsebranch.len != 0:
+    branchtypes.add(parsed.elsebranch[^1].typ)
   else:
-    let opt = scope.getDecl(name("Void"))
-    if opt.isNone:
-      fexpr.error("undeclared Void type.")
-    fexpr.typ = opt
-  # internal metadata for postprocess phase
+    isret = false
+
+  if isret and branchtypes.isEqualTypes:
+    fexpr.typ = branchtypes[0]
+  else:
+    scope.resolveByVoid(fexpr)
+
   fexpr.internalMark = internalIf
   fexpr.internalIfExpr = parsed
 
-proc evalWhile*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+proc semWhile*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var parsed = parseWhile(fexpr)
-
-  ctx.evalFExpr(scope, parsed.cond)
-  if not parsed.cond.typ.get.isBoolType:
-    parsed.cond.error("while statement cond should be Bool")
-
-  ctx.evalFExpr(scope, parsed.body)
-
+  scope.rootPass(parsed.cond)
+  if not parsed.cond[0].typ.isBoolType:
+    parsed.cond.error("while statement cond type chould be Bool.")
+  scope.rootPass(parsed.body)
   scope.resolveByVoid(fexpr)
-
-  # internal metadata for postprocess phase
   fexpr.internalMark = internalWhile
   fexpr.internalWhileExpr = parsed
 
-proc evalDef*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var parsed = parseDef(fexpr)
   if parsed.name.kind != fexprIdent:
-    parsed.name.error("define name should be FIdent.")
+    parsed.name.error("variable name should be FIdent.")
 
-  ctx.evalFExpr(scope, parsed.value)
-  if parsed.value.typ.get.isVoidType:
+  scope.rootPass(parsed.value)
+  if parsed.value.typ.isVoidType:
     parsed.value.error("value is Void.")
   scope.resolveByVoid(fexpr)
   parsed.name.typ = parsed.value.typ
 
-  let sym = scope.symbol(name(parsed.name), symbolVar, parsed.value)
-  let status = scope.addDecl(name(parsed.name), sym)
+  let varsym = scope.symbol(name(parsed.name), symbolVar, parsed.name)
+  parsed.name.typ = parsed.value.typ
+  let status = scope.addDecl(name(parsed.name), varsym)
   if not status:
     fexpr.error("redefinition $# variable." % $parsed.name)
 
-  parsed.name.ctrc = initCTRC()
-  scope.tracking(parsed.name)
-
-  # symbol resolve
-  let fsym = fsymbol(fexpr[0].span, sym)
+  let fsym = fsymbol(fexpr[1].span, varsym)
   fexpr[1] = fsym
   parsed.name = fsym
-  # internal metadata for postprocess phase
   fexpr.internalMark = internalDef
   fexpr.internalDefExpr = parsed
 
-proc evalSet*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.len != 3:
+    fexpr.error("expected set syntax: left = value")
   var parsed = SetExpr(dst: fexpr[1], value: fexpr[2])
-  
-  scope.resolveByVoid(fexpr)
 
-  ctx.evalFExpr(scope, parsed.dst)
-  ctx.evalFExpr(scope, parsed.value)
+  scope.resolveByVoid(fexpr)
+  scope.rootPass(parsed.dst)
+  scope.rootPass(parsed.value)
 
   fexpr.internalMark = internalSet
   fexpr.internalSetExpr = parsed
 
-  if parsed.dst.ctrc.tracked:
-    parsed.dst.ctrc.dec
-  if parsed.dst.ctrc.tracked and parsed.dst.ctrc.destroyed: # FIXME:
-    if parsed.value.ctrc.tracked:
-      parsed.dst.ctrc.cnt = parsed.value.ctrc.cnt
-    else:
-      parsed.dst.ctrc = initCTRC()
-    let opt = scope.getFunc(procname(name("destructor"), @[parsed.dst.typ.get]))
-    if opt.isSome:
-      let expand = fblock(fexpr.span)
-      var dcall = genDestructorCall(parsed.dst)
-      ctx.evalFExpr(scope, dcall)
-      expand.addSon(dcall)
-      expand.addSon(fexpr)
-      fexpr = expand
-  if parsed.value.ctrc.tracked:
-    parsed.value.ctrc.inc
-
-proc evalFieldAccess*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+proc semFieldAccess*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var value = fexpr[1]
   let fieldname = fexpr[2]
   if fieldname.kind != fexprIdent:
-    fieldname.error("fieldname should be FIdent.")
-  ctx.evalFExpr(scope, value)
-  let fieldopt = value.getType.fexpr.getFieldType($fieldname)
+    fieldname.error("field name should be FIdent.")
+  scope.rootPass(value)
+  let fieldopt = value.typ.fexpr.getFieldType($fieldname)
   if fieldopt.isNone:
-    fieldname.error("value hasn't $# field." % $fieldname)
-  fexpr.typ = fieldopt
+    fieldname.error("$# hasn't $# field." % [$value.typ, $fieldname])
+  fexpr.typ = fieldopt.get
 
-  # internal metadata for postprocess phase
   fexpr.internalMark = internalFieldAccess
   fexpr.internalFieldAccessExpr = FieldAccessExpr(value: value, fieldname: fieldname)
-
-proc evalInit*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+  
+proc semInit*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.len != 3:
     fexpr.error("init require 2 arguments.")
   if fexpr[1].kind != fexprList:
@@ -443,33 +404,27 @@ proc evalInit*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
     fexpr.error("init type should be single argument.")
   if fexpr[2].kind != fexprBlock:
     fexpr.error("init body should be FBlock.")
+    
   var pos = 0
-  let inittyp = fexpr[1][0].parseTypeExpr(pos)
-  let sym = ctx.evalType(scope, inittyp.typ, inittyp.generics)
-  fexpr[1][0].replaceByTypesym(sym)
-  ctx.evalFExpr(scope, fexpr[2])
+  let inittype = fexpr[1][0].parseTypeExpr(pos)
+  let typesym = scope.semType(inittype.typ, inittype.generics)
+  fexpr[1][0].replaceByTypesym(typesym)
+  fexpr.typ = typesym
+  scope.rootPass(fexpr[2])
 
-  let types = fexpr[2].mapIt(it.typ.get)
-  let t = if sym.fexpr.deftype.isGenerics:
-            ctx.instantiateDeftype(scope, sym.fexpr, types)
-          else:
-            fsymbol(inittyp.typ.span, sym)
+  let argtypes = fexpr[2].mapIt(it.typ)
 
-  # symbol resolve
-  fexpr.typ = some(t.symbol)
-  # internal metadata for postprocess phase
   fexpr.initexpr = InitExpr(
-    typ: t,
-    body: fexpr[2],
+    typ: fsymbol(inittype.typ.span, typesym),
+    body: fexpr[2]
   )
   fexpr.internalMark = internalInit
 
-proc evalImport*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+proc semImport*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let importname = name(fexpr[1])
-  let filepath = replace($importname, ".", "/") & ".flori"
-  let modname = ctx.evalFile(filepath)
-  scope.importScope(importname, ctx.modules[modname])
-  # internal metadata for postprocess phase
+  let filepath = ($importname).replace(".", "/") & ".flori"
+  let modname = scope.ctx.semFile(rootPass, filepath)
+  scope.importScope(importname, scope.ctx.modules[modname])
   fexpr.internalMark = internalImport
   fexpr.internalImportExpr = ImportExpr(
     importname: importname,
@@ -482,50 +437,91 @@ proc collectQuotedItems*(fexpr: FExpr, collected: var seq[FExpr]) =
       collected.add(son.quoted)
     elif son.kind in fexprContainer:
       collectQuotedItems(son, collected)
-  
-proc evalQuote*(ctx: SemanticContext, scope: Scope, fexpr: var FExpr) =
+
+proc semQuote*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.len != 2:
+    fexpr.error("quote expected fblock.")
   if fexpr[1].kind != fexprBlock:
-    fexpr[1].error("quote expected fblock, actually $#" % $fexpr[1].kind)
-  let str = fstrlit(fexpr[1].span, ($fexpr[1]).replace("\n", ";").replace("\"", "\\\""))
-  
+    fexpr[1].error("quote expected FBlock, actually $#" % $fexpr[1].kind)
+  let fstr = fstrlit(fexpr[1].span, ($fexpr[1]).replace("\n", ";").replace("\"", "\\\""))
+
   let ret = fblock(fexpr.span)
-  let tmpid = fident(fexpr.span, ctx.genTmpName())
+  let tmpid = fident(fexpr.span, scope.ctx.genTmpName())
   ret.addSon(fseq(fexpr.span, @[finfix(fexpr.span, name(":=")), tmpid, genCall(fident(fexpr.span, name("new_farray")))])) # tmpid := new_farray()
   var collected = newSeq[FExpr]()
   collectQuotedItems(fexpr[1], collected)
   for c in collected:
     ret.addSon(genCall(fident(fexpr.span, name("push")), tmpid, c)) # push(tmpid, c)
-  
-  ret.addSon(genCall(fident(fexpr.span, name("quote_expand")), genCall(fident(fexpr.span, name("parse")), str), tmpid)) # quote_expand(parse("..."), tmpid)
-  
+
+  ret.addSon(genCall(fident(fexpr.span, name("quote_expand")), genCall(fident(fexpr.span, name("parse")), fstr), tmpid)) # quote_expand(parse("..."), tmpid)
+
   fexpr = ret
-  ctx.evalFExpr(scope, fexpr)
+  scope.rootPass(fexpr)
+    
+#
+# Internal
+#
+  
+proc addInternalEval*(scope: Scope, n: Name, p: proc (rootPass: PassProcType, scope: Scope, fexpr: var FExpr)) =
+  let status = scope.addFunc(ProcDecl(
+    isInternal: true,
+    internalproc: p,
+    name: n,
+    argtypes: @[],
+    generics: @[],
+    sym: scope.symbol(n, symbolInternal, fident(internalSpan, name("internal")))
+  ))
+  if not status:
+    fseq(internalSpan).error("redefinition $# function." % $n)
   
 proc initInternalEval*(scope: Scope) =
-  scope.addInternalEval(name("fn"), evalDefn)
-  scope.addInternalEval(name("macro"), evalMacro)
-  scope.addInternalEval(name("type"), evalDeftype)
-  scope.addInternalEval(name("if"), evalIf)
-  scope.addInternalEval(name("while"), evalWhile)
-  scope.addInternalEval(name(":="), evalDef)
-  scope.addInternalEval(name("="), evalSet)
-  scope.addInternalEval(name("."), evalFieldAccess)
-  scope.addInternalEval(name("init"), evalInit)
-  scope.addInternalEval(name("import"), evalImport)
-  scope.addInternalEval(name("quote"), evalQuote)
+  scope.addInternalEval(name("fn"), semDefn)
+  scope.addInternalEval(name("macro"), semMacro)
+  scope.addInternalEval(name("type"), semDeftype)
+  scope.addInternalEval(name("if"), semIf)
+  scope.addInternalEval(name("while"), semWhile)
+  scope.addInternalEval(name(":="), semDef)
+  scope.addInternalEval(name("="), semSet)
+  scope.addInternalEval(name("."), semFieldAccess)
+  scope.addInternalEval(name("init"), semInit)
+  scope.addInternalEval(name("import"), semImport)
+  scope.addInternalEval(name("quote"), semQuote)
 
-  scope.addInternalEval(name("importc"), evalImportc)
-  scope.addInternalEval(name("header"), evalHeader)
-  scope.addInternalEval(name("pattern"), evalPattern)
+  scope.addInternalEval(name("importc"), semImportc)
+  scope.addInternalEval(name("header"), semHeader)
+  scope.addInternalEval(name("pattern"), semPattern)
 
 proc initInternalScope*(ctx: SemanticContext) =
-  let scope = newScope(name("internal"))
+  let scope = ctx.newScope(name("internal"))
   scope.initInternalEval()
   ctx.modules[name("internal")] = scope
 
+proc internalScope*(ctx: SemanticContext): Scope =
+  ctx.modules[name("internal")]
+
 proc newSemanticContext*(): SemanticContext =
   new result
-  result.expandspans = initDeque[Span]()
   result.modules = initOrderedTable[Name, Scope]()
+  result.macrolib = nil
   result.macroprocs = @[]
+  result.tmpcount = 0
   result.initInternalScope()
+
+proc semModule*(ctx: SemanticContext, rootPass: PassProcType, name: Name, fexprs: var seq[FExpr]) =
+  let scope = ctx.newScope(name)
+  scope.importScope(name("internal"), ctx.internalScope)
+  for f in fexprs.mitems:
+    f.internalToplevel = true
+    scope.rootPass(f)
+    scope.toplevels.add(f)
+  ctx.modules[name] = scope
+
+proc semFile*(ctx: SemanticContext, rootPass: PassProcType, filepath: string): Name =
+  var fexprs = parseToplevel(filepath, readFile(filepath))
+  let (dir, n, _) = filepath.splitFile()
+  let modname = if dir != "":
+                  name(dir.replace("/", ".") & "." & n)
+                else:
+                  name(n)
+  ctx.semModule(rootPass, modname, fexprs)
+  return modname

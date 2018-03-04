@@ -11,8 +11,9 @@ macro defMetadata*(key: untyped, T: typed): untyped =
   let keyset = nnkAccQuoted.newTree((ident(($key) & "=")))
   let keystr = newLit($key)
   result = quote do:
-    type `tsym` = ref object of Metadata
-      data: `T`
+    when not declared(`tsym`):
+      type `tsym` = ref object of Metadata
+        data: `T`
     proc `keyhas`*(fexpr: FExpr): bool =
       fexpr.metadata.hasKey(`keystr`)
     proc `keyget`*(fexpr: FExpr): var `T` =
@@ -20,7 +21,7 @@ macro defMetadata*(key: untyped, T: typed): untyped =
     proc `keyset`*(fexpr: FExpr, value: `T`) =
       fexpr.metadata[`keystr`] = `tsym`(data: value)
   # echo result.repr
-
+      
 type
   InternalMarkKind* = enum
     internalDefn
@@ -46,7 +47,7 @@ type
     generics*: FExpr
     args*: FExpr
     ret*: FExpr
-    retgenerics*: Option[FExpr]
+    retgenerics*: FExpr
     pragma*: FExpr
     body*: FExpr
   DeftypeExpr* = object
@@ -82,6 +83,8 @@ type
     modname*: Name
     importname*: Name
 
+defMetadata(typ, Symbol)
+
 defMetadata(internalScope, Scope)
 defMetadata(internalCtx, SemanticContext)
 defMetadata(internalToplevel, bool)
@@ -91,7 +94,6 @@ defMetadata(internalPragma, InternalPragma)
 defMetadata(initexpr, InitExpr)
 defMetadata(defn, DefnExpr)
 defMetadata(deftype, DeftypeExpr)
-defMetadata(protocol, ProtocolExpr)
 
 defMetadata(internalIfExpr, IfExpr)
 defMetadata(internalWhileExpr, WhileExpr)

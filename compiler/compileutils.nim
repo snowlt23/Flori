@@ -1,6 +1,5 @@
 
-import fexpr, parser, types
-import scope, semantic
+import parser, types, fexpr, scope
 import ccodegen
 import macroffi
 
