@@ -7,9 +7,6 @@ import strutils, sequtils
 
 proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr
 
-proc genManglingName*(name: Name, types: seq[Symbol]): Name =
-  name($name & "_" & types.mapIt($it).join("_"))
-
 proc applyInstance*(sym: Symbol, instance: Symbol) =
   if sym.kind == symbolGenerics:
     sym.instance = some(instance)
@@ -116,22 +113,20 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtype
     let fsym = fsymbol(fexpr.span, specopt.get.sym)
     return fsym
 
+  let exscope = fexpr.internalScope.extendScope()
   let args = flist(fexpr.defn.args.span)
   for arg in fexpr.defn.args:
     let extype = scope.expandType(arg[1])
     args.addSon(fseq(arg.span, @[arg[0], extype]))
+    let status = exscope.addDecl(name(arg[0]), arg[0].symbol)
+    if not status:
+      arg[0].error("redefinition $# variable." % $arg[0])
   let ret = scope.expandType(fexpr.defn.ret)
-
-  let exbody = if argtypes.isSpecTypes:
-                 fexpr.internalScope.rootPass(fexpr.defn.body)
-                 fexpr.defn.body
-               else:
-                 fexpr.defn.body
 
   let sym = fexpr.internalScope.symbol(
     fname,
     symbolFunc,
-    fseq(fexpr.span, @[fident(fexpr.span, name("fn")), fexpr.defn.name, generics, args, ret, fprefix(fexpr.span ,name("$")), fexpr.defn.pragma, exbody])
+    fseq(fexpr.span, @[fident(fexpr.span, name("fn")), fexpr.defn.name, generics, args, ret, fprefix(fexpr.span ,name("$")), fexpr.defn.pragma, fexpr.defn.body])
   )
   let fsym = fsymbol(fexpr.span, sym)
 
@@ -141,7 +136,7 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtype
     args: args,
     ret: ret,
     pragma: fexpr.defn.pragma,
-    body: exbody
+    body: fexpr.defn.body
   )
 
   let pd = ProcDecl(
@@ -158,5 +153,16 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtype
 
   fexpr.internalScope.addSpecFunc(pd)
   fexpr.internalScope.top.toplevels.add(sym.fexpr)
+
+  exscope.importScope(name("flori_current_scope"), scope.top)
+  let exbody = if argtypes.isSpecTypes:
+                 var copybody: FExpr
+                 copybody.deepCopy(fexpr.defn.body)
+                 exscope.rootPass(copybody)
+                 copybody
+               else:
+                 fexpr.defn.body
+  sym.fexpr.defn.body = exbody
+  sym.fexpr[7] = exbody
 
   return fsym

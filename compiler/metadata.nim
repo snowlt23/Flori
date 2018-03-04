@@ -11,8 +11,9 @@ macro defMetadata*(key: untyped, T: typed): untyped =
   let keyset = nnkAccQuoted.newTree((ident(($key) & "=")))
   let keystr = newLit($key)
   result = quote do:
-    type `tsym` = ref object of Metadata
-      data: `T`
+    when not declared(`tsym`):
+      type `tsym` = ref object of Metadata
+        data: `T`
     proc `keyhas`*(fexpr: FExpr): bool =
       fexpr.metadata.hasKey(`keystr`)
     proc `keyget`*(fexpr: FExpr): var `T` =
@@ -93,7 +94,6 @@ defMetadata(internalPragma, InternalPragma)
 defMetadata(initexpr, InitExpr)
 defMetadata(defn, DefnExpr)
 defMetadata(deftype, DeftypeExpr)
-defMetadata(protocol, ProtocolExpr)
 
 defMetadata(internalIfExpr, IfExpr)
 defMetadata(internalWhileExpr, WhileExpr)

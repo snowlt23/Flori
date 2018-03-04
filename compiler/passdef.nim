@@ -10,16 +10,25 @@ definePass SemPass
 proc internalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   case fexpr.kind
   of fexprSeq:
+    if fexpr.len == 0:
+      scope.nextPass(fexpr)
+      return
+    
     let fnident = fexpr[0]
     let internalopt = scope.getFunc(procname(name(fnident), @[]))
     if internalopt.isSome and internalopt.get.isInternal:
       internalopt.get.internalproc(rootPassProc, scope, fexpr)
+    elif internalopt.isSome and internalopt.get.isMacro:
+      var expanded = internalopt.get.macroproc.call(fexpr)
+      scope.rootPass(expanded)
+      fexpr = expanded
     else:
       scope.nextPass(fexpr)
   else:
     scope.nextPass(fexpr)
 
 proc toplevelPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+  # echo fexpr
   case fexpr.kind
   of fexprArray, fexprList, fexprBlock:
     for son in fexpr.mitems:
@@ -64,6 +73,14 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
     if opt.isNone:
       fexpr.error("undeclared CString type, please import prelude.")
     fexpr.typ = opt.get
+    scope.nextPass(fexpr)
+  of fexprList:
+    if fexpr.len != 0:
+      fexpr.typ = fexpr[0].typ
+    scope.nextPass(fexpr)
+  of fexprBlock:
+    if fexpr.len != 0:
+      fexpr.typ = fexpr[^1].typ
     scope.nextPass(fexpr)
   else:
     scope.nextPass(fexpr)
@@ -128,5 +145,5 @@ proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
     scope.nextPass(fexpr)
   else:
     scope.nextPass(fexpr)
-
+    
 instPass SemPass, processSemPass

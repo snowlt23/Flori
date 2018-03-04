@@ -105,6 +105,7 @@ type
     modules*: OrderedTable[Name, Scope]
     macrolib*: LibHandle
     macroprocs*: seq[MacroProc]
+    tmpcount*: int
 
 #
 # Scope
