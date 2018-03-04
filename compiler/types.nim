@@ -103,6 +103,8 @@ type
     toplevels*: seq[FExpr]
   SemanticContext* = ref object
     modules*: OrderedTable[Name, Scope]
+    macrolib*: LibHandle
+    macroprocs*: seq[MacroProc]
 
 #
 # Scope

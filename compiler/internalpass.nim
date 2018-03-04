@@ -417,6 +417,8 @@ proc internalScope*(ctx: SemanticContext): Scope =
 proc newSemanticContext*(): SemanticContext =
   new result
   result.modules = initOrderedTable[Name, Scope]()
+  result.macrolib = nil
+  result.macroprocs = @[]
   result.initInternalScope()
 
 proc semModule*(ctx: SemanticContext, rootPass: PassProcType, name: Name, fexprs: var seq[FExpr]) =

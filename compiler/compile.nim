@@ -1,11 +1,12 @@
 
-import fexpr, parser
-import scope, semantic, internal
+import parser, types, fexpr, scope, metadata
+import passmacro, passdef, internalpass
 import ccodegen
 import compileutils
 
 import os
 import strutils
+import times
 
 type
   CCKind* = enum
@@ -18,7 +19,6 @@ type
     optlevel*: int
     bench*: bool
 
-import times
 template bench*(name: string, body: untyped) =
   if options.bench:
     let s = epochTime()
@@ -43,7 +43,7 @@ proc compileFlori*(options: CCOptions) =
   let semctx = newSemanticContext()
   let genctx = newCCodegenContext()
   bench "eval":
-    semctx.evalFile(options.filepath)
+    discard semctx.semFile(processSemPass, options.filepath)
   bench "codegen":
     genctx.codegen(semctx)
   bench "write":

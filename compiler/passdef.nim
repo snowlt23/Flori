@@ -1,6 +1,6 @@
 
-import compiler.parser, compiler.types, compiler.fexpr, compiler.scope, compiler.metadata
-import compiler.passmacro, compiler.expandpass
+import parser, types, fexpr, scope, metadata
+import passmacro, expandpass
 
 import options
 import strutils, sequtils
@@ -50,7 +50,8 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   of fexprSymbol:
     if fexpr.symbol.types.isSpecTypes and fexpr.symbol.fexpr.hasTyp:
       fexpr.typ = fexpr.symbol.fexpr.typ
-      scope.nextPass(fexpr)
+      if fexpr.typ.instance.isSome:
+        fexpr.typ = fexpr.typ.instance.get
     scope.nextPass(fexpr)
   of fexprIntLit:
     let opt = scope.getDecl(name("Int"))

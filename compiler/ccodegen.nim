@@ -1,6 +1,5 @@
 
-import types, fexpr
-import scope, metadata
+import types, fexpr, scope, metadata
 
 import tables
 import options
@@ -144,7 +143,7 @@ proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
   ctx.codegenArguments(decl, fexpr.defn.args) do (s: var SrcExpr, arg: FExpr):
     s &= codegenSymbol(arg[1])
     s &= " "
-    s &= $arg[0]
+    s &= codegenSymbol(arg[0])
   decl &= ")"
   src.fndecls &= decl.exp
   src.fndecls &= ";\n"
@@ -152,13 +151,14 @@ proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
   src &= decl
   src &= " {\n"
   if fexpr.defn.body.len != 0:
-    if fexpr.defn.body[^1].typ.get.isVoidType:
+    if fexpr.defn.body[^1].typ.isVoidType:
       ctx.codegenBody(src, fexpr.defn.body)
     else:
       ctx.codegenBody(src, fexpr.defn.body, ret = "return ")
   src &= "}\n"
 
 proc codegenDefn*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  # echo fexpr
   if fexpr.internalPragma.header.isSome:
     src.addHeader(fexpr.internalPragma.header.get)
   if fexpr.internalPragma.importc.isNone:
@@ -204,9 +204,9 @@ proc codegenDeftype*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   let tmpret = ctx.gentmpsym()
 
-  if not fexpr.typ.get.isVoidType: # temporary return variable declaration.
-    src.prev &= codegenSymbol(fexpr.typ.get) & " " & tmpret & ";\n"
-  let ret = if not fexpr.typ.get.isVoidType:
+  if not fexpr.typ.isVoidType: # temporary return variable declaration.
+    src.prev &= codegenSymbol(fexpr.typ) & " " & tmpret & ";\n"
+  let ret = if not fexpr.typ.isVoidType:
               tmpret & " = "
             else:
               nil
@@ -241,7 +241,7 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src.prev &= "}"
 
   # return temporary variable.
-  if not fexpr.typ.get.isVoidType:
+  if not fexpr.typ.isVoidType:
     src &= tmpret
 
 proc codegenWhile*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
@@ -252,14 +252,14 @@ proc codegenWhile*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "}"
 
 proc codegenDef*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  src &= codegenSymbol(fexpr.internalDefExpr.value.typ.get)
+  src &= codegenSymbol(fexpr.internalDefExpr.value.typ)
   src &= " "
   src &= codegenSymbol(fexpr.internalDefExpr.name)
   src &= " = "
   ctx.codegenFExpr(src, fexpr.internalDefExpr.value)
 
 proc codegenDefDecl*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  let t = codegenSymbol(fexpr.internalDefExpr.value.typ.get)
+  let t = codegenSymbol(fexpr.internalDefExpr.value.typ)
   let n = codegenSymbol(fexpr.internalDefExpr.name)
   src.vardecls &= "extern $# $#;" % [t, n]
   src &= "$# $#;" % [t, n]
@@ -436,12 +436,12 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     ctx.codegenFExpr(src, fexpr[0])
     src &= ")"
   of fexprBlock:
-    if fexpr[^1].typ.get.isVoidType:
+    if fexpr[^1].typ.isVoidType:
       ctx.codegenBody(src, toSeq(fexpr.items))
     else:
       let tmp = ctx.gentmpsym()
       var blocksrc = initSrcExpr()
-      ctx.codegenBody(blocksrc, toSeq(fexpr.items), ret = codegenSymbol(fexpr[^1].typ.get) & " " & tmp & " = ")
+      ctx.codegenBody(blocksrc, toSeq(fexpr.items), ret = codegenSymbol(fexpr[^1].typ) & " " & tmp & " = ")
       src.addPrev(blocksrc)
       src &= tmp
   of fexprSeq:

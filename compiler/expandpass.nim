@@ -1,5 +1,5 @@
 
-import compiler.parser, compiler.types, compiler.fexpr, compiler.scope, compiler.metadata
+import parser, types, fexpr, scope, metadata
 import passutils
 
 import options
@@ -88,11 +88,12 @@ proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExp
     pragma: fexpr.deftype.pragma,
     body: exbody
   )
+  tsym.fexpr.metadata = fexpr.metadata
   tsym.fexpr.internalMark = internalDeftype
   tsym.fexpr.deftype = deftype
 
   discard scope.addDecl(manglingname, tsym)
-  scope.toplevels.add(fsym)
+  scope.top.toplevels.add(fsym)
 
   return fsym
     
@@ -151,9 +152,11 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtype
     returntype: ret.symbol,
     sym: sym
   )
+  sym.fexpr.metadata = fexpr.metadata
+  sym.fexpr.internalMark = internalDefn
   sym.fexpr.defn = defn
 
   fexpr.internalScope.addSpecFunc(pd)
-  fexpr.internalScope.toplevels.add(fsym)
+  fexpr.internalScope.top.toplevels.add(sym.fexpr)
 
   return fsym
