@@ -89,7 +89,6 @@ $ nim c -r tests/tester.nim
 
 - CTRefCount
 - Hot Reload
-- Macro system
 - Memory Lifting
 - Condition System
 - Standard Library
