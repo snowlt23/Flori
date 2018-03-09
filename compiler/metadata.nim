@@ -48,6 +48,7 @@ type
     args*: FExpr
     ret*: FExpr
     retgenerics*: FExpr
+    isretref*: bool
     pragma*: FExpr
     body*: FExpr
   DeftypeExpr* = object
@@ -84,6 +85,7 @@ type
     importname*: Name
 
 defMetadata(typ, Symbol)
+defMetadata(internalRef, bool)
 
 defMetadata(internalScope, Scope)
 defMetadata(internalCtx, SemanticContext)
@@ -104,6 +106,7 @@ defMetadata(internalImportExpr, ImportExpr)
 defMetadata(parent, FExpr)
 
 proc isToplevel*(fexpr: FExpr): bool = fexpr.hasInternalToplevel
+proc isRef*(fexpr: FExpr): bool = fexpr.hasInternalRef and fexpr.internalRef
 
 proc isGenerics*(defn: DefnExpr): bool = not defn.generics.isSpecTypes
 proc isGenerics*(deftype: DeftypeExpr): bool = not deftype.generics.isSpecTypes

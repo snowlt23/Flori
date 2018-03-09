@@ -20,6 +20,7 @@ type
     symbolType
     symbolGenerics
     symbolTypeGenerics
+    symbolRef
     symbolFunc
     symbolFuncGenerics
     symbolInfix
@@ -139,8 +140,18 @@ proc `==`*(a, b: Symbol): bool =
 proc `$`*(sym: Symbol): string =
   if sym.types.len == 0:
     $sym.scope.name & "." & $sym.name
+  elif sym.kind == symbolRef:
+    "ref " & $sym.types[0]
+  elif sym.kind == symbolVar:
+    $sym.types[0]
   else:
     $sym.scope.name & "." & $sym.name & "[" & sym.types.mapIt($it).join(",") & "]"
+proc refsym*(scope: Scope, sym: Symbol): Symbol =
+  result = scope.symbol(sym.name, symbolRef, sym.fexpr)
+  result.types.add(sym)
+proc varsym*(scope: Scope, sym: Symbol): Symbol =
+  result = scope.symbol(sym.name, symbolVar, sym.fexpr)
+  result.types.add(sym)
 
 #
 # is spec
@@ -151,6 +162,8 @@ proc isSpecSymbol*(sym: Symbol): bool =
     return true
   elif sym.kind == symbolGenerics:
     return false
+  elif sym.kind in {symbolVar, symbolRef}:
+    return sym.types[0].isSpecSymbol()
   else:
     for t in sym.types:
       if not t.isSpecSymbol:

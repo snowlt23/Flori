@@ -8,7 +8,9 @@ import strutils, sequtils
 proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr
 
 proc applyInstance*(sym: Symbol, instance: Symbol) =
-  if sym.kind == symbolGenerics:
+  if instance.kind in {symbolVar, symbolRef}:
+    sym.applyInstance(instance.types[0])
+  elif sym.kind == symbolGenerics:
     sym.instance = some(instance)
   elif sym.kind == symbolTypeGenerics:
     assert(sym.types.len == instance.types.len)

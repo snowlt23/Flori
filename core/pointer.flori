@@ -26,3 +26,7 @@ fn memcpy[T](dest Ptr[T], src Ptr[T], len Int) {
 fn `+![T](p Ptr[T], i Int) Ptr[T] {
   cast[Ptr[T]](cast[Int](p) + i)
 }
+
+fn print[T](p Ptr[T]) {
+  printf("%p", p)
+}

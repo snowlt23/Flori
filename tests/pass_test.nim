@@ -149,4 +149,15 @@ import core/prelude
 """)
     ctx.semModule(processSemPass, name("testmodule"), fexprs)
     check fexprs[^1].internalMark == internalImport
-    
+  test "ref type":
+    let ctx = newSemanticContext()
+    var fexprs = parseToplevel("testmodule.flori", prelude & """
+fn `+=(a ref Int, b Int) $[importc, header nodeclc, pattern infixc]
+fn add5(x ref Int) {
+  x += 5
+}
+a := 1
+add5(a)
+""")
+    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    check $fexprs[^1][1][0].typ == "testmodule.Int"

@@ -207,7 +207,7 @@ proc declArgtypes*(scope: Scope, fexpr: FExpr, isGenerics: bool): seq[Symbol] =
   for arg in fexpr:
     var pos = 1
     let argtyp = arg.parseTypeExpr(pos)
-    let typesym = scope.semType(argtyp.typ, argtyp.generics)
+    let typesym = scope.semType(argtyp)
     
     let argsym = scope.symbol(name(arg[0]), symbolVar, arg[0])
     arg[0].typ = typesym
@@ -227,7 +227,7 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: var De
                  else:
                    @[]
   let argtypes = fnscope.declArgtypes(parsed.args, parsed.isGenerics)
-  let rettype = fnscope.semType(parsed.ret, parsed.retgenerics)
+  let rettype = fnscope.semType(ParsedType(typ: parsed.ret, generics: parsed.retgenerics, isref: parsed.isretref))
   parsed.ret.replaceByTypesym(rettype)
   
   let symkind = if parsed.name.kind == fexprQuote: symbolInfix else: symbolFunc
@@ -295,7 +295,7 @@ proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   for field in parsed.body:
     var pos = 1
     let fieldtyp = field.parseTypeExpr(pos)
-    let s = typescope.semType(fieldtyp.typ, fieldtyp.generics)
+    let s = typescope.semType(fieldtyp)
     field[1].replaceByTypesym(s)
   
   # symbol resolve
@@ -355,10 +355,9 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if parsed.value.typ.isVoidType:
     parsed.value.error("value is Void.")
   scope.resolveByVoid(fexpr)
-  parsed.name.typ = parsed.value.typ
 
   let varsym = scope.symbol(name(parsed.name), symbolVar, parsed.name)
-  parsed.name.typ = parsed.value.typ
+  parsed.name.typ = scope.varsym(parsed.value.typ)
   let status = scope.addDecl(name(parsed.name), varsym)
   if not status:
     fexpr.error("redefinition $# variable." % $parsed.name)
@@ -407,7 +406,7 @@ proc semInit*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     
   var pos = 0
   let inittype = fexpr[1][0].parseTypeExpr(pos)
-  let typesym = scope.semType(inittype.typ, inittype.generics)
+  let typesym = scope.semType(inittype)
   fexpr[1][0].replaceByTypesym(typesym)
   fexpr.typ = typesym
   scope.rootPass(fexpr[2])

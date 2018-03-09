@@ -101,7 +101,7 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
       let generics = fexpr[1]
       let argtypes = fexpr[2].mapIt(it.typ)
       for g in generics.mitems:
-        g = fsymbol(g.span, scope.semTypeExpr(g)) # FIXME: generics copy
+        g = fsymbol(g.span, scope.semTypeExpr(g))
       let opt = scope.getFunc(procname(name(fnident), argtypes))
       if opt.isNone:
         fexpr.error("undeclared $#[$#]($#) function." % [$fnident, generics.mapIt($it).join(", "), argtypes.mapIt($it).join(", ")])

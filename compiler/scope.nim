@@ -46,6 +46,14 @@ proc match*(a, b: Symbol): bool =
       if not a.types[i].match(b.types[i]):
         return false
     return true
+  elif a.kind == symbolRef and b.kind == symbolRef:
+    return a.types[0].match(b.types[0])
+  elif a.kind == symbolVar and b.kind == symbolRef:
+    return a.types[0].match(b.types[0])
+  elif a.kind == symbolRef:
+    return a.types[0].match(b)
+  elif a.kind == symbolVar:
+    return a.types[0].match(b)
   else:
     return a == b
 
@@ -71,8 +79,14 @@ proc spec*(a, b: Symbol): bool =
       if not a.types[i].spec(b.types[i]):
         return false
     return true
-  # elif a.kind == symbolGenerics and b.kind == symbolGenerics:
-  #   return a == b
+  elif a.kind == symbolRef and b.kind == symbolRef:
+    return a.types[0].match(b.types[0])
+  elif a.kind == symbolVar and b.kind == symbolRef:
+    return a.types[0].match(b.types[0])
+  elif a.kind == symbolRef:
+    return a.types[0].match(b)
+  elif a.kind == symbolVar:
+    return a.types[0].match(b)
   else:
     return false
 proc spec*(a: ProcName, b: ProcDecl): bool =
