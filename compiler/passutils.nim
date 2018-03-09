@@ -41,14 +41,25 @@ proc semType*(scope: Scope, typ: FExpr, generics: FExpr): Symbol =
   if opt.isNone:
     typ.error("undeclared $# type." % $typ)
   if generics.len == 0:
-    return opt.get
+    if opt.get.instance.isSome:
+      return opt.get.instance.get
+    else:
+      return opt.get
   else:
+    if opt.get.instance.isSome:
+      return opt.get.instance.get
+      
     var sym = opt.get.scope.symbol(opt.get.name, symbolTypeGenerics, opt.get.fexpr)
     for arg in generics.mitems:
       var pos = 0
       let argtyp = arg.parseTypeExpr(pos)
       sym.types.add(scope.semType(argtyp.typ, argtyp.generics))
     return sym
+
+proc semTypeExpr*(scope: Scope, typ: FExpr): Symbol =
+  var pos = 0
+  let t = parseTypeExpr(typ, pos)
+  return scope.semType(t.typ, t.generics)
 
 proc genCall*(name: FExpr, args: varargs[FExpr]): FExpr =
   fseq(name.span, @[name, flist(name.span, @args)])

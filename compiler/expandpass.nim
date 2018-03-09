@@ -11,6 +11,7 @@ proc applyInstance*(sym: Symbol, instance: Symbol) =
   if sym.kind == symbolGenerics:
     sym.instance = some(instance)
   elif sym.kind == symbolTypeGenerics:
+    assert(sym.types.len == instance.types.len)
     sym.instance = some(instance)
     for i in 0..<sym.types.len:
       sym.types[i].applyInstance(instance.types[i])
@@ -54,16 +55,19 @@ proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExp
   if fexpr.internalPragma.pattern.isNone:
     fexpr.assert(fexpr.deftype.body.len == argtypes.len)
 
-  # FIXME: into generics?
-  for i, field in fexpr.deftype.body:
-    field[1].assert(field[1].kind == fexprSymbol)
-    field[1].symbol.applyInstance(argtypes[i])
+  for i, arg in argtypes:
+    fexpr.deftype.generics[i].symbol.applyInstance(arg)
   if argtypes.isSpecTypes:
     checkInstantiateGenerics(fexpr.deftype.generics)
 
   let typename = fexpr.deftype.name.symbol.name
   let manglingname = genManglingName(typename, argtypes)
   # TODO: recursive type support
+
+  let specopt = fexpr.internalScope.getDecl(manglingname)
+  if specopt.isSome:
+    let fsym = fsymbol(fexpr.span, specopt.get)
+    return fsym
   
   let exbody = fblock(fexpr.deftype.body.span)
   for b in fexpr.deftype.body:
@@ -71,12 +75,12 @@ proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExp
     exbody.addSon(fseq(b.span, @[b[0], extype]))
   let generics = fexpr.deftype.generics.expandGenerics()
 
-  let tsym = scope.symbol(
+  let tsym = fexpr.internalScope.symbol(
     typename,
-    symbolType,
+    symbolTypeGenerics,
     fseq(fexpr.span, @[fident(fexpr.span, name("type")), fexpr.deftype.name, generics, fexpr.deftype.pragma, exbody])
   )
-  tsym.types = argtypes
+  tsym.types = generics.mapIt(it.symbol)
   let fsym = fsymbol(fexpr.span, tsym)
   
   let deftype = DeftypeExpr(
@@ -89,8 +93,8 @@ proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExp
   tsym.fexpr.internalMark = internalDeftype
   tsym.fexpr.deftype = deftype
 
-  discard scope.addDecl(manglingname, tsym)
-  scope.top.toplevels.add(fsym)
+  discard fexpr.internalScope.addDecl(manglingname, tsym)
+  fexpr.internalScope.top.toplevels.add(tsym.fexpr)
 
   return fsym
     
@@ -125,7 +129,7 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtype
 
   let sym = fexpr.internalScope.symbol(
     fname,
-    symbolFunc,
+    fexpr.defn.name.symbol.kind,
     fseq(fexpr.span, @[fident(fexpr.span, name("fn")), fexpr.defn.name, generics, args, ret, fprefix(fexpr.span ,name("$")), fexpr.defn.pragma, fexpr.defn.body])
   )
   let fsym = fsymbol(fexpr.span, sym)

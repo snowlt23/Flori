@@ -3,7 +3,7 @@ import core/prelude
 import core/pointer
 import core/io
 
-fn strlen(cs CString) Int $[importc, header "string.h"]
+fn strlen(cs CString) Int $[importc "strlen", header "string.h"]
 
 type String {
   p Ptr[Char]

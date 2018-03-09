@@ -1,6 +1,6 @@
 
 import parser, types, fexpr, scope, metadata
-import passmacro, expandpass
+import passmacro, expandpass, passutils
 
 import options
 import strutils, sequtils
@@ -100,6 +100,8 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
       let fnident = fexpr[0]
       let generics = fexpr[1]
       let argtypes = fexpr[2].mapIt(it.typ)
+      for g in generics.mitems:
+        g = fsymbol(g.span, scope.semTypeExpr(g)) # FIXME: generics copy
       let opt = scope.getFunc(procname(name(fnident), argtypes))
       if opt.isNone:
         fexpr.error("undeclared $#[$#]($#) function." % [$fnident, generics.mapIt($it).join(", "), argtypes.mapIt($it).join(", ")])
@@ -138,6 +140,13 @@ proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
           defngenerics[i].assert(defngenerics[i].kind == fexprSymbol)
           gtype.assert(gtype.kind == fexprSymbol)
           defngenerics[i].symbol.instance = some(gtype.symbol)
+        let exsym = expandDefn(rootPassProc, scope, fnsym.symbol.fexpr, argtypes)
+        fexpr[0] = exsym
+        fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
+    elif fexpr.len == 3 and fexpr[0].symbol.kind == symbolInfix:
+      let fnsym = fexpr[0]
+      let argtypes = @[fexpr[1].typ, fexpr[2].typ]
+      if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.generics.len != 0:
         let exsym = expandDefn(rootPassProc, scope, fnsym.symbol.fexpr, argtypes)
         fexpr[0] = exsym
         fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol

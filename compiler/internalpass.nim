@@ -297,7 +297,6 @@ proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     let fieldtyp = field.parseTypeExpr(pos)
     let s = typescope.semType(fieldtyp.typ, fieldtyp.generics)
     field[1].replaceByTypesym(s)
-    sym.types.add(s)
   
   # symbol resolve
   let fsym = fsymbol(fexpr[0].span, sym)
@@ -305,6 +304,7 @@ proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   parsed.name = fsym
   # internal metadata for postprocess phase
   semPragma(rootPass, scope, fexpr, parsed.pragma)
+  fexpr.internalScope = typescope
   fexpr.internalMark = internalDeftype
   fexpr.deftype = parsed
 
@@ -508,6 +508,8 @@ proc newSemanticContext*(): SemanticContext =
   result.initInternalScope()
 
 proc semModule*(ctx: SemanticContext, rootPass: PassProcType, name: Name, fexprs: var seq[FExpr]) =
+  if ctx.modules.hasKey(name):
+    return
   let scope = ctx.newScope(name)
   scope.importScope(name("internal"), ctx.internalScope)
   for f in fexprs.mitems:

@@ -40,7 +40,7 @@ proc match*(a, b: Symbol): bool =
   if b.kind == symbolGenerics:
     return true
   elif a.kind == symbolTypeGenerics and b.kind == symbolTypeGenerics:
-    if a != b: return false
+    if a.name != b.name: return false
     if a.types.len != b.types.len: return false
     for i in 0..<a.types.len:
       if not a.types[i].match(b.types[i]):
@@ -64,15 +64,19 @@ proc match*(a: ProcName, b: ProcDecl): bool =
 proc spec*(a, b: Symbol): bool =
   if a.kind == symbolType and b.kind == symbolType:
     return a == b
-  elif a.kind == symbolGenerics and b.kind == symbolGenerics:
-    return a == b
+  elif a.kind == symbolTypeGenerics and b.kind == symbolTypeGenerics:
+    if a.name != b.name: return false
+    if a.types.len != b.types.len: return false
+    for i in 0..<a.types.len:
+      if not a.types[i].spec(b.types[i]):
+        return false
+    return true
+  # elif a.kind == symbolGenerics and b.kind == symbolGenerics:
+  #   return a == b
   else:
     return false
 proc spec*(a: ProcName, b: ProcDecl): bool =
-  if a.argtypes.len != b.argtypes.len: return false
   if a.generics.len != b.generics.len: return false
-  for i in 0..<a.argtypes.len:
-    if not a.argtypes[i].spec(b.argtypes[i]): return false
   for i in 0..<a.generics.len:
     if not a.generics[i].spec(b.generics[i]): return false
   return true

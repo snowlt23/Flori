@@ -88,7 +88,7 @@ proc generateFloriDecls*(ctx: CCodegenContext): string =
   result &= "\n"
 
 proc replaceSpecialSymbols*(s: string): string =
-  s.replace(".", "_").replace("+", "plus").replace("-", "minus").replace("*", "asterisk").replace("/", "slash")
+  s.replace(".", "_").replace("+", "plus").replace("-", "minus").replace("*", "asterisk").replace("/", "slash").replace("!", "excl")
 
 proc codegenSymbol*(sym: Symbol): string
 
@@ -396,8 +396,8 @@ proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
       ctx.codegenArguments(src, fexpr[2]) do (s: var SrcExpr, arg: FExpr):
         ctx.codegenFExpr(s, arg)
       src &= ")"
-    elif fexpr.len == 3 and fexpr[0].symbol.kind == symbolInfix:
-      src &= codegenMangling(fexpr[0].symbol, @[], fexpr.getCallTypes()) # FIXME: support generics
+    elif fexpr.len == 3 and fexpr[0].symbol.kind == symbolInfix: # infix call
+      src &= codegenMangling(fexpr[0].symbol, fexpr.getCallGenerics(), fexpr.getCallTypes()) # FIXME: support generics
       src &= "("
       ctx.codegenFExpr(src, fexpr[1])
       src &= ", "
