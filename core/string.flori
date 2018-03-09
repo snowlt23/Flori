@@ -20,7 +20,6 @@ fn length(s String) Int {
   s.len
 }
 
-# FIXME: apply ref type to dest String
 fn push(dest ref String, src String) {
   len := length(dest) + length(src)
   (dest.p) = realloc[Char](dest.p, len + 1)
