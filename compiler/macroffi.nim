@@ -35,3 +35,6 @@ proc ffiAccess*(fexpr: FExpr, i: int): FExpr {.cdecl.} =
   fexpr[i]
 proc ffiSet*(fexpr: FExpr, i: int, value: FExpr) {.cdecl.} =
   fexpr[i] = value
+proc ffiToCS*(fexpr: FExpr): cstring {.cdecl.} =
+  cstring($fexpr)
+  

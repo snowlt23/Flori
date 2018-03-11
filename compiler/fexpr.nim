@@ -145,33 +145,42 @@ proc `[]=`*(fexpr: FExpr, i: BackwardsIndex, f: FExpr) =
 proc genIndent*(indent: int): string =
   repeat(' ', indent)
 
-proc toString*(fexpr: FExpr, indent: int): string =
+proc toString*(fexpr: FExpr, indent: int, desc: bool): string =
   case fexpr.kind
   of fexprIdent, fexprPrefix, fexprInfix:
     $fexpr.idname
   of fexprQuote:
-    "`" & fexpr.quoted.toString(indent)
+    "`" & fexpr.quoted.toString(indent, desc)
   of fexprSymbol:
-    $fexpr.symbol
+    if desc:
+      $fexpr.symbol
+    else:
+      $fexpr.symbol.name
   of fexprIntLit:
     $fexpr.intval
   of fexprStrLit:
     "\"" & fexpr.strval & "\""
   of fexprSeq:
     if fexpr.len == 2 and fexpr[1].kind in {fexprList, fexprArray}:
-      fexpr.sons[0].toString(indent) & fexpr.sons[1..^1].mapIt(it.toString(indent)).join(" ")
+      fexpr.sons[0].toString(indent, desc) & fexpr.sons[1..^1].mapIt(it.toString(indent, desc)).join(" ")
     elif fexpr.len == 3 and fexpr[0].kind == fexprInfix:
-      fexpr[1].toString(indent) & " " & $fexpr.sons[0] & " " & fexpr[2].toString(indent)
+      fexpr[1].toString(indent, desc) & " " & fexpr.sons[0].toString(indent, desc) & " " & fexpr[2].toString(indent, desc)
+    elif fexpr.len == 3 and fexpr[0].kind == fexprSymbol and fexpr[0].symbol.kind == symbolInfix:
+      fexpr[1].toString(indent, desc) & " " & fexpr.sons[0].toString(indent, desc) & " " & fexpr[2].toString(indent, desc)
     else:
-      fexpr.sons.mapIt(it.toString(indent)).join(" ")
+      fexpr.sons.mapIt(it.toString(indent, desc)).join(" ")
   of fexprArray:
-    "[" & fexpr.sons.mapIt(it.toString(indent)).join(", ") & "]"
+    "[" & fexpr.sons.mapIt(it.toString(indent, desc)).join(", ") & "]"
   of fexprList:
-    "(" & fexpr.sons.mapIt(it.toString(indent)).join(", ") & ")"
+    "(" & fexpr.sons.mapIt(it.toString(indent, desc)).join(", ") & ")"
   of fexprBlock:
-    "{" & "\n" & genIndent(indent + 2) & fexpr.sons.mapIt(it.toString(indent + 2)).join("\n" & genIndent(indent + 2)) & "\n" & genIndent(indent) & "}"
+    if fexpr.len == 0:
+      "{}"
+    else:
+      "{" & "\n" & genIndent(indent + 2) & fexpr.sons.mapIt(it.toString(indent + 2, desc)).join("\n" & genIndent(indent + 2)) & "\n" & genIndent(indent) & "}"
 
-proc `$`*(fexpr: FExpr): string = fexpr.toString(0)
+proc `$`*(fexpr: FExpr): string = fexpr.toString(0, false)
+proc desc*(fexpr: FExpr): string = fexpr.toString(0, true)
     
 proc name*(fexpr: FExpr): Name =
   case fexpr.kind

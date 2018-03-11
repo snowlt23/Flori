@@ -80,7 +80,8 @@ proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExp
   let tsym = fexpr.internalScope.symbol(
     typename,
     symbolTypeGenerics,
-    fseq(fexpr.span, @[fident(fexpr.span, name("type")), fexpr.deftype.name, generics, fexpr.deftype.pragma, exbody])
+    fexpr.span.quoteFExpr("type `embed `embed $ `embed `embed", [fexpr.deftype.name, generics, fexpr.deftype.pragma, exbody])
+    # fseq(fexpr.span, @[fident(fexpr.span, name("type")), fexpr.deftype.name, generics, fexpr.deftype.pragma, exbody])
   )
   tsym.types = generics.mapIt(it.symbol)
   let fsym = fsymbol(fexpr.span, tsym)
@@ -132,7 +133,8 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtype
   let sym = fexpr.internalScope.symbol(
     fname,
     fexpr.defn.name.symbol.kind,
-    fseq(fexpr.span, @[fident(fexpr.span, name("fn")), fexpr.defn.name, generics, args, ret, fprefix(fexpr.span ,name("$")), fexpr.defn.pragma, fexpr.defn.body])
+    fexpr.span.quoteFExpr("fn `embed `embed `embed `embed $ `embed `embed", [fexpr.defn.name, generics, args, ret, fexpr.defn.pragma, fexpr.defn.body])
+    # fseq(fexpr.span, @[fident(fexpr.span, name("fn")), fexpr.defn.name, generics, args, ret, fprefix(fexpr.span ,name("$")), fexpr.defn.pragma, fexpr.defn.body])
   )
   let fsym = fsymbol(fexpr.span, sym)
 

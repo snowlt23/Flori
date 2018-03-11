@@ -88,12 +88,12 @@ proc generateFloriDecls*(ctx: CCodegenContext): string =
   result &= "\n"
 
 proc replaceSpecialSymbols*(s: string): string =
-  s.replace(".", "_").replace("+", "plus").replace("-", "minus").replace("*", "asterisk").replace("/", "slash").replace("!", "excl")
+  s.replace(".", "_").replace("+", "plus").replace("-", "minus").replace("*", "asterisk").replace("/", "slash").replace("!", "excl").replace("=", "eq")
 
 proc codegenSymbol*(sym: Symbol): string
 
 proc codegenSymbol*(sym: Symbol): string =
-  if sym.types.len != 0:
+  if sym.kind == symbolTypeGenerics and sym.types.len != 0:
     result = $sym.scope.name & "_" & $sym.name & "_" & sym.types.mapIt(codegenSymbol(it)).join("_")
   else:
     result = $sym.scope.name & "_" & $sym.name

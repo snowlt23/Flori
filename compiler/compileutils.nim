@@ -50,6 +50,7 @@ proc setupFFI*(handle: LibHandle) =
   ffi "flori_error", ffiError
   ffi "flori_access", ffiAccess
   ffi "flori_set", ffiSet
+  ffi "flori_to_cs", ffiToCS
 
 proc reloadMacroLibrary*(semctx: SemanticContext, scope: Scope) =
   if semctx.macrolib != nil:

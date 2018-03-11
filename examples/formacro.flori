@@ -4,21 +4,31 @@ import core/io
 import core/macros
 
 macro for(fexpr FExpr) FExpr {
-  if ((length(fexpr) < 3) || (length(access(fexpr, 1)) < 2)) {
-    error(fexpr, "expect syntax: for (e, iter) {...}")
+  if ((length(fexpr) != 5) && (length(fexpr) != 6)) {
+    error(fexpr, "expect syntax: for e in iter() {...}")
   }
   
-  cond := access(fexpr, 1)
-  expect(cond, FEXPR_LIST)
-  elem := access(cond, 0)
-  iter := access(cond, 1)
-  expect(elem, FEXPR_IDENT)
-  body := access(fexpr, 2)
-  expect(body, FEXPR_BLOCK)
+  elem := access(fexpr, 1)
+  in := access(fexpr, 2)
+  if (to_cs(in) != "in") {
+    error(fexpr, "for-macro expect `in keyword.")
+  }
 
-  push(iter, elem)
-  push(iter, body)
-  iter
+  itername := access(fexpr, 3)
+  iterargs := if (length(fexpr) == 6) {
+    access(fexpr, 4)
+  } else {
+    new_flist()
+  }
+  body := if (length(fexpr) == 6) {
+    access(fexpr, 5)
+  } else {
+    access(fexpr, 4)
+  }
+
+  quote {
+    `itername `iterargs `elem `body
+  }
 }
 
 macro range(fexpr FExpr) FExpr {
@@ -43,6 +53,6 @@ macro range(fexpr FExpr) FExpr {
   }
 }
 
-for (i, range(1, 10)) {
-  println(i)
+for i in range(1, 10) {
+  print(i)
 }

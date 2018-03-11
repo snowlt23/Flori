@@ -36,5 +36,7 @@ suite "example":
     checkio "examples/fib.flori", "39088169\n"
   test "tak":
     checkio "examples/tak.flori", "12\n"
+  test "formacro":
+    checkio "examples/formacro.flori", "12345678910\n"
   test "destructor":
     checkio "examples/destructor.flori", "MyInt destroyed!\n3\n4\nMyInt destroyed!\nMyInt destroyed!\n"

@@ -10,7 +10,7 @@ type UInt32 $[importc "uint32_t", header "stdint.h"]
 type Float $[importc "float", header nodeclc]
 
 fn `||(a Bool, b Bool) Bool $[importc "||", header nodeclc, pattern infixc]
-fn `&&(a Bool, b Bool) Bool $[importc "||", header nodeclc, pattern infixc]
+fn `&&(a Bool, b Bool) Bool $[importc "&&", header nodeclc, pattern infixc]
 
 fn `+(a Int, b Int) Int $[importc "+", header nodeclc, pattern infixc]
 fn `+=(a Int, b Int) $[importc "+=", header nodeclc, pattern infixc]
@@ -46,6 +46,29 @@ fn float(x Int) Float {
 }
 fn float(x UInt32) Float {
   cast[Float](x)
+}
+
+true := cast[Bool](1)
+false := cast[Bool](0)
+fn not(b Bool) Bool {
+  if (b) {
+    false
+  } else {
+    true
+  }
+}
+
+# string.h
+fn strcmp(a CString, b CString) Int $[importc "strcmp", header "string.h"]
+fn `==(a CString, b CString) Bool {
+  if (strcmp(a, b) == 0) {
+    true
+  } else {
+    false
+  }
+}
+fn `!=(a CString, b CString) Bool {
+  not(a == b)
 }
 
 # time.h

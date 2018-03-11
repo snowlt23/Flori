@@ -15,3 +15,4 @@ void (*flori_expect)(flori_fexpr fexpr, int kind);
 void (*flori_error)(flori_fexpr fexpr, char* msg);
 flori_fexpr (*flori_access)(flori_fexpr fexpr, int i);
 void (*flori_set)(flori_fexpr fexpr, int i, flori_fexpr value);
+char* (*flori_to_cs)(flori_fexpr fexpr);

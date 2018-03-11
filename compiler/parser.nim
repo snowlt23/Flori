@@ -260,3 +260,17 @@ proc parseToplevel*(filename: string, src: string): seq[FExpr] =
       break
     else:
       result.add(ret)
+
+proc expandQuote*(f: var FExpr, i: var int, span: Span, args: openArray[FExpr]) =
+  f.span = span
+  if f.kind in fexprContainer:
+    for son in f.mitems:
+      expandQuote(son, i, span, args)
+  elif f.kind == fexprQuote and $f.quoted == "embed":
+    f = args[i]
+    i += 1
+      
+proc quoteFExpr*(span: Span, src: string, args: openArray[FExpr]): FExpr =
+  result = parseFExpr("internal", src)
+  var i = 0
+  expandQuote(result, i, span, args)

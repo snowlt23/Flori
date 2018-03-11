@@ -1,0 +1,57 @@
+
+type FileCont {
+  f File
+}
+
+fn eff(dest ref File, src File) {
+  dest = src # dest.cnt -= 1, src.cnt += 1
+}
+
+type Vec[T] $[rcdefer] {
+  p Ptr[T]
+  len Int
+}
+# type Vec[T] $[rcruntime] {
+# }
+
+fn vec_eff() File {
+  v := vec[File]()
+  push(v, open_file("yukari.txt"))
+  push(v, open_file("maki.txt"))
+  sort(v)
+
+  # if not rcdefer
+  when (not is_rcdefer(v)) {
+    destructor(v)
+    destructor(v_tmp1)
+    destructor(v_tmp2)
+  }
+  
+  return v[0]
+}
+
+fn vec_main() {
+  f := vec_eff() # vec_eff.v.cnt 1
+  
+  destructor(vec_eff.v)
+  destructor(vec_eff.v_tmp1)
+  destructor(vec_eff.v_tmp2)
+}
+
+fn main() {
+  # def
+  f := open_file("akane.txt") # f.cnt 1
+
+  # set
+  f = open_file("aoi.txt") # f_old.cnt 0, f_new.cnt 1
+
+  # fn effect
+  eff(f, open_file("akari.txt")) # f_old.cnt 0, f_new.cnt 1
+  
+  # field
+  fc := init(FileCont){open_file("yukari.txt")} # fc.cnt 1, fc_tmp1.cnt 1
+  fc.f = open_file("maki.txt") # fc_tmp1.cnt 0, fc_tmp2.cnt 1
+
+  # return
+  return open_file("seika.txt")
+}
