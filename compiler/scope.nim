@@ -24,6 +24,7 @@ proc newScope*(ctx: SemanticContext, name: Name): Scope =
   result.procdecls = initTable[Name, ProcDeclGroup]()
   result.importscopes = initOrderedTable[Name, Scope]()
   result.toplevels = @[]
+  result.scopevalues = @[]
 
 proc extendScope*(scope: Scope): Scope =
   new result
@@ -35,6 +36,7 @@ proc extendScope*(scope: Scope): Scope =
   result.procdecls = scope.procdecls
   result.importscopes = scope.importscopes
   result.toplevels = @[]
+  result.scopevalues = @[]
 
 proc match*(a, b: Symbol): bool =
   if b.kind == symbolGenerics:

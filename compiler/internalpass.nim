@@ -1,5 +1,5 @@
 
-import parser, types, fexpr, scope, metadata
+import parser, types, fexpr, scope, metadata, ctrc, effect
 import passutils
 import compileutils
 
@@ -208,7 +208,9 @@ proc declArgtypes*(scope: Scope, fexpr: FExpr, isGenerics: bool): seq[Symbol] =
     var pos = 1
     let argtyp = arg.parseTypeExpr(pos)
     let typesym = scope.semType(argtyp)
-    
+
+    arg[0].ctrc = initCTRC()
+    arg[0].ctrc.refcnt = 0
     let argsym = scope.symbol(name(arg[0]), symbolVar, arg[0])
     arg[0].typ = typesym
     arg[0].replaceByTypesym(argsym)
@@ -240,6 +242,7 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: var De
 
   if parsed.generics.isSpecTypes:
     fnscope.rootPass(parsed.body)
+    fnScopeout(rootPass, fnscope, fexpr) # FIXME:
   semPragma(rootPass, scope, fexpr, parsed.pragma)
 
   # symbol resolve
@@ -361,12 +364,29 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let status = scope.addDecl(name(parsed.name), varsym)
   if not status:
     fexpr.error("redefinition $# variable." % $parsed.name)
+  varsym.fexpr.ctrc = initCTRC()
+  scope.tracking(varsym.fexpr)
 
   let fsym = fsymbol(fexpr[1].span, varsym)
   fexpr[1] = fsym
   parsed.name = fsym
   fexpr.internalMark = internalDef
   fexpr.internalDefExpr = parsed
+  
+proc semTrack*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  let infix = fexpr[1]
+  if fexpr[1].kind != fexprSeq and $fexpr[1][0] == "->":
+    fexpr.error("track syntax expect: track(`variable -> `depend)")
+  var variable = infix[1]
+  var depend = infix[2]
+  if variable.kind != fexprIdent:
+    variable.error("track arguments should be FIdent, actually $#" % $variable)
+  if depend.kind != fexprIdent:
+    depend.error("track arguments should be FIdent, actually $#" % $depend)
+  scope.rootPass(variable)
+  scope.rootPass(depend)
+  if not variable.symbol.fexpr.ctrc.depend(depend.symbol.fexpr.ctrc):
+    depend.error("$# variable is destroyed.")
 
 proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.len != 3:
@@ -379,6 +399,16 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
 
   fexpr.internalMark = internalSet
   fexpr.internalSetExpr = parsed
+  
+  if parsed.dst.kind == fexprSymbol:
+    let ctrc = parsed.dst.symbol.fexpr.ctrc
+    ctrc.dec
+    if ctrc.destroyed:
+      if scope.getFunc(procname(name("destructor"), @[parsed.dst.typ])).isSome:
+        let dcall = parsed.dst.span.quoteFExpr("destructor(`embed)", [parsed.dst])
+        fexpr = fblock(parsed.dst.span, @[fexpr, dcall])
+        scope.rootPass(fexpr)
+      ctrc.revive()
 
 proc semFieldAccess*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var value = fexpr[1]
@@ -480,6 +510,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("if"), semIf)
   scope.addInternalEval(name("while"), semWhile)
   scope.addInternalEval(name(":="), semDef)
+  scope.addInternalEval(name("track"), semTrack)
   scope.addInternalEval(name("="), semSet)
   scope.addInternalEval(name("."), semFieldAccess)
   scope.addInternalEval(name("init"), semInit)

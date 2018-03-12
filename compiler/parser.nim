@@ -71,7 +71,7 @@ proc skipSpaces*(context: var ParserContext) =
       context.pos += context.newlineLen()
     elif context.curchar == '#':
       context.inc
-      while true:
+      while not context.isEOF:
         if context.isNewline:
           context.line += 1
           context.linepos = 1

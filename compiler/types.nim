@@ -53,7 +53,10 @@ type
 
   CTRC* = ref object
     refcnt*: int
-    link*: CTRC
+    depends*: seq[CTRC]
+    destroyed*: bool
+  Effect* = object
+    argcnts*: seq[int]
 
   FExpr* = ref object
     span*: Span
@@ -102,6 +105,7 @@ type
     procdecls*: Table[Name, ProcDeclGroup]
     importscopes*: OrderedTable[Name, Scope]
     toplevels*: seq[FExpr]
+    scopevalues*: seq[FExpr]
   SemanticContext* = ref object
     modules*: OrderedTable[Name, Scope]
     macrolib*: LibHandle

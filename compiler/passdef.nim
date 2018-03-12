@@ -1,5 +1,5 @@
 
-import parser, types, fexpr, scope, metadata
+import parser, types, fexpr, scope, metadata, ctrc, effect
 import passmacro, expandpass, passutils
 
 import options
@@ -8,6 +8,9 @@ import strutils, sequtils
 definePass SemPass
 
 proc internalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+  if fexpr.hasEvaluated:
+    return
+  
   case fexpr.kind
   of fexprSeq:
     if fexpr.len == 0:
@@ -17,6 +20,7 @@ proc internalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
     let fnident = fexpr[0]
     let internalopt = scope.getFunc(procname(name(fnident), @[]))
     if internalopt.isSome and internalopt.get.isInternal:
+      fexpr.evaluated = true
       internalopt.get.internalproc(rootPassProc, scope, fexpr)
     elif internalopt.isSome and internalopt.get.isMacro:
       var expanded = internalopt.get.macroproc.call(fexpr)
@@ -96,6 +100,8 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
         fexpr.error("undeclared $#($#) function." % [$fnident, argtypes.mapIt($it).join(", ")])
       fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
       fexpr.typ = opt.get.returntype
+      if fexpr[0].symbol.fexpr.hasEffect:
+        applyEffect(fexpr[1], fexpr[0].symbol.fexpr.effect) # effect
     elif fexpr.len == 3 and fexpr[1].kind == fexprArray and fexpr[2].kind == fexprList: # generics call
       let fnident = fexpr[0]
       let generics = fexpr[1]
@@ -107,6 +113,8 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
         fexpr.error("undeclared $#[$#]($#) function." % [$fnident, generics.mapIt($it).join(", "), argtypes.mapIt($it).join(", ")])
       fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
       fexpr.typ = opt.get.returntype
+      if fexpr[0].symbol.fexpr.hasEffect:
+        applyEffect(fexpr[2], fexpr[0].symbol.fexpr.effect) # effect
     elif fexpr.len == 3 and fexpr[0].kind == fexprInfix: # infix call
       let fnident = fexpr[0]
       let argtypes = @[fexpr[1].typ, fexpr[2].typ]
@@ -115,6 +123,8 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
         fexpr.error("undeclared `$#($#) infix function." % [$fnident, argtypes.mapIt($it).join(", ")])
       fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
       fexpr.typ = opt.get.returntype
+      if fexpr[0].symbol.fexpr.hasEffect:
+        applyEffect(fseq(fexpr.span, @[fexpr[1], fexpr[2]]), fexpr[0].symbol.fexpr.effect) # effect
       
     scope.nextPass(fexpr)
   else:
@@ -154,5 +164,8 @@ proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
     scope.nextPass(fexpr)
   else:
     scope.nextPass(fexpr)
+
+proc finalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+  fexpr.evaluated = true
     
 instPass SemPass, processSemPass

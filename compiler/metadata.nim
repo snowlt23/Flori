@@ -85,7 +85,9 @@ type
     importname*: Name
 
 defMetadata(typ, Symbol)
-defMetadata(internalRef, bool)
+defMetadata(ctrc, CTRC)
+defMetadata(effect, Effect)
+defMetadata(evaluated, bool)
 
 defMetadata(internalScope, Scope)
 defMetadata(internalCtx, SemanticContext)
@@ -106,7 +108,6 @@ defMetadata(internalImportExpr, ImportExpr)
 defMetadata(parent, FExpr)
 
 proc isToplevel*(fexpr: FExpr): bool = fexpr.hasInternalToplevel
-proc isRef*(fexpr: FExpr): bool = fexpr.hasInternalRef and fexpr.internalRef
 
 proc isGenerics*(defn: DefnExpr): bool = not defn.generics.isSpecTypes
 proc isGenerics*(deftype: DeftypeExpr): bool = not deftype.generics.isSpecTypes
