@@ -37,11 +37,10 @@ fn access[T](v Vec[T], i Int) T {
 
 fn destructor[T](v Vec[T]) {
   println("Vec destroyed!")
-  when (is_destructable(v)) {
+  when (is_destructable(T)) {
     for i in range(0, length(v)-1) {
       destructor(access(v, i))
     }
   }
-  println(is_destructable(v))
   dealloc(v.data)
 }

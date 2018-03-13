@@ -370,7 +370,6 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
 
   let varsym = scope.symbol(name(parsed.name), symbolVar, parsed.name)
   parsed.name.typ = parsed.value.typ.scope.varsym(parsed.value.typ)
-  # echo fexpr, " .typ= ", parsed.name.typ
   let status = scope.addDecl(name(parsed.name), varsym)
   if not status:
     fexpr.error("redefinition $# variable." % $parsed.name)
@@ -511,9 +510,10 @@ proc semQuote*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
 
 proc semIsDestructable*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.len != 2 or fexpr[1].kind != fexprList and fexpr[1].len != 0:
-    fexpr.error("unsage: is_destructable(fexpr)")
-  scope.rootPass(fexpr[1][0])
-  if fexpr.internalScope.getFunc(procname(name("destructor"), @[fexpr[1][0].typ])).isSome:
+    fexpr.error("unsage: is_destructable(type)")
+  
+  let typesym = scope.semTypeExpr(fexpr[1][0])
+  if fexpr.internalScope.getFunc(procname(name("destructor"), @[typesym])).isSome:
     fexpr = fexpr.span.quoteFExpr("true", [])
   else:
     fexpr = fexpr.span.quoteFExpr("false", [])

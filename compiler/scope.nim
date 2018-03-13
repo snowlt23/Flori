@@ -54,7 +54,7 @@ proc match*(a, b: Symbol): bool =
     return a.types[0].match(b.types[0])
   elif a.kind == symbolRef:
     return a.types[0].match(b)
-  elif a.kind == symbolVar:
+  elif a.kind == symbolVar and a.types.len != 0:
     return a.types[0].match(b)
   else:
     return a == b
