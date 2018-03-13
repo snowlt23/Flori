@@ -14,7 +14,7 @@ fn alloc[T](len Int) Ptr[T] {
   cast[Ptr[T]](unsafe_malloc(sizeof[T]()*len))
 }
 fn realloc[T](ptr Ptr[T], len Int) Ptr[T] {
-  cast[Ptr[T]](unsafe_realloc(cast[Pointer](ptr), len))
+  cast[Ptr[T]](unsafe_realloc(cast[Pointer](ptr), sizeof[T]()*len))
 }
 fn dealloc[T](ptr Ptr[T]) {
   unsafe_free(cast[Pointer](ptr))
@@ -26,6 +26,8 @@ fn memcpy[T](dest Ptr[T], src Ptr[T], len Int) {
 fn `+![T](p Ptr[T], i Int) Ptr[T] {
   cast[Ptr[T]](cast[Int](p) + i)
 }
+
+fn `unref[T](p Ptr[T]) T $[importc, header nodeclc, pattern "(*$1)"]
 
 fn print[T](p Ptr[T]) {
   printf("%p", p)

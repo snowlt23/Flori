@@ -37,6 +37,10 @@ proc expandDestructor*(rootPass: PassProcType, scope: Scope, body: FExpr) =
     body.addSon(fident(body.span, tmpsym))
     scope.rootPass(body[^1])
 
+proc bodyScopeout*(rootPass: PassProcType, scope: Scope, fexpr: FExpr) =
+  scope.scopeoutCTRC()
+  expandDestructor(rootPass, scope, fexpr)
+    
 proc fnScopeout*(rootPass: PassProcType, scope: Scope, fexpr: FExpr) =
   fexpr.assert(fexpr.hasDefn)
   scope.scopeoutCTRC()
@@ -45,8 +49,9 @@ proc fnScopeout*(rootPass: PassProcType, scope: Scope, fexpr: FExpr) =
   fexpr.effect = eff
 
 proc applyEffect*(args: FExpr, eff: Effect) =
+  # echo args, eff.argcnts
   for i, cnt in eff.argcnts:
-    if args.kind != fexprSymbol and cnt != 0:
-      args[i].error("unsupported tracked tmp value in currently: $#" % $args[i])
-    if args.kind == fexprSymbol:
+    # if args[i].kind != fexprSymbol and cnt != 0:
+    #   args[i].error("unsupported tracked tmp value in currently: $#" % $args[i])
+    if args[i].kind == fexprSymbol:
       args[i].symbol.fexpr.ctrc.refcnt += cnt

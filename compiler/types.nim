@@ -156,6 +156,10 @@ proc refsym*(scope: Scope, sym: Symbol): Symbol =
 proc varsym*(scope: Scope, sym: Symbol): Symbol =
   result = scope.symbol(sym.name, symbolVar, sym.fexpr)
   result.types.add(sym)
+proc symcopy*(sym: Symbol): Symbol =
+  var f: FExpr
+  f.deepCopy(sym.fexpr)
+  result = sym.scope.symbol(sym.name, sym.kind, f)
 
 #
 # is spec

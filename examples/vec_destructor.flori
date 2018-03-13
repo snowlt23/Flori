@@ -1,0 +1,29 @@
+
+import core/prelude
+import core/io
+import core/vec
+import core/syntax
+
+type MyInt {
+  x Int
+  y Int
+}
+
+fn destructor(mi MyInt) {
+  println("MyInt destroyed!")
+}
+
+fn vec_eff() Vec[MyInt] {
+  v := vec[MyInt]()
+  for i in range(1, 10) {
+    mi := init(MyInt){1; 2}
+    push(v, mi)
+  }
+  v
+}
+
+fn vec_main() {
+  v := vec_eff()
+}
+
+vec_main()

@@ -52,6 +52,7 @@ fn quote_expand_inside(fexpr FExpr, args FExpr, count Int) Int {
 }
 
 fn quote_expand(fexpr FExpr, args FExpr) FExpr {
-  quote_expand_inside(fexpr, args, 0)
+  count := 0
+  quote_expand_inside(fexpr, args, count)
   fexpr
 }

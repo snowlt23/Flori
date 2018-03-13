@@ -1,5 +1,5 @@
 
-import parser, types, fexpr, scope, metadata
+import parser, types, fexpr, scope, metadata, ctrc, effect
 import passutils
 
 import options
@@ -21,7 +21,11 @@ proc applyInstance*(sym: Symbol, instance: Symbol) =
     sym.instance = some(instance)
 
 proc expandSymbol*(scope: Scope, sym: Symbol): Symbol =
-  if sym.kind == symbolGenerics:
+  if sym.kind == symbolVar:
+    result = scope.varsym(scope.expandSymbol(sym.types[0]))
+  elif sym.kind == symbolRef:
+    result = scope.refsym(scope.expandSymbol(sym.types[0]))
+  elif sym.kind == symbolGenerics:
     if sym.instance.isNone:
       sym.fexpr.error("cannot instantiate $#." % $sym)
     result = sym.instance.get
@@ -54,8 +58,6 @@ proc checkInstantiateGenerics*(generics: FExpr) =
       
 proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr =
   fexpr.assert(fexpr.hasDeftype)
-  if fexpr.internalPragma.pattern.isNone:
-    fexpr.assert(fexpr.deftype.body.len == argtypes.len)
 
   for i, arg in argtypes:
     fexpr.deftype.generics[i].symbol.applyInstance(arg)
@@ -124,10 +126,13 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtype
   let args = flist(fexpr.defn.args.span)
   for arg in fexpr.defn.args:
     let extype = scope.expandType(arg[1])
-    args.addSon(fseq(arg.span, @[arg[0], extype]))
-    let status = exscope.addDecl(name(arg[0]), arg[0].symbol)
+    let argcopy = fsymbol(arg[0].span, arg[0].symbol.symcopy)
+    argcopy.metadata = arg[0].metadata
+    args.addSon(fseq(arg.span, @[argcopy, extype]))
+    argcopy.symbol.fexpr.typ = extype.symbol
+    let status = exscope.addDecl(name(argcopy), argcopy.symbol)
     if not status:
-      arg[0].error("redefinition $# variable." % $arg[0])
+      argcopy.error("redefinition $# variable." % $arg[0])
   let ret = scope.expandType(fexpr.defn.ret)
 
   let sym = fexpr.internalScope.symbol(
@@ -167,10 +172,16 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtype
                  var copybody: FExpr
                  copybody.deepCopy(fexpr.defn.body)
                  exscope.rootPass(copybody)
+                 if copybody.len != 0 and not copybody[^1].typ.isVoidType:
+                   if copybody[^1].kind == fexprSymbol:
+                     if not copybody[^1].symbol.fexpr.ctrc.inc:
+                       copybody[^1].error("value is already destroyed.")
                  copybody
                else:
                  fexpr.defn.body
   sym.fexpr.defn.body = exbody
   sym.fexpr[7] = exbody
+  if argtypes.isSpecTypes:
+    fnScopeout(rootPass, exscope, sym.fexpr)
 
   return fsym

@@ -30,6 +30,7 @@ type
     internalIf
     internalWhile
     internalDef
+    internalTrack
     internalSet
     internalFieldAccess
     internalInit
@@ -98,6 +99,7 @@ defMetadata(internalPragma, InternalPragma)
 defMetadata(initexpr, InitExpr)
 defMetadata(defn, DefnExpr)
 defMetadata(deftype, DeftypeExpr)
+defMetadata(cstruct, bool)
 
 defMetadata(internalIfExpr, IfExpr)
 defMetadata(internalWhileExpr, WhileExpr)

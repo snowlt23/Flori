@@ -140,6 +140,8 @@ proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
         let exsym = expandDefn(rootPassProc, scope, fnsym.symbol.fexpr, argtypes)
         fexpr[0] = exsym
         fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
+        if fexpr[0].symbol.fexpr.hasEffect:
+          applyEffect(fexpr[1], fexpr[0].symbol.fexpr.effect) # effect
     elif fexpr.len == 3 and fexpr[1].kind == fexprArray and fexpr[2].kind == fexprList: # generics call
       let fnsym = fexpr[0]
       let genericstypes = fexpr[1].mapIt(it)
@@ -153,6 +155,8 @@ proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
         let exsym = expandDefn(rootPassProc, scope, fnsym.symbol.fexpr, argtypes)
         fexpr[0] = exsym
         fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
+        if fexpr[0].symbol.fexpr.hasEffect:
+          applyEffect(fexpr[2], fexpr[0].symbol.fexpr.effect) # effect
     elif fexpr.len == 3 and fexpr[0].symbol.kind == symbolInfix:
       let fnsym = fexpr[0]
       let argtypes = @[fexpr[1].typ, fexpr[2].typ]
@@ -160,6 +164,8 @@ proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
         let exsym = expandDefn(rootPassProc, scope, fnsym.symbol.fexpr, argtypes)
         fexpr[0] = exsym
         fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
+        if fexpr[0].symbol.fexpr.hasEffect:
+          applyEffect(fseq(fexpr.span, @[fexpr[1], fexpr[2]]), fexpr[0].symbol.fexpr.effect) # effect
       
     scope.nextPass(fexpr)
   else:

@@ -1,38 +1,44 @@
 
-import core.prelude
-import core.pointer
+import core/prelude
+import core/pointer
+import core/io
+import core/syntax
 
 type Vec[T] {
   data Ptr[T]
   len Int
 }
 
-fn vec[T](len Int) {
-  init(Vec) {
+fn vec[T](len Int) Vec[T] {
+  v := init(Vec[T]) {
     alloc[T](len)
     len
   }
+  v
+}
+fn vec[T]() Vec[T] {
+  vec[T](0)
 }
 
-fn push[T](v Vec[T], value T) {
-  v.data = realloc(realloc(vec.data, vec.len+1))
-  v.data[vec.len] = value
-  v.len += 1
+fn push[T](v ref Vec[T], value T) {
+  track(v <-> value)
+  (v.data) = realloc(v.data, (v.len)+1)
+  unref((v.data) +! ((v.len) * sizeof[T]())) = value
+  (v.len) += 1
 }
 
-fn len[T](v Vec[T]) {
+fn length[T](v Vec[T]) Int {
   v.len
 }
 
-fn `[][T](v Vec[T], i Int) T {
-  v.data[i]
+fn access[T](v Vec[T], i Int) T {
+  unref((v.data) +! (i * sizeof[T]()))
 }
 
 fn destructor[T](v Vec[T]) {
-  when (is_destructable(T)) {
-    for i in 0..<v.len {
-      destructor(v[i])
-    }
+  println("Vec destroyed!")
+  for i in range(0, length(v)-1) {
+    destructor(access(v, i))
   }
-  dealloc(vec.data)
+  dealloc(v.data)
 }
