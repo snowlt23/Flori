@@ -1,6 +1,11 @@
 
-import types, fexpr, parser, metadata
+import types, fexpr, parser, metadata, scope
+import passutils
+
 import strutils
+import options
+
+var gCtx*: SemanticContext
 
 proc ffiSpan*(): Span =
   Span(filename: "expanded", line: 0, linepos: 0, pos: 0)
@@ -37,4 +42,5 @@ proc ffiSet*(fexpr: FExpr, i: int, value: FExpr) {.cdecl.} =
   fexpr[i] = value
 proc ffiToCS*(fexpr: FExpr): cstring {.cdecl.} =
   cstring($fexpr)
-  
+proc ffiGensym*(): FExpr {.cdecl.} =
+  return fident(internalSpan, gCtx.genTmpName())

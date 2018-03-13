@@ -26,8 +26,8 @@ proc dll*(s: string): string =
 const macrolib* = cachedir / "flori_macrolib".dll
 
 proc compileMacroLibrary*(semctx: SemanticContext, scope: Scope) =
-  semctx.modules[name("current_module")] = scope
-  defer: semctx.modules.del(name("current_module"))
+  # semctx.modules[name("current_module")] = scope
+  # defer: semctx.modules.del(name("current_module"))
   let genctx = newCCodegenContext(macrogen = true)
   genctx.codegen(semctx)
   genctx.writeModules(cachedir)
@@ -51,6 +51,7 @@ proc setupFFI*(handle: LibHandle) =
   ffi "flori_access", ffiAccess
   ffi "flori_set", ffiSet
   ffi "flori_to_cs", ffiToCS
+  ffi "flori_gensym", ffiGensym
 
 proc reloadMacroLibrary*(semctx: SemanticContext, scope: Scope) =
   if semctx.macrolib != nil:

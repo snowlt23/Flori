@@ -10,6 +10,7 @@ definePass SemPass
 proc internalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   if fexpr.hasEvaluated:
     return
+  fexpr.internalScope = scope
   
   case fexpr.kind
   of fexprSeq:
@@ -20,10 +21,13 @@ proc internalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
     let fnident = fexpr[0]
     let internalopt = scope.getFunc(procname(name(fnident), @[]))
     if internalopt.isSome and internalopt.get.isInternal:
+      if scope.getDecl(name("Void")).isSome:
+        scope.resolveByVoid(fexpr)
       fexpr.evaluated = true
       internalopt.get.internalproc(rootPassProc, scope, fexpr)
     elif internalopt.isSome and internalopt.get.isMacro:
       var expanded = internalopt.get.macroproc.call(fexpr)
+      # scope.importScope(name("flori_expand_scope"), internalopt.get.sym.scope)
       scope.rootPass(expanded)
       fexpr = expanded
     else:
@@ -81,10 +85,14 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   of fexprList:
     if fexpr.len != 0:
       fexpr.typ = fexpr[0].typ
+    else:
+      scope.resolveByVoid(fexpr)
     scope.nextPass(fexpr)
   of fexprBlock:
     if fexpr.len != 0:
       fexpr.typ = fexpr[^1].typ
+    else:
+      scope.resolveByVoid(fexpr)
     scope.nextPass(fexpr)
   else:
     scope.nextPass(fexpr)

@@ -470,6 +470,10 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     ctx.codegenFExpr(src, fexpr[0])
     src &= ")"
   of fexprBlock:
+    if fexpr.len == 0:
+      src &= "{}"
+      return
+    
     if fexpr[^1].typ.isVoidType:
       ctx.codegenBody(src, toSeq(fexpr.items))
     else:

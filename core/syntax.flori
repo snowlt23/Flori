@@ -52,3 +52,22 @@ macro range(fexpr FExpr) FExpr {
     }
   }
 }
+
+macro when(fexpr FExpr) FExpr {
+  if (length(fexpr) != 3) {
+    error(fexpr, "when syntax expect: when (cond) {...}")
+  }
+  tmpsym := gensym()
+  cond := access(fexpr, 1)
+  body := access(fexpr, 2)
+  quote {
+    macro `tmpsym(fexpr FExpr) FExpr {
+      if `cond {
+        quote `body
+      } else {
+        quote {}
+      }
+    }
+    `tmpsym()
+  }
+}

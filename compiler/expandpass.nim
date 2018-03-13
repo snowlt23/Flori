@@ -165,7 +165,6 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtype
   sym.fexpr.defn = defn
 
   fexpr.internalScope.addSpecFunc(pd)
-  fexpr.internalScope.top.toplevels.add(sym.fexpr)
 
   exscope.importScope(name("flori_current_scope"), scope.top)
   let exbody = if argtypes.isSpecTypes:
@@ -181,6 +180,7 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtype
                  fexpr.defn.body
   sym.fexpr.defn.body = exbody
   sym.fexpr[7] = exbody
+  fexpr.internalScope.top.toplevels.add(sym.fexpr)
   if argtypes.isSpecTypes:
     fnScopeout(rootPass, exscope, sym.fexpr)
 

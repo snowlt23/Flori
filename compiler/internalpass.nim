@@ -1,7 +1,7 @@
 
 import parser, types, fexpr, scope, metadata, ctrc, effect
 import passutils
-import compileutils
+import compileutils, macroffi
 
 import options
 import strutils, sequtils
@@ -279,11 +279,11 @@ proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if not status:
     fexpr.error("redefinition $# macro." % $parsed.name)
 
-  scope.toplevels.add(fexpr)
-  defer: scope.toplevels.del(high(scope.toplevels))
+  scope.top.toplevels.add(fexpr)
+  defer: scope.top.toplevels.del(high(scope.top.toplevels))
     
   scope.ctx.macroprocs.add(mp)
-  scope.ctx.reloadMacroLibrary(scope)
+  scope.ctx.reloadMacroLibrary(scope.top)
     
 proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var parsed = parseDeftype(fexpr)
@@ -508,6 +508,16 @@ proc semQuote*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
 
   fexpr = ret
   scope.rootPass(fexpr)
+
+proc semIsDestructable*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.len != 2 or fexpr[1].kind != fexprList and fexpr[1].len != 0:
+    fexpr.error("unsage: is_destructable(fexpr)")
+  scope.rootPass(fexpr[1][0])
+  if fexpr.internalScope.getFunc(procname(name("destructor"), @[fexpr[1][0].typ])).isSome:
+    fexpr = fexpr.span.quoteFExpr("true", [])
+  else:
+    fexpr = fexpr.span.quoteFExpr("false", [])
+  scope.rootPass(fexpr)
     
 #
 # Internal
@@ -539,6 +549,8 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("import"), semImport)
   scope.addInternalEval(name("quote"), semQuote)
 
+  scope.addInternalEval(name("is_destructable"), semIsDestructable)
+
   scope.addInternalEval(name("importc"), semImportc)
   scope.addInternalEval(name("header"), semHeader)
   scope.addInternalEval(name("pattern"), semPattern)
@@ -558,12 +570,21 @@ proc newSemanticContext*(): SemanticContext =
   result.macroprocs = @[]
   result.tmpcount = 0
   result.initInternalScope()
+  gCtx = result
 
 proc semModule*(ctx: SemanticContext, rootPass: PassProcType, name: Name, fexprs: var seq[FExpr]) =
   if ctx.modules.hasKey(name):
     return
   let scope = ctx.newScope(name)
   scope.importScope(name("internal"), ctx.internalScope)
+  var tmpcurr: Scope = nil
+  if ctx.modules.hasKey((name("current_module"))):
+    tmpcurr = ctx.modules[name("current_module")]
+  ctx.modules[name("current_module")] = scope
+  defer:
+    ctx.modules.del(name("current_module"))
+    if not tmpcurr.isNil:
+      ctx.modules[name("current_module")] = tmpcurr
   for f in fexprs.mitems:
     f.internalToplevel = true
     scope.rootPass(f)
