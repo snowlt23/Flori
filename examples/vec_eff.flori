@@ -1,0 +1,23 @@
+
+import core/prelude
+import core/io
+import core/fileio
+import core/syntax
+import core/vec
+
+#
+# eff
+#
+
+fn vec_eff() Vec[File] {
+  v := vec[File]()
+  f := open_file("voiceroids.txt", "w")
+  push(v, f)
+  v
+}
+
+fn main() {
+  v := vec_eff()
+}
+
+main()

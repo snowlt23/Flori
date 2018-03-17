@@ -111,6 +111,8 @@ proc addSon*(fexpr: FExpr, f: FExpr) =
   if fexpr.kind notin fexprContainer:
     fexpr.error("$# isn't farray" % $fexpr.kind)
   fexpr.sons.add(f)
+proc delSon*(fexpr: FExpr, i: int) =
+  fexpr.sons.del(i)
 proc `[]`*(fexpr: FExpr, i: int): var FExpr =
   case fexpr.kind
   of fexprContainer:
@@ -202,5 +204,11 @@ proc isParametricTypeExpr*(fexpr: FExpr, pos: int): bool =
 proc isPragmaPrefix*(fexpr: FExpr): bool =
   fexpr.kind == fexprPrefix and $fexpr == "$"
 
+proc isNormalFuncCall*(fexpr: FExpr): bool =
+  fexpr.kind == fexprSeq and fexpr.len == 2 and fexpr[1].kind == fexprList
 proc isGenericsFuncCall*(fexpr: FExpr): bool =
   fexpr.kind == fexprSeq and fexpr.len == 3 and fexpr[1].kind == fexprArray and fexpr[2].kind == fexprList
+proc isInfixFuncCall*(fexpr: FExpr): bool =
+  fexpr.kind == fexprSeq and fexpr.len == 3 and (fexpr[0].kind == fexprInfix or (fexpr[0].kind == fexprSymbol and fexpr[0].symbol.kind == symbolInfix))
+proc isFuncCall*(fexpr: FExpr): bool =
+  fexpr.isNormalFuncCall or fexpr.isGenericsFuncCall or fexpr.isInfixFuncCall

@@ -54,9 +54,12 @@ type
   CTRC* = ref object
     refcnt*: int
     depends*: seq[CTRC]
-    destroyed*: bool
+    dest*: bool
+    ret*: bool
+    alias*: Option[CTRC]
   Effect* = object
-    argcnts*: seq[int]
+    ctrcargs*: seq[CTRC]
+    resulttypes*: seq[Symbol]
 
   FExpr* = ref object
     span*: Span
@@ -170,7 +173,9 @@ proc isSpecSymbol*(sym: Symbol): bool =
     return true
   elif sym.kind == symbolGenerics:
     return false
-  elif sym.kind in {symbolVar, symbolRef}:
+  elif sym.kind == symbolRef:
+    return sym.types[0].isSpecSymbol()
+  elif sym.kind == symbolVar and sym.types.len != 0:
     return sym.types[0].isSpecSymbol()
   else:
     for t in sym.types:

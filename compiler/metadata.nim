@@ -29,6 +29,7 @@ type
     internalDeftype
     internalIf
     internalWhile
+    internalVar
     internalDef
     internalTrack
     internalSet

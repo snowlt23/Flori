@@ -1,33 +1,33 @@
 
-(require prelude :refer :all)
+import core/prelude
+import core/io
+import core/string
 
-(c-type File :name "FILE*" :header "stdio.h")
-@(: File CString)
-(c-func fprintf :header "stdio.h")
-@(: CString CString -> File)
-(c-func fopen :name "fopen" :header "stdio.h")
-@(: File)
-(c-func fclose :name "fclose" :header "stdio.h")
+type File $[importc "FILE*", header "stdio.h"]
 
-@(: File)
-(c-value stdio)
-@(: File)
-(c-value stdout)
+fn fprintf(f File, cs CString) $[importc "fprintf", header "stdio.h"]
+fn fopen(name CString, mode CString) File $[importc "fopen", header "stdio.h"]
+fn fclose(f File) $[importc "fclose", header "stdio.h"]
 
-@(: File)
-(defn destructor [file]
-  (fclose file))
+fn stdin() $[importc, header "stdio.h", pattern "stdin"]
+fn stdout() $[importc, header "stdio.h", pattern "stdout"]
 
-@(: File CString)
-(defn write [file s]
-  (fprintf file s))
+fn destructor(f File) {
+  println("File destroyed!")
+  fclose(f)
+}
 
-@(: CString CString -> File)
-(defn open-file [filename mode]
-  (var file (fopen filename mode))
-  file)
+fn write(f File, cs CString) {
+  fprintf(f, cs)
+}
+fn write(f File, s String) {
+  fprintf(f, cstring(s))
+}
 
-@(: CString CString)
-(defn write-file [filename s]
-  (var file (open-file filename "w"))
-  (write file s))
+fn open_file(filename CString, mode CString) File {
+  fopen(filename, mode)
+}
+fn write_file(filename CString, s CString) {
+  f := open_file(filename, "w")
+  write(f, s)
+}

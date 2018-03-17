@@ -21,7 +21,7 @@ fn vec[T]() Vec[T] {
 }
 
 fn push[T](v ref Vec[T], value T) {
-  track(v <-> value)
+  track(v -> value)
   (v.data) = realloc(v.data, (v.len)+1)
   unref((v.data) +! ((v.len) * sizeof[T]())) = value
   (v.len) += 1
@@ -37,10 +37,5 @@ fn access[T](v Vec[T], i Int) T {
 
 fn destructor[T](v Vec[T]) {
   println("Vec destroyed!")
-  when (is_destructable(T)) {
-    for i in range(0, length(v)-1) {
-      destructor(access(v, i))
-    }
-  }
   dealloc(v.data)
 }

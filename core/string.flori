@@ -16,6 +16,10 @@ fn string(cs CString) String {
   s
 }
 
+fn cstring(s String) CString {
+  cast[CString](s.p)
+}
+
 fn length(s String) Int {
   s.len
 }
@@ -24,9 +28,15 @@ fn push(dest ref String, src String) {
   len := length(dest) + length(src)
   (dest.p) = realloc[Char](dest.p, len + 1)
   memcpy((dest.p) +! length(dest), src.p, length(src))
+  unref((dest.p) +! len) = cast[Char](0)
   (dest.len) = len
 }
 
 fn print(s String) {
   print(cast[CString](s.p))
+}
+
+fn destructor(s String) {
+  println("String destroyed!")
+  dealloc(s.p)
 }

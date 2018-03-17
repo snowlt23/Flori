@@ -209,8 +209,7 @@ proc declArgtypes*(scope: Scope, fexpr: FExpr, isGenerics: bool): seq[Symbol] =
     let argtyp = arg.parseTypeExpr(pos)
     let typesym = scope.semType(argtyp)
 
-    arg[0].ctrc = initCTRC()
-    arg[0].ctrc.refcnt = 0
+    arg[0].ctrc = initCTRC(cnt = 0)
     let argsym = scope.symbol(name(arg[0]), symbolVar, arg[0])
     arg[0].typ = typesym
     arg[0].replaceByTypesym(argsym)
@@ -242,6 +241,9 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: var De
 
   if parsed.generics.isSpecTypes:
     fnscope.rootPass(parsed.body)
+    if parsed.body.len != 0:
+      if not parsed.body[^1].typ.spec(rettype):
+        parsed.body[^1].error("function expect $# return type, actually $#" % [$rettype, $parsed.body[^1].typ])
     if parsed.body.len != 0 and not parsed.body[^1].typ.isVoidType:
       if parsed.body[^1].kind == fexprSymbol:
         if not parsed.body[^1].symbol.fexpr.ctrc.inc:
@@ -358,6 +360,27 @@ proc semWhile*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.internalMark = internalWhile
   fexpr.internalWhileExpr = parsed
 
+proc semVar*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  let n = fexpr[1]
+  if n.kind != fexprIdent:
+    n.error("variable name should be FIdent.")
+
+  var pos = 2
+  let parsedtype = parseTypeExpr(fexpr, pos)
+  let typsym = scope.semType(parsedtype)
+  
+  let varsym = scope.symbol(name(n), symbolVar, n)
+  n.typ = typsym.scope.varsym(typsym)
+  let status = scope.addDecl(name(n), varsym)
+  if not status:
+    fexpr.error("redefinition $# variable." % $n)
+  varsym.fexpr.ctrc = initCTRC()
+  scope.tracking(varsym.fexpr)
+  
+  let fsym = fsymbol(fexpr[1].span, varsym)
+  fexpr[1] = fsym
+  fexpr.internalMark = internalVar
+  
 proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var parsed = parseDef(fexpr)
   if parsed.name.kind != fexprIdent:
@@ -373,7 +396,10 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let status = scope.addDecl(name(parsed.name), varsym)
   if not status:
     fexpr.error("redefinition $# variable." % $parsed.name)
+    
   varsym.fexpr.ctrc = initCTRC()
+  if parsed.value.kind == fexprSymbol:
+    varsym.fexpr.ctrc.alias = some(parsed.value.symbol.fexpr.ctrc)
   scope.tracking(varsym.fexpr)
 
   let fsym = fsymbol(fexpr[1].span, varsym)
@@ -541,6 +567,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("type"), semDeftype)
   scope.addInternalEval(name("if"), semIf)
   scope.addInternalEval(name("while"), semWhile)
+  scope.addInternalEval(name("var"), semVar)
   scope.addInternalEval(name(":="), semDef)
   scope.addInternalEval(name("track"), semTrack)
   scope.addInternalEval(name("="), semSet)
