@@ -5,10 +5,10 @@ F Expression is new flexible meta syntax, it's looks like C or Go. (like Lisp an
 
 ## All kind
 
+- comment `# ...`
 - identifiers
   - FIdent : `scope.ident`
   - FPrefix : `$`
-  - FShort : `|`
   - FInfix : `+`
 - identifier wrappers
   - FQuote : backquote
@@ -20,4 +20,4 @@ F Expression is new flexible meta syntax, it's looks like C or Go. (like Lisp an
   - FSeq : `if (true) {}`
   - FArray : `[a, b, c]`
   - FList : `(a, b, c)`
-  - FBlock : `{}` with separated by newline
+  - FBlock : `{}` with separated by newline or semicolon
