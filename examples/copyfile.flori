@@ -1,0 +1,14 @@
+
+import "core/prelude"
+import "core/io"
+import "core/fileio"
+
+fn main() {
+  if (copy_file("LICENSE", "bakLICENSE")) {
+    println("copy success!")
+  } else {
+    println("copy failure!")
+  }
+}
+
+main()

@@ -1,7 +1,7 @@
 
-import core/prelude
-import core/io
-import core/macros
+import "core/prelude"
+import "core/io"
+import "core/macros"
 
 macro for(fexpr FExpr) FExpr {
   if ((length(fexpr) != 5) && (length(fexpr) != 6)) {

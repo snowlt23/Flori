@@ -8,7 +8,7 @@ import strutils, sequtils
 import tables
 import os
 
-proc semFile*(ctx: SemanticContext, rootPass: PassProcType, filepath: string): Name
+proc semFile*(ctx: SemanticContext, rootPass: PassProcType, filepath: string): Option[Name]
 
 #
 # Parser
@@ -500,14 +500,20 @@ proc semInit*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.internalMark = internalInit
 
 proc semImport*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
-  let importname = name(fexpr[1])
+  if fexpr.len != 2:
+    fexpr.error("import syntax require filepath.")
+  if fexpr[1].kind != fexprStrLit:
+    fexpr.error("import syntax filepath should be FStrLit.")
+  let importname = name(fexpr[1].strval)
   let filepath = ($importname).replace(".", "/") & ".flori"
   let modname = scope.ctx.semFile(rootPass, filepath)
-  scope.importScope(importname, scope.ctx.modules[modname])
+  if modname.isNone:
+    fexpr.error("cannot import $#" % $fexpr[1])
+  scope.importScope(importname, scope.ctx.modules[modname.get])
   fexpr.internalMark = internalImport
   fexpr.internalImportExpr = ImportExpr(
     importname: importname,
-    modname: modname
+    modname: modname.get
   )
 
 proc collectQuotedItems*(fexpr: FExpr, collected: var seq[FExpr]) =
@@ -621,12 +627,15 @@ proc semModule*(ctx: SemanticContext, rootPass: PassProcType, name: Name, fexprs
     scope.toplevels.add(f)
   ctx.modules[name] = scope
 
-proc semFile*(ctx: SemanticContext, rootPass: PassProcType, filepath: string): Name =
-  var fexprs = parseToplevel(filepath, readFile(filepath))
-  let (dir, n, _) = filepath.splitFile()
-  let modname = if dir != "":
-                  name(dir.replace("/", ".") & "." & n)
-                else:
-                  name(n)
-  ctx.semModule(rootPass, modname, fexprs)
-  return modname
+proc semFile*(ctx: SemanticContext, rootPass: PassProcType, filepath: string): Option[Name] =
+  try:
+    var fexprs = parseToplevel(filepath, readFile(filepath))
+    let (dir, n, _) = filepath.splitFile()
+    let modname = if dir != "":
+                    name(dir.replace("/", ".") & "." & n)
+                  else:
+                    name(n)
+    ctx.semModule(rootPass, modname, fexprs)
+    return some(modname)
+  except IOError:
+    return none(Name)

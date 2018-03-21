@@ -1,8 +1,8 @@
 
-import core/prelude
-import core/pointer
-import core/io
-import core/syntax
+import "core/prelude"
+import "core/pointer"
+import "core/io"
+import "core/syntax"
 
 type Vec[T] {
   data Ptr[T]

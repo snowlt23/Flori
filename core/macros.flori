@@ -1,5 +1,5 @@
 
-import core/prelude
+import "core/prelude"
 
 type FExpr $[importc "flori_fexpr", header "floriffi.h"]
 type FExprKind $[importc "int", header "floriffi.h"]

@@ -1,8 +1,14 @@
 
-import core/prelude
-import core/io
-import core/string
-import core/syntax
+import "core/prelude"
+import "core/io"
+import "core/string"
+import "core/syntax"
+import "core/macros"
+import "core/env"
+
+when (is_windows()) {
+  import "core/windows"
+}
 
 type File $[importc "FILE*", header "stdio.h"]
 
@@ -31,4 +37,10 @@ fn open_file(filename CString, mode CString) File {
 fn write_file(filename CString, s CString) {
   f := open_file(filename, "w")
   write(f, s)
+}
+
+fn copy_file(src CString, dest CString) Bool {
+  when (is_windows()) {
+    win_copyfile(src, dest, false)
+  }
 }
