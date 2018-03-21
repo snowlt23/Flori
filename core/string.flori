@@ -2,6 +2,7 @@
 import core/prelude
 import core/pointer
 import core/io
+import core/syntax
 
 fn strlen(cs CString) Int $[importc "strlen", header "string.h"]
 
@@ -36,7 +37,7 @@ fn print(s String) {
   print(cast[CString](s.p))
 }
 
-fn destructor(s String) {
+destructor(s String) {
   println("String destroyed!")
   dealloc(s.p)
 }

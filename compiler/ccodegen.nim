@@ -505,6 +505,10 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 proc codegenToplevel*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.hasinternalMark:
     ctx.codegenInternal(src, fexpr, topcodegen = true)
+  elif fexpr.kind == fexprBlock:
+    for son in fexpr.mitems:
+      if son.hasInternalMark:
+        ctx.codegenInternal(src, son, topcodegen = true)
 
 proc codegenModule*(ctx: CCodegenContext, name: Name, scope: Scope) =
   var modsrc = initSrcExpr()

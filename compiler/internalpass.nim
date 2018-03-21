@@ -326,15 +326,18 @@ proc semIf*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var isret = true
 
   for branch in parsed.elifbranch.mitems:
-    scope.rootPass(branch.cond)
+    let bscope = scope.extendScope()
+    bscope.rootPass(branch.cond)
     if not branch.cond.typ.isBoolType:
       branch.cond.error("if expression cond type should be Bool.")
-    scope.rootPass(branch.body)
+    bscope.rootPass(branch.body)
     if branch.body.len != 0:
       branchtypes.add(branch.body[^1].typ)
     else:
       isret = false
-  scope.rootPass(parsed.elsebranch)
+      
+  let bscope = scope.extendScope()
+  bscope.rootPass(parsed.elsebranch)
   if parsed.elsebranch.len != 0:
     branchtypes.add(parsed.elsebranch[^1].typ)
   else:
@@ -447,15 +450,15 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.internalMark = internalSet
   fexpr.internalSetExpr = parsed
   
-  if parsed.dst.kind == fexprSymbol:
-    let ctrc = parsed.dst.symbol.fexpr.ctrc
-    ctrc.dec # FIXME: into `depend
-    if ctrc.destroyed:
-      if scope.getFunc(procname(name("destructor"), @[parsed.dst.typ])).isSome:
-        let dcall = parsed.dst.span.quoteFExpr("destructor(`embed)", [parsed.dst])
-        fexpr = fblock(parsed.dst.span, @[fexpr, dcall])
-        scope.rootPass(fexpr)
-      ctrc.revive()
+  # if parsed.dst.kind == fexprSymbol:
+  #   let ctrc = parsed.dst.symbol.fexpr.ctrc
+  #   ctrc.dec # FIXME: into `depend
+  #   if ctrc.destroyed:
+  #     if scope.getFunc(procname(name("destructor"), @[parsed.dst.typ])).isSome:
+  #       let dcall = parsed.dst.span.quoteFExpr("destructor(`embed)", [parsed.dst])
+  #       fexpr = fblock(parsed.dst.span, @[fexpr, dcall])
+  #       scope.rootPass(fexpr)
+  #     ctrc.revive()
 
 proc semFieldAccess*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var value = fexpr[1]

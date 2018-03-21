@@ -84,12 +84,14 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
     scope.nextPass(fexpr)
   of fexprList:
     if fexpr.len != 0:
+      fexpr[0].assert(fexpr[0].hasTyp)
       fexpr.typ = fexpr[0].typ
     else:
       scope.resolveByVoid(fexpr)
     scope.nextPass(fexpr)
   of fexprBlock:
     if fexpr.len != 0:
+      fexpr[^1].assert(fexpr[^1].hasTyp)
       fexpr.typ = fexpr[^1].typ
     else:
       scope.resolveByVoid(fexpr)
@@ -181,6 +183,15 @@ proc effectPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
     scope.nextPass(fexpr)
   else:
     scope.nextPass(fexpr)
+
+proc explicitDestructPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+  if fexpr.isNormalFuncCall:
+    if $fexpr[0].symbol.name == "destruct":
+      if fexpr[1][0].kind == fexprSymbol:
+        fexpr[1][0].symbol.fexpr.ctrc.destroyed = true
+    scope.nextPass(fexpr)
+  else:
+    scope.nextPass(fexpr)  
 
 proc finalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   fexpr.evaluated = true

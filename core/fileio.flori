@@ -2,6 +2,7 @@
 import core/prelude
 import core/io
 import core/string
+import core/syntax
 
 type File $[importc "FILE*", header "stdio.h"]
 
@@ -12,7 +13,7 @@ fn fclose(f File) $[importc "fclose", header "stdio.h"]
 fn stdin() $[importc, header "stdio.h", pattern "stdin"]
 fn stdout() $[importc, header "stdio.h", pattern "stdout"]
 
-fn destructor(f File) {
+destructor(f File) {
   println("File destroyed!")
   fclose(f)
 }

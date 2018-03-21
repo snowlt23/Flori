@@ -31,11 +31,11 @@ fn length[T](v Vec[T]) Int {
   v.len
 }
 
-fn access[T](v Vec[T], i Int) T {
+fn get[T](v Vec[T], i Int) T {
   unref((v.data) +! (i * sizeof[T]()))
 }
 
-fn destructor[T](v Vec[T]) {
+destructor[T](v Vec[T]) {
   println("Vec destroyed!")
   dealloc(v.data)
 }

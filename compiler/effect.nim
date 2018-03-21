@@ -20,8 +20,8 @@ proc expandDestructor*(rootPass: PassProcType, scope: Scope, body: FExpr) =
     isret = true
   for scopevalue in scope.scopevalues:
     if scopevalue.ctrc.destroyed:
-      if scope.getFunc(procname(name("destructor"), @[scopevalue.typ])).isSome:
-        var dcall = scopevalue.span.quoteFExpr("destructor(`embed)", [scopevalue])
+      if scope.getFunc(procname(name("destruct"), @[scopevalue.typ])).isSome:
+        var dcall = scopevalue.span.quoteFExpr("destruct(`embed)", [scopevalue])
         scope.rootPass(dcall)
         body.addSon(dcall)
   if isret:
@@ -78,7 +78,6 @@ proc expandEffectedArgs*(rootPass: PassProcType, scope: Scope, body: var FExpr, 
     args.addSon(tmpvarsym)
 
 proc applyEffect*(args: FExpr, eff: Effect) =
-  # echo args, eff.argcnts
   for i, ctrc in eff.ctrcargs:
     # if args[i].kind != fexprSymbol and cnt != 0:
     #   args[i].error("unsupported tracked tmp value in currently: $#" % $args[i])
@@ -120,4 +119,3 @@ proc fnScopeout*(rootPass: PassProcType, scope: Scope, fexpr: FExpr) =
   let eff = expandScopeLiftingFn(rootPass, scope, fexpr)
   if not eff.isPureEffect:
     fexpr.effect = eff
-    echo fexpr
