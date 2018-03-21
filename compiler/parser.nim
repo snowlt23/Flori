@@ -35,9 +35,7 @@ proc isEOF*(context: ParserContext): bool =
 proc isNewline*(context: ParserContext): bool =
   let lf = 0x0a.char
   let cr = 0x0d.char
-  if context.curchar == lf:
-    return true
-  elif context.src[context.pos] == cr and context.src[context.pos+1] == lf:
+  if context.curchar == lf or context.curchar == cr:
     return true
   else:
     return false
@@ -69,15 +67,6 @@ proc skipSpaces*(context: var ParserContext) =
       context.line += 1
       context.linepos = 1
       context.pos += context.newlineLen()
-    elif context.curchar == '#':
-      context.inc
-      while not context.isEOF:
-        if context.isNewline:
-          context.line += 1
-          context.linepos = 1
-          context.pos += context.newlineLen()
-          break
-        context.inc
     else:
       break
 proc span*(context: ParserContext): Span =
@@ -90,7 +79,14 @@ proc error*(context: ParserContext, msg: string) =
   raise newException(FParseError, "$#($#:$#) " % [context.filename, $context.line, $context.linepos] & msg)
 
 proc parseFExprElem*(context: var ParserContext): FExpr =
-  if context.curchar == '(':
+  if context.curchar == '#': # comment
+    context.inc
+    while not context.isEOF:
+      if context.isNewline:
+        break
+      context.inc
+    return nil
+  elif context.curchar == '(':
     var lst = flist(context.span)
     context.inc
     context.skipSpaces()
@@ -213,7 +209,7 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       context.inc
     return fstrlit(span, s)
   else:
-    context.error("couldn't parse F expression")
+    context.error("couldn't parse F expression: $#" % $context.curchar)
 
 proc rewriteToCall*(fexpr: FExpr): FExpr =
   if fexpr.kind == fexprSeq and fexpr.len == 1:
@@ -244,7 +240,9 @@ proc parseFExpr*(context: var ParserContext): FExpr =
   let sq = fseq(context.span)
   while not context.isEndSymbol:
     context.skipSpaces()
-    sq.addSon(context.parseFExprElem())
+    let elem = context.parseFExprElem()
+    if not elem.isNil:
+      sq.addSon(elem)
 
   return rewriteToCall(sq)
 
