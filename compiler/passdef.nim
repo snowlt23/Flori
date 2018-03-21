@@ -184,11 +184,26 @@ proc effectPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   else:
     scope.nextPass(fexpr)
 
+proc destroyCheckPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+  if fexpr.isFuncCall:
+    let args = if fexpr.isNormalFuncCall:
+                 fexpr[1]
+               elif fexpr.isGenericsFuncCall:
+                 fexpr[2]
+               else:
+                 fseq(fexpr.span, @[fexpr[1], fexpr[2]])
+    for arg in args:
+      if arg.kind == fexprSymbol and arg.symbol.fexpr.ctrc.exdestroyed:
+        arg.error("$# is explicit destroyed!" % $arg)
+    scope.nextPass(fexpr)
+  else:
+    scope.nextPass(fexpr)
+
 proc explicitDestructPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   if fexpr.isNormalFuncCall:
     if $fexpr[0].symbol.name == "destruct":
       if fexpr[1][0].kind == fexprSymbol:
-        fexpr[1][0].symbol.fexpr.ctrc.destroyed = true
+        fexpr[1][0].symbol.fexpr.ctrc.exdestroyed = true
     scope.nextPass(fexpr)
   else:
     scope.nextPass(fexpr)  

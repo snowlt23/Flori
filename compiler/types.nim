@@ -55,6 +55,7 @@ type
     refcnt*: int
     depends*: seq[CTRC]
     dest*: bool
+    exdest*: bool
     ret*: bool
     alias*: Option[CTRC]
   Effect* = object

@@ -32,6 +32,15 @@ proc `destroyed=`*(ctrc: CTRC, value: bool) =
     ctrc.alias.get.destroyed = value
     return
   ctrc.dest = value
+proc exdestroyed*(ctrc: CTRC): bool =
+  if ctrc.alias.isSome:
+    return ctrc.alias.get.exdestroyed
+  return ctrc.exdest
+proc `exdestroyed=`*(ctrc: CTRC, value: bool) =
+  if ctrc.alias.isSome:
+    ctrc.alias.get.exdestroyed = value
+    return
+  ctrc.exdest = value
   
 proc cnt*(ctrc: CTRC): int =
   if ctrc.alias.isSome:

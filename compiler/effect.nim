@@ -19,6 +19,8 @@ proc expandDestructor*(rootPass: PassProcType, scope: Scope, body: FExpr) =
     body[^1] = tmpvar
     isret = true
   for scopevalue in scope.scopevalues:
+    if scopevalue.ctrc.exdestroyed:
+      continue
     if scopevalue.ctrc.destroyed:
       if scope.getFunc(procname(name("destruct"), @[scopevalue.typ])).isSome:
         var dcall = scopevalue.span.quoteFExpr("destruct(`embed)", [scopevalue])
