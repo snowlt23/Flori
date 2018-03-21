@@ -1,14 +1,12 @@
 
-import core/prelude
-import core/io
-import core/string
+import "core/prelude"
+import "core/io"
+import "core/string"
 
 fn main() {
   s := string("Hello Yukari!")
   push(s, string(" and Maki!"))
   println(s)
-  destruct(s)
-  println(s) # error: s is explicit destroyed!
 }
 
 main()

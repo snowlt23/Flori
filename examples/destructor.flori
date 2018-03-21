@@ -1,13 +1,14 @@
 
-import core/prelude
-import core/io
+import "core/prelude"
+import "core/io"
+import "core/syntax"
 
 type MyInt {
   x Int
   y Int
 }
 
-fn destructor(mi MyInt) {
+destructor(mi MyInt) {
   println("MyInt destroyed!")
 }
 

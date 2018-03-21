@@ -1,29 +1,29 @@
 
-import core/prelude
-import core/io
-import core/macros
+import "core/prelude"
+import "core/io"
+import "core/macros"
 
 macro for(fexpr FExpr) FExpr {
   if ((length(fexpr) != 5) && (length(fexpr) != 6)) {
     error(fexpr, "expect syntax: for e in iter() {...}")
   }
   
-  elem := access(fexpr, 1)
-  in := access(fexpr, 2)
+  elem := get(fexpr, 1)
+  in := get(fexpr, 2)
   if (to_cs(in) != "in") {
     error(fexpr, "for-macro expect `in keyword.")
   }
 
-  itername := access(fexpr, 3)
+  itername := get(fexpr, 3)
   iterargs := if (length(fexpr) == 6) {
-    access(fexpr, 4)
+    get(fexpr, 4)
   } else {
     new_flist()
   }
   body := if (length(fexpr) == 6) {
-    access(fexpr, 5)
+    get(fexpr, 5)
   } else {
-    access(fexpr, 4)
+    get(fexpr, 4)
   }
 
   quote {
@@ -35,14 +35,14 @@ macro range(fexpr FExpr) FExpr {
   if (length(fexpr) < 4) {
     error(fexpr, "expect syntax: range(s, e) i {...}")
   }
-  args := access(fexpr, 1)
+  args := get(fexpr, 1)
   if (length(args) < 2) {
     error(fexpr, "range: require 2 arguments")
   }
-  start := access(args, 0)
-  end := access(args, 1)
-  elem := access(fexpr, 2)
-  body := access(fexpr, 3)
+  start := get(args, 0)
+  end := get(args, 1)
+  elem := get(fexpr, 2)
+  body := get(fexpr, 3)
 
   quote {
     `elem := `start

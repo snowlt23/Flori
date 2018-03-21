@@ -145,7 +145,7 @@ wrap(9)
   test "import":
     let ctx = newSemanticContext()
     var fexprs = parseToplevel("testmodule.flori", prelude & """
-import core/prelude
+import "core/prelude"
 """)
     ctx.semModule(processSemPass, name("testmodule"), fexprs)
     check fexprs[^1].internalMark == internalImport
