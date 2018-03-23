@@ -13,9 +13,9 @@ export ccodegen.codegenMangling
 const cachedir* = "floricache"
 
 proc compileWithGCC*(pass: CCodegenContext, dir: string, options: string, files = "") =
-  discard execShellCmd "gcc $# $# $#" % [options, pass.cfilenames(dir).join(" "), files]
+  discard execShellCmd "gcc $# $# $#" % [pass.cfilenames(dir).join(" "), files, options]
 proc compileWithTCC*(pass: CCodegenContext, dir: string, options: string, files = "") =
-  discard execShellCmd "tcc $# $# $#" % [options, pass.cfilenames(dir).join(" "), files]
+  discard execShellCmd "tcc $# $# $#" % [pass.cfilenames(dir).join(" "), files, options]
 
 proc dll*(s: string): string =
   when defined(windows):
@@ -31,7 +31,7 @@ proc compileMacroLibrary*(semctx: SemanticContext, scope: Scope) =
   let genctx = newCCodegenContext(macrogen = true)
   genctx.codegen(semctx)
   genctx.writeModules(cachedir)
-  genctx.compileWithTCC(cachedir, "-shared -rdynamic -o$# -Iffi/" % [macrolib])
+  genctx.compileWithTCC(cachedir, "-shared -rdynamic -o$# -I$# $#" % [macrolib, getAppDir() / ".." / "ffi", semctx.ccoptions])
 
 proc setupFFI*(handle: LibHandle) =
   template ffi(name, prc) =

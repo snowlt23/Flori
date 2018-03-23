@@ -116,6 +116,7 @@ type
     macroprocs*: seq[MacroProc]
     tmpcount*: int
     importpaths*: seq[string]
+    ccoptions*: string
 
 #
 # Scope
