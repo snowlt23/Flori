@@ -606,6 +606,7 @@ proc newSemanticContext*(): SemanticContext =
   result.macroprocs = @[]
   result.tmpcount = 0
   result.initInternalScope()
+  result.importpaths = @[getAppDir() / "..", "."]
   gCtx = result
 
 proc semModule*(ctx: SemanticContext, rootPass: PassProcType, name: Name, fexprs: var seq[FExpr]) =
@@ -629,13 +630,16 @@ proc semModule*(ctx: SemanticContext, rootPass: PassProcType, name: Name, fexprs
 
 proc semFile*(ctx: SemanticContext, rootPass: PassProcType, filepath: string): Option[Name] =
   try:
-    var fexprs = parseToplevel(filepath, readFile(filepath))
-    let (dir, n, _) = filepath.splitFile()
-    let modname = if dir != "":
-                    name(dir.replace("/", ".") & "." & n)
-                  else:
-                    name(n)
-    ctx.semModule(rootPass, modname, fexprs)
-    return some(modname)
+    for importpath in ctx.importpaths:
+      if existsFile(importpath / filepath):
+        var fexprs = parseToplevel(filepath, readFile(importpath / filepath))
+        let (dir, n, _) = filepath.splitFile()
+        let modname = if dir != "":
+                        name(dir.replace("/", ".") & "." & n)
+                      else:
+                        name(n)
+        ctx.semModule(rootPass, modname, fexprs)
+        return some(modname)
+    return none(Name)
   except IOError:
     return none(Name)

@@ -115,6 +115,7 @@ type
     macrolib*: LibHandle
     macroprocs*: seq[MacroProc]
     tmpcount*: int
+    importpaths*: seq[string]
 
 #
 # Scope
