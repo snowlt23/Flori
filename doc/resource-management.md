@@ -8,7 +8,7 @@ Statically Automatic Resource Management came true by multiple compile time syst
 - Extent Lifting
   - Depend Lifting
   - Loop Lifting by `UniqueVec[T]`
-- Explicit Destroy
+- Explicit Destruct
 
 # Compile Time Reference Counting
 
@@ -16,7 +16,7 @@ Statically Automatic Resource Management came true by multiple compile time syst
 fn main() {
   f := open_file("test.txt") # f.cnt = 1
   # f.cnt = 0
-  # destructor(f)
+  # destruct(f)
 }
 ```
 
@@ -49,8 +49,8 @@ fn main() {
   v := vec_eff() # retruned v, and f
   # v.cnt = 1, f.cnt = 2
   # v.cnt = 0, f.cnt = 0
-  # destructor(f)
-  # destructor(v)
+  # destruct(f)
+  # destruct(v)
 }
 ```
 
@@ -68,8 +68,8 @@ fn main() {
   v := vec_eff() # returned v, and loop.f(UniqueVec[File])
   # v.cnt = 1, loop.f.cnt = 2
   # v.cnt = 0, loop.f.cnt = 0
-  # destructor(loop.f)
-  # destructor(v)
+  # destruct(loop.f)
+  # destruct(v)
 }
 ```
 
@@ -78,7 +78,7 @@ fn main() {
 ```
 fn d() File {
   f := open_file("test.txt")
-  destructor(f) # explicit destructor call
+  destruct(f) # explicit destructor call
   f # illegal at compile time, because f is destroyed.
 }
 fn main() {
