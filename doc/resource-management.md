@@ -65,7 +65,7 @@ fn vec_eff() Vec[File] {
   v # return v, and loop.f(UniqueVec[File]) because depend by v
 }
 fn main() {
-  v := vec_eff() # retruned v, and loop.f(UniqueVec[File])
+  v := vec_eff() # returned v, and loop.f(UniqueVec[File])
   # v.cnt = 1, loop.f.cnt = 2
   # v.cnt = 0, loop.f.cnt = 0
   # destructor(loop.f)
