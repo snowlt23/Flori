@@ -81,6 +81,8 @@ proc spec*(a, b: Symbol): bool =
       if not a.types[i].spec(b.types[i]):
         return false
     return true
+  elif a.kind == symbolIntLit and b.kind == symbolIntLit:
+    return a.intval == b.intval
   elif a.kind == symbolRef and b.kind == symbolRef:
     return a.types[0].match(b.types[0])
   elif a.kind == symbolVar and b.kind == symbolRef:

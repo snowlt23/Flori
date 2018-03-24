@@ -1,6 +1,6 @@
 
 import parser, types, fexpr, scope, metadata, ctrc, effect
-import passutils
+import passutils, typepass
 import compileutils, macroffi
 
 import options
@@ -170,6 +170,15 @@ proc semPattern*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
       fexpr[1].error("unsupported in pattern pragma")
   else:
     fexpr.error("usage: `pattern \"#1($1)\"` or `pattern infixc`")
+
+proc semDeclc*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.len == 2:
+    if fexpr[1].kind == fexprStrLit:
+      fexpr.parent.internalPragma.declc = some(fexpr[1].strval)
+    else:
+      fexpr[1].error("unsupported in declc pragma")
+  else:
+    fexpr.error("usage: `declc \"#1($1)\"``")
 
 proc semPragma*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, pragma: FExpr) =
   if pragma.kind != fexprArray:
@@ -381,7 +390,7 @@ proc semVar*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   scope.tracking(varsym.fexpr)
   
   let fsym = fsymbol(fexpr[1].span, varsym)
-  fexpr[1] = fsym
+  fexpr = fexpr.span.quoteFExpr("var `embed `embed", [fsym, fsymbol(fexpr[2].span, typsym)])
   fexpr.internalMark = internalVar
   
 proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
@@ -590,6 +599,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("importc"), semImportc)
   scope.addInternalEval(name("header"), semHeader)
   scope.addInternalEval(name("pattern"), semPattern)
+  scope.addInternalEval(name("declc"), semDeclc)
 
 proc initInternalScope*(ctx: SemanticContext) =
   let scope = ctx.newScope(name("internal"))

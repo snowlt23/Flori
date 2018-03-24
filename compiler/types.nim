@@ -26,6 +26,7 @@ type
     symbolInfix
     symbolMacro
     symbolInternal
+    symbolIntLit
   Symbol* = ref object
     scope*: Scope
     name*: Name
@@ -33,6 +34,7 @@ type
     types*: seq[Symbol]
     fexpr*: FExpr
     instance*: Option[Symbol]
+    intval*: int64
   Name* = object
     names*: seq[string]
   FExprKind* = enum
@@ -148,7 +150,9 @@ proc symbol*(scope: Scope, name: Name, kind: SymbolKind, fexpr: FExpr): Symbol =
 proc `==`*(a, b: Symbol): bool =
   a.name == b.name and a.scope == b.scope
 proc `$`*(sym: Symbol): string =
-  if sym.types.len == 0:
+  if sym.kind == symbolIntLit:
+    $sym.intval
+  elif sym.types.len == 0:
     $sym.scope.name & "." & $sym.name
   elif sym.kind == symbolRef:
     "ref " & $sym.types[0]
@@ -166,6 +170,9 @@ proc symcopy*(sym: Symbol): Symbol =
   var f: FExpr
   f.deepCopy(sym.fexpr)
   result = sym.scope.symbol(sym.name, sym.kind, f)
+proc intsym*(scope: Scope, fexpr: FExpr): Symbol =
+  result = scope.symbol(name("IntLit"), symbolIntLit, fexpr)
+  result.intval = fexpr.intval
 
 #
 # is spec
@@ -180,6 +187,8 @@ proc isSpecSymbol*(sym: Symbol): bool =
     return sym.types[0].isSpecSymbol()
   elif sym.kind == symbolVar and sym.types.len != 0:
     return sym.types[0].isSpecSymbol()
+  elif sym.kind == symbolIntLit:
+    return true
   else:
     for t in sym.types:
       if not t.isSpecSymbol:

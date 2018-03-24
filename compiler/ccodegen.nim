@@ -98,6 +98,8 @@ proc codegenSymbol*(sym: Symbol): string =
     result &= $sym.scope.name & "_" & $sym.name & "_" & sym.types.mapIt(codegenSymbol(it)).join("_")
   elif sym.kind == symbolVar and sym.types.len != 0:
     result &= codegenSymbol(sym.types[0])
+  elif sym.kind == symbolIntLit:
+    result &= $sym.intval
   else:
     result &= $sym.scope.name & "_" & $sym.name
   result = result.replaceSpecialSymbols()
@@ -111,6 +113,7 @@ proc codegenType*(sym: Symbol): string
 proc codegenTypePattern*(pattern: string, types: seq[Symbol]): string =
   result = pattern
   for i, typ in types:
+    result = result.replace("##" & $(i+1), codegenSymbol(typ))
     result = result.replace("#" & $(i+1), codegenType(typ))
 proc codegenTypeImportc*(sym: Symbol): string =
   if sym.fexpr.internalPragma.pattern.isSome:
@@ -119,6 +122,9 @@ proc codegenTypeImportc*(sym: Symbol): string =
     sym.fexpr.internalPragma.importc.get
 
 proc codegenType*(sym: Symbol): string =
+  if sym.kind == symbolVar and sym.types.len != 0:
+    return codegenType(sym.types[0])
+  
   if sym.fexpr.hasInternalPragma and sym.fexpr.internalPragma.importc.isSome:
     return codegenTypeImportc(sym)
   result = ""
@@ -132,7 +138,6 @@ proc codegenType*(fexpr: FExpr): string =
 
 proc codegenMangling*(sym: Symbol, generics: seq[Symbol], types: seq[Symbol]): string =
   result = codegenSymbol(sym) & "G" & generics.mapIt(codegenSymbol(it)).join("_") & "G" & "_" & types.mapIt(codegenSymbol(it)).join("_")
-  result = result.replace("struct ")
 
 iterator codegenArgs*(ctx: CCodegenContext, src: var SrcExpr, args: FExpr): FExpr =
   if args.len >= 1:
@@ -212,10 +217,18 @@ proc codegenDeftypeStruct*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr)
     src.typedecls &= ";\n"
   src.typedecls &= "};\n"
 
+proc codegenDeftypePattern*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  if fexpr.internalPragma.declc.isSome:
+    src.typedecls &= codegenTypePattern(fexpr.internalPragma.declc.get, fexpr.deftype.name.symbol.types)
+    src.typedecls &= "\n"
+  
 proc codegenDeftype*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.internalPragma.header.isSome:
     src.addHeader(fexpr.internalPragma.header.get)
-  if fexpr.internalPragma.importc.isNone:
+  if fexpr.internalPragma.importc.isSome:
+    if not fexpr.deftype.isGenerics:
+      ctx.codegenDeftypePattern(src, fexpr)
+  else:
     if not fexpr.deftype.isGenerics:
       ctx.codegenDeftypeStruct(src, fexpr)
 
@@ -308,7 +321,7 @@ proc codegenFieldAccess*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   ctx.codegenFExpr(src, fexpr.internalFieldAccessExpr.fieldname)
 
 proc codegenInit*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  src &= "{"
+  src &= "(" & codegenType(fexpr.initexpr.typ) & "){"
   for arg in ctx.codegenArgs(src, fexpr.initexpr.body):
     ctx.codegenFExpr(src, arg)
   src &= "}"

@@ -44,3 +44,5 @@ suite "example":
     checkio "examples/string.flori", "Hello Yukari! and Maki!\nString destroyed!\n"
   test "vec eff":
     checkio "examples/vec_eff.flori", "File destroyed!\nVec destroyed!\n"
+  test "array":
+    checkio "examples/array.flori", ""

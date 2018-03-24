@@ -41,6 +41,7 @@ type
     header*: Option[string]
     infixc*: bool
     pattern*: Option[string]
+    declc*: Option[string]
     internal*: bool
 
 type

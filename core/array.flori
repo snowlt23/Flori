@@ -1,0 +1,4 @@
+
+import "core/prelude"
+
+type Array[N, T] $[importc, header nodeclc, declc "struct Array##1_##2 { #2 data[#1]; };", pattern "struct Array##1_##2"]

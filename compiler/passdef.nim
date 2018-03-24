@@ -1,6 +1,6 @@
 
 import parser, types, fexpr, scope, metadata, ctrc, effect
-import passmacro, expandpass, passutils
+import passmacro, expandpass, passutils, typepass
 
 import options
 import strutils, sequtils
