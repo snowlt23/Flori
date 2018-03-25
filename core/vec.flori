@@ -46,6 +46,7 @@ fn get[T](v Vec[T], i Int) T {
 }
 
 destructor[T](v Vec[T]) {
+  println("Vec destroyed!")
   dealloc(v.data)
 }
 

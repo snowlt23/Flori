@@ -81,7 +81,7 @@ syntax when(fexpr FExpr) FExpr {
   cond := get(fexpr, 1)
   body := get(fexpr, 2)
   quote {
-    macro `tmpsym(fexpr FExpr) FExpr {
+    syntax `tmpsym(fexpr FExpr) FExpr {
       if `cond {
         quote `body
       } else {
@@ -122,7 +122,7 @@ syntax static(fexpr FExpr) FExpr {
   mname := gensym()
   body := get(fexpr, 1)
   quote {
-    macro `mname (fexpr FExpr) FExpr {
+    syntax `mname (fexpr FExpr) FExpr {
       `body
       quote {}
     }
