@@ -52,12 +52,10 @@ destructor[T](v Vec[T]) {
 
 iterator items[T](v TExpr[Vec[T]]) {
   i := gensym()
-  parsed := quote {
+  quote {
     for `i in range(0, length(`v)-1) {
       `element := get(`v, `i)
       `yield
     }
   }
-  println(parsed)
-  parsed
 }
