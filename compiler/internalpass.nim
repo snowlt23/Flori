@@ -108,7 +108,7 @@ proc parseIf*(fexpr: FExpr): IfExpr =
       if body.kind != fexprBlock:
         fexpr[pos].error("elif body should be FBlock.")
       pos.inc
-      result.elifbranch.add((fexpr[pos][0], fexpr[pos+1]))
+      result.elifbranch.add((cond[0], body))
     else:
       pos.inc
       let body = fexpr[pos]
@@ -230,7 +230,7 @@ proc declArgtypes*(scope: Scope, fexpr: FExpr, isGenerics: bool): seq[Symbol] =
       if not status:
         arg[0].error("redefinition $# variable." % $arg[0])
 
-proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: var DefnExpr): (Scope, seq[Symbol], seq[Symbol], Symbol, Symbol) =
+proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: var DefnExpr, defsym: SymbolKind): (Scope, seq[Symbol], seq[Symbol], Symbol, Symbol) =
   let fnscope = scope.extendScope()
   let generics = if parsed.isGenerics:
                    fnscope.declGenerics(parsed.generics)
@@ -240,7 +240,7 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: var De
   let rettype = fnscope.semType(ParsedType(typ: parsed.ret, generics: parsed.retgenerics, isref: parsed.isretref))
   parsed.ret.replaceByTypesym(rettype)
   
-  let symkind = if parsed.name.kind == fexprQuote: symbolInfix else: symbolFunc
+  let symkind = if parsed.name.kind == fexprQuote: symbolInfix else: defsym
   let sym = scope.symbol(name(parsed.name), symkind, fexpr)
   let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
   discard fnscope.addFunc(pd)
@@ -272,7 +272,7 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: var De
 proc semDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.internalMark = internalDefn
   var parsed = parseDefn(fexpr)
-  let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed)
+  let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed, symbolFunc)
 
   let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
   let status = scope.addFunc(pd)
@@ -282,13 +282,13 @@ proc semDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     scope.top.toplevels.add(fexpr)
     fexpr.isToplevel = true
 
-proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+proc semSyntax*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.internalMark = internalMacro
   var parsed = parseDefn(fexpr)
-  let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed)
+  let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed, symbolSyntax)
 
   let mp = MacroProc(importname: codegenMangling(sym, @[], argtypes)) # FIXME: support generics
-  let pd = ProcDecl(isInternal: false, isMacro: true, macroproc: mp, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
+  let pd = ProcDecl(isInternal: false, isSyntax: true, macroproc: mp, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
   let status = scope.addFunc(pd)
   if not status:
     fexpr.error("redefinition $# macro." % $parsed.name)
@@ -298,6 +298,28 @@ proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     
   scope.ctx.macroprocs.add(mp)
   scope.ctx.reloadMacroLibrary(scope.top)
+  if not fexpr.isToplevel:
+    scope.top.toplevels.add(fexpr)
+    fexpr.isToplevel = true
+
+proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  fexpr.internalMark = internalMacro
+  var parsed = parseDefn(fexpr)
+  let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed, symbolMacro)
+
+  let mp = MacroProc(importname: codegenMangling(sym, @[], argtypes) & "_macro") # FIXME: support generics
+  sym.macroproc = mp
+  let pd = ProcDecl(isInternal: false, isMacro: true, macroproc: mp, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
+  let status = scope.addFunc(pd)
+  if not status:
+    fexpr.error("redefinition $# macro." % $parsed.name)
+
+  scope.top.toplevels.add(fexpr)
+  defer: scope.top.toplevels.del(high(scope.top.toplevels))
+
+  if parsed.generics.isSpecTypes:
+    scope.ctx.macroprocs.add(mp)
+    scope.ctx.reloadMacroLibrary(scope.top)
   if not fexpr.isToplevel:
     scope.top.toplevels.add(fexpr)
     fexpr.isToplevel = true
@@ -587,6 +609,7 @@ proc addInternalEval*(scope: Scope, n: Name, p: proc (rootPass: PassProcType, sc
   
 proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("fn"), semDefn)
+  scope.addInternalEval(name("syntax"), semSyntax)
   scope.addInternalEval(name("macro"), semMacro)
   scope.addInternalEval(name("type"), semDeftype)
   scope.addInternalEval(name("if"), semIf)

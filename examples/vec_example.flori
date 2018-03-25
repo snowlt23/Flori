@@ -1,0 +1,26 @@
+
+import "core/prelude"
+import "core/io"
+import "core/vec"
+import "core/syntax"
+import "core/macros"
+
+type MyInt {
+  x Int
+  y Int
+}
+
+fn main() {
+  v := vec[MyInt]()
+  push(v, init(MyInt){1; 2})
+  push(v, init(MyInt){3; 4})
+  push(v, init(MyInt){5; 6})
+  
+  for e in v {
+    print(e.x)
+    print(e.y)
+    print("\n")
+  }
+}
+
+main()

@@ -3,26 +3,36 @@ import "core/prelude"
 import "core/pointer"
 import "core/io"
 import "core/syntax"
+import "core/macros"
 
 type Vec[T] {
   data Ptr[T]
+  cap Int
   len Int
 }
 
-fn vec[T](len Int) Vec[T] {
+fn vec[T](len Int, cap Int) Vec[T] {
   v := init(Vec[T]) {
-    alloc[T](len)
+    alloc[T](cap)
+    cap
     len
   }
   v
 }
 fn vec[T]() Vec[T] {
-  vec[T](0)
+  vec[T](0, 8)
+}
+
+fn extend[T](v ref Vec[T]) {
+  (v.data) = realloc(v.data, (v.cap)*2)
+  (v.cap) = (v.cap)*2
 }
 
 fn push[T](v ref Vec[T], value T) {
   track(v -> value)
-  (v.data) = realloc(v.data, (v.len)+1)
+  if ((v.cap) < ((v.len)+1)) {
+    extend(v)
+  }
   unref((v.data) +! ((v.len) * sizeof[T]())) = value
   (v.len) += 1
 }
@@ -36,6 +46,17 @@ fn get[T](v Vec[T], i Int) T {
 }
 
 destructor[T](v Vec[T]) {
-  println("Vec destroyed!")
   dealloc(v.data)
+}
+
+iterator items[T](v TExpr[Vec[T]]) {
+  i := gensym()
+  parsed := quote {
+    for `i in range(0, length(`v)-1) {
+      `element := get(`v, `i)
+      `yield
+    }
+  }
+  println(parsed)
+  parsed
 }

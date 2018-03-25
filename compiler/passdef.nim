@@ -4,10 +4,12 @@ import passmacro, expandpass, passutils, typepass
 
 import options
 import strutils, sequtils
+import tables
 
 definePass SemPass
 
 proc internalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+  # echo fexpr
   if fexpr.hasEvaluated:
     return
   fexpr.internalScope = scope
@@ -25,10 +27,80 @@ proc internalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
         scope.resolveByVoid(fexpr)
       fexpr.evaluated = true
       internalopt.get.internalproc(rootPassProc, scope, fexpr)
-    elif internalopt.isSome and internalopt.get.isMacro:
+    elif internalopt.isSome and internalopt.get.isSyntax:
       var expanded = internalopt.get.macroproc.call(fexpr)
       scope.rootPass(expanded)
       fexpr = expanded
+    else:
+      scope.nextPass(fexpr)
+  else:
+    scope.nextPass(fexpr)
+
+proc isMatchMacro*(rootPass: PassProcType, scope: Scope, args: FExpr, pd: ProcDecl): bool =
+  if args.len != pd.argtypes.len: return false
+  for i in 0..<args.len:
+    if $pd.argtypes[i].name == "FExpr":
+      continue
+    elif $pd.argtypes[i].name == "TExpr":
+      scope.rootPass(args[i])
+      if not args[i].typ.match(pd.argtypes[i].types[0]):
+        return false
+    else:
+      args[i].error("macro argument type should be FExpr or TExpr[T]")
+  return true
+proc matchMacro*(rootPass: PassProcType, scope: Scope, curscope: Scope, n: FExpr, args: FExpr, importscope = true): Option[ProcDecl] =
+  if not scope.procdecls.hasKey(name(n)):
+    if importscope:
+      for scopename, s in scope.importscopes:
+        let match = matchMacro(rootPass, s, curscope, n, args, importscope = false)
+        if match.isSome:
+          return match
+      return none(ProcDecl)
+    else:
+      return none(ProcDecl)
+
+  for pd in scope.procdecls[name(n)].decls:
+    if pd.isMacro and isMatchMacro(rootPass, curscope, args, pd):
+      return some(pd)
+
+  if importscope:
+    for scopename, s in scope.importscopes:
+      let match = matchMacro(rootPass, s, curscope, n, args, importscope = false)
+      if match.isSome:
+        return match
+    return none(ProcDecl)
+  else:
+    return none(ProcDecl)
+proc getMacroArgs*(scope: Scope, pd: ProcDecl, args: FExpr): seq[Symbol] =
+  result = @[]
+  for i in 0..<args.len:
+    if $pd.argtypes[i].name == "FExpr":
+      let opt = scope.getDecl(name("FExpr"))
+      if opt.isNone:
+        args[i].error("undeclared FExpr type.")
+      result.add(opt.get)
+    elif $pd.argtypes[i].name == "TExpr":
+      let opt = scope.getDecl(name("TExpr"))
+      if opt.isNone:
+        args[i].error("undeclared FExpr type.")
+      let sym = symcopy(opt.get)
+      sym.types.add(args[i].typ)
+      result.add(sym)  
+    
+proc expandMacro*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+  if fexpr.isNormalFuncCall:
+    let args = fexpr[1]
+    let pd = matchMacro(rootPassProc, scope, scope, fexpr[0], args)
+    if pd.isSome:
+      if not pd.get.sym.fexpr.defn.generics.isSpecTypes:
+        fexpr[0] = expandMacrofn(rootPassProc, scope, pd.get.sym.fexpr, scope.getMacroArgs(pd.get, args))
+        var expanded = fexpr[0].symbol.macroproc.call(args)
+        scope.rootPass(expanded)
+        fexpr = expanded
+      else:
+        var expanded = pd.get.macroproc.call(args)
+        scope.rootPass(expanded)
+        fexpr = expanded
     else:
       scope.nextPass(fexpr)
   else:

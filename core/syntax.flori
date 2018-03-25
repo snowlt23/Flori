@@ -3,7 +3,7 @@ import "core/prelude"
 import "core/io"
 import "core/macros"
 
-macro for(fexpr FExpr) FExpr {
+syntax for(fexpr FExpr) FExpr {
   if ((length(fexpr) != 5) && (length(fexpr) != 6)) {
     error(fexpr, "expect syntax: for e in iter() {...}")
   }
@@ -14,46 +14,66 @@ macro for(fexpr FExpr) FExpr {
     error(fexpr, "for-macro expect `in keyword.")
   }
 
-  itername := get(fexpr, 3)
-  iterargs := if (length(fexpr) == 6) {
-    get(fexpr, 4)
+  if (length(fexpr) == 6) {
+    itername := get(fexpr, 3)
+    iterargs := get(fexpr, 4)
+    body := get(fexpr, 5)
+    push(iterargs, elem)
+    push(iterargs, body)
+    quote {
+      `itername `iterargs
+    }
   } else {
-    new_flist()
-  }
-  body := if (length(fexpr) == 6) {
-    get(fexpr, 5)
-  } else {
-    get(fexpr, 4)
-  }
-
-  quote {
-    `itername `iterargs `elem `body
-  }
-}
-
-macro range(fexpr FExpr) FExpr {
-  if (length(fexpr) < 4) {
-    error(fexpr, "expect syntax: range(s, e) i {...}")
-  }
-  args := get(fexpr, 1)
-  if (length(args) < 2) {
-    error(fexpr, "range: require 2 arguments")
-  }
-  start := get(args, 0)
-  end := get(args, 1)
-  elem := get(fexpr, 2)
-  body := get(fexpr, 3)
-
-  quote {
-    `elem := `start
-    while (`elem <= `end) {
-      `body
-      `elem += 1
+    itername := new_fident("items")
+    value := get(fexpr, 3)
+    body := get(fexpr, 4)
+    quote {
+      `itername(`value, `elem, `body)
     }
   }
 }
 
-macro when(fexpr FExpr) FExpr {
+syntax iterator(fexpr FExpr) FExpr {
+  if (length(fexpr) == 4) {
+    mname := get(fexpr, 1)
+    args := get(fexpr, 2)
+    body := get(fexpr, 3)
+
+    push(args, get(quote { element FExpr; }, 1))
+    push(args, get(quote { yield FExpr; }, 1))
+    
+    quote {
+      macro `mname `args FExpr `body
+    }
+  } elif (length(fexpr) == 5) {
+    mname := get(fexpr, 1)
+    generics := get(fexpr, 2)
+    args := get(fexpr, 3)
+    body := get(fexpr, 4)
+
+    push(args, get(quote { element FExpr; }, 1))
+    push(args, get(quote { yield FExpr; }, 1))
+
+    quote {
+      macro `mname `generics `args FExpr `body
+    }
+  } else {
+    error(fexpr, "usage: iterator name(...) {...}")
+    quote {}
+  }
+}
+
+iterator range(start TExpr[Int], end TExpr[Int]) {
+  quote {
+    `element := `start
+    while (`element <= `end) {
+      `yield
+      `element += 1
+    }
+  }
+}
+
+syntax when(fexpr FExpr) FExpr {
   if (length(fexpr) != 3) {
     error(fexpr, "when syntax expect: when (cond) {...}")
   }
@@ -73,7 +93,7 @@ macro when(fexpr FExpr) FExpr {
 }
 
 # usage: destructor(mi MyInt) {...}
-macro destructor(fexpr FExpr) FExpr {
+syntax destructor(fexpr FExpr) FExpr {
   if ((length(fexpr) != 3) && (length(fexpr) != 4)) {
     error(fexpr, "usage: destructor(arg1 T) {...}")
   }
@@ -95,7 +115,7 @@ macro destructor(fexpr FExpr) FExpr {
   }
 }
 
-macro static(fexpr FExpr) FExpr {
+syntax static(fexpr FExpr) FExpr {
   if (length(fexpr) != 2) {
     error(fexpr, "usage: static {...}")
   }

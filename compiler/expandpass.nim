@@ -1,6 +1,6 @@
 
 import parser, types, fexpr, scope, metadata, ctrc, effect
-import passutils
+import passutils, ccodegen, compileutils
 
 import options
 import strutils, sequtils
@@ -8,7 +8,9 @@ import strutils, sequtils
 proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr
 
 proc applyInstance*(sym: Symbol, instance: Symbol) =
-  if instance.kind in {symbolVar, symbolRef}:
+  if sym.kind in {symbolVar, symbolRef} and instance.kind in {symbolVar, symbolRef} :
+    sym.types[0].applyInstance(instance.types[0])
+  elif instance.kind in {symbolVar, symbolRef}:
     sym.applyInstance(instance.types[0])
   elif sym.kind == symbolGenerics:
     sym.instance = some(instance)
@@ -185,3 +187,13 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtype
     fnScopeout(rootPass, exscope, sym.fexpr)
 
   return fsym
+
+proc expandMacrofn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr =
+  result = expandDefn(rootPass, scope, fexpr, argtypes)
+  let mp = MacroProc(importname: codegenMangling(result.symbol, result.symbol.fexpr.defn.generics.mapIt(it.symbol), result.symbol.fexpr.defn.args.mapIt(it[1].symbol)) & "_macro")
+  result.symbol.macroproc = mp
+  result.symbol.kind = symbolMacro
+  result.symbol.fexpr[0] = fident(fexpr.span, name("macro"))
+  
+  scope.ctx.macroprocs.add(mp)
+  scope.ctx.reloadMacroLibrary(scope.top)

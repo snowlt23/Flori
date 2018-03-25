@@ -25,6 +25,7 @@ type
     symbolFuncGenerics
     symbolInfix
     symbolMacro
+    symbolSyntax
     symbolInternal
     symbolIntLit
   Symbol* = ref object
@@ -35,6 +36,7 @@ type
     fexpr*: FExpr
     instance*: Option[Symbol]
     intval*: int64
+    macroproc*: MacroProc
   Name* = object
     names*: seq[string]
   FExprKind* = enum
@@ -89,6 +91,7 @@ type
   ProcDecl* = object
     isInternal*: bool
     internalProc*: InternalProcType
+    isSyntax*: bool
     isMacro*: bool
     macroproc*: MacroProc
     name*: Name
