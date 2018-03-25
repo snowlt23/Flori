@@ -27,7 +27,6 @@ proc internalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
       internalopt.get.internalproc(rootPassProc, scope, fexpr)
     elif internalopt.isSome and internalopt.get.isMacro:
       var expanded = internalopt.get.macroproc.call(fexpr)
-      # scope.importScope(name("flori_expand_scope"), internalopt.get.sym.scope)
       scope.rootPass(expanded)
       fexpr = expanded
     else:
@@ -36,7 +35,6 @@ proc internalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
     scope.nextPass(fexpr)
 
 proc toplevelPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
-  # echo fexpr
   case fexpr.kind
   of fexprArray, fexprList, fexprBlock:
     for son in fexpr.mitems:

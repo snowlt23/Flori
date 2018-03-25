@@ -94,3 +94,18 @@ macro destructor(fexpr FExpr) FExpr {
     }
   }
 }
+
+macro static(fexpr FExpr) FExpr {
+  if (length(fexpr) != 2) {
+    error(fexpr, "usage: static {...}")
+  }
+  mname := gensym()
+  body := get(fexpr, 1)
+  quote {
+    macro `mname (fexpr FExpr) FExpr {
+      `body
+      quote {}
+    }
+    `mname()
+  }
+}

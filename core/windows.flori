@@ -2,3 +2,4 @@
 import "core/prelude"
 
 fn win_copyfile(filename CString, newfilename CString, failif Bool) Bool $[importc "CopyFileA", header "windows.h"]
+fn win_sleep(msec Int) $[importc "Sleep", header "windows.h"]

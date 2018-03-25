@@ -111,7 +111,8 @@ defMetadata(internalFieldAccessExpr, FieldAccessExpr)
 defMetadata(internalImportExpr, ImportExpr)
 defMetadata(parent, FExpr)
 
-proc isToplevel*(fexpr: FExpr): bool = fexpr.hasInternalToplevel
+proc isToplevel*(fexpr: FExpr): bool = fexpr.hasInternalToplevel and fexpr.internalToplevel
+proc `isToplevel=`*(fexpr: FExpr, b: bool) = fexpr.internalToplevel = b
 
 proc isGenerics*(defn: DefnExpr): bool = not defn.generics.isSpecTypes
 proc isGenerics*(deftype: DeftypeExpr): bool = not deftype.generics.isSpecTypes

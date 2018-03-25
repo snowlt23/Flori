@@ -4,6 +4,7 @@ import passutils
 
 import strutils
 import options
+import algorithm
     
 proc scopeoutCTRC*(scope: Scope) =
   for scopevalue in scope.scopevalues:
@@ -18,7 +19,7 @@ proc expandDestructor*(rootPass: PassProcType, scope: Scope, body: FExpr) =
     scope.rootPass(tmpvar)
     body[^1] = tmpvar
     isret = true
-  for scopevalue in scope.scopevalues:
+  for scopevalue in scope.scopevalues.reversed:
     if scopevalue.ctrc.exdestroyed:
       continue
     if scopevalue.ctrc.destroyed:

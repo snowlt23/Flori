@@ -75,6 +75,8 @@ proc generateCMain*(ctx: CCodegenContext): string =
 
 proc generateFloriDecls*(ctx: CCodegenContext): string =
   result = ""
+  if ctx.macrogen:
+    result &= "#define FLORI_COMPILETIME\n"
   for src in ctx.modulesrcs.values:
     for header in src.headers.keys:
       result.add("#include \"$#\"\n" % header)
@@ -379,8 +381,8 @@ proc codegenPatternArgs*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, p
     src.prev &= comp.prev
     pattern = pattern.replace("$" & $(i+1), comp.exp)
 
-proc codegenPatternCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, fn: FExpr) =
-  var pattern = fn.internalPragma.pattern.get
+proc codegenPatternCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, pattern: string, fn: FExpr) =
+  var pattern = pattern
   if fexpr.isGenericsFuncCall:
     for i, g in fexpr[1]:
       pattern = pattern.replace("#" & $(i+1), codegenType(g))
@@ -395,6 +397,12 @@ proc codegenPatternCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, 
 proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   let fn = fexpr[0].symbol.fexpr
   let fname = fn.internalPragma.importc.get
+
+  if fn.internalPragma.declc.isSome:
+    var psrc = initSrcExpr()
+    ctx.codegenPatternCCall(psrc, fexpr, fn.internalPragma.declc.get, fn)
+    src.fndecls &= psrc.exp
+  
   if fn.internalPragma.infixc:
     if fexpr.len == 3:
       src &= "("
@@ -415,7 +423,7 @@ proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     else:
       fexpr.error("$# is not infix expression." % $fexpr)
   elif fn.internalPragma.pattern.isSome:
-    ctx.codegenPatternCCall(src, fexpr, fn)
+    ctx.codegenPatternCCall(src, fexpr, fn.internalPragma.pattern.get, fn)
   else:
     src &= fname
     src &= "("
@@ -519,9 +527,11 @@ proc codegenToplevel*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.hasinternalMark:
     ctx.codegenInternal(src, fexpr, topcodegen = true)
   elif fexpr.kind == fexprBlock:
-    for son in fexpr.mitems:
-      if son.hasInternalMark:
-        ctx.codegenInternal(src, son, topcodegen = true)
+    for son in fexpr:
+      if son.isToplevel:
+        continue
+      son.isToplevel = true
+      ctx.codegenToplevel(src, son)
 
 proc codegenModule*(ctx: CCodegenContext, name: Name, scope: Scope) =
   var modsrc = initSrcExpr()

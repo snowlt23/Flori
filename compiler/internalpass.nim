@@ -278,6 +278,9 @@ proc semDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let status = scope.addFunc(pd)
   if not status:
     fexpr.error("redefinition $# function." % $parsed.name)
+  if not fexpr.isToplevel:
+    scope.top.toplevels.add(fexpr)
+    fexpr.isToplevel = true
 
 proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.internalMark = internalMacro
@@ -295,6 +298,9 @@ proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     
   scope.ctx.macroprocs.add(mp)
   scope.ctx.reloadMacroLibrary(scope.top)
+  if not fexpr.isToplevel:
+    scope.top.toplevels.add(fexpr)
+    fexpr.isToplevel = true
     
 proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var parsed = parseDeftype(fexpr)
@@ -634,7 +640,7 @@ proc semModule*(ctx: SemanticContext, rootPass: PassProcType, name: Name, fexprs
     if not tmpcurr.isNil:
       ctx.modules[name("current_module")] = tmpcurr
   for f in fexprs.mitems:
-    f.internalToplevel = true
+    f.isToplevel = true
     scope.rootPass(f)
     scope.toplevels.add(f)
   ctx.modules[name] = scope
