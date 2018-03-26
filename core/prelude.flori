@@ -7,6 +7,7 @@ type Int $[importc "int64_t", header "stdint.h"]
 type Int32 $[importc "int32_t", header "stdint.h"]
 type Int64 $[importc "int64_t", header "stdint.h"]
 type UInt32 $[importc "uint32_t", header "stdint.h"]
+type UInt8 $[importc "uint8_t", header "stdint.h"]
 type Float $[importc "float", header nodeclc]
 
 fn `||(a Bool, b Bool) Bool $[importc "||", header nodeclc, pattern infixc]
@@ -46,6 +47,13 @@ fn float(x Int) Float {
 }
 fn float(x UInt32) Float {
   cast[Float](x)
+}
+
+fn uint8(x Int) UInt8 {
+  cast[UInt8](x)
+}
+fn int(x UInt8) Int {
+  cast[Int](x)
 }
 
 true := cast[Bool](1)

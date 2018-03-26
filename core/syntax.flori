@@ -129,3 +129,13 @@ syntax static(fexpr FExpr) FExpr {
     `mname()
   }
 }
+
+iterator items(fexpr TExpr[FExpr]) {
+  tmp := gensym()
+  quote {
+    for `tmp in range(0, length(`fexpr)-1) {
+      `element := get(`fexpr, `tmp)
+      `yield
+    }
+  }
+}

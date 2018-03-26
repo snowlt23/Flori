@@ -407,7 +407,10 @@ proc semVar*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
 
   var pos = 2
   let parsedtype = parseTypeExpr(fexpr, pos)
-  let typsym = scope.semType(parsedtype)
+  let typsym = if fexpr[2].kind == fexprSymbol:
+                 fexpr[2].symbol
+               else:
+                 scope.semType(parsedtype)
   
   let varsym = scope.symbol(name(n), symbolVar, n)
   n.typ = typsym.scope.varsym(typsym)
@@ -506,7 +509,10 @@ proc semFieldAccess*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let fieldopt = value.typ.fexpr.getFieldType($fieldname)
   if fieldopt.isNone:
     fieldname.error("$# hasn't $# field." % [$value.typ, $fieldname])
-  fexpr.typ = fieldopt.get
+  if value.typ.kind == symbolRef:
+    fexpr.typ = fieldopt.get.scope.varsym(fieldopt.get)
+  else:
+    fexpr.typ = fieldopt.get
 
   fexpr.internalMark = internalFieldAccess
   fexpr.internalFieldAccessExpr = FieldAccessExpr(value: value, fieldname: fieldname)

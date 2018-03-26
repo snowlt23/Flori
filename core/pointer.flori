@@ -10,6 +10,10 @@ fn unsafe_free(ptr Pointer) $[importc "free", header "stdlib.h"]
 fn sizeof[T]() Int $[importc "sizeof", header nodeclc, pattern "sizeof(#1)"]
 fn unsafe_memcpy(dest Pointer, src Pointer, n Int) $[importc "memcpy", header "string.h"]
 
+fn unsafe_null[T]() Ptr[T] {
+  cast[Ptr[T]](0)
+}
+
 fn alloc[T](len Int) Ptr[T] {
   cast[Ptr[T]](unsafe_malloc(sizeof[T]()*len))
 }

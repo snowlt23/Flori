@@ -85,7 +85,7 @@ proc getMacroArgs*(scope: Scope, pd: ProcDecl, args: FExpr): seq[Symbol] =
         args[i].error("undeclared FExpr type.")
       let sym = symcopy(opt.get)
       sym.types.add(args[i].typ)
-      result.add(sym)  
+      result.add(sym)
     
 proc expandMacro*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   if fexpr.isNormalFuncCall:

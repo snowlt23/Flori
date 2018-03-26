@@ -68,4 +68,3 @@ proc semTypeExpr*(scope: Scope, typ: FExpr): Symbol =
   var pos = 0
   let t = parseTypeExpr(typ, pos)
   return scope.semType(t)
-  

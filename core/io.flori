@@ -7,6 +7,9 @@ fn printf[T](fmt CString, x T) $[importc "printf", header "stdio.h"]
 fn print(x Int) {
   printf("%d", x)
 }
+fn print(x UInt8) {
+  printf("%d", x)
+}
 fn print(x Float) {
   printf("%f", x)
 }

@@ -59,3 +59,15 @@ iterator items[T](v TExpr[Vec[T]]) {
     }
   }
 }
+
+fn print[T](v Vec[T]) {
+  print("vec[")
+  if (length(v) > 0) {
+    print(get(v, 0))
+  }
+  for i in range(1, length(v)-1) {
+    print(", ")
+    print(get(v, i))
+  }
+  print("]")
+}
