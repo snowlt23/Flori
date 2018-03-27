@@ -73,7 +73,6 @@ fn print(s String) {
 }
 
 destructor(s String) {
-  println("String destroyed!")
   dealloc(s.p)
 }
 

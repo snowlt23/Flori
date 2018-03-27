@@ -490,16 +490,17 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
 
   fexpr.internalMark = internalSet
   fexpr.internalSetExpr = parsed
-  
-  # if parsed.dst.kind == fexprSymbol:
-  #   let ctrc = parsed.dst.symbol.fexpr.ctrc
-  #   ctrc.dec # FIXME: into `depend
-  #   if ctrc.destroyed:
-  #     if scope.getFunc(procname(name("destructor"), @[parsed.dst.typ])).isSome:
-  #       let dcall = parsed.dst.span.quoteFExpr("destructor(`embed)", [parsed.dst])
-  #       fexpr = fblock(parsed.dst.span, @[fexpr, dcall])
-  #       scope.rootPass(fexpr)
-  #     ctrc.revive()
+
+  # TODO: support field access
+  if parsed.dst.kind == fexprSymbol:
+    let ctrc = parsed.dst.symbol.fexpr.ctrc
+    ctrc.dec # FIXME: into `depend
+    if ctrc.destroyed:
+      if scope.getFunc(procname(name("destruct"), @[parsed.dst.typ])).isSome:
+        let dcall = parsed.dst.span.quoteFExpr("destruct(`embed)", [parsed.dst])
+        fexpr = fblock(parsed.dst.span, @[dcall, fexpr])
+        scope.rootPass(fexpr)
+      ctrc.revive()
 
 proc semFieldAccess*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var value = fexpr[1]

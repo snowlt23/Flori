@@ -28,7 +28,7 @@ fn write(f File, cs CString) {
   fprintf(f, cs)
 }
 fn write(f File, s String) {
-  fprintf(f, cstring(s))
+  fprintf(f, to_cs(s))
 }
 
 fn open_file(filename CString, mode CString) File {

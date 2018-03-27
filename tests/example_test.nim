@@ -39,9 +39,9 @@ suite "example":
   test "formacro":
     checkio "examples/formacro.flori", "12345678910\n"
   test "destructor":
-    checkio "examples/destructor.flori", "MyInt destroyed!\n3\n4\nMyInt destroyed!\nMyInt destroyed!\n"
+    checkio "examples/destructor.flori", "MyInt(1, 2) destroyed!\n3\n4\nMyInt(3, 4) destroyed!\n"
   test "string":
-    checkio "examples/string.flori", "Hello Yukari! and Maki!\nString destroyed!\n"
+    checkio "examples/string.flori", "Hello Yukari! and Maki!\nHello Yukari! and Maki! and Akari!\n9\n"
   test "vec eff":
     checkio "examples/vec_eff.flori", "Vec destroyed!\nFile destroyed!\n"
   test "array":
