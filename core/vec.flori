@@ -23,6 +23,16 @@ fn vec[T]() Vec[T] {
   vec[T](0, 8)
 }
 
+# syntax v(fexpr FExpr) FExpr {
+#   if (length(fexpr) != 2) {
+#     error(fexpr, "usage: v[...]")
+#   }
+#   arr := get(fexpr, 1)
+#   parsed := quote {
+#     := vec[]
+#   }
+# }
+
 fn extend[T](v ref Vec[T]) {
   (v.data) = realloc(v.data, (v.cap)*2)
   (v.cap) = (v.cap)*2

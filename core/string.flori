@@ -3,6 +3,8 @@ import "core/prelude"
 import "core/pointer"
 import "core/io"
 import "core/syntax"
+import "core/math"
+import "core/macros"
 
 fn strlen(cs CString) Int $[importc "strlen", header "string.h"]
 
@@ -17,7 +19,21 @@ fn string(cs CString) String {
   s
 }
 
-fn cstring(s String) CString {
+fn get(cs String, i Int) Char {
+  unref((cs.p) +! i)
+}
+
+syntax s(fexpr FExpr) FExpr {
+  if (length(fexpr) != 2) {
+    error(fexpr, "usage: s\"...\"")
+  }
+  strlit := get(fexpr, 1)
+  quote {
+    string(`strlit)
+  }
+}
+
+fn to_cs(s String) CString {
   cast[CString](s.p)
 }
 
@@ -25,10 +41,24 @@ fn length(s String) Int {
   s.len
 }
 
+fn push(dest ref String, src CString) {
+  len := length(dest) + strlen(src)
+  (dest.p) = realloc[Char](dest.p, len + 1)
+  memcpy((dest.p) +! length(dest), cast[Ptr[Char]](src), strlen(src))
+  unref((dest.p) +! len) = cast[Char](0)
+  (dest.len) = len
+}
 fn push(dest ref String, src String) {
   len := length(dest) + length(src)
   (dest.p) = realloc[Char](dest.p, len + 1)
   memcpy((dest.p) +! length(dest), src.p, length(src))
+  unref((dest.p) +! len) = cast[Char](0)
+  (dest.len) = len
+}
+fn push(dest ref String, c Char) {
+  len := length(dest) + 1
+  (dest.p) = realloc[Char](dest.p, len + 1)
+  unref((dest.p) +! length(dest)) = c
   unref((dest.p) +! len) = cast[Char](0)
   (dest.len) = len
 }
@@ -40,4 +70,32 @@ fn print(s String) {
 destructor(s String) {
   println("String destroyed!")
   dealloc(s.p)
+}
+
+fn `&(a String, b String) String {
+  ret := string("")
+  push(ret, a)
+  push(ret, b)
+  ret
+}
+
+fn reverse(a String) String {
+  ret := string("")
+  for i in range(0, length(a)-1) {
+    push(ret, get(a, (length(a) - i) - 1))
+  }
+  ret
+}
+
+fn to_s(val Int) String {
+  x := val
+  str := string("")
+  if (x == 0) {
+    push(str, cast[Char](48))
+  }
+  while (x > 0) {
+    push(str, cast[Char](48 + (x % 10)))
+    x = cast[Int](x / 10)
+  }
+  reverse(str)
 }

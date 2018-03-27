@@ -4,6 +4,9 @@ import "core/prelude"
 fn print(fmt CString) $[importc "printf", header "stdio.h"]
 fn printf[T](fmt CString, x T) $[importc "printf", header "stdio.h"]
 
+fn print(x Char) {
+  printf("%c", x)
+}
 fn print(x Int) {
   printf("%d", x)
 }

@@ -8,7 +8,7 @@ import os
 
 type
   SrcExpr* = object
-    headers*: Table[string, bool]
+    headers*: OrderedTable[string, bool]
     typedecls*: string
     fndecls*: string
     vardecls*: string
@@ -22,7 +22,7 @@ type
 proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr)
 
 proc initSrcExpr*(): SrcExpr =
-  result.headers = initTable[string, bool]()
+  result.headers = initOrderedTable[string, bool]()
   result.typedecls = ""
   result.fndecls = ""
   result.vardecls = ""
@@ -90,7 +90,7 @@ proc generateFloriDecls*(ctx: CCodegenContext): string =
   result &= "\n"
 
 proc replaceSpecialSymbols*(s: string): string =
-  s.replace(".", "_").replace("+", "plus").replace("-", "minus").replace("*", "asterisk").replace("/", "slash").replace("!", "excl").replace("=", "eq")
+  s.replace(".", "_").replace("+", "plus").replace("-", "minus").replace("*", "asterisk").replace("/", "slash").replace("!", "excl").replace("=", "eq").replace("%", "per").replace("&", "and")
 
 proc codegenSymbol*(sym: Symbol): string
 
@@ -297,6 +297,11 @@ proc codegenWhile*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   ctx.codegenBody(src, fexpr.internalWhileExpr.body)
   src &= "}"
   
+proc codegenVarTop*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  let s = codegenType(fexpr[2]) & " " & codegenSymbol(fexpr[1]) & ";\n"
+  src.vardecls &= s
+  src &= s
+  
 proc codegenVar*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= codegenType(fexpr[2])
   src &= " "
@@ -362,7 +367,9 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
     if not topcodegen:
       ctx.codegenWhile(src, fexpr)
   of internalVar:
-    if not topcodegen:
+    if topcodegen and fexpr.isToplevel:
+      ctx.codegenVarTop(src, fexpr)
+    elif not topcodegen and not fexpr.isToplevel:
       ctx.codegenVar(src, fexpr)
   of internalDef:
     if topcodegen and fexpr.isToplevel:
@@ -386,12 +393,14 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
     if topcodegen:
       ctx.codegenImport(src, fexpr)
 
-proc codegenPatternArgs*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, pattern: var string) =
+proc codegenPatternArgs*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, ret: Symbol, pattern: var string) =
+  pattern = pattern.replace("$#0", codegenType(ret))
   for i, arg in fexpr:
     var comp = initSrcExpr()
     ctx.codegenFExpr(comp, arg)
     src.extendDecls(comp)
     src.prev &= comp.prev
+    pattern = pattern.replace("$#" & $(i+1), codegenType(arg.typ))
     pattern = pattern.replace("$" & $(i+1), comp.exp)
 
 proc codegenPatternCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, pattern: string, fn: FExpr) =
@@ -399,12 +408,12 @@ proc codegenPatternCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, 
   if fexpr.isGenericsFuncCall:
     for i, g in fexpr[1]:
       pattern = pattern.replace("#" & $(i+1), codegenType(g))
-    ctx.codegenPatternArgs(src, fexpr[2], pattern)
+    ctx.codegenPatternArgs(src, fexpr[2], fexpr.typ, pattern)
   else:
     if fexpr[0].symbol.kind == symbolInfix:
-      ctx.codegenPatternArgs(src, fexpr[1..^1], pattern)
+      ctx.codegenPatternArgs(src, fexpr[1..^1], fexpr.typ, pattern)
     else:
-      ctx.codegenPatternArgs(src, fexpr[1], pattern)
+      ctx.codegenPatternArgs(src, fexpr[1], fexpr.typ, pattern)
   src &= pattern
 
 proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
@@ -545,6 +554,7 @@ proc codegenToplevel*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
         continue
       son.isToplevel = true
       ctx.codegenToplevel(src, son)
+      son.isToplevel = false
 
 proc codegenModule*(ctx: CCodegenContext, name: Name, scope: Scope) =
   var modsrc = initSrcExpr()

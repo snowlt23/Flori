@@ -423,6 +423,7 @@ proc semVar*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let fsym = fsymbol(fexpr[1].span, varsym)
   fexpr = fexpr.span.quoteFExpr("var `embed `embed", [fsym, fsymbol(fexpr[2].span, typsym)])
   fexpr.internalMark = internalVar
+  scope.resolveByVoid(fexpr)
   
 proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var parsed = parseDef(fexpr)

@@ -5,3 +5,5 @@ fn or(a Int, b Int) Int $[importc "|", header nodeclc, pattern infixc]
 
 fn xor(a Int, b Int) Int $[importc "^", header nodeclc, pattern infixc]
 fn xor(a UInt32, b UInt32) UInt32 $[importc "^", header nodeclc, pattern infixc]
+
+fn `%(a Int, b Int) Int $[importc "%", header nodeclc, pattern infixc]

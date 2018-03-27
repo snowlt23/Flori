@@ -20,6 +20,8 @@ proc ffiNewFList*(): FExpr {.cdecl.} =
   flist(ffiSpan())
 proc ffiNewFBlock*(): FExpr {.cdecl.} =
   fblock(ffiSpan())
+proc ffiNewFStrLit*(cstr: cstring): FExpr {.cdecl.} =
+  fstrlit(ffiSpan(), $cstr)
 proc ffiParseFExpr*(cstr: cstring): FExpr {.cdecl.} =
   var ctx = newParserContext("macrolib", $cstr)
   return ctx.parseFExpr()
