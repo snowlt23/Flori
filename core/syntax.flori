@@ -39,8 +39,8 @@ syntax iterator(fexpr FExpr) FExpr {
     args := get(fexpr, 2)
     body := get(fexpr, 3)
 
-    push(args, get(quote { element FExpr; }, 1))
-    push(args, get(quote { yield FExpr; }, 1))
+    push(args, get(quote { element FExpr; }, 0))
+    push(args, get(quote { yield FExpr; }, 0))
     
     quote {
       macro `mname `args FExpr `body
@@ -51,8 +51,8 @@ syntax iterator(fexpr FExpr) FExpr {
     args := get(fexpr, 3)
     body := get(fexpr, 4)
 
-    push(args, get(quote { element FExpr; }, 1))
-    push(args, get(quote { yield FExpr; }, 1))
+    push(args, get(quote { element FExpr; }, 0))
+    push(args, get(quote { yield FExpr; }, 0))
 
     quote {
       macro `mname `generics `args FExpr `body

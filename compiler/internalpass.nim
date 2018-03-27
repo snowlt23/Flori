@@ -280,7 +280,7 @@ proc semDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     fexpr.error("redefinition $# function." % $parsed.name)
   if not fexpr.isToplevel:
     scope.top.toplevels.add(fexpr)
-    fexpr.isToplevel = true
+    fexpr.isGenerated = true
 
 proc semSyntax*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.internalMark = internalMacro
@@ -300,7 +300,7 @@ proc semSyntax*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   scope.ctx.reloadMacroLibrary(scope.top)
   if not fexpr.isToplevel:
     scope.top.toplevels.add(fexpr)
-    fexpr.isToplevel = true
+    fexpr.isGenerated = true
 
 proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.internalMark = internalMacro
@@ -322,7 +322,7 @@ proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     scope.ctx.reloadMacroLibrary(scope.top)
   if not fexpr.isToplevel:
     scope.top.toplevels.add(fexpr)
-    fexpr.isToplevel = true
+    fexpr.isGenerated = true
     
 proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var parsed = parseDeftype(fexpr)

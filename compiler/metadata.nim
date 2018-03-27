@@ -95,6 +95,7 @@ defMetadata(evaluated, bool)
 defMetadata(internalScope, Scope)
 defMetadata(internalCtx, SemanticContext)
 defMetadata(internalToplevel, bool)
+defMetadata(internalGenerated, bool)
 defMetadata(internalMark, InternalMarkKind)
 defMetadata(internalPragma, InternalPragma)
 
@@ -113,6 +114,8 @@ defMetadata(parent, FExpr)
 
 proc isToplevel*(fexpr: FExpr): bool = fexpr.hasInternalToplevel and fexpr.internalToplevel
 proc `isToplevel=`*(fexpr: FExpr, b: bool) = fexpr.internalToplevel = b
+proc isGenerated*(fexpr: FExpr): bool = fexpr.hasInternalGenerated and fexpr.internalGenerated
+proc `isGenerated=`*(fexpr: FExpr, b: bool) = fexpr.internalGenerated = b
 
 proc isGenerics*(defn: DefnExpr): bool = not defn.generics.isSpecTypes
 proc isGenerics*(deftype: DeftypeExpr): bool = not deftype.generics.isSpecTypes

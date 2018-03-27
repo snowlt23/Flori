@@ -374,7 +374,7 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
   of internalDef:
     if topcodegen and fexpr.isToplevel:
       ctx.codegenDefDecl(src, fexpr)
-    elif fexpr.isToplevel:
+    elif not topcodegen and fexpr.isToplevel:
       ctx.codegenDefValue(src, fexpr)
     else:
       ctx.codegenDef(src, fexpr)
@@ -550,11 +550,10 @@ proc codegenToplevel*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     ctx.codegenInternal(src, fexpr, topcodegen = true)
   elif fexpr.kind == fexprBlock:
     for son in fexpr:
-      if son.isToplevel:
+      if son.isGenerated:
         continue
       son.isToplevel = true
       ctx.codegenToplevel(src, son)
-      son.isToplevel = false
 
 proc codegenModule*(ctx: CCodegenContext, name: Name, scope: Scope) =
   var modsrc = initSrcExpr()

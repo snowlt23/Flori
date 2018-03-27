@@ -65,6 +65,9 @@ proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExp
     fexpr.deftype.generics[i].symbol.applyInstance(arg)
   if argtypes.isSpecTypes:
     checkInstantiateGenerics(fexpr.deftype.generics)
+  defer:
+    for g in fexpr.deftype.generics:
+      g.symbol.instance = none(Symbol)
 
   let typename = fexpr.deftype.name.symbol.name
   let manglingname = genManglingName(typename, argtypes)
@@ -114,6 +117,9 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtype
     arg[1].symbol.applyInstance(argtypes[i])
   if argtypes.isSpecTypes:
     checkInstantiateGenerics(fexpr.defn.generics)
+  defer:
+    for g in fexpr.defn.generics:
+      g.symbol.instance = none(Symbol)
 
   let fname = fexpr.defn.name.symbol.name
   let generics = fexpr.defn.generics.expandGenerics()

@@ -129,7 +129,9 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
     if context.curchar == '}':
       context.inc
       return blk
-    blk.addSon(context.parseFExpr())
+    let son = context.parseFExpr()
+    if not son.isNil:
+      blk.addSon(son)
     while not context.isEOF:
       context.skipSpaces()
       if context.curchar == '}':
@@ -138,7 +140,9 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       elif context.curchar in {',', ';'}:
         context.inc
         continue
-      blk.addSon(context.parseFExpr())
+      let son = context.parseFExpr()
+      if not son.isNil:
+        blk.addSon(son)
     return blk
   elif ('a' <= context.curchar and context.curchar <= 'z') or
        ('A' <= context.curchar and context.curchar <= 'Z'): # ident
@@ -244,7 +248,10 @@ proc parseFExpr*(context: var ParserContext): FExpr =
     if not elem.isNil:
       sq.addSon(elem)
 
-  return rewriteToCall(sq)
+  if sq.len == 0:
+    return nil
+  else:
+    return rewriteToCall(sq)
 
 proc parseFExpr*(filename: string, src: string): FExpr =
   var context = newParserContext(filename, src)
@@ -252,11 +259,9 @@ proc parseFExpr*(filename: string, src: string): FExpr =
 proc parseToplevel*(filename: string, src: string): seq[FExpr] =
   var context = newParserContext(filename, src)
   result = @[]
-  while true:
+  while not context.isEOF:
     let ret = parseFExpr(context)
-    if ret == nil:
-      break
-    else:
+    if not ret.isNil:
       result.add(ret)
 
 proc expandQuote*(f: var FExpr, i: var int, span: Span, args: openArray[FExpr]) =

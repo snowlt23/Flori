@@ -18,9 +18,14 @@ fn string(cs CString) String {
   memcpy(s.p, cast[Ptr[Char]](cs), strlen(cs))
   s
 }
+fn string(len Int) String {
+  s := init(String){alloc[Char](len+1); len}
+  unref((s.p) +! len) = cast[Char](0)
+  s
+}
 
-fn get(cs String, i Int) Char {
-  unref((cs.p) +! i)
+fn get(s String, i Int) Char {
+  unref((s.p) +! i)
 }
 
 syntax s(fexpr FExpr) FExpr {

@@ -108,7 +108,11 @@ proc expandMacro*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
 
 proc toplevelPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   case fexpr.kind
-  of fexprArray, fexprList, fexprBlock:
+  of fexprArray, fexprList:
+    for son in fexpr.mitems:
+      scope.rootPass(son)
+    scope.nextPass(fexpr)
+  of fexprBlock:
     for son in fexpr.mitems:
       scope.rootPass(son)
     scope.nextPass(fexpr)

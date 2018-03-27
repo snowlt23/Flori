@@ -1,5 +1,10 @@
 
 import "core/prelude"
+import "core/pointer"
 
 fn win_copyfile(filename CString, newfilename CString, failif Bool) Bool $[importc "CopyFileA", header "windows.h"]
 fn win_sleep(msec Int) $[importc "Sleep", header "windows.h"]
+fn load_librarya(name CString) Pointer $[importc "LoadLibraryA", header "windows.h"]
+fn get_proc_address(mod Pointer, name CString) Pointer $[importc "GetProcAddress", header "windows.h"]
+
+fn wgl_get_proc_address(name CString) Pointer $[importc "wglGetProcAddress", header "windows.h"]

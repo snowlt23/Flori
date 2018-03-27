@@ -170,9 +170,17 @@ proc varsym*(scope: Scope, sym: Symbol): Symbol =
   result = scope.symbol(sym.name, symbolVar, sym.fexpr)
   result.types.add(sym)
 proc symcopy*(sym: Symbol): Symbol =
-  var f: FExpr
-  f.deepCopy(sym.fexpr)
-  result = sym.scope.symbol(sym.name, sym.kind, f)
+  # var f: FExpr
+  # f.deepCopy(sym.fexpr)
+  result = sym.scope.symbol(sym.name, sym.kind, sym.fexpr)
+  result.types = sym.types
+  result.intval = sym.intval
+  result.instance = sym.instance
+proc alias*(sym: Symbol): Symbol =
+  result = sym.scope.symbol(sym.name, sym.kind, sym.fexpr)
+  result.types = sym.types
+  result.intval = sym.intval
+  result.instance = sym.instance
 proc intsym*(scope: Scope, fexpr: FExpr): Symbol =
   result = scope.symbol(name("IntLit"), symbolIntLit, fexpr)
   result.intval = fexpr.intval

@@ -48,21 +48,20 @@ proc semType*(scope: Scope, parsed: ParsedType): Symbol =
     else:
       result = opt.get
   else:
-    if opt.get.instance.isSome:
-      result = opt.get.instance.get
-      
+    # if opt.get.instance.isSome:
+    #   result = opt.get.instance.get
+
     var sym = opt.get.scope.symbol(opt.get.name, symbolTypeGenerics, opt.get.fexpr)
     for arg in parsed.generics.mitems:
       var pos = 0
       let argtyp = arg.parseTypeExpr(pos)
       sym.types.add(scope.semType(argtyp))
     result = sym
-    
-  if parsed.isref:
-    result = scope.refsym(result)
-
+  
   if result.types.isSpecTypes and result.fexpr.hasDeftype and result.fexpr.deftype.isGenerics:
     result = scope.expandDeftype(result.fexpr, result.types).symbol
+  if parsed.isref:
+    result = scope.refsym(result)
 
 proc semTypeExpr*(scope: Scope, typ: FExpr): Symbol =
   var pos = 0

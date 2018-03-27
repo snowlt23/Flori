@@ -200,7 +200,7 @@ proc name*(fexpr: FExpr): Name =
 proc isParametricTypeExpr*(fexpr: FExpr, pos: int): bool =
   if fexpr.kind != fexprSeq: return false
   if fexpr.len <= pos+1: return false
-  return (fexpr[pos].kind == fexprIdent or fexpr[pos].kind == fexprQuote) and fexpr[pos+1].kind == fexprArray
+  return (fexpr[pos].kind == fexprIdent or fexpr[pos].kind == fexprQuote or fexpr[pos].kind == fexprSymbol) and fexpr[pos+1].kind == fexprArray
 proc isPragmaPrefix*(fexpr: FExpr): bool =
   fexpr.kind == fexprPrefix and $fexpr == "$"
 
