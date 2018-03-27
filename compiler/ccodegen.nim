@@ -306,6 +306,13 @@ proc codegenVar*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= codegenType(fexpr[2])
   src &= " "
   src &= codegenSymbol(fexpr[1])
+
+proc codegenConst*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  src &= "#define "
+  src &= codegenSymbol(fexpr[1])
+  src &= " "
+  ctx.codegenFExpr(src, fexpr[2])
+  src &= "\n"
   
 proc codegenDef*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= codegenType(fexpr.internalDefExpr.value.typ)
@@ -371,6 +378,9 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
       ctx.codegenVarTop(src, fexpr)
     elif not topcodegen and not fexpr.isToplevel:
       ctx.codegenVar(src, fexpr)
+  of internalConst:
+    if topcodegen:
+      ctx.codegenConst(src, fexpr)
   of internalDef:
     if topcodegen and fexpr.isToplevel:
       ctx.codegenDefDecl(src, fexpr)
@@ -510,8 +520,7 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     else:
       src &= $fexpr
   of fexprSymbol:
-    if not fexpr.symbol.fexpr.hasinternalMark:
-      src &= codegenSymbol(fexpr)
+    src &= codegenSymbol(fexpr)
   of fexprIntLit:
     src &= $fexpr
   of fexprStrLit:

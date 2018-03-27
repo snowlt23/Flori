@@ -42,7 +42,11 @@ proc semType*(scope: Scope, parsed: ParsedType): Symbol =
   let opt = scope.getDecl(name(parsed.typ))
   if opt.isNone:
     parsed.typ.error("undeclared $# type." % $parsed.typ)
-  if parsed.generics.len == 0:
+  if opt.get.fexpr.hasInternalMark and opt.get.fexpr.internalMark == internalConst:
+    var pos = 0
+    let parsed = parseTypeExpr(opt.get.fexpr.constvalue, pos)
+    return scope.semType(parsed)
+  elif parsed.generics.len == 0:
     if opt.get.instance.isSome:
       result = opt.get.instance.get
     else:
@@ -57,7 +61,7 @@ proc semType*(scope: Scope, parsed: ParsedType): Symbol =
       let argtyp = arg.parseTypeExpr(pos)
       sym.types.add(scope.semType(argtyp))
     result = sym
-  
+
   if result.types.isSpecTypes and result.fexpr.hasDeftype and result.fexpr.deftype.isGenerics:
     result = scope.expandDeftype(result.fexpr, result.types).symbol
   if parsed.isref:

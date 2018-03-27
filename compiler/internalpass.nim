@@ -424,6 +424,28 @@ proc semVar*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr = fexpr.span.quoteFExpr("var `embed `embed", [fsym, fsymbol(fexpr[2].span, typsym)])
   fexpr.internalMark = internalVar
   scope.resolveByVoid(fexpr)
+
+proc semConst*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.len != 3:
+    fexpr.error("expected syntax: const name value")
+  if fexpr[1].kind != fexprIdent:
+    fexpr[1].error("variable name should be FIdent.")
+
+  if fexpr[2].kind notin {fexprIntLit, fexprStrLit}:
+    fexpr[2].error("const value not supported $# in currently" % $fexpr[2])
+  scope.rootPass(fexpr[2])
+
+  let csym = scope.symbol(name(fexpr[1]), symbolVar, fexpr[1])
+  fexpr[1].internalMark = internalConst
+  fexpr[1].constvalue = fexpr[2]
+  fexpr[1].typ = fexpr[2].typ
+  fexpr[1] = fsymbol(fexpr[1].span, csym)
+  fexpr[1].typ = fexpr[2].typ
+  let status = scope.addDecl(name(fexpr[1]), csym)
+  if not status:
+    fexpr.error("redefinition $# const." % $fexpr[1])
+  csym.fexpr.ctrc = initCTRC()
+  fexpr.internalMark = internalConst
   
 proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var parsed = parseDef(fexpr)
@@ -623,6 +645,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("if"), semIf)
   scope.addInternalEval(name("while"), semWhile)
   scope.addInternalEval(name("var"), semVar)
+  scope.addInternalEval(name("const"), semConst)
   scope.addInternalEval(name(":="), semDef)
   scope.addInternalEval(name("track"), semTrack)
   scope.addInternalEval(name("="), semSet)

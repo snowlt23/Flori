@@ -30,6 +30,7 @@ type
     internalIf
     internalWhile
     internalVar
+    internalConst
     internalDef
     internalTrack
     internalSet
@@ -91,6 +92,7 @@ defMetadata(typ, Symbol)
 defMetadata(ctrc, CTRC)
 defMetadata(effect, Effect)
 defMetadata(evaluated, bool)
+defMetadata(constvalue, FExpr)
 
 defMetadata(internalScope, Scope)
 defMetadata(internalCtx, SemanticContext)

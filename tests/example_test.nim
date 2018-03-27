@@ -46,3 +46,5 @@ suite "example":
     checkio "examples/vec_eff.flori", "Vec destroyed!\nFile destroyed!\n"
   test "array":
     checkio "examples/array.flori", ""
+  test "const":
+    checkio "examples/const.flori", "9\n"

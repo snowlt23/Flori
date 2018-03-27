@@ -1,0 +1,13 @@
+
+import "core/prelude"
+import "core/io"
+import "core/array"
+
+const N 9
+
+fn main() {
+  var arr Array[N, Int]
+  println(N)
+}
+
+main()
