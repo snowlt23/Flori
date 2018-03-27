@@ -5,6 +5,7 @@ import "core/string"
 import "core/syntax"
 import "core/macros"
 import "core/env"
+import "core/string"
 
 when (is_windows()) {
   import "core/windows"
@@ -12,9 +13,17 @@ when (is_windows()) {
 
 type File $[importc "FILE*", header "stdio.h"]
 
+fn SEEK_END() Int $[importc, header "stdio.h", pattern "SEEK_END"]
+SEEK_END := SEEK_END()
+fn SEEK_SET() Int $[importc, header "stdio.h", pattern "SEEK_SET"]
+SEEK_SET := SEEK_SET()
+
 fn fprintf(f File, cs CString) $[importc "fprintf", header "stdio.h"]
 fn fopen(name CString, mode CString) File $[importc "fopen", header "stdio.h"]
 fn fclose(f File) $[importc "fclose", header "stdio.h"]
+fn fseek(f File, pos Int, flag Int) $[importc "fseek", header "stdio.h"]
+fn ftell(f File) Int $[importc "ftell", header "stdio.h"]
+fn fread(cs CString, x Int, size Int, f File) Int $[importc "fread", header "stdio.h"]
 
 fn stdin() $[importc, header "stdio.h", pattern "stdin"]
 fn stdout() $[importc, header "stdio.h", pattern "stdout"]
@@ -39,8 +48,24 @@ fn write_file(filename CString, s CString) {
   write(f, s)
 }
 
+fn read_file(filename CString) String {
+  f := open_file(filename, "r")
+  fseek(f, 0, SEEK_END)
+  size := ftell(f)
+  fseek(f, 0, SEEK_SET)
+  ret := string(size)
+  fread(to_cs(ret), 1, size, f)
+  ret
+}
+
 fn copy_file(src CString, dest CString) Bool {
   when (is_windows()) {
     win_copyfile(src, dest, false)
   }
+}
+
+macro static_read_file(filename FExpr) FExpr {
+  s := replace(to_cs(read_file(strval(filename))), lf, "\\n")
+  println(s)
+  new_fstrlit(to_cs(s))
 }

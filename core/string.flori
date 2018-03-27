@@ -28,15 +28,15 @@ fn get(s String, i Int) Char {
   unref((s.p) +! i)
 }
 
-syntax s(fexpr FExpr) FExpr {
-  if (length(fexpr) != 2) {
-    error(fexpr, "usage: s\"...\"")
-  }
-  strlit := get(fexpr, 1)
-  quote {
-    string(`strlit)
-  }
-}
+# syntax s(fexpr FExpr) FExpr {
+#   if (length(fexpr) != 2) {
+#     error(fexpr, "usage: s\"...\"")
+#   }
+#   strlit := get(fexpr, 1)
+#   quote {
+#     string(`strlit)
+#   }
+# }
 
 fn to_cs(s String) CString {
   cast[CString](s.p)
@@ -103,3 +103,23 @@ fn to_s(val Int) String {
   }
   reverse(str)
 }
+
+cr := cast[Char](13)
+lf := cast[Char](10)
+
+fn get(cs CString, i Int) Char {
+  unref(cast[Ptr[Char]](cs) +! i)
+}
+
+fn replace(s CString, dst Char, src CString) String {
+  newstr := string("")
+  for i in range(0, strlen(s)-1) {
+    if (get(s, i) == dst) {
+      push(newstr, src)
+    } else {
+      push(newstr, get(s, i))
+    }
+  }
+  newstr
+}
+

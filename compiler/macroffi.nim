@@ -44,5 +44,7 @@ proc ffiSet*(fexpr: FExpr, i: int, value: FExpr) {.cdecl.} =
   fexpr[i] = value
 proc ffiToCS*(fexpr: FExpr): cstring {.cdecl.} =
   cstring($fexpr)
+proc ffiStrval*(fexpr: FExpr): cstring {.cdecl.} =
+  cstring($fexpr.strval)
 proc ffiGensym*(): FExpr {.cdecl.} =
   return fident(internalSpan, gCtx.genTmpName())

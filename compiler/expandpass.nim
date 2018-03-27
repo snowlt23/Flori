@@ -105,6 +105,7 @@ proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExp
 
   discard fexpr.internalScope.addDecl(manglingname, tsym)
   fexpr.internalScope.top.toplevels.add(tsym.fexpr)
+  scope.ctx.globaltoplevels.add(tsym.fexpr)
 
   return fsym
     
@@ -189,6 +190,7 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtype
   sym.fexpr.defn.body = exbody
   sym.fexpr[7] = exbody
   fexpr.internalScope.top.toplevels.add(sym.fexpr)
+  scope.ctx.globaltoplevels.add(sym.fexpr)
   if argtypes.isSpecTypes:
     fnScopeout(rootPass, exscope, sym.fexpr)
 

@@ -37,6 +37,7 @@ type
     internalFieldAccess
     internalInit
     internalImport
+    internalCEmit
   InternalPragma* = object
     importc*: Option[string]
     header*: Option[string]

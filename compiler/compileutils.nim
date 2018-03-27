@@ -13,9 +13,9 @@ export ccodegen.codegenMangling
 const cachedir* = "floricache"
 
 proc compileWithGCC*(pass: CCodegenContext, dir: string, options: string, files = "") =
-  discard execShellCmd "gcc $# $# $#" % [pass.cfilenames(dir).join(" "), files, options]
+  discard execShellCmd "gcc $#/flori_compiled.c $# $#" % [dir, files, options]
 proc compileWithTCC*(pass: CCodegenContext, dir: string, options: string, files = "") =
-  discard execShellCmd "tcc $# $# $#" % [pass.cfilenames(dir).join(" "), files, options]
+  discard execShellCmd "tcc $#/flori_compiled.c $# $#" % [dir, files, options]
 
 proc dll*(s: string): string =
   when defined(windows):
@@ -27,9 +27,14 @@ const macrolib* = cachedir / "flori_macrolib".dll
 
 proc compileMacroLibrary*(semctx: SemanticContext, scope: Scope) =
   let genctx = newCCodegenContext(macrogen = true)
-  genctx.codegen(semctx)
-  genctx.writeModules(cachedir)
+  if not existsDir(cachedir):
+    createDir(cachedir)
+  let src = genctx.codegenSingle(semctx)
+  writeFile(cachedir / "flori_compiled.c", src)
   genctx.compileWithTCC(cachedir, "-shared -rdynamic -o$# -I$# $#" % [macrolib, getAppDir() / ".." / "ffi", semctx.ccoptions])
+  # genctx.codegen(semctx)
+  # genctx.writeModules(cachedir)
+  # genctx.compileWithTCC(cachedir, "-shared -rdynamic -o$# -I$# $#" % [macrolib, getAppDir() / ".." / "ffi", semctx.ccoptions])
 
 proc setupFFI*(handle: LibHandle) =
   template ffi(name, prc) =
@@ -50,6 +55,7 @@ proc setupFFI*(handle: LibHandle) =
   ffi "flori_access", ffiAccess
   ffi "flori_set", ffiSet
   ffi "flori_to_cs", ffiToCS
+  ffi "flori_strval", ffiStrval
   ffi "flori_gensym", ffiGensym
 
 proc reloadMacroLibrary*(semctx: SemanticContext, scope: Scope) =

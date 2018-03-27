@@ -117,6 +117,7 @@ type
     scopevalues*: seq[FExpr]
   SemanticContext* = ref object
     modules*: OrderedTable[Name, Scope]
+    globaltoplevels*: seq[FExpr]
     macrolib*: LibHandle
     macroprocs*: seq[MacroProc]
     tmpcount*: int

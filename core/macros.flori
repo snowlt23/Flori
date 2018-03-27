@@ -36,6 +36,7 @@ fn error(fexpr FExpr, msg CString) $[importc "flori_error", header "floriffi.h"]
 fn get(fexpr FExpr, i Int) FExpr $[importc "flori_access", header "floriffi.h"]
 fn set(fexpr FExpr, i Int, value FExpr) $[importc "flori_set", header "floriffi.h"]
 fn to_cs(fexpr FExpr) CString $[importc "flori_to_cs", header "floriffi.h"]
+fn strval(fexpr FExpr) CString $[importc "flori_strval", header "floriffi.h"]
 fn gensym() FExpr $[importc "flori_gensym", header "floriffi.h"]
 
 fn push[T](fexpr FExpr, son TExpr[T]) $[importc "flori_push", header "floriffi.h"]

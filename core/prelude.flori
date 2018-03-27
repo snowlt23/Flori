@@ -26,6 +26,9 @@ fn `>=(a Int, b Int) Bool $[importc ">=", header nodeclc, pattern infixc]
 fn `==(a Int, b Int) Bool $[importc "==", header nodeclc, pattern infixc]
 fn `!=(a Int, b Int) Bool $[importc "!=", header nodeclc, pattern infixc]
 
+fn `==(a Char, b Char) Bool $[importc "==", header nodeclc, pattern infixc]
+fn `!=(a Char, b Char) Bool $[importc "!=", header nodeclc, pattern infixc]
+
 fn cast[T, F](val F) T $[importc, header nodeclc, pattern "((#1)($1))"]
 
 fn `/(a Float, b Float) Float $[importc "/", header nodeclc, pattern infixc]

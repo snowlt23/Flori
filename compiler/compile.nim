@@ -67,9 +67,10 @@ proc compileFlori*(options: CCOptions) =
   bench "eval":
     discard semctx.semFile(processSemPass, options.filepath)
   bench "codegen":
-    genctx.codegen(semctx)
-  bench "write":
-    genctx.writeModules(cachedir)
+    if not existsDir(cachedir):
+      createDir(cachedir)
+    let src = genctx.codegenSingle(semctx)
+    writeFile(cachedir / "flori_compiled.c", src)
   bench "cc":
     case options.cc
     of ccGCC:

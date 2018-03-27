@@ -278,9 +278,11 @@ proc semDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let status = scope.addFunc(pd)
   if not status:
     fexpr.error("redefinition $# function." % $parsed.name)
-  if not fexpr.isToplevel:
-    scope.top.toplevels.add(fexpr)
-    fexpr.isGenerated = true
+    
+  # if not fexpr.isToplevel:
+  #   scope.top.toplevels.add(fexpr)
+  #   scope.ctx.globaltoplevels.add(fexpr)
+  #   fexpr.isGenerated = true
 
 proc semSyntax*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.internalMark = internalMacro
@@ -294,12 +296,17 @@ proc semSyntax*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     fexpr.error("redefinition $# macro." % $parsed.name)
 
   scope.top.toplevels.add(fexpr)
-  defer: scope.top.toplevels.del(high(scope.top.toplevels))
+  scope.ctx.globaltoplevels.add(fexpr)
     
   scope.ctx.macroprocs.add(mp)
   scope.ctx.reloadMacroLibrary(scope.top)
+
+  scope.top.toplevels.del(high(scope.top.toplevels))
+  scope.ctx.globaltoplevels.del(high(scope.ctx.globaltoplevels))
+  
   if not fexpr.isToplevel:
     scope.top.toplevels.add(fexpr)
+    scope.ctx.globaltoplevels.add(fexpr)
     fexpr.isGenerated = true
 
 proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
@@ -315,13 +322,18 @@ proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     fexpr.error("redefinition $# macro." % $parsed.name)
 
   scope.top.toplevels.add(fexpr)
-  defer: scope.top.toplevels.del(high(scope.top.toplevels))
+  scope.ctx.globaltoplevels.add(fexpr)
 
   if parsed.generics.isSpecTypes:
     scope.ctx.macroprocs.add(mp)
     scope.ctx.reloadMacroLibrary(scope.top)
+    
+  scope.top.toplevels.del(high(scope.top.toplevels))
+  scope.ctx.globaltoplevels.del(high(scope.ctx.globaltoplevels))
+  
   if not fexpr.isToplevel:
     scope.top.toplevels.add(fexpr)
+    scope.ctx.globaltoplevels.add(fexpr)
     fexpr.isGenerated = true
     
 proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
@@ -612,7 +624,7 @@ proc semQuote*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
 
 proc semIsDestructable*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.len != 2 or fexpr[1].kind != fexprList and fexpr[1].len != 0:
-    fexpr.error("unsage: is_destructable(type)")
+    fexpr.error("usage: is_destructable(type)")
   
   let typesym = scope.semTypeExpr(fexpr[1][0])
   if fexpr.internalScope.getFunc(procname(name("destructor"), @[typesym])).isSome:
@@ -620,6 +632,13 @@ proc semIsDestructable*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) 
   else:
     fexpr = fexpr.span.quoteFExpr("false", [])
   scope.rootPass(fexpr)
+
+proc semCEmit*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.len != 2:
+    fexpr.error("usage: cemit \"...\"")
+  if fexpr[1].kind != fexprStrLit:
+    fexpr.error("usage: cemit \"...\"")
+  fexpr.internalMark = internalCEmit
     
 #
 # Internal
@@ -653,6 +672,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("init"), semInit)
   scope.addInternalEval(name("import"), semImport)
   scope.addInternalEval(name("quote"), semQuote)
+  scope.addInternalEval(name("cemit"), semCEmit)
 
   scope.addInternalEval(name("is_destructable"), semIsDestructable)
 
@@ -678,6 +698,7 @@ proc newSemanticContext*(ccoptions = ""): SemanticContext =
   result.initInternalScope()
   result.importpaths = @[getAppDir() / "..", "."]
   result.ccoptions = ccoptions
+  result.globaltoplevels = @[]
   gCtx = result
 
 proc semModule*(ctx: SemanticContext, rootPass: PassProcType, name: Name, fexprs: var seq[FExpr]) =
@@ -685,18 +706,19 @@ proc semModule*(ctx: SemanticContext, rootPass: PassProcType, name: Name, fexprs
     return
   let scope = ctx.newScope(name)
   scope.importScope(name("internal"), ctx.internalScope)
-  var tmpcurr: Scope = nil
-  if ctx.modules.hasKey((name("current_module"))):
-    tmpcurr = ctx.modules[name("current_module")]
-  ctx.modules[name("current_module")] = scope
-  defer:
-    ctx.modules.del(name("current_module"))
-    if not tmpcurr.isNil:
-      ctx.modules[name("current_module")] = tmpcurr
+  # var tmpcurr: Scope = nil
+  # if ctx.modules.hasKey((name("current_module"))):
+  #   tmpcurr = ctx.modules[name("current_module")]
+  # ctx.modules[name("current_module")] = scope
+  # defer:
+  #   ctx.modules.del(name("current_module"))
+  #   if not tmpcurr.isNil:
+  #     ctx.modules[name("current_module")] = tmpcurr
   for f in fexprs.mitems:
     f.isToplevel = true
     scope.rootPass(f)
     scope.toplevels.add(f)
+    scope.ctx.globaltoplevels.add(f)
   ctx.modules[name] = scope
 
 proc semFile*(ctx: SemanticContext, rootPass: PassProcType, filepath: string): Option[Name] =
