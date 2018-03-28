@@ -2,6 +2,8 @@
 import "core/prelude"
 import "core/io"
 import "core/array"
+import "core/syntax"
+import "core/macros"
 
 const N 9
 

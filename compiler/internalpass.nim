@@ -434,7 +434,9 @@ proc semVar*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   scope.tracking(varsym.fexpr)
   
   let fsym = fsymbol(fexpr[1].span, varsym)
+  let oldfexpr = fexpr
   fexpr = fexpr.span.quoteFExpr("var `embed `embed", [fsym, fsymbol(fexpr[2].span, typsym)])
+  fexpr.metadata = oldfexpr.metadata
   fexpr.internalMark = internalVar
   scope.resolveByVoid(fexpr)
 

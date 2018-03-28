@@ -244,10 +244,6 @@ proc codegenWhile*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   ctx.codegenBody(src, fexpr.internalWhileExpr.body)
   src &= "}"
   
-proc codegenVarTop*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  let s = codegenType(fexpr[2]) & " " & codegenSymbol(fexpr[1]) & ";\n"
-  src &= s
-  
 proc codegenVar*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= codegenType(fexpr[2])
   src &= " "
@@ -330,7 +326,8 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
       ctx.codegenWhile(src, fexpr)
   of internalVar:
     if topcodegen and fexpr.isToplevel:
-      ctx.codegenVarTop(src, fexpr)
+      ctx.codegenVar(src, fexpr)
+      src &= ";\n"
     elif not topcodegen and not fexpr.isToplevel:
       ctx.codegenVar(src, fexpr)
   of internalConst:
@@ -363,7 +360,8 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
     elif not topcodegen and not fexpr.isToplevel:
       ctx.codegenCEmit(src, fexpr)
   of internalBlock:
-    ctx.codegenBlock(src, fexpr)
+    if not topcodegen:
+      ctx.codegenBlock(src, fexpr)
 
 proc codegenCallArg*(ctx: CCodegenContext, src: var SrcExpr, arg: FExpr, fnargtype: Symbol) =
   if arg.typ.kind == symbolVar and fnargtype.kind == symbolRef:
