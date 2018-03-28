@@ -25,8 +25,8 @@ fn fseek(f File, pos Int, flag Int) $[importc "fseek", header "stdio.h"]
 fn ftell(f File) Int $[importc "ftell", header "stdio.h"]
 fn fread(cs CString, x Int, size Int, f File) Int $[importc "fread", header "stdio.h"]
 
-fn stdin() $[importc, header "stdio.h", pattern "stdin"]
-fn stdout() $[importc, header "stdio.h", pattern "stdout"]
+fn stdin() File $[importc, header "stdio.h", pattern "stdin"]
+fn stdout() File $[importc, header "stdio.h", pattern "stdout"]
 
 destructor(f File) {
   println("File destroyed!")

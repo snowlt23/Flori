@@ -14,8 +14,10 @@ type String {
 }
 
 fn string(cs CString) String {
-  s := init(String){alloc[Char](strlen(cs) + 1); strlen(cs)}
-  memcpy(s.p, cast[Ptr[Char]](cs), strlen(cs))
+  len := strlen(cs)
+  s := init(String){alloc[Char](len + 1); len}
+  memcpy(s.p, cast[Ptr[Char]](cs), len)
+  unref((s.p) +! len) = cast[Char](0)
   s
 }
 fn string(len Int) String {

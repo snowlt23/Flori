@@ -523,6 +523,9 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   scope.rootPass(parsed.dst)
   scope.rootPass(parsed.value)
 
+  if not parsed.dst.typ.match(parsed.value.typ):
+    parsed.value.error("cannot set $# value to $#." % [$parsed.value.typ, $parsed.dst.typ])
+
   fexpr.internalMark = internalSet
   fexpr.internalSetExpr = parsed
 
@@ -640,6 +643,15 @@ proc semCEmit*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr[1].kind != fexprStrLit:
     fexpr.error("usage: cemit \"...\"")
   fexpr.internalMark = internalCEmit
+
+proc semBlock*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.len != 2:
+    fexpr.error("usage: block {...}")
+  if fexpr[1].kind != fexprBlock:
+    fexpr.error("usage: block {...}")
+  let blockscope = scope.extendScope()
+  blockscope.rootPass(fexpr[1])
+  fexpr.internalMark = internalBlock
     
 #
 # Internal
@@ -674,6 +686,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("import"), semImport)
   scope.addInternalEval(name("quote"), semQuote)
   scope.addInternalEval(name("cemit"), semCEmit)
+  scope.addInternalEval(name("block"), semBlock)
 
   scope.addInternalEval(name("is_destructable"), semIsDestructable)
 

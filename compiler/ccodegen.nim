@@ -8,86 +8,33 @@ import os
 
 type
   SrcExpr* = object
-    headers*: OrderedTable[string, bool]
-    typedecls*: string
-    fndecls*: string
-    vardecls*: string
     prev*: string
     exp*: string
   CCodegenContext* = ref object
-    modulesrcs*: OrderedTable[Name, SrcExpr]
+    headers*: OrderedTable[string, bool]
     tmpcount*: int
     macrogen*: bool
     
 proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr)
+proc codegenCallArg*(ctx: CCodegenContext, src: var SrcExpr, arg: FExpr, fnargtype: Symbol)
 
 proc initSrcExpr*(): SrcExpr =
-  result.headers = initOrderedTable[string, bool]()
-  result.typedecls = ""
-  result.fndecls = ""
-  result.vardecls = ""
   result.prev = ""
   result.exp = ""
 proc `&=`*(src: var SrcExpr, s: string) = src.exp &= s
-proc extendDecls*(src: var SrcExpr, s: SrcExpr) =
-  src.typedecls &= s.typedecls
-  src.fndecls &= s.fndecls
-  src.vardecls &= s.vardecls
 proc `&=`*(src: var SrcExpr, s: SrcExpr) =
-  src.extendDecls(s)
   src.exp &= s.prev
   src.exp &= s.exp
 proc addPrev*(src: var SrcExpr, s: string) = src.prev &= s
 proc addPrev*(src: var SrcExpr, s: SrcExpr) =
-  src.extendDecls(s)
   src.prev &= s.prev
   src.prev &= s.exp
-proc getSrc*(src: SrcExpr): string =
-  "#include \"flori_decls.h\"\n\n" & src.exp
-proc addHeader*(src: var SrcExpr, s: string) =
-  src.headers[s] = true
 
 proc newCCodegenContext*(macrogen = false): CCodegenContext =
-  CCodegenContext(modulesrcs: initOrderedTable[Name, SrcExpr](), tmpcount: 0, macrogen: macrogen)
+  CCodegenContext(headers: initOrderedTable[string, bool](), tmpcount: 0, macrogen: macrogen)
 proc gentmpsym*(ctx: CCodegenContext): string =
   result = "__floritmp" & $ctx.tmpcount
   ctx.tmpcount.inc
-
-proc generateInitDecls*(ctx: CCodegenContext): string =
-  result = ""
-  for si, module in ctx.modulesrcs:
-    result &= "void __flori_" & replace($si, ".", "_") & "_init();\n"
-proc generateInits*(ctx: CCodegenContext): string =
-  result = ""
-  for si, module in ctx.modulesrcs:
-    result &= "__flori_" & replace($si, ".", "_") & "_init();\n"
-proc generateFloriMain*(ctx: CCodegenContext): string =
-  result = ""
-  result &= ctx.generateInitDecls()
-  result &= "int flori_main() {\n"
-  result &= ctx.generateInits()
-  result &= "}\n"
-proc generateCMain*(ctx: CCodegenContext): string =
-  result = ""
-  result &= "int main() {\n"
-  result &= "flori_main();\n"
-  result &= "}\n"
-
-proc generateFloriDecls*(ctx: CCodegenContext): string =
-  result = ""
-  if ctx.macrogen:
-    result &= "#define FLORI_COMPILETIME\n"
-  for src in ctx.modulesrcs.values:
-    for header in src.headers.keys:
-      result.add("#include \"$#\"\n" % header)
-  result &= "\n"
-  for src in ctx.modulesrcs.values:
-    result.add(src.typedecls)
-  for src in ctx.modulesrcs.values:
-    result.add(src.fndecls)
-  for src in ctx.modulesrcs.values:
-    result.add(src.vardecls)
-  result &= "\n"
 
 proc replaceSpecialSymbols*(s: string): string =
   s.replace(".", "_").replace("+", "plus").replace("-", "minus").replace("*", "asterisk").replace("/", "slash").replace("!", "excl").replace("=", "eq").replace("%", "per").replace("&", "and")
@@ -165,7 +112,6 @@ proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: seq[FExpr], ret:
     for b in body[0..^2]:
       var newsrc = initSrcExpr()
       ctx.codegenFExpr(newsrc, b)
-      src.extendDecls(newsrc)
       src &= newsrc.prev
       if newsrc.exp != "":
         src &= newsrc.exp & ";\n"
@@ -174,7 +120,8 @@ proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: seq[FExpr], ret:
   src &= newsrc.prev
   if ret != nil:
     src &= ret
-  src &= newsrc.exp & ";\n"
+  if newsrc.exp != "":
+    src &= newsrc.exp & ";\n"
 proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: FExpr, ret: string = nil) =
   ctx.codegenBody(src, toSeq(body.items), ret)
 
@@ -195,8 +142,6 @@ proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
     decl &= " "
     decl &= codegenSymbol(arg[0])
   decl &= ")"
-  src.fndecls &= decl.exp
-  src.fndecls &= ";\n"
 
   src &= decl
   src &= " {\n"
@@ -217,8 +162,8 @@ proc codegenMacroWrapper*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
   src &= "}\n"
 
 proc codegenDefn*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  if fexpr.internalPragma.header.isSome:
-    src.addHeader(fexpr.internalPragma.header.get)
+  if fexpr.internalPragma.header.isSome and not ctx.headers.hasKey(fexpr.internalPragma.header.get):
+    ctx.headers[fexpr.internalPragma.header.get] = true
     src &= "#include \"$#\"\n" % fexpr.internalPragma.header.get
   if fexpr.internalPragma.importc.isNone:
     if fexpr.defn.generics.isSpecTypes:
@@ -234,25 +179,15 @@ proc codegenDeftypeStruct*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr)
     src &= $field[0]
     src &= ";\n"
   src &= "};\n"
-  
-  src.typedecls &= "struct $# {\n" % codegenSymbol(fexpr.deftype.name.symbol)
-  for field in fexpr.deftype.body:
-    src.typedecls &= codegenType(field[1].symbol)
-    src.typedecls &= " "
-    src.typedecls &= $field[0]
-    src.typedecls &= ";\n"
-  src.typedecls &= "};\n"
 
 proc codegenDeftypePattern*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.internalPragma.declc.isSome:
     src &= codegenTypePattern(fexpr.internalPragma.declc.get, fexpr.deftype.name.symbol.types)
     src &= "\n"
-    src.typedecls &= codegenTypePattern(fexpr.internalPragma.declc.get, fexpr.deftype.name.symbol.types)
-    src.typedecls &= "\n"
   
 proc codegenDeftype*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  if fexpr.internalPragma.header.isSome:
-    src.addHeader(fexpr.internalPragma.header.get)
+  if fexpr.internalPragma.header.isSome and not ctx.headers.hasKey(fexpr.internalPragma.header.get):
+    ctx.headers[fexpr.internalPragma.header.get] = true
     src &= "#include \"$#\"\n" % fexpr.internalPragma.header.get
   if fexpr.internalPragma.importc.isSome:
     if not fexpr.deftype.isGenerics:
@@ -277,7 +212,6 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   var ifbodysrc = initSrcExpr()
   ctx.codegenFExpr(ifcondsrc, elifbranch[0].cond)
   ctx.codegenBody(ifbodysrc, elifbranch[0].body, ret)
-  src.extendDecls(ifcondsrc)
   src.prev &= ifcondsrc.prev
   src.prev &= "if (" & ifcondsrc.exp & ") {\n"
   src.addPrev(ifbodysrc)
@@ -288,7 +222,6 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     var elifbodysrc = initSrcExpr()
     ctx.codegenFExpr(elifcondsrc, branch.cond)
     ctx.codegenBody(elifbodysrc, branch.body, ret)
-    src.extendDecls(elifcondsrc)
     src.prev &= elifcondsrc.prev
     src.prev &= " else if (" & elifcondsrc.exp & ") {\n"
     src.addPrev(elifbodysrc)
@@ -313,7 +246,6 @@ proc codegenWhile*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   
 proc codegenVarTop*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   let s = codegenType(fexpr[2]) & " " & codegenSymbol(fexpr[1]) & ";\n"
-  src.vardecls &= s
   src &= s
   
 proc codegenVar*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
@@ -338,7 +270,6 @@ proc codegenDef*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 proc codegenDefDecl*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   let t = codegenType(fexpr.internalDefExpr.value.typ)
   let n = codegenSymbol(fexpr.internalDefExpr.name)
-  src.vardecls &= "extern $# $#;" % [t, n]
   src &= "$# $#;\n" % [t, n]
 proc codegenDefValue*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= codegenSymbol(fexpr.internalDefExpr.name)
@@ -351,6 +282,8 @@ proc codegenSet*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     src &= "*"
   ctx.codegenFExpr(src, fexpr.internalSetExpr.dst)
   src &= " = "
+  if dsttyp.kind == symbolRef and fexpr.internalSetExpr.value.typ.kind == symbolRef:
+    src &= "*"
   ctx.codegenFExpr(src, fexpr.internalSetExpr.value)
 
 proc codegenFieldAccess*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
@@ -363,8 +296,8 @@ proc codegenFieldAccess*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 
 proc codegenInit*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "(" & codegenType(fexpr.initexpr.typ) & "){"
-  for arg in ctx.codegenArgs(src, fexpr.initexpr.body):
-    ctx.codegenFExpr(src, arg)
+  for i, arg in ctx.codegenArgsWithIndex(src, fexpr.initexpr.body):
+    ctx.codegenCallArg(src, arg, fexpr.typ.fexpr.deftype.body[i][1].symbol)
   src &= "}"
 
 proc codegenImport*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
@@ -372,6 +305,11 @@ proc codegenImport*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 
 proc codegenCEmit*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= fexpr[1].strval
+
+proc codegenBlock*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  src &= "{\n"
+  ctx.codegenFExpr(src, fexpr[1])
+  src &= "\n}\n"
 
 proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topcodegen: bool) =
   case fexpr.internalMark
@@ -424,6 +362,8 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
       ctx.codegenCEmit(src, fexpr)
     elif not topcodegen and not fexpr.isToplevel:
       ctx.codegenCEmit(src, fexpr)
+  of internalBlock:
+    ctx.codegenBlock(src, fexpr)
 
 proc codegenCallArg*(ctx: CCodegenContext, src: var SrcExpr, arg: FExpr, fnargtype: Symbol) =
   if arg.typ.kind == symbolVar and fnargtype.kind == symbolRef:
@@ -440,7 +380,6 @@ proc codegenPatternArgs*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, f
   for i, arg in fexpr:
     var comp = initSrcExpr()
     ctx.codegenCallArg(comp, arg, fnargtypes[i])
-    src.extendDecls(comp)
     src.prev &= comp.prev
     pattern = pattern.replace("$#" & $(i+1), codegenType(arg.typ))
     pattern = pattern.replace("$" & $(i+1), comp.exp)
@@ -467,7 +406,6 @@ proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     var psrc = initSrcExpr()
     ctx.codegenPatternCCall(psrc, fexpr, fn.internalPragma.declc.get, fn)
     src &= psrc.exp
-    src.fndecls &= psrc.exp
   
   if fn.internalPragma.infixc:
     if fexpr.len == 3:
@@ -587,18 +525,6 @@ proc codegenToplevel*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
         continue
       son.isToplevel = true
       ctx.codegenToplevel(src, son)
-
-proc codegenModule*(ctx: CCodegenContext, name: Name, scope: Scope) =
-  var modsrc = initSrcExpr()
-  for f in scope.toplevels:
-    ctx.codegenToplevel(modsrc, f)
-
-  modsrc &= "\n"
-  modsrc &= "void __flori_$#_init() {\n" % replace($name, ".", "_")
-  ctx.codegenBody(modsrc, scope.toplevels)
-  modsrc &= "}\n"
-
-  ctx.modulesrcs[name] = modsrc
   
 proc codegenSingle*(ctx: CCodegenContext, sem: SemanticContext): string =
   var src = initSrcExpr()
@@ -612,21 +538,3 @@ proc codegenSingle*(ctx: CCodegenContext, sem: SemanticContext): string =
   src &= "}\n"
   src &= "int main(int argc, char** argv) { flori_main(); }\n"
   return src.exp
-  
-proc codegen*(ctx: CCodegenContext, sem: SemanticContext) =
-  for name, module in sem.modules:
-    ctx.codegenModule(name, module)
-
-proc cfilenames*(ctx: CCodegenContext, dir: string): seq[string] =
-  result = @[]
-  for si, modsrc in ctx.modulesrcs:
-    result.add(dir / $si & ".c")
-  result.add(dir / "main.c")
-
-proc writeModules*(ctx: CCodegenContext, dir: string) =
-  if not existsDir(dir):
-    createDir(dir)
-  for si, modsrc in ctx.modulesrcs:
-    writeFile(dir / $si & ".c", modsrc.getSrc)
-  writeFile(dir / "main.c", ctx.generateFloriMain() & ctx.generateCMain())
-  writeFile(dir / "flori_decls.h", ctx.generateFloriDecls())

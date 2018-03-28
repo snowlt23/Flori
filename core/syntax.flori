@@ -65,10 +65,12 @@ syntax iterator(fexpr FExpr) FExpr {
 
 iterator range(start TExpr[Int], end TExpr[Int]) {
   quote {
-    `element := `start
-    while (`element <= `end) {
-      `yield
-      `element += 1
+    block {
+      `element := `start
+      while (`element <= `end) {
+        `yield
+        `element += 1
+      }
     }
   }
 }

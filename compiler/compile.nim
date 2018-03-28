@@ -69,7 +69,7 @@ proc compileFlori*(options: CCOptions) =
   bench "codegen":
     if not existsDir(cachedir):
       createDir(cachedir)
-    let src = genctx.codegenSingle(semctx)
+    let src = readFile(getAppDir() / "../ffi/floriffi.h") & "\n" & genctx.codegenSingle(semctx).replace("#include \"floriffi.h\"\n")
     writeFile(cachedir / "flori_compiled.c", src)
   bench "cc":
     case options.cc

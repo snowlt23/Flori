@@ -38,6 +38,7 @@ type
     internalInit
     internalImport
     internalCEmit
+    internalBlock
   InternalPragma* = object
     importc*: Option[string]
     header*: Option[string]
