@@ -1,14 +1,9 @@
 
-import "core/prelude"
-import "core/io"
-import "core/string"
-import "core/syntax"
-import "core/macros"
-import "core/env"
-import "core/string"
+import "core"
+import "std/env"
 
 when (is_windows()) {
-  import "core/windows"
+  import "std/windows"
 }
 
 type File $[importc "FILE*", header "stdio.h"]

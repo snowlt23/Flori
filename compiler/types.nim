@@ -113,6 +113,7 @@ type
     decls*: Table[Name, Symbol]
     procdecls*: Table[Name, ProcDeclGroup]
     importscopes*: OrderedTable[Name, Scope]
+    exportscopes*: OrderedTable[Name, Scope]
     toplevels*: seq[FExpr]
     scopevalues*: seq[FExpr]
   SemanticContext* = ref object

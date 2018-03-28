@@ -590,16 +590,31 @@ proc semImport*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr[1].kind != fexprStrLit:
     fexpr.error("import syntax filepath should be FStrLit.")
   let importname = name(fexpr[1].strval)
-  let filepath = ($importname).replace(".", "/") & ".flori"
-  let modname = scope.ctx.semFile(rootPass, filepath)
+  let filepath = ($importname).replace(".", "/")
+  var modname = scope.ctx.semFile(rootPass, filepath & ".flori")
   if modname.isNone:
-    fexpr.error("cannot import $#" % $fexpr[1])
-  scope.importScope(importname, scope.ctx.modules[modname.get])
+    modname = scope.ctx.semFile(rootPass, filepath / "root.flori")
+    if modname.isNone:
+      fexpr.error("cannot import $#" % $fexpr[1])
+  scope.top.importScope(importname, scope.ctx.modules[modname.get])
   fexpr.internalMark = internalImport
   fexpr.internalImportExpr = ImportExpr(
     importname: importname,
     modname: modname.get
   )
+
+proc semExport*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.len != 2:
+    fexpr.error("export syntax require filepath.")
+  if fexpr[1].kind != fexprStrLit:
+    fexpr.error("export syntax filepath should be FStrLit.")
+  let exportname = name(fexpr[1].strval.replace("/", "."))
+  if not scope.ctx.modules.hasKey(exportname):
+    var importexpr = fexpr.span.quoteFExpr("import `embed", [fexpr[1]])
+    scope.rootPass(importexpr)
+  let module = scope.ctx.modules[exportname]
+  scope.top.exportscopes[exportname] = module
+  fexpr.internalMark = internalExport
 
 proc collectQuotedItems*(fexpr: FExpr, collected: var seq[FExpr]) =
   for son in fexpr:
@@ -686,6 +701,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("."), semFieldAccess)
   scope.addInternalEval(name("init"), semInit)
   scope.addInternalEval(name("import"), semImport)
+  scope.addInternalEval(name("export"), semExport)
   scope.addInternalEval(name("quote"), semQuote)
   scope.addInternalEval(name("cemit"), semCEmit)
   scope.addInternalEval(name("block"), semBlock)
@@ -748,4 +764,14 @@ proc semFile*(ctx: SemanticContext, rootPass: PassProcType, filepath: string): O
                       name(n)
       ctx.semModule(rootPass, modname, fexprs)
       return some(modname)
+    elif existsFile(importpath / filepath / "root.flori"):
+      var fexprs = parseToplevel(filepath, readFile(importpath / filepath / "root.flori"))
+      let (dir, n, _) = filepath.splitFile()
+      let modname = if dir != "":
+                      name(dir.replace("/", ".") & "." & n)
+                    else:
+                      name(n)
+      ctx.semModule(rootPass, modname, fexprs)
+      return some(modname)
+      
   return none(Name)

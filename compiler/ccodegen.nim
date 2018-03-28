@@ -296,9 +296,6 @@ proc codegenInit*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     ctx.codegenCallArg(src, arg, fexpr.typ.fexpr.deftype.body[i][1].symbol)
   src &= "}"
 
-proc codegenImport*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  discard
-
 proc codegenCEmit*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= fexpr[1].strval
 
@@ -352,8 +349,9 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
     if not topcodegen:
       ctx.codegenInit(src, fexpr)
   of internalImport:
-    if topcodegen:
-      ctx.codegenImport(src, fexpr)
+    discard
+  of internalExport:
+    discard
   of internalCEmit:
     if topcodegen and fexpr.isToplevel:
       ctx.codegenCEmit(src, fexpr)

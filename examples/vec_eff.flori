@@ -1,9 +1,6 @@
 
-import "core/prelude"
-import "core/io"
-import "core/fileio"
-import "core/syntax"
-import "core/vec"
+import "core"
+import "std/fileio"
 
 #
 # eff

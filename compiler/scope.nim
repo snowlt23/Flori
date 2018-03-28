@@ -23,6 +23,7 @@ proc newScope*(ctx: SemanticContext, name: Name): Scope =
   result.decls = initTable[Name, Symbol]()
   result.procdecls = initTable[Name, ProcDeclGroup]()
   result.importscopes = initOrderedTable[Name, Scope]()
+  result.exportscopes = initOrderedTable[Name, Scope]()
   result.toplevels = @[]
   result.scopevalues = @[]
 
@@ -35,6 +36,7 @@ proc extendScope*(scope: Scope): Scope =
   result.decls = scope.decls
   result.procdecls = scope.procdecls
   result.importscopes = scope.importscopes
+  result.exportscopes = scope.exportscopes
   result.toplevels = @[]
   result.scopevalues = @[]
 
@@ -197,6 +199,8 @@ proc addSpecFunc*(scope: Scope, decl: ProcDecl) =
 
 proc importScope*(scope: Scope, name: Name, importscope: Scope) =
   scope.importscopes[name] = importscope
+  for name, exportscope in importscope.exportscopes:
+    scope.importscopes[name] = exportscope
 
 proc isType*(sym: Symbol, name: string): bool =
   $sym.name == name

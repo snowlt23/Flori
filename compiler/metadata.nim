@@ -37,6 +37,7 @@ type
     internalFieldAccess
     internalInit
     internalImport
+    internalExport
     internalCEmit
     internalBlock
   InternalPragma* = object
