@@ -20,6 +20,8 @@ proc ffiNewFList*(): FExpr {.cdecl.} =
   flist(ffiSpan())
 proc ffiNewFBlock*(): FExpr {.cdecl.} =
   fblock(ffiSpan())
+proc ffiNewFIntLit*(x: int): FExpr {.cdecl.} =
+  fintlit(ffiSpan(), x)
 proc ffiNewFStrLit*(cstr: cstring): FExpr {.cdecl.} =
   fstrlit(ffiSpan(), $cstr)
 proc ffiParseFExpr*(cstr: cstring): FExpr {.cdecl.} =

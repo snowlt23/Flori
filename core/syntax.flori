@@ -139,3 +139,23 @@ iterator items(fexpr TExpr[FExpr]) {
     }
   }
 }
+
+macro const_eval(x TExpr[Int]) FExpr {
+  tmp := gensym()
+  quote {
+    syntax `tmp(fexpr FExpr) FExpr {
+      new_fintlit(`x)
+    }
+    `tmp()
+  }
+}
+
+macro const_eval(s TExpr[CString]) FExpr {
+  tmp := gensym()
+  quote {
+    syntax `tmp(fexpr FExpr) FExpr {
+      new_fstrlit(`s)
+    }
+    `tmp()
+  }
+}

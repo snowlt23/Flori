@@ -442,10 +442,10 @@ proc semConst*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     fexpr.error("expected syntax: const name value")
   if fexpr[1].kind != fexprIdent:
     fexpr[1].error("variable name should be FIdent.")
-
-  if fexpr[2].kind notin {fexprIntLit, fexprStrLit}:
-    fexpr[2].error("const value not supported $# in currently" % $fexpr[2])
+  
+  fexpr[2] = fexpr[2].span.quoteFExpr("const_eval(`embed)", [fexpr[2]])
   scope.rootPass(fexpr[2])
+  fexpr[2] = fexpr[2][^1]
 
   let csym = scope.symbol(name(fexpr[1]), symbolVar, fexpr[1])
   fexpr[1].internalMark = internalConst

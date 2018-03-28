@@ -609,10 +609,6 @@ proc codegenSingle*(ctx: CCodegenContext, sem: SemanticContext): string =
   src &= "}\n"
   src &= "int main(int argc, char** argv) { flori_main(); }\n"
   return src.exp
-  # result = ""
-  # for key, value in src.headers:
-  #   result &= "#include \"$#\"\n" % key
-  # result &= src.exp
   
 proc codegen*(ctx: CCodegenContext, sem: SemanticContext) =
   for name, module in sem.modules:

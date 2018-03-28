@@ -44,6 +44,7 @@ proc setupFFI*(handle: LibHandle) =
   ffi "flori_new_farray", ffiNewFArray
   ffi "flori_new_flist", ffiNewFList
   ffi "flori_new_fblock", ffiNewFBlock
+  ffi "flori_new_fintlit", ffiNewFIntLit
   ffi "flori_new_fstrlit", ffiNewFStrLit
   ffi "flori_parse_fexpr", ffiParseFExpr
   ffi "flori_print_fexpr", ffiPrintFExpr
