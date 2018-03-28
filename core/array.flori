@@ -8,9 +8,9 @@ import "core/pointer"
 
 type Array[N, T] $[importc, header nodeclc, declc "struct Array##1_##2 { #2 data[#1]; };", pattern "struct Array##1_##2"]
 
-fn get[N, T](arr Array[N, T], i Int) ref T $[importc, header nodeclc, pattern "$1.data[$2]"]
+fn get[N, T](arr Array[N, T], i Int) ref T $[importc, header nodeclc, pattern "&($1.data[$2])"]
 fn set[N, T](arr ref Array[N, T], i Int, val T) $[importc, header nodeclc, pattern "$1.data[$2] = $3"]
-fn getref[N, T](arr ref Array[N, T]) Ptr[T] $[importc, header nodeclc, pattern "&($1.data[0])"]
+fn getref[N, T](arr ref Array[N, T]) Ptr[T] $[importc, header nodeclc, pattern "&((*$1).data[0])"]
 
 syntax array(fexpr FExpr) FExpr {
   if (length(fexpr) != 3) {

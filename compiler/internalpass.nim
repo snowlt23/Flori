@@ -39,6 +39,7 @@ proc parseDefn*(fexpr: FExpr): DefnExpr =
     let rtyp = fexpr.parseTypeExpr(pos)
     result.ret = rtyp.typ
     result.retgenerics = rtyp.generics
+    result.isretref = rtyp.isref
   else:
     result.ret = voidtypeExpr(fexpr.span)
     result.retgenerics = farray(fexpr.span)
