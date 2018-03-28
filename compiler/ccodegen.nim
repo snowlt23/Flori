@@ -472,19 +472,19 @@ proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fn.internalPragma.infixc:
     if fexpr.len == 3:
       src &= "("
-      ctx.codegenFExpr(src, fexpr[1])
+      ctx.codegenCallArg(src, fexpr[1], fexpr[0].symbol.fexpr.defn.args[0][1].symbol)
       src &= " "
       src &= fname
       src &= " "
-      ctx.codegenFExpr(src, fexpr[2])
+      ctx.codegenCallArg(src, fexpr[2], fexpr[0].symbol.fexpr.defn.args[1][1].symbol)
       src &= ")"
     elif fexpr[1].len == 2:
       src &= "("
-      ctx.codegenFExpr(src, fexpr[1][0])
+      ctx.codegenCallArg(src, fexpr[1][0], fexpr[0].symbol.fexpr.defn.args[0][1].symbol)
       src &= " "
       src &= fname
       src &= " "
-      ctx.codegenFExpr(src, fexpr[1][1])
+      ctx.codegenCallArg(src, fexpr[1][1], fexpr[0].symbol.fexpr.defn.args[1][1].symbol)
       src &= ")"
     else:
       fexpr.error("$# is not infix expression." % $fexpr)
