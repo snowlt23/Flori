@@ -5,6 +5,7 @@ import tables
 import options
 import strutils, sequtils
 import os
+import algorithm
 
 type
   SrcExpr* = object
@@ -373,12 +374,12 @@ proc codegenCallArg*(ctx: CCodegenContext, src: var SrcExpr, arg: FExpr, fnargty
 
 proc codegenPatternArgs*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, fnargtypes: seq[Symbol], ret: Symbol, pattern: var string) =
   pattern = pattern.replace("$#0", codegenType(ret))
-  for i, arg in fexpr:
+  for i, arg in fexpr.sons.reversed():
     var comp = initSrcExpr()
-    ctx.codegenCallArg(comp, arg, fnargtypes[i])
+    ctx.codegenCallArg(comp, arg, fnargtypes[fexpr.len-i-1])
     src.prev &= comp.prev
-    pattern = pattern.replace("$#" & $(i+1), codegenType(arg.typ))
-    pattern = pattern.replace("$" & $(i+1), comp.exp)
+    pattern = pattern.replace("$#" & $(fexpr.len-i), codegenType(arg.typ))
+    pattern = pattern.replace("$" & $(fexpr.len-i), comp.exp)
 
 proc codegenPatternCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, pattern: string, fn: FExpr) =
   var pattern = pattern

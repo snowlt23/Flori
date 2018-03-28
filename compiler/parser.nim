@@ -93,7 +93,9 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
     if context.curchar == ')':
       context.inc
       return lst
-    lst.addSon(context.parseFExpr())
+    let son = context.parseFExpr()
+    if not son.isNil:
+      lst.addSon(son)
     while not context.isEOF:
       context.skipSpaces()
       if context.curchar != ',' and context.curchar == ')':
@@ -102,7 +104,9 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       if context.curchar != ',':
         context.error("require separate comma.")
       context.inc
-      lst.addSon(context.parseFExpr())
+      let son = context.parseFExpr()
+      if not son.isNil:
+        lst.addSon(son)
     return lst
   elif context.curchar == '[': # Array
     var arr = farray(context.span)
@@ -111,7 +115,9 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
     if context.curchar == ']':
       context.inc
       return arr
-    arr.addSon(context.parseFExpr())
+    let son = context.parseFExpr()
+    if not son.isNil:
+      arr.addSon(son)
     while not context.isEOF:
       context.skipSpaces()
       if context.curchar != ',' and context.curchar == ']':
@@ -120,7 +126,9 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       if context.curchar != ',':
         context.error("require separate comma.")
       context.inc
-      arr.addSon(context.parseFExpr())
+      let son = context.parseFExpr()
+      if not son.isNil:
+        arr.addSon(son)
     return arr
   elif context.curchar == '{': # Block
     var blk = fblock(context.span)
