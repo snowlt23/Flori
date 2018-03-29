@@ -46,8 +46,8 @@ proc fident*(span: Span, name: Name): FExpr =
   FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprIdent, idname: name)
 proc fprefix*(span: Span, name: Name): FExpr =
   FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprPrefix, idname: name)
-proc finfix*(span: Span, name: Name): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprInfix, idname: name)
+proc finfix*(span: Span, name: Name, p: int, isleft: bool): FExpr =
+  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprInfix, idname: name, priority: p, isleft: isleft)
 proc fquote*(span: Span, q: FExpr): FExpr =
   FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprQuote, quoted: q)
 proc fsymbol*(span: Span, sym: Symbol): FExpr =

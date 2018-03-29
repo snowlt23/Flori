@@ -3,6 +3,7 @@ import types
 import fexpr
 import strutils
 import options
+import algorithm
 
 type
   FParseError* = object of Exception
@@ -77,6 +78,25 @@ proc span*(context: ParserContext): Span =
   result.pos = context.pos
 proc error*(context: ParserContext, msg: string) =
   raise newException(FParseError, "$#($#:$#) " % [context.filename, $context.line, $context.linepos] & msg)
+  
+proc getPriority*(ident: string): (int, bool) =
+  if ident[0] in {'<', '>'}:
+    (7, true)
+  elif ident.len >= 2 and ident[0] in {'!', '='} and ident[^1] in {'='}:
+    (8, true)
+  elif ident[^1] in {'=', ':'}:
+    (15, false)
+  elif ident[0] in {'&', '|'}:
+    (12, true)
+  elif ident[0] in {'+', '-', '!'}:
+    (5, true)
+  elif ident[0] in {'*', '/', '%'}:
+    (4, true)
+  elif ident[0] in {'.'}:
+    (1, true)
+  else:
+    echo "internal message: unknown infix priority `", ident
+    (16, true)
 
 proc parseFExprElem*(context: var ParserContext): FExpr =
   if context.curchar == '#': # comment
@@ -186,7 +206,8 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
         break
       ident.add(context.curchar)
       context.inc
-    return finfix(span, name(ident))
+    let (pr, isleft) = getPriority(ident)
+    return finfix(span, name(ident), pr, isleft)
   elif context.curchar == '`': # quote
     let span = context.span()
     context.inc
@@ -223,24 +244,55 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
   else:
     context.error("couldn't parse F expression: $#" % $context.curchar)
 
+proc polandToCall*(stack: seq[FExpr], pos: var int): FExpr =
+  if stack[pos].kind == fexprInfix:
+    let infix = stack[pos]
+    pos += 1
+    let right = polandToCall(stack, pos)
+    let left = polandToCall(stack, pos)
+    result = fseq(infix.span, @[infix, left, right])
+  else:
+    result = stack[pos]
+    pos += 1
+
+proc isInfixSeq*(f: FExpr): bool =
+  for son in f:
+    if son.kind == fexprInfix:
+      return true
+
 proc rewriteToCall*(fexpr: FExpr): FExpr =
   if fexpr.kind == fexprSeq and fexpr.len == 1:
     return rewriteToCall(fexpr[0])
   elif fexpr.kind == fexprSeq:
-    let stack = fseq(fexpr.span)
+    if not fexpr.isInfixSeq:
+      return fexpr
+      
+    var stack = newSeq[FExpr]()
+    var infixstack = newSeq[FExpr]()
     var i = 0
     while i < fexpr.len:
-      if fexpr[i].kind == fexprInfix:
-        let left = rewriteToCall(stack)
-        let right = rewriteToCall(fexpr[i+1..^1])
-        return fseq(fexpr[i].span, @[fexpr[i], left, right])
+      let son = fexpr[i]
+      if son.kind == fexprInfix:
+        while true:
+          if infixstack.len == 0 or (son.priority < infixstack[^1].priority) or ((not son.isleft) and son.priority <= infixstack[^1].priority):
+            infixstack.add(son)
+            break
+          stack.add(infixstack[^1])
+          infixstack.del(high(infixstack))
+        i += 1
       else:
-        stack.addSon(fexpr[i])
-        i.inc
-    if stack.len == 1:
-      return stack[0]
-    else:
-      return stack
+        let f = fseq(fexpr[i].span)
+        while i < fexpr.len and fexpr[i].kind != fexprInfix:
+          f.addSon(fexpr[i])
+          i += 1
+        if f.len == 1:
+          stack.add(f[0])
+        else:
+          stack.add(f)
+    for infix in infixstack.reversed():
+      stack.add(infix)
+    var pos = 0
+    return polandToCall(stack.reversed(), pos)
   else:
     return fexpr
 

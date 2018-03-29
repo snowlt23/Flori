@@ -7,3 +7,13 @@ fn xor(a Int, b Int) Int $[importc "^", header nodeclc, pattern infixc]
 fn xor(a UInt32, b UInt32) UInt32 $[importc "^", header nodeclc, pattern infixc]
 
 fn `%(a Int, b Int) Int $[importc "%", header nodeclc, pattern infixc]
+
+fn M_PI() Float $[importc, header "math.h", pattern "M_PI"]
+M_PI := M_PI()
+
+fn neg(x Int) Int $[importc, header nodeclc, pattern "(-($1))"]
+fn neg(x Float) Float $[importc, header nodeclc, pattern "(-($1))"]
+
+fn sin(x Float) Float $[importc "sinf", header "math.h"]
+fn cos(x Float) Float $[importc "cosf", header "math.h"]
+fn sqrt(x Float) Float $[importc "sqrt", header "math.h"]

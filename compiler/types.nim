@@ -72,7 +72,8 @@ type
     case kind*: FExprKind
     of fexprIdent, fexprPrefix, fexprInfix:
       idname*: Name
-      resolve*: FExpr
+      priority*: int
+      isleft*: bool
     of fexprQuote:
       quoted*: FExpr
     of fexprSymbol:

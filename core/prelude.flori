@@ -3,6 +3,7 @@ type Void $[importc "void", header nodeclc]
 type Bool $[importc "bool", header "stdbool.h"]
 type CString $[importc "char*", header nodeclc]
 type Char $[importc "char", header nodeclc]
+type CInt $[importc "int", header "stdint.h"]
 type Int $[importc "int64_t", header "stdint.h"]
 type Int8 $[importc "int8_t", header "stdint.h"]
 type Int32 $[importc "int32_t", header "stdint.h"]
@@ -17,6 +18,7 @@ fn `&&(a Bool, b Bool) Bool $[importc "&&", header nodeclc, pattern infixc]
 
 fn `+(a Int, b Int) Int $[importc "+", header nodeclc, pattern infixc]
 fn `+=(a Int, b Int) $[importc "+=", header nodeclc, pattern infixc]
+fn `-=(a Int, b Int) $[importc "-=", header nodeclc, pattern infixc]
 fn `-(a Int, b Int) Int $[importc "-", header nodeclc, pattern infixc]
 fn `*(a Int, b Int) Int $[importc "*", header nodeclc, pattern infixc]
 fn `<<(a Int, b Int) Int $[importc "<<", header nodeclc, pattern infixc]
@@ -33,7 +35,17 @@ fn `!=(a Char, b Char) Bool $[importc "!=", header nodeclc, pattern infixc]
 
 fn cast[T, F](val F) T $[importc, header nodeclc, pattern "((#1)($1))"]
 
+fn `+=(a Float, b Float) $[importc "+=", header nodeclc, pattern infixc]
+fn `-=(a Float, b Float) $[importc "-=", header nodeclc, pattern infixc]
+fn `+(a Float, b Float) Float $[importc "+", header nodeclc, pattern infixc]
+fn `-(a Float, b Float) Float $[importc "-", header nodeclc, pattern infixc]
+fn `*(a Float, b Float) Float $[importc "*", header nodeclc, pattern infixc]
 fn `/(a Float, b Float) Float $[importc "/", header nodeclc, pattern infixc]
+fn `<(a Float, b Float) Bool $[importc "<", header nodeclc, pattern infixc]
+fn `<=(a Float, b Float) Bool $[importc "<=", header nodeclc, pattern infixc]
+fn `>(a Float, b Float) Bool $[importc ">", header nodeclc, pattern infixc]
+fn `>=(a Float, b Float) Bool $[importc ">=", header nodeclc, pattern infixc]
+
 fn `/(a Int, b Int) Float {
   cast[Float](a) / cast[Float](b)
 }

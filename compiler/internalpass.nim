@@ -632,7 +632,7 @@ proc semQuote*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
 
   let ret = fblock(fexpr.span)
   let tmpid = fident(fexpr.span, scope.ctx.genTmpName())
-  ret.addSon(fseq(fexpr.span, @[finfix(fexpr.span, name(":=")), tmpid, genCall(fident(fexpr.span, name("new_farray")))])) # tmpid := new_farray()
+  ret.addSon(fexpr.span.quoteFExpr("`embed := new_farray()", [tmpid]))
   var collected = newSeq[FExpr]()
   collectQuotedItems(fexpr[1], collected)
   for c in collected:
