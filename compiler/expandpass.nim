@@ -167,7 +167,8 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtype
     argtypes: args.mapIt(it[1].symbol),
     generics: genericstypes,
     returntype: ret.symbol,
-    sym: sym
+    sym: sym,
+    fexpr: sym.fexpr
   )
   sym.fexpr.metadata = fexpr.metadata
   sym.fexpr.internalMark = internalDefn

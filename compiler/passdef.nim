@@ -9,7 +9,6 @@ import tables
 definePass SemPass
 
 proc internalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
-  # echo fexpr
   if fexpr.hasEvaluated:
     return
   fexpr.internalScope = scope
@@ -80,7 +79,7 @@ proc matchMacro*(rootPass: PassProcType, scope: Scope, curscope: Scope, n: FExpr
   for pd in scope.procdecls[name(n)].decls:
     if (not issyntax) and pd.isMacro and isMatchMacro(rootPass, curscope, args, pd):
       return some(pd)
-    elif issyntax and pd.isSyntax and isMatchMacro(rootPass, curscope, args, pd):
+    elif issyntax and pd.fexpr.internalPragma.isSyntax and isMatchMacro(rootPass, curscope, args, pd):
       return some(pd)
 
   if importscope:
@@ -107,7 +106,7 @@ proc getMacroArgs*(scope: Scope, pd: ProcDecl, args: FExpr): seq[Symbol] =
       if opt.isNone:
         args[i].error("undeclared $# type." % $pd.argtypes[i].name)
       result.add(opt.get)
-    elif $pd.argtypes[i].name == "TExpr":
+    else:
       let opt = scope.getDecl(name("TExpr"))
       if opt.isNone:
         args[i].error("undeclared FExpr type.")

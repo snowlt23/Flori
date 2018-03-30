@@ -253,7 +253,7 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: var De
   
   let symkind = if parsed.name.kind == fexprQuote: symbolInfix else: defsym
   let sym = scope.symbol(name(parsed.name), symkind, fexpr)
-  let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
+  let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym, fexpr: fexpr)
   discard fnscope.addFunc(pd)
 
   fexpr.internalScope = fnscope
@@ -285,7 +285,7 @@ proc semDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var parsed = parseDefn(fexpr)
   let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed, symbolFunc)
 
-  let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
+  let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym, fexpr: fexpr)
   let status = scope.addFunc(pd)
   if not status:
     fexpr.error("redefinition $# function." % $parsed.name)
@@ -307,7 +307,7 @@ proc semSyntax*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed, symbolSyntax)
 
   let mp = MacroProc(importname: codegenMangling(sym, @[], argtypes)) # FIXME: support generics
-  let pd = ProcDecl(isInternal: false, isSyntax: true, macroproc: mp, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
+  let pd = ProcDecl(isInternal: false, isSyntax: true, macroproc: mp, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym, fexpr: fexpr)
   let status = scope.addFunc(pd)
   if not status:
     fexpr.error("redefinition $# macro." % $parsed.name)
@@ -333,7 +333,7 @@ proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
 
   let mp = MacroProc(importname: codegenMangling(sym, @[], argtypes) & "_macro") # FIXME: support generics
   sym.macroproc = mp
-  let pd = ProcDecl(isInternal: false, isMacro: true, macroproc: mp, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym)
+  let pd = ProcDecl(isInternal: false, isMacro: true, macroproc: mp, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym, fexpr: fexpr)
   let status = scope.addFunc(pd)
   if not status:
     fexpr.error("redefinition $# macro." % $parsed.name)

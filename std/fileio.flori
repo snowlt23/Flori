@@ -59,8 +59,7 @@ fn copy_file(src CString, dest CString) Bool {
   }
 }
 
-macro static_read_file(filename FExpr) FExpr {
+macro static_read_file(filename FStrLit) FExpr {
   s := replace(to_cs(read_file(strval(filename))), lf, "\\n")
-  println(s)
   new_fstrlit(to_cs(s))
 }

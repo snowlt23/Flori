@@ -109,6 +109,7 @@ type
     generics*: seq[Symbol]
     returntype*: Symbol
     sym*: Symbol
+    fexpr*: FExpr
   ProcName* = object
     name*: Name
     argtypes*: seq[Symbol]
