@@ -106,7 +106,7 @@ proc getMacroArgs*(scope: Scope, pd: ProcDecl, args: FExpr): seq[Symbol] =
       if opt.isNone:
         args[i].error("undeclared $# type." % $pd.argtypes[i].name)
       result.add(opt.get)
-    else:
+    elif $pd.argtypes[i].name == "TExpr":
       let opt = scope.getDecl(name("TExpr"))
       if opt.isNone:
         args[i].error("undeclared FExpr type.")

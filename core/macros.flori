@@ -41,18 +41,47 @@ fn new_fintlit(x Int) FExpr $[importc "flori_new_fintlit", header "floriffi.h"]
 fn new_fstrlit(cs CString) FExpr $[importc "flori_new_fstrlit", header "floriffi.h"]
 fn parse(cstr CString) FExpr $[importc "flori_parse_fexpr", header "floriffi.h"]
 fn print(fexpr FExpr) $[importc "flori_print_fexpr", header "floriffi.h"]
+
 fn push(fexpr FExpr, son FExpr) $[importc "flori_push", header "floriffi.h"]
+fn push(fexpr FExpr, son FSeq) $[importc "flori_push", header "floriffi.h"]
+fn push(fexpr FExpr, son FArray) $[importc "flori_push", header "floriffi.h"]
+fn push(fexpr FExpr, son FList) $[importc "flori_push", header "floriffi.h"]
+fn push(fexpr FExpr, son FBlock) $[importc "flori_push", header "floriffi.h"]
+fn push(fexpr FExpr, son FIdent) $[importc "flori_push", header "floriffi.h"]
+fn push(fexpr FExpr, son FSymbol) $[importc "flori_push", header "floriffi.h"]
+fn push(fexpr FExpr, son FStrLit) $[importc "flori_push", header "floriffi.h"]
+fn push(fexpr FExpr, son FIntLit) $[importc "flori_push", header "floriffi.h"]
+fn push[T](fexpr FExpr, son TExpr[T]) $[importc "flori_push", header "floriffi.h"]
+
 fn length(fexpr FExpr) Int $[importc "flori_length", header "floriffi.h"]
 fn kind(fexpr FExpr) FExprKind $[importc "flori_kind", header "floriffi.h"]
 fn expect(fexpr FExpr, kind FExprKind) $[importc "flori_expect", header "floriffi.h"]
 fn error(fexpr FExpr, msg CString) $[importc "flori_error", header "floriffi.h"]
+
 fn get(fexpr FExpr, i Int) FExpr $[importc "flori_access", header "floriffi.h"]
+fn get(fexpr FSeq, i Int) FExpr $[importc "flori_access", header "floriffi.h"]
+fn get(fexpr FArray, i Int) FExpr $[importc "flori_access", header "floriffi.h"]
+fn get(fexpr FList, i Int) FExpr $[importc "flori_access", header "floriffi.h"]
+fn get(fexpr FBlock, i Int) FExpr $[importc "flori_access", header "floriffi.h"]
+
 fn set(fexpr FExpr, i Int, value FExpr) $[importc "flori_set", header "floriffi.h"]
+fn set(fexpr FSeq, i Int, value FExpr) $[importc "flori_set", header "floriffi.h"]
+fn set(fexpr FArray, i Int, value FExpr) $[importc "flori_set", header "floriffi.h"]
+fn set(fexpr FList, i Int, value FExpr) $[importc "flori_set", header "floriffi.h"]
+fn set(fexpr FBlock, i Int, value FExpr) $[importc "flori_set", header "floriffi.h"]
+
 fn to_cs(fexpr FExpr) CString $[importc "flori_to_cs", header "floriffi.h"]
+fn to_cs(fexpr FSeq) CString $[importc "flori_to_cs", header "floriffi.h"]
+fn to_cs(fexpr FArray) CString $[importc "flori_to_cs", header "floriffi.h"]
+fn to_cs(fexpr FList) CString $[importc "flori_to_cs", header "floriffi.h"]
+fn to_cs(fexpr FBlock) CString $[importc "flori_to_cs", header "floriffi.h"]
+fn to_cs(fexpr FIdent) CString $[importc "flori_to_cs", header "floriffi.h"]
+fn to_cs(fexpr FSymbol) CString $[importc "flori_to_cs", header "floriffi.h"]
+fn to_cs(fexpr FStrLit) CString $[importc "flori_to_cs", header "floriffi.h"]
+fn to_cs(fexpr FIntLit) CString $[importc "flori_to_cs", header "floriffi.h"]
+
 fn strval(fexpr FStrLit) CString $[importc "flori_strval", header "floriffi.h"]
 fn gensym() FExpr $[importc "flori_gensym", header "floriffi.h"]
-
-fn push[T](fexpr FExpr, son TExpr[T]) $[importc "flori_push", header "floriffi.h"]
 
 fn quote_expand_inside(fexpr FExpr, args FExpr, count Int) Int {
   i := 0
