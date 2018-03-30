@@ -48,3 +48,5 @@ suite "example":
     checkio "examples/array.flori", ""
   test "const":
     checkio "examples/const.flori", "9\n"
+  test "syntax macro":
+    checkio "examples/syntax_macro.flori", "FList!\nFArray!\nFList!\n"

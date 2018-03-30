@@ -296,6 +296,12 @@ proc semDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   #   fexpr.isGenerated = true
 
 proc semSyntax*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.kind == fexprIdent:
+    if not fexpr.hasParent:
+      fexpr.error("usage: macro name() FExpr $[syntax] {...}")
+    fexpr.parent.internalPragma.isSyntax = true
+    return
+  
   fexpr.internalMark = internalMacro
   var parsed = parseDefn(fexpr)
   let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed, symbolSyntax)

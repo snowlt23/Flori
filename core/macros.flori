@@ -2,6 +2,14 @@
 import "core/prelude"
 
 type FExpr $[importc "flori_fexpr", header "floriffi.h"]
+type FSeq $[importc "flori_fexpr", header "floriffi.h"]
+type FArray $[importc "flori_fexpr", header "floriffi.h"]
+type FList $[importc "flori_fexpr", header "floriffi.h"]
+type FBlock $[importc "flori_fexpr", header "floriffi.h"]
+type FIdent $[importc "flori_fexpr", header "floriffi.h"]
+type FSymbol $[importc "flori_fexpr", header "floriffi.h"]
+type FStrLit $[importc "flori_fexpr", header "floriffi.h"]
+type FIntLit $[importc "flori_fexpr", header "floriffi.h"]
 type TExpr[T] $[importc "flori_fexpr", header "floriffi.h"]
 type FExprKind $[importc "int", header "floriffi.h"]
 

@@ -48,6 +48,7 @@ type
     pattern*: Option[string]
     declc*: Option[string]
     internal*: bool
+    isSyntax*: bool
 
 type
   DefnExpr* = object

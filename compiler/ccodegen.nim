@@ -136,10 +136,7 @@ proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
     decl &= codegenMangling(fexpr.defn.name.symbol, fexpr.defn.generics.mapIt(it.symbol), fexpr.defn.args.mapIt(it[1].symbol))
   decl &= "("
   for arg in ctx.codegenArgs(decl, fexpr.defn.args):
-    if $fexpr[0] == "macro":
-      decl &= "flori_fexpr"
-    else:
-      decl &= codegenType(arg[1])
+    decl &= codegenType(arg[1])
     decl &= " "
     decl &= codegenSymbol(arg[0])
   decl &= ")"
