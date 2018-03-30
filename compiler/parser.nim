@@ -226,6 +226,11 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
     let span = context.span
     context.inc
     while true:
+      let lf = 0x0a.char
+      if context.curchar == lf:
+        context.line += 1
+        context.linepos = 1
+        
       if context.curchar == '"':
         context.inc
         break

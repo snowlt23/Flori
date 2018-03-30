@@ -141,7 +141,7 @@ proc parseDef*(fexpr: FExpr): DefExpr =
 
 proc semImportc*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.kind == fexprIdent:
-    let name = $fexpr.parent[0]
+    let name = $fexpr.parent[1]
     fexpr.parent.internalPragma.importc = some(name)
   else:
     if fexpr[1].kind != fexprStrLit:
@@ -160,6 +160,16 @@ proc semHeader*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
       fexpr[1].error("header argument should be FStrLit")
   else:
     fexpr.error("usage: `header \"headername.h\"`")
+
+proc semExportc*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.kind == fexprIdent:
+    let name = $fexpr.parent[1]
+    fexpr.parent.internalPragma.exportc = some(name)
+  else:
+    if fexpr[1].kind != fexprStrLit:
+      fexpr[1].error("exportc argument should be FStrLit")
+    let name = fexpr[1].strval
+    fexpr.parent.internalPragma.exportc = some(name)
 
 proc semPattern*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.len == 2:
@@ -708,8 +718,10 @@ proc initInternalEval*(scope: Scope) =
 
   scope.addInternalEval(name("is_destructable"), semIsDestructable)
 
+  # pragmas
   scope.addInternalEval(name("importc"), semImportc)
   scope.addInternalEval(name("header"), semHeader)
+  scope.addInternalEval(name("exportc"), semExportc)
   scope.addInternalEval(name("pattern"), semPattern)
   scope.addInternalEval(name("declc"), semDeclc)
 
@@ -738,14 +750,6 @@ proc semModule*(ctx: SemanticContext, rootPass: PassProcType, name: Name, fexprs
     return
   let scope = ctx.newScope(name)
   scope.importScope(name("internal"), ctx.internalScope)
-  # var tmpcurr: Scope = nil
-  # if ctx.modules.hasKey((name("current_module"))):
-  #   tmpcurr = ctx.modules[name("current_module")]
-  # ctx.modules[name("current_module")] = scope
-  # defer:
-  #   ctx.modules.del(name("current_module"))
-  #   if not tmpcurr.isNil:
-  #     ctx.modules[name("current_module")] = tmpcurr
   for f in fexprs.mitems:
     f.isToplevel = true
     scope.rootPass(f)

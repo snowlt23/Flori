@@ -43,6 +43,7 @@ type
   InternalPragma* = object
     importc*: Option[string]
     header*: Option[string]
+    exportc*: Option[string]
     infixc*: bool
     pattern*: Option[string]
     declc*: Option[string]

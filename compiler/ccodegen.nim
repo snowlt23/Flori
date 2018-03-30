@@ -130,7 +130,10 @@ proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
   var decl = initSrcExpr()
   decl &= codegenType(fexpr.defn.ret)
   decl &= " "
-  decl &= codegenMangling(fexpr.defn.name.symbol, fexpr.defn.generics.mapIt(it.symbol), fexpr.defn.args.mapIt(it[1].symbol))
+  if fexpr.internalPragma.exportc.isSome:
+    decl &= fexpr.internalPragma.exportc.get
+  else:
+    decl &= codegenMangling(fexpr.defn.name.symbol, fexpr.defn.generics.mapIt(it.symbol), fexpr.defn.args.mapIt(it[1].symbol))
   decl &= "("
   for arg in ctx.codegenArgs(decl, fexpr.defn.args):
     if $fexpr[0] == "macro":
@@ -276,7 +279,7 @@ proc codegenSet*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     src &= "*"
   ctx.codegenFExpr(src, fexpr.internalSetExpr.dst)
   src &= " = "
-  if dsttyp.kind == symbolRef and fexpr.internalSetExpr.value.typ.kind == symbolRef:
+  if dsttyp.kind != symbolRef and fexpr.internalSetExpr.value.typ.kind == symbolRef:
     src &= "*"
   ctx.codegenFExpr(src, fexpr.internalSetExpr.value)
 
