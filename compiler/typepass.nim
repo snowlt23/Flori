@@ -61,9 +61,10 @@ proc semType*(scope: Scope, parsed: ParsedType): Symbol =
       let argtyp = arg.parseTypeExpr(pos)
       sym.types.add(scope.semType(argtyp))
     result = sym
+    
+    if result.types.isSpecTypes and result.fexpr.hasDeftype and result.fexpr.deftype.isGenerics:
+      result = scope.expandDeftype(result.fexpr, result.types).symbol
 
-  if result.types.isSpecTypes and result.fexpr.hasDeftype and result.fexpr.deftype.isGenerics:
-    result = scope.expandDeftype(result.fexpr, result.types).symbol
   if parsed.isref:
     result = scope.refsym(result)
 

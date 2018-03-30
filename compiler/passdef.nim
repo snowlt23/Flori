@@ -139,7 +139,7 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   of fexprIdent:
     fexpr.error("unresolved $# ident by symbolResolve pass." % $fexpr)
   of fexprSymbol:
-    if fexpr.symbol.types.isSpecTypes and fexpr.symbol.fexpr.hasTyp:
+    if fexpr.symbol.fexpr.hasTyp:
       fexpr.typ = fexpr.symbol.fexpr.typ
       if fexpr.typ.instance.isSome:
         fexpr.typ = fexpr.typ.instance.get

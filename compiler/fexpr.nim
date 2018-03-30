@@ -144,6 +144,15 @@ proc `[]=`*(fexpr: FExpr, i: int, f: FExpr) =
 proc `[]=`*(fexpr: FExpr, i: BackwardsIndex, f: FExpr) =
   fexpr[fexpr.len-int(i)] = f
 
+proc isNormalFuncCall*(fexpr: FExpr): bool =
+  fexpr.kind == fexprSeq and fexpr.len == 2 and fexpr[1].kind == fexprList
+proc isGenericsFuncCall*(fexpr: FExpr): bool =
+  fexpr.kind == fexprSeq and fexpr.len == 3 and fexpr[1].kind == fexprArray and fexpr[2].kind == fexprList
+proc isInfixFuncCall*(fexpr: FExpr): bool =
+  fexpr.kind == fexprSeq and fexpr.len == 3 and (fexpr[0].kind == fexprInfix or (fexpr[0].kind == fexprSymbol and fexpr[0].symbol.kind == symbolInfix))
+proc isFuncCall*(fexpr: FExpr): bool =
+  fexpr.isNormalFuncCall or fexpr.isGenericsFuncCall or fexpr.isInfixFuncCall
+
 proc genIndent*(indent: int): string =
   repeat(' ', indent)
 
@@ -163,12 +172,15 @@ proc toString*(fexpr: FExpr, indent: int, desc: bool): string =
   of fexprStrLit:
     "\"" & fexpr.strval & "\""
   of fexprSeq:
-    if fexpr.len == 2 and fexpr[1].kind in {fexprList, fexprArray}:
-      fexpr.sons[0].toString(indent, desc) & fexpr.sons[1..^1].mapIt(it.toString(indent, desc)).join(" ")
-    elif fexpr.len == 3 and fexpr[0].kind == fexprInfix:
-      fexpr[1].toString(indent, desc) & " " & fexpr.sons[0].toString(indent, desc) & " " & fexpr[2].toString(indent, desc)
-    elif fexpr.len == 3 and fexpr[0].kind == fexprSymbol and fexpr[0].symbol.kind == symbolInfix:
-      fexpr[1].toString(indent, desc) & " " & fexpr.sons[0].toString(indent, desc) & " " & fexpr[2].toString(indent, desc)
+    if fexpr.isNormalFuncCall:
+      fexpr[0].toString(indent, desc) & fexpr[1].toString(indent, desc)
+    elif fexpr.isGenericsFuncCall:
+      fexpr[0].toString(indent, desc) & fexpr[1].toString(indent, desc) & fexpr[2].toString(indent, desc)
+    elif fexpr.isInfixFuncCall:
+      if ($fexpr[0])[0] == '.':
+        fexpr[1].toString(indent, desc) & fexpr.sons[0].toString(indent, desc) & fexpr[2].toString(indent, desc)
+      else:
+        fexpr[1].toString(indent, desc) & " " & fexpr.sons[0].toString(indent, desc) & " " & fexpr[2].toString(indent, desc)
     else:
       fexpr.sons.mapIt(it.toString(indent, desc)).join(" ")
   of fexprArray:
@@ -203,12 +215,3 @@ proc isParametricTypeExpr*(fexpr: FExpr, pos: int): bool =
   return (fexpr[pos].kind == fexprIdent or fexpr[pos].kind == fexprQuote or fexpr[pos].kind == fexprSymbol) and fexpr[pos+1].kind == fexprArray
 proc isPragmaPrefix*(fexpr: FExpr): bool =
   fexpr.kind == fexprPrefix and $fexpr == "$"
-
-proc isNormalFuncCall*(fexpr: FExpr): bool =
-  fexpr.kind == fexprSeq and fexpr.len == 2 and fexpr[1].kind == fexprList
-proc isGenericsFuncCall*(fexpr: FExpr): bool =
-  fexpr.kind == fexprSeq and fexpr.len == 3 and fexpr[1].kind == fexprArray and fexpr[2].kind == fexprList
-proc isInfixFuncCall*(fexpr: FExpr): bool =
-  fexpr.kind == fexprSeq and fexpr.len == 3 and (fexpr[0].kind == fexprInfix or (fexpr[0].kind == fexprSymbol and fexpr[0].symbol.kind == symbolInfix))
-proc isFuncCall*(fexpr: FExpr): bool =
-  fexpr.isNormalFuncCall or fexpr.isGenericsFuncCall or fexpr.isInfixFuncCall

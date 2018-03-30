@@ -46,8 +46,8 @@ proc codegenSymbol*(sym: Symbol): string =
   result = ""
   if sym.kind == symbolTypeGenerics and sym.types.len != 0:
     result &= $sym.scope.name & "_" & $sym.name & "_" & sym.types.mapIt(codegenSymbol(it)).join("_")
-  elif sym.kind == symbolVar and sym.types.len != 0:
-    result &= codegenSymbol(sym.types[0])
+  elif sym.kind == symbolVar:
+    result &= codegenSymbol(sym.wrapped)
   elif sym.kind == symbolIntLit:
     result &= $sym.intval
   else:
@@ -72,10 +72,10 @@ proc codegenTypeImportc*(sym: Symbol): string =
     sym.fexpr.internalPragma.importc.get
 
 proc codegenType*(sym: Symbol): string =
-  if sym.kind == symbolVar and sym.types.len != 0:
-    return codegenType(sym.types[0])
+  if sym.kind == symbolVar:
+    return codegenType(sym.wrapped)
   elif sym.kind == symbolRef:
-    return codegenType(sym.types[0]) & "*"
+    return codegenType(sym.wrapped) & "*"
   
   if sym.fexpr.hasInternalPragma and sym.fexpr.internalPragma.importc.isSome:
     return codegenTypeImportc(sym)
@@ -135,9 +135,6 @@ proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
   for arg in ctx.codegenArgs(decl, fexpr.defn.args):
     if $fexpr[0] == "macro":
       decl &= "flori_fexpr"
-    elif arg[1].symbol.kind == symbolRef:
-      decl &= codegenType(arg[1].symbol.types[0])
-      decl &= "*"
     else:
       decl &= codegenType(arg[1])
     decl &= " "

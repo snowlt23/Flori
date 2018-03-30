@@ -8,10 +8,10 @@ import strutils, sequtils
 proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr
 
 proc applyInstance*(sym: Symbol, instance: Symbol) =
-  if sym.kind in {symbolVar, symbolRef} and instance.kind in {symbolVar, symbolRef} :
-    sym.types[0].applyInstance(instance.types[0])
-  elif instance.kind in {symbolVar, symbolRef}:
-    sym.applyInstance(instance.types[0])
+  if sym.kind in {symbolVar, symbolRef, symbolOnce} and instance.kind in {symbolVar, symbolRef, symbolOnce}:
+    sym.wrapped.applyInstance(instance.wrapped)
+  elif instance.kind in {symbolVar, symbolRef, symbolOnce}:
+    sym.applyInstance(instance.wrapped)
   elif sym.kind == symbolGenerics:
     sym.instance = some(instance)
   elif sym.kind == symbolTypeGenerics:
@@ -24,9 +24,9 @@ proc applyInstance*(sym: Symbol, instance: Symbol) =
 
 proc expandSymbol*(scope: Scope, sym: Symbol): Symbol =
   if sym.kind == symbolVar:
-    result = scope.varsym(scope.expandSymbol(sym.types[0]))
+    result = scope.varsym(scope.expandSymbol(sym.wrapped))
   elif sym.kind == symbolRef:
-    result = scope.refsym(scope.expandSymbol(sym.types[0]))
+    result = scope.refsym(scope.expandSymbol(sym.wrapped))
   elif sym.kind == symbolGenerics:
     if sym.instance.isNone:
       sym.fexpr.error("cannot instantiate $#." % $sym)

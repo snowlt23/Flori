@@ -220,7 +220,7 @@ proc declArgtypes*(scope: Scope, fexpr: FExpr, isGenerics: bool): seq[Symbol] =
     let typesym = scope.semType(argtyp)
 
     arg[0].ctrc = initCTRC(cnt = 0)
-    let argsym = scope.symbol(name(arg[0]), symbolVar, arg[0])
+    let argsym = scope.symbol(name(arg[0]), symbolDef, arg[0])
     arg[0].typ = typesym
     arg[0].replaceByTypesym(argsym)
     arg[1].replaceByTypesym(typesym)
@@ -425,7 +425,7 @@ proc semVar*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
                else:
                  scope.semType(parsedtype)
   
-  let varsym = scope.symbol(name(n), symbolVar, n)
+  let varsym = scope.symbol(name(n), symbolDef, n)
   n.typ = typsym.scope.varsym(typsym)
   let status = scope.addDecl(name(n), varsym)
   if not status:
@@ -450,7 +450,7 @@ proc semConst*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   scope.rootPass(fexpr[2])
   fexpr[2] = fexpr[2][^1]
 
-  let csym = scope.symbol(name(fexpr[1]), symbolVar, fexpr[1])
+  let csym = scope.symbol(name(fexpr[1]), symbolDef, fexpr[1])
   fexpr[1].internalMark = internalConst
   fexpr[1].constvalue = fexpr[2]
   fexpr[1].typ = fexpr[2].typ
@@ -472,7 +472,7 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     parsed.value.error("value is Void.")
   scope.resolveByVoid(fexpr)
 
-  let varsym = scope.symbol(name(parsed.name), symbolVar, parsed.name)
+  let varsym = scope.symbol(name(parsed.name), symbolDef, parsed.name)
   parsed.name.typ = parsed.value.typ.scope.varsym(parsed.value.typ)
   let status = scope.addDecl(name(parsed.name), varsym)
   if not status:

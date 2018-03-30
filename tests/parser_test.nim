@@ -118,7 +118,7 @@ suite "F expression parser test":
     let fexpr = parseToplevel("test.flori", """
     p.x = 1 + 1
     """)[0]
-    check $fexpr == "p . x = 1 + 1"
+    check $fexpr == "p.x = 1 + 1"
     check $fexpr[0] == "="
     check $fexpr[1][0] == "."
     check $fexpr[2][0] == "+"

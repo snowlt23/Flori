@@ -51,13 +51,17 @@ proc match*(a, b: Symbol): bool =
         return false
     return true
   elif a.kind == symbolRef and b.kind == symbolRef:
-    return a.types[0].match(b.types[0])
+    return a.wrapped.match(b.wrapped)
   elif a.kind == symbolVar and b.kind == symbolRef:
-    return a.types[0].match(b.types[0])
+    return a.wrapped.match(b.wrapped)
+  elif a.kind == symbolOnce and b.kind == symbolOnce:
+    return a.wrapped.match(b.wrapped)
+  elif b.kind == symbolOnce:
+    return a.match(b.wrapped)
   elif a.kind == symbolRef:
-    return a.types[0].match(b)
-  elif a.kind == symbolVar and a.types.len != 0:
-    return a.types[0].match(b)
+    return a.wrapped.match(b)
+  elif a.kind == symbolVar:
+    return a.wrapped.match(b)
   else:
     return a == b
 
@@ -86,13 +90,17 @@ proc spec*(a, b: Symbol): bool =
   elif a.kind == symbolIntLit and b.kind == symbolIntLit:
     return a.intval == b.intval
   elif a.kind == symbolRef and b.kind == symbolRef:
-    return a.types[0].match(b.types[0])
+    return a.wrapped.match(b.wrapped)
   elif a.kind == symbolVar and b.kind == symbolRef:
-    return a.types[0].match(b.types[0])
+    return a.wrapped.match(b.wrapped)
+  elif a.kind == symbolOnce and b.kind == symbolOnce:
+    return a.wrapped.match(b.wrapped)
+  elif b.kind == symbolOnce:
+    return a.match(b.wrapped)
   elif a.kind == symbolRef:
-    return a.types[0].match(b)
+    return a.wrapped.match(b)
   elif a.kind == symbolVar:
-    return a.types[0].match(b)
+    return a.wrapped.match(b)
   else:
     return false
 proc spec*(a: ProcName, b: ProcDecl): bool =
