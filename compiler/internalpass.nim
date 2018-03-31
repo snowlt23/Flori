@@ -456,29 +456,37 @@ proc semVar*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.internalMark = internalVar
   scope.resolveByVoid(fexpr)
 
-proc semConst*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
-  if fexpr.len != 3:
-    fexpr.error("expected syntax: const name value")
-  if fexpr[1].kind != fexprIdent:
-    fexpr[1].error("variable name should be FIdent.")
+proc semConst*(rootPass: PassProcType, scope: Scope, name: var FExpr, value: var FExpr) =
+  if name.kind != fexprIdent:
+    name.error("variable name should be FIdent.")
   
-  fexpr[2] = fexpr[2].span.quoteFExpr("const_eval(`embed)", [fexpr[2]])
-  scope.rootPass(fexpr[2])
-  fexpr[2] = fexpr[2][^1]
+  value = value.span.quoteFExpr("const_eval(`embed)", [value])
+  scope.rootPass(value)
+  value = value[^1]
 
-  let csym = scope.symbol(name(fexpr[1]), symbolDef, fexpr[1])
-  fexpr[1].internalMark = internalConst
-  fexpr[1].constvalue = fexpr[2]
-  fexpr[1].typ = fexpr[2].typ
-  fexpr[1] = fsymbol(fexpr[1].span, csym)
-  fexpr[1].typ = fexpr[2].typ
-  let status = scope.addDecl(name(fexpr[1]), csym)
+  let csym = scope.symbol(name(name), symbolDef, name)
+  name.internalMark = internalConst
+  name.constvalue = value
+  name.typ = value.typ
+  name = fsymbol(name.span, csym)
+  name.typ = value.typ
+  let status = scope.addDecl(name(name), csym)
   if not status:
-    fexpr.error("redefinition $# const." % $fexpr[1])
+    name.error("redefinition $# const." % $name)
   csym.fexpr.ctrc = initCTRC()
-  fexpr.internalMark = internalConst
   
 proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.len != 3:
+    fexpr.error("usage: name := value")
+  if fexpr[1].len == 2:
+    let defmode = fexpr[1][0]
+    if $defmode == "const":
+      semConst(rootPass, scope, fexpr[1][1], fexpr[2])
+      fexpr.internalMark = internalConst
+      return
+    else:
+      defmode.error("$# is unknwon def mode, please specify `const." % $defmode)
+      
   var parsed = parseDef(fexpr)
   if parsed.name.kind != fexprIdent:
     parsed.name.error("variable name should be FIdent.")
@@ -709,7 +717,6 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("if"), semIf)
   scope.addInternalEval(name("while"), semWhile)
   scope.addInternalEval(name("var"), semVar)
-  scope.addInternalEval(name("const"), semConst)
   scope.addInternalEval(name(":="), semDef)
   scope.addInternalEval(name("track"), semTrack)
   scope.addInternalEval(name("="), semSet)

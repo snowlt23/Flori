@@ -249,7 +249,7 @@ proc codegenVar*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 
 proc codegenConst*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "#define "
-  src &= codegenSymbol(fexpr[1])
+  src &= codegenSymbol(fexpr[1][1])
   src &= " "
   ctx.codegenFExpr(src, fexpr[2])
   src &= "\n"

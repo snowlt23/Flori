@@ -5,7 +5,7 @@ import "core/array"
 import "core/syntax"
 import "core/macros"
 
-const N 9
+const N := 9
 
 fn main() {
   var arr Array[N, Int]
