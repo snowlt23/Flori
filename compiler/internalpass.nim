@@ -644,7 +644,7 @@ proc semQuote*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     fexpr.error("quote expected fblock.")
   if fexpr[1].kind != fexprBlock:
     fexpr[1].error("quote expected FBlock, actually $#" % $fexpr[1].kind)
-  let fstr = fstrlit(fexpr[1].span, ($fexpr[1]).replace("\n", ";").replace("\"", "\\\""))
+  let fstr = fstrlit(fexpr[1].span, ($fexpr[1]).replace("\n", ";").replace("\"", "\\\"").replace("\\n", "\\\\n"))
 
   let ret = fblock(fexpr.span)
   let tmpid = fident(fexpr.span, scope.ctx.genTmpName())

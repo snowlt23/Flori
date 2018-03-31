@@ -1,6 +1,5 @@
 
 import "core/prelude"
-import "core/io"
 import "core/macros"
 
 syntax for(fexpr FExpr) FExpr {
@@ -133,6 +132,15 @@ syntax static(fexpr FExpr) FExpr {
 }
 
 iterator items(fexpr TExpr[FExpr]) {
+  tmp := gensym()
+  quote {
+    for `tmp in range(0, length(`fexpr)-1) {
+      `element := get(`fexpr, `tmp)
+      `yield
+    }
+  }
+}
+iterator items(fexpr TExpr[FList]) {
   tmp := gensym()
   quote {
     for `tmp in range(0, length(`fexpr)-1) {
