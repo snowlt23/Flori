@@ -50,3 +50,5 @@ suite "example":
     checkio "examples/const.flori", "9\n"
   test "syntax macro":
     checkio "examples/syntax_macro.flori", "FList!\nFArray!\nFList!\n"
+  test "float literal":
+    checkio "examples/floatlit.flori", "2.000000\n"

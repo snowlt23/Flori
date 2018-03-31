@@ -226,7 +226,6 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       s &= context.curchar
       context.inc
     if isfloat:
-      echo s
       return ffloatlit(span, parseFloat(s))
     else:
       return fintlit(span, parseInt(s))
