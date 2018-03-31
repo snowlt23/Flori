@@ -746,7 +746,7 @@ proc newSemanticContext*(ccoptions = ""): SemanticContext =
   result.macroprocs = @[]
   result.tmpcount = 0
   result.initInternalScope()
-  result.importpaths = @[getAppDir() / "..", "."]
+  result.importpaths = @[getAppDir() / "..", ".", getHomeDir() / ".rabbit"]
   result.ccoptions = ccoptions
   result.globaltoplevels = @[]
   gCtx = result

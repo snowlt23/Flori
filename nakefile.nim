@@ -8,15 +8,21 @@ proc exe*(s: string): string =
   else:
     s
 
-task "build64", "build 64bit compiler":
+task "debug64", "build 64bit compiler":
   if not existsDir("bin"):
     createDir("bin")
   discard execShellCmd("nim c compiler/flori.nim")
   copyFile("compiler/flori".exe, "bin/flori".exe)
+  
+task "build64", "build 64bit compiler":
+  if not existsDir("bin"):
+    createDir("bin")
+  discard execShellCmd("nim c -d:release compiler/flori.nim")
+  copyFile("compiler/flori".exe, "bin/flori".exe)
 task "build32", "build 32bit compiler":
   if not existsDir("bin"):
     createDir("bin")
-  discard execShellCmd("nim c --cpu:i386 --passC:\"-m32\" --passL:\"-m32\" compiler/flori.nim")
+  discard execShellCmd("nim c -d:release --cpu:i386 --passC:\"-m32\" --passL:\"-m32\" compiler/flori.nim")
   copyFile("compiler/flori".exe, "bin/flori32".exe)
 
 task "build", "build compiler":
