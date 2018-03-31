@@ -41,7 +41,7 @@ suite "example":
   test "destructor":
     checkio "examples/destructor.flori", "MyInt(1, 2) destroyed!\n3\n4\nMyInt(3, 4) destroyed!\n"
   test "string":
-    checkio "examples/string.flori", "Hello Yukari! and Maki!\nHello Yukari! and Maki! and Akari!\n9\n"
+    checkio "examples/string.flori", "Hello Yukari! and Maki!\nHello Yukari! and Maki! and Akari!\n9\n9\n"
   test "vec eff":
     checkio "examples/vec_eff.flori", "Vec destroyed!\nFile destroyed!\n"
   test "array":

@@ -11,6 +11,8 @@ fn main() {
   println(s2)
   s3 := to_s(9)
   println(s3)
+  ch := c"9"
+  println(ch)
 }
 
 main()

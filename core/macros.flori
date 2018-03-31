@@ -60,10 +60,13 @@ fn length(fexpr FList) Int $[importc "flori_length", header "floriffi.h"]
 fn length(fexpr FArray) Int $[importc "flori_length", header "floriffi.h"]
 fn length(fexpr FBlock) Int $[importc "flori_length", header "floriffi.h"]
 
+fn error(fexpr FExpr, msg CString) $[importc "flori_error", header "floriffi.h"]
+fn error(fexpr FStrLit, msg CString) $[importc "flori_error", header "floriffi.h"]
+fn error(fexpr FIntLit, msg CString) $[importc "flori_error", header "floriffi.h"]
+
 fn quoted(fexpr FExpr) FExpr $[importc "flori_quoted", header "floriffi.h"]
 fn kind(fexpr FExpr) FExprKind $[importc "flori_kind", header "floriffi.h"]
 fn expect(fexpr FExpr, kind FExprKind) $[importc "flori_expect", header "floriffi.h"]
-fn error(fexpr FExpr, msg CString) $[importc "flori_error", header "floriffi.h"]
 
 fn get(fexpr FExpr, i Int) FExpr $[importc "flori_access", header "floriffi.h"]
 fn get(fexpr FSeq, i Int) FExpr $[importc "flori_access", header "floriffi.h"]

@@ -6,7 +6,22 @@ import "core/syntax"
 import "core/math"
 import "core/macros"
 
+fn get(cs CString, i Int) Char {
+  unref(cast[Ptr[Char]](cs) +! i)
+}
+
 fn strlen(cs CString) Int $[importc "strlen", header "string.h"]
+
+macro c(s FStrLit) FExpr $[syntax] {
+  len := strlen(strval(s))
+  if (len != 1) {
+    error(s, "char literal should be 1 length string.")
+  }
+  i := new_fintlit(cast[Int](get(strval(s), 0)))
+  quote {
+    cast[Char](`i)
+  }
+}
 
 type String {
   p Ptr[Char]
@@ -108,10 +123,6 @@ fn to_s(val Int) String {
 
 cr := cast[Char](13)
 lf := cast[Char](10)
-
-fn get(cs CString, i Int) Char {
-  unref(cast[Ptr[Char]](cs) +! i)
-}
 
 fn replace(s CString, dst Char, src CString) String {
   newstr := string("")
