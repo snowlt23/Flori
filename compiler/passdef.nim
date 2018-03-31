@@ -197,6 +197,12 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
       fexpr.error("undeclared Int type, please import prelude.")
     fexpr.typ = opt.get
     scope.nextPass(fexpr)
+  of fexprFloatLit:
+    let opt = scope.getDecl(name("Float"))
+    if opt.isNone:
+      fexpr.error("undeclared Float type, please import prelude.")
+    fexpr.typ = opt.get
+    scope.nextPass(fexpr)
   of fexprStrLit:
     let opt = scope.getDecl(name("CString"))
     if opt.isNone:
