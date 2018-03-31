@@ -27,8 +27,7 @@ syntax array(fexpr FExpr) FExpr {
     var `tmp Array[`n, `t]
   }
   for i in range(0, length(data)-1) {
-    str := to_s(i)
-    fi := parse(to_cs(str))
+    fi := new_fintlit(i)
     e := get(data, i)
     push(parsed, quote {
         set(`tmp, `fi, `e)

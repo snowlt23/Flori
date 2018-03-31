@@ -24,8 +24,10 @@ proc ffiNewFIntLit*(x: int): FExpr {.cdecl.} =
   fintlit(ffiSpan(), x)
 proc ffiNewFStrLit*(cstr: cstring): FExpr {.cdecl.} =
   fstrlit(ffiSpan(), $cstr)
-proc ffiParseFExpr*(cstr: cstring): FExpr {.cdecl.} =
-  var ctx = newParserContext("macrolib", $cstr)
+proc ffiParseFExpr*(filename: cstring, line: int, linepos: int, cstr: cstring): FExpr {.cdecl.} =
+  var ctx = newParserContext($filename, $cstr)
+  ctx.line = line
+  ctx.linepos = linepos
   return ctx.parseFExpr()
 proc ffiPrintFExpr*(fexpr: FExpr) {.cdecl.} =
   stdout.write($fexpr)

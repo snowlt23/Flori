@@ -654,8 +654,7 @@ proc semQuote*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   for c in collected:
     ret.addSon(genCall(fident(fexpr.span, name("push")), tmpid, c)) # push(tmpid, c)
 
-  ret.addSon(genCall(fident(fexpr.span, name("quote_expand")), genCall(fident(fexpr.span, name("parse")), fstr), tmpid)) # quote_expand(parse("..."), tmpid)
-
+  ret.addSon(fexpr.span.quoteFExpr("quote_expand(parse(\"$#\", $#, $#, `embed), `embed)" % [fexpr.span.filename, $fexpr.span.line, $fexpr.span.linepos], [fstr, tmpid]))
   fexpr = ret
   scope.rootPass(fexpr)
 

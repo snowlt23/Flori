@@ -11,7 +11,7 @@ flori_fexpr (*flori_new_flist)();
 flori_fexpr (*flori_new_fblock)();
 flori_fexpr (*flori_new_fintlit)(flori_int s);
 flori_fexpr (*flori_new_fstrlit)(char* s);
-flori_fexpr (*flori_parse_fexpr)(char* s);
+flori_fexpr (*flori_parse_fexpr)(char* filename, flori_int line, flori_int linepos, char* s);
 flori_fexpr (*flori_print_fexpr)(char* s);
 flori_fexpr (*flori_quoted)(flori_fexpr fexpr);
 flori_int (*flori_length)(flori_fexpr fexpr);
