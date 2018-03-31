@@ -29,6 +29,8 @@ proc ffiParseFExpr*(cstr: cstring): FExpr {.cdecl.} =
   return ctx.parseFExpr()
 proc ffiPrintFExpr*(fexpr: FExpr) {.cdecl.} =
   stdout.write($fexpr)
+proc ffiQuoted*(fexpr: FExpr): FExpr {.cdecl.} =
+  fexpr.quoted
 proc ffiLength*(fexpr: FExpr): int {.cdecl.} =
   fexpr.len
 proc ffiPush*(fexpr: FExpr, son: FExpr) {.cdecl.} =

@@ -48,6 +48,7 @@ proc setupFFI*(handle: LibHandle) =
   ffi "flori_new_fstrlit", ffiNewFStrLit
   ffi "flori_parse_fexpr", ffiParseFExpr
   ffi "flori_print_fexpr", ffiPrintFExpr
+  ffi "flori_quoted", ffiQuoted
   ffi "flori_length", ffiLength
   ffi "flori_push", ffiPush
   ffi "flori_kind", ffiKind
