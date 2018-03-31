@@ -19,11 +19,12 @@ FEXPR_INFIX := cast[FExprKind](2)
 FEXPR_QUOTE := cast[FExprKind](3)
 FEXPR_SYMBOL := cast[FExprKind](4)
 FEXPR_INTLIT := cast[FExprKind](5)
-FEXPR_STRLIT := cast[FExprKind](6)
-FEXPR_SEQ := cast[FExprKind](7)
-FEXPR_ARRAY := cast[FExprKind](8)
-FEXPR_LIST := cast[FExprKind](9)
-FEXPR_BLOCK := cast[FExprKind](10)
+FEXPR_FLOATLIT := cast[FExprKind](6)
+FEXPR_STRLIT := cast[FExprKind](7)
+FEXPR_SEQ := cast[FExprKind](8)
+FEXPR_ARRAY := cast[FExprKind](9)
+FEXPR_LIST := cast[FExprKind](10)
+FEXPR_BLOCK := cast[FExprKind](11)
 
 fn `==(a FExprKind, b FExprKind) Bool $[importc "==", header nodeclc, pattern infixc]
 fn `!=(a FExprKind, b FExprKind) Bool $[importc "!=", header nodeclc, pattern infixc]

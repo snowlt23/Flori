@@ -474,6 +474,8 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     src &= codegenSymbol(fexpr)
   of fexprIntLit:
     src &= $fexpr
+  of fexprFloatLit:
+    src &= $fexpr
   of fexprStrLit:
     src &= $fexpr
   of fexprArray:

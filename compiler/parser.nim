@@ -165,9 +165,11 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       if context.curchar == '}':
         context.inc
         break
-      elif context.curchar in {',', ';'}:
+      elif context.curchar == ';':
         context.inc
         continue
+      elif context.isEndSymbol:
+        context.error("unmatch container symbol: $#" % $context.curchar)
       let son = context.parseFExpr()
       if not son.isNil:
         blk.addSon(son)
@@ -212,15 +214,22 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
     let span = context.span()
     context.inc
     return fquote(span, context.parseFExprElem())
-  elif '0' <= context.curchar and context.curchar <= '9': # intlit
+  elif '0' <= context.curchar and context.curchar <= '9': # digit
     let span = context.span
     var s = ""
+    var isfloat = false
     while not context.isEOF:
-      if not ('0' <= context.curchar and context.curchar <= '9'):
+      if context.curchar == '.':
+        isfloat = true
+      elif not ('0' <= context.curchar and context.curchar <= '9'):
         break
       s &= context.curchar
       context.inc
-    return fintlit(span, parseInt(s))
+    if isfloat:
+      echo s
+      return ffloatlit(span, parseFloat(s))
+    else:
+      return fintlit(span, parseInt(s))
   elif context.curchar == '"': # strlit
     var s = ""
     let span = context.span

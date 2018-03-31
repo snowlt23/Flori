@@ -54,6 +54,8 @@ proc fsymbol*(span: Span, sym: Symbol): FExpr =
   FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprSymbol, symbol: sym)
 proc fintlit*(span: Span, x: int64): FExpr =
   FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprIntLit, intval: x)
+proc ffloatlit*(span: Span, x: float): FExpr =
+  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprFloatLit, floatval: x)
 proc fstrlit*(span: Span, s: string): FExpr =
   FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprStrLit, strval: s)
 proc fseq*(span: Span, sons = newSeq[FExpr]()): FExpr =
@@ -169,6 +171,8 @@ proc toString*(fexpr: FExpr, indent: int, desc: bool): string =
       $fexpr.symbol.name
   of fexprIntLit:
     $fexpr.intval
+  of fexprFloatLit:
+    $fexpr.floatval
   of fexprStrLit:
     "\"" & fexpr.strval & "\""
   of fexprSeq:

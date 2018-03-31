@@ -57,6 +57,7 @@ type
     fexprSymbol
     
     fexprIntLit
+    fexprFloatLit
     fexprStrLit
 
     fexprSeq
@@ -89,6 +90,8 @@ type
       symbol*: Symbol
     of fexprIntLit:
       intval*: int64
+    of fexprFloatLit:
+      floatval*: float
     of fexprStrLit:
       strval*: string
     of fexprSeq, fexprArray, fexprList, fexprBlock:
