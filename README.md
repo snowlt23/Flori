@@ -83,6 +83,7 @@ $ flori c <filename>
 
 ```sh
 # Build
+$ nimble install nake
 $ nimble install docopt
 $ nim c -d:release compiler/flori.nim
 $ export PATH="$PATH:<flori-dir>/bin"

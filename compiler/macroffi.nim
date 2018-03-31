@@ -39,7 +39,7 @@ proc ffiExpect*(fexpr: FExpr, son: FExprKind) {.cdecl.} =
   if fexpr.kind != son:
     fexpr.error("expect fexpr kind: $#, but: $#" % [$son, $fexpr.kind])
 proc ffiError*(fexpr: FExpr, msg: cstring) {.cdecl.} =
-  fexpr.error($msg)
+  fexpr.error($fexpr & " : " & $msg)
 proc ffiAccess*(fexpr: FExpr, i: int): FExpr {.cdecl.} =
   fexpr[i]
 proc ffiSet*(fexpr: FExpr, i: int, value: FExpr) {.cdecl.} =

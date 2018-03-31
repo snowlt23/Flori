@@ -17,8 +17,8 @@ destructor(mi MyInt) {
 }
 
 fn main() {
-  mi := init(MyInt){1, 2}
-  mi2 := init(MyInt){3, 4}
+  mi := init(MyInt){1; 2}
+  mi2 := init(MyInt){3; 4}
   mi = mi2
   println(mi.x)
   println(mi.y)

@@ -33,6 +33,9 @@ fn `!=(a Int, b Int) Bool $[importc "!=", header nodeclc, pattern infixc]
 fn `==(a Char, b Char) Bool $[importc "==", header nodeclc, pattern infixc]
 fn `!=(a Char, b Char) Bool $[importc "!=", header nodeclc, pattern infixc]
 
+fn `==(a UInt32, b UInt32) Bool $[importc "==", header nodeclc, pattern infixc]
+fn `!=(a UInt32, b UInt32) Bool $[importc "!=", header nodeclc, pattern infixc]
+
 fn cast[T, F](val F) T $[importc, header nodeclc, pattern "((#1)($1))"]
 
 fn `+=(a Float, b Float) $[importc "+=", header nodeclc, pattern infixc]
@@ -73,8 +76,12 @@ fn int(x UInt8) Int {
   cast[Int](x)
 }
 
-true := cast[Bool](1)
-false := cast[Bool](0)
+fn bool(x Int) Bool {
+  cast[Bool](x)
+}
+
+true := bool(1)
+false := bool(0)
 fn not(b Bool) Bool {
   if (b) {
     false

@@ -43,20 +43,26 @@ proc isMatchMacro*(rootPass: PassProcType, scope: Scope, args: FExpr, pd: ProcDe
     elif $pd.argtypes[i].name == "FSeq":
       if args[i].kind != fexprSeq:
         return false
+    elif $pd.argtypes[i].name == "FArray":
+      if args[i].kind != fexprArray:
+        return false
     elif $pd.argtypes[i].name == "FList":
       if args[i].kind != fexprList:
         return false
-    elif $pd.argtypes[i].name == "FArray":
-      if args[i].kind != fexprArray:
+    elif $pd.argtypes[i].name == "FBlock":
+      if args[i].kind != fexprBlock:
+        return false
+    elif $pd.argtypes[i].name == "FIdent":
+      if args[i].kind != fexprIdent:
+        return false
+    elif $pd.argtypes[i].name == "FSymbol":
+      if args[i].kind != fexprSymbol:
         return false
     elif $pd.argtypes[i].name == "FIntLit":
       if args[i].kind != fexprIntLit:
         return false
     elif $pd.argtypes[i].name == "FStrLit":
       if args[i].kind != fexprStrLit:
-        return false
-    elif $pd.argtypes[i].name == "FBlock":
-      if args[i].kind != fexprBlock:
         return false
     elif $pd.argtypes[i].name == "TExpr":
       scope.rootPass(args[i])
@@ -115,8 +121,8 @@ proc getMacroArgs*(scope: Scope, pd: ProcDecl, args: FExpr): seq[Symbol] =
       result.add(sym)
     
 proc expandMacro*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
-  if fexpr.kind == fexprSeq:
-    let args = fexpr[1..^1]
+  if fexpr.isNormalFuncCall:
+    let args = fexpr[1]
     let pd = matchMacro(rootPassProc, scope, scope, fexpr[0], args, false)
     if pd.isSome:
       if not pd.get.sym.fexpr.defn.generics.isSpecTypes:
@@ -129,9 +135,9 @@ proc expandMacro*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
         scope.rootPass(expanded)
         fexpr = expanded
       return
-    
-  if fexpr.isNormalFuncCall:
-    let args = fexpr[1]
+      
+  if fexpr.kind == fexprSeq:
+    let args = fexpr[1..^1]
     let pd = matchMacro(rootPassProc, scope, scope, fexpr[0], args, false)
     if pd.isSome:
       if not pd.get.sym.fexpr.defn.generics.isSpecTypes:
@@ -214,9 +220,15 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   else:
     scope.nextPass(fexpr)
 
+proc checkArgsHastype*(args: FExpr) =
+  for arg in args:
+    if not arg.hasTyp:
+      arg.error("$# hasn't type." % $arg)
+    
 proc overloadResolve*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   if fexpr.isNormalFuncCall:
     let fnident = fexpr[0]
+    checkArgsHastype(fexpr[1])
     let argtypes = fexpr[1].mapIt(it.typ)
     let opt = scope.getFunc(procname(name(fnident), argtypes))
     if opt.isNone:
@@ -228,6 +240,7 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   elif fexpr.isGenericsFuncCall:
     let fnident = fexpr[0]
     let generics = fexpr[1]
+    checkArgsHastype(fexpr[2])
     let argtypes = fexpr[2].mapIt(it.typ)
     for g in generics.mitems:
       g = fsymbol(g.span, scope.semTypeExpr(g))
@@ -240,6 +253,7 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
     scope.nextPass(fexpr)
   elif fexpr.isInfixFuncCall:
     let fnident = fexpr[0]
+    checkArgsHastype(fseq(fexpr.span, @[fexpr[1], fexpr[2]]))
     let argtypes = @[fexpr[1].typ, fexpr[2].typ]
     let opt = scope.getFunc(procname(name(fnident), argtypes))
     if opt.isNone:
