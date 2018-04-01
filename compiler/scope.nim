@@ -26,6 +26,7 @@ proc newScope*(ctx: SemanticContext, name: Name): Scope =
   result.exportscopes = initOrderedTable[Name, Scope]()
   result.toplevels = @[]
   result.scopevalues = @[]
+  result.scopedepends = @[]
 
 proc extendScope*(scope: Scope): Scope =
   new result
@@ -39,6 +40,7 @@ proc extendScope*(scope: Scope): Scope =
   result.exportscopes = scope.exportscopes
   result.toplevels = @[]
   result.scopevalues = @[]
+  result.scopedepends = @[]
 
 proc match*(a, b: Symbol): bool =
   if b.kind == symbolGenerics:

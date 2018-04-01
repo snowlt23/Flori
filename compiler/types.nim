@@ -17,6 +17,7 @@ type
     internal*: tuple[filename: string, line: int]
   SymbolKind* = enum
     symbolDef
+    symbolArg
     symbolType
     symbolGenerics
     symbolTypeGenerics
@@ -36,6 +37,8 @@ type
     fexpr*: FExpr
     instance*: Option[Symbol]
     case kind*: SymbolKind
+    of symbolArg:
+      argpos*: int
     of symbolTypeGenerics:
       types*: seq[Symbol]
     of symbolVar, symbolRef, symbolOnce:
@@ -71,9 +74,11 @@ type
     dest*: bool
     exdest*: bool
     ret*: bool
+    fieldbody*: Table[Name, FExpr]
     alias*: Option[CTRC]
+    tmpname*: Option[int]
   Effect* = object
-    ctrcargs*: seq[CTRC]
+    trackings*: seq[Depend]
     resulttypes*: seq[Symbol]
 
   FExpr* = ref object
@@ -119,6 +124,9 @@ type
     generics*: seq[Symbol]
   ProcDeclGroup* = object
     decls*: seq[ProcDecl]
+  Depend* = object
+    left*: FExpr
+    right*: FExpr
   Scope* = ref object
     ctx*: SemanticContext
     name*: Name
@@ -130,6 +138,7 @@ type
     exportscopes*: OrderedTable[Name, Scope]
     toplevels*: seq[FExpr]
     scopevalues*: seq[FExpr]
+    scopedepends*: seq[Depend]
   SemanticContext* = ref object
     modules*: OrderedTable[Name, Scope]
     globaltoplevels*: seq[FExpr]
@@ -195,7 +204,9 @@ proc oncesym*(scope: Scope, sym: Symbol): Symbol =
 proc symcopy*(sym: Symbol): Symbol =
   result = sym.scope.symbol(sym.name, sym.kind, sym.fexpr)
   result.instance = sym.instance
-  if sym.kind == symbolTypeGenerics:
+  if sym.kind == symbolArg:
+    result.argpos = sym.argpos
+  elif sym.kind == symbolTypeGenerics:
     result.types = sym.types
   elif sym.kind == symbolIntLit:
     result.intval = sym.intval

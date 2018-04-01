@@ -226,6 +226,11 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   else:
     scope.nextPass(fexpr)
 
+proc ctrcInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+  if fexpr.kind == fexprSymbol and fexpr.symbol.fexpr.hasCTRC:
+    fexpr.ctrc = fexpr.symbol.fexpr.ctrc
+  scope.nextPass(fexpr)
+    
 proc checkArgsHastype*(args: FExpr) =
   for arg in args:
     if not arg.hasTyp:
@@ -329,7 +334,7 @@ proc destroyCheckPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
                  fseq(fexpr.span, @[fexpr[1], fexpr[2]])
     for arg in args:
       if arg.kind == fexprSymbol and arg.symbol.fexpr.ctrc.exdestroyed:
-        arg.error("$# is explicit destroyed!" % $arg)
+        arg.error("$# has been explicit destroyed." % $arg)
     scope.nextPass(fexpr)
   else:
     scope.nextPass(fexpr)

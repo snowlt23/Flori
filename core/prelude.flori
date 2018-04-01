@@ -90,6 +90,8 @@ fn not(b Bool) Bool {
   }
 }
 
+fn returnset[T](dst ref T, src T) $[importc, header nodeclc, pattern "*($1) = $2"]
+
 # string.h
 fn strcmp(a CString, b CString) Int $[importc "strcmp", header "string.h"]
 fn `==(a CString, b CString) Bool {

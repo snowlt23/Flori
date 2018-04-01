@@ -14,7 +14,9 @@ fn vec_eff() Vec[File] {
 }
 
 fn main() {
+  println("start!")
   v := vec_eff()
+  println("end!")
 }
 
 main()

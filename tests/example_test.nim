@@ -52,3 +52,5 @@ suite "example":
     checkio "examples/syntax_macro.flori", "FList!\nFArray!\nFList!\n"
   test "float literal":
     checkio "examples/floatlit.flori", "2.000000\n"
+  test "field track":
+    checkio "examples/field_track.flori", "start!\MyFieldType(1, 2) destroyed!\nend!\nMyType destroyed!\nMyFieldType(5, 6) destroyed!\nMyFieldType(3, 4) destroyed!\n"

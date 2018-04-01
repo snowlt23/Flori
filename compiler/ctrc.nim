@@ -1,6 +1,7 @@
 
-import types, scope, metadata
+import types, scope, metadata, fexpr
 
+import tables
 import options
 
 type
@@ -11,6 +12,7 @@ proc initCTRC*(cnt = 1): CTRC =
   result.refcnt = cnt
   result.depends = @[]
   result.dest = false
+  result.fieldbody = initTable[Name, FExpr]()
   result.alias = none(CTRC)
   
 proc isret*(ctrc: CTRC): bool =
@@ -22,6 +24,29 @@ proc `isret=`*(ctrc: CTRC, value: bool) =
     ctrc.alias.get.isret = value
     return
   ctrc.ret = value
+
+proc argcnt*(ctrc: CTRC): Option[int] =
+  if ctrc.alias.isSome:
+    return ctrc.alias.get.argcnt
+  return ctrc.tmpname
+proc `argcnt=`*(ctrc: CTRC, value: Option[int]) =
+  if ctrc.alias.isSome:
+    ctrc.alias.get.argcnt = value
+    return
+  ctrc.tmpname = value
+
+proc hasKey*(ctrc: CTRC, name: Name): bool =
+  if ctrc.alias.isSome:
+    return ctrc.alias.get.hasKey(name)
+  return ctrc.fieldbody.hasKey(name)
+proc `[]`*(ctrc: CTRC, name: Name): FExpr =
+  if ctrc.alias.isSome:
+    return ctrc.alias.get[name]
+  return ctrc.fieldbody[name]
+proc `[]=`*(ctrc: CTRC, name: Name, f: FExpr) =
+  if ctrc.alias.isSome:
+    ctrc.alias.get[name] = f
+  ctrc.fieldbody[name] = f
 
 proc destroyed*(ctrc: CTRC): bool =
   if ctrc.alias.isSome:

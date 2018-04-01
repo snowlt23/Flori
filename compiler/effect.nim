@@ -5,7 +5,10 @@ import passutils
 import strutils
 import options
 import algorithm
-    
+
+proc initDepend*(left, right: FExpr): Depend =
+  Depend(left: left, right: right)
+
 proc scopeoutCTRC*(scope: Scope) =
   for scopevalue in scope.scopevalues:
     scopevalue.ctrc.dec
@@ -30,64 +33,90 @@ proc expandDestructor*(rootPass: PassProcType, scope: Scope, body: FExpr) =
   if isret:
     body.addSon(fident(body.span, tmpsym))
     scope.rootPass(body[^1])
-    body[^1].symbol.fexpr.ctrc.isret = true
+    body[^1].ctrc.isret = true
+
+proc genLiftName*(rootPass: PassProcType, scope: Scope, cnt: var int, args: FExpr, body: FExpr, resulttype: var seq[Symbol], fexpr: FExpr): int =
+  if fexpr.isInfixFuncCall:
+    if fexpr[1].symbol.kind == symbolArg:
+      fexpr[1].symbol.fexpr.ctrc.argcnt = some(fexpr[1].symbol.argpos)
+      return fexpr[1].symbol.argpos
+  else:
+    if fexpr.symbol.kind == symbolArg:
+      fexpr.symbol.fexpr.ctrc.argcnt = some(fexpr.symbol.argpos)
+      return fexpr.symbol.argpos
+      
+  let n = if fexpr.isInfixFuncCall:
+            fexpr[1].symbol.fexpr.ctrc.argcnt
+          else:
+            fexpr.symbol.fexpr.ctrc.argcnt
+  if n.isSome:
+    result = n.get
+  else:
+    result = cnt
+    resulttype.add(fexpr.typ)
+    if fexpr.isInfixFuncCall:
+      fexpr[1].symbol.fexpr.ctrc.argcnt = some(result)
+    else:
+      fexpr.symbol.fexpr.ctrc.argcnt = some(result)
+    
+    let argf = fident(fexpr.span, name("tmpresult" & $cnt))
+    argf.ctrc = initCTRC(cnt = 0)
+    argf.typ = fexpr.typ.scope.refsym(fexpr.typ)
+    let argsym = fsymbol(fexpr.span, scope.refsym(scope.symbol(name(argf), symbolArg, argf)))
+    argsym.symbol.wrapped.argpos = args.len
+    if not scope.addDecl(name(argf), argsym.symbol):
+      argf.error("redefinition $# variable. (declaration by internal)" % $argf)
+    args.addSon(fexpr.span.quoteFExpr("`embed `embed", [argsym, fsymbol(fexpr.span, argf.typ)]))
+    
+    var f = fexpr.span.quoteFExpr("returnset(`embed, `embed)", [argsym, fexpr])
+    scope.rootPass(f)
+    body.addSon(f)
+      
+    cnt += 1
     
 proc expandScopeLiftingFn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr): Effect =
   fexpr.assert(fexpr.hasDefn)
 
-  result.ctrcargs = @[]
+  result.trackings = @[]
   result.resulttypes = @[]
 
   var ret: FExpr = nil
   if fexpr.defn.body.len != 0 and not fexpr.defn.body[^1].typ.isVoidType:
     ret = fexpr.defn.body[^1]
     fexpr.defn.body.delSon(fexpr.defn.body.len-1)
-
+  
   var cnt = 0
-  for scopevalue in scope.scopevalues:
-    if scopevalue.ctrc.isret:
-      continue
-    
-    if scopevalue.ctrc.cnt != 0:
-      result.resulttypes.add(scopevalue.typ)
-      let argf = fexpr.span.quoteFExpr("tmpresult" & $cnt, [])
-      argf.ctrc = initCTRC()
-      argf.ctrc.cnt = 0
-      argf.typ = scopevalue.typ.scope.refsym(scopevalue.typ)
-      let argsym = fsymbol(fexpr.span, scope.refsym(scope.symbol(name(argf), symbolVar, argf)))
-      if not scope.addDecl(name(argf), argsym.symbol):
-        argf.error("redefinition $# variable. (declaration by internal)" % $argf)
-      fexpr.defn.args.addSon(fexpr.span.quoteFExpr("`embed `embed", [argsym, fsymbol(fexpr.span, argf.typ)]))
-      var f = fexpr.span.quoteFExpr("`embed = `embed", [argsym, scopevalue])
-      scope.rootPass(f)
-      fexpr.defn.body.addSon(f)
-      cnt.inc
+  for depend in scope.scopedepends:
+    if not depend.left.ctrc.destroyed:
+      discard genLiftName(rootPass, scope, cnt, fexpr.defn.args, fexpr.defn.body, result.resulttypes, depend.left)
+      discard genLiftName(rootPass, scope, cnt, fexpr.defn.args, fexpr.defn.body, result.resulttypes, depend.right)
+      result.trackings.add(depend)
 
   if not ret.isNil:
-    fexpr.defn.body.addSon(ret)
-      
-  for arg in fexpr.defn.args:
-    let argctrc = arg[0].symbol.fexpr.ctrc
-    result.ctrcargs.add(argctrc)
+    if ret.kind == fexprSymbol and ret.symbol.fexpr.ctrc.argcnt.isSome:
+      var f = ret.span.quoteFExpr("returnset(tmpresult$#, `embed)" % $ret.symbol.fexpr.ctrc.argcnt.get, [ret])
+      scope.rootPass(f)
+    else:
+      fexpr.defn.body.addSon(ret)
 
 proc expandEffectedArgs*(rootPass: PassProcType, scope: Scope, body: var FExpr, args: FExpr, eff: Effect) =
+  var tmpnames = newSeq[FExpr]()
+  for arg in args:
+    tmpnames.add(arg)
   for i, resulttype in eff.resulttypes:
     let tmpname = scope.ctx.genTmpName()
+    tmpnames.add(fident(body.span, tmpname))
     var tmpvarf = args.span.quoteFExpr("var $# `embed" % $tmpname, [fsymbol(body.span, resulttype)])
     scope.rootPass(tmpvarf)
     body.addSon(tmpvarf)
     var tmpvarsym = args.span.quoteFExpr($tmpname, [])
     scope.rootPass(tmpvarsym)
     args.addSon(tmpvarsym)
-
-proc applyEffect*(args: FExpr, eff: Effect) =
-  for i, ctrc in eff.ctrcargs:
-    # if args[i].kind != fexprSymbol and cnt != 0:
-    #   args[i].error("unsupported tracked tmp value in currently: $#" % $args[i])
-    if args[i].kind == fexprSymbol:
-      let origcnt = args[i].symbol.fexpr.ctrc.cnt
-      args[i].symbol.fexpr.ctrc.deepCopy(ctrc)
-      args[i].symbol.fexpr.ctrc.cnt = ctrc.cnt + origcnt
+  for track in eff.trackings:
+    let left = tmpnames[track.left.ctrc.argcnt.get]
+    let right = tmpnames[track.right.ctrc.argcnt.get]
+    body.addSon(body.span.quoteFExpr("track(`embed -> `embed)", [left, right]))
+  scope.rootPass(body)
 
 proc expandEffectedCall*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let eff = fexpr[0].symbol.fexpr.effect
@@ -99,10 +128,12 @@ proc expandEffectedCall*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr)
                fexpr.error("expandEffectedCall not supported infix call in currently.")
                fseq(fexpr.span)
   var body = fblock(fexpr.span)
+  let retpos = args.len
   expandEffectedArgs(rootPass, scope, body, args, eff)
-  applyEffect(args, eff)
   body.addSon(fexpr)
-  body.typ = fexpr.typ
+  if retpos < args.len:
+    body.addSon(args[retpos])
+  body.typ = body[^1].typ
   fexpr = body
 
 proc bodyScopeout*(rootPass: PassProcType, scope: Scope, fexpr: FExpr) =
@@ -111,8 +142,7 @@ proc bodyScopeout*(rootPass: PassProcType, scope: Scope, fexpr: FExpr) =
 
 proc isPureEffect*(eff: Effect): bool =
   if eff.resulttypes.len != 0: return false
-  for ctrc in eff.ctrcargs:
-    if ctrc.cnt != 0: return false
+  if eff.trackings.len != 0: return false
   return true
   
 proc fnScopeout*(rootPass: PassProcType, scope: Scope, fexpr: FExpr) =
