@@ -1,6 +1,6 @@
 
 import parser, types, fexpr, scope, metadata, ctrc, effect
-import passmacro, expandpass, passutils, typepass
+import passmacro, expandpass, passutils, typepass, inline
 
 import options
 import strutils, sequtils
@@ -313,15 +313,26 @@ proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   else:
     scope.nextPass(fexpr)
 
-proc ctrcOverloadInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+proc expandInline*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   if fexpr.isFuncCall:
-    if fexpr[0].symbol.fexpr.hasEffect:
-      if fexpr[0].symbol.fexpr.effect.retctrc.isSome:
-        # var ctrc: CTRC
-        # ctrc.deepCopy(fexpr[0].symbol.fexpr.effect.retctrc.get)
-        # fexpr.ctrc = ctrc
-        fexpr.ctrc = fexpr[0].symbol.fexpr.effect.retctrc.get
+    if fexpr[0].symbol.fexpr.hasInternalPragma and fexpr[0].symbol.fexpr.internalPragma.inline:
+      let inlinescope = fexpr[0].symbol.fexpr.internalScope
+      scope.importScope(name("inline_scope_" & $inlinescope.name), inlinescope)
+      for name, s in inlinescope.importscopes:
+        scope.importScope(name, s)
+      scope.expandInlineFunc(fexpr)
+      scope.rootPass(fexpr)
   scope.nextPass(fexpr)
+
+# proc ctrcOverloadInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+#   if fexpr.isFuncCall:
+#     if fexpr[0].symbol.fexpr.hasEffect:
+#       if fexpr[0].symbol.fexpr.effect.retctrc.isSome:
+#         # var ctrc: CTRC
+#         # ctrc.deepCopy(fexpr[0].symbol.fexpr.effect.retctrc.get)
+#         # fexpr.ctrc = ctrc
+#         fexpr.ctrc = fexpr[0].symbol.fexpr.effect.retctrc.get
+#   scope.nextPass(fexpr)
 
 proc canApplyEffect*(fexpr: FExpr): bool =
   fexpr[0].kind == fexprSymbol and fexpr[0].symbol.fexpr.hasEffect
@@ -350,7 +361,7 @@ proc destroyCheckPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
                  fseq(fexpr.span, @[fexpr[1], fexpr[2]])
     for arg in args:
       if arg.kind == fexprSymbol and arg.symbol.fexpr.ctrc.exdestroyed:
-        arg.error("$# has been explicit destroyed." % $arg)
+        fexpr.error("$# has been explicit destroyed." % $arg)
     scope.nextPass(fexpr)
   else:
     scope.nextPass(fexpr)

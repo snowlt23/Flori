@@ -12,6 +12,8 @@ proc applyInstance*(sym: Symbol, instance: Symbol) =
     sym.wrapped.applyInstance(instance.wrapped)
   elif instance.kind in {symbolVar, symbolRef, symbolOnce}:
     sym.applyInstance(instance.wrapped)
+  # elif sym.kind in {symbolVar, symbolRef, symbolOnce}: # FIXME:
+  #   sym.wrapped.applyInstance(instance)
   elif sym.kind == symbolGenerics:
     sym.instance = some(instance)
   elif sym.kind == symbolTypeGenerics:

@@ -64,25 +64,25 @@ fn length(s String) Int {
 }
 
 fn push(dest ref String, src CString) {
-  len := length(dest) + strlen(src)
-  (dest.p) = realloc[Char](dest.p, len + 1)
+  l := length(dest) + strlen(src)
+  (dest.p) = realloc[Char](dest.p, l + 1)
   memcpy((dest.p) +! length(dest), cast[Ptr[Char]](src), strlen(src))
-  unref((dest.p) +! len) = cast[Char](0)
-  (dest.len) = len
+  unref((dest.p) +! l) = cast[Char](0)
+  (dest.len) = l
 }
 fn push(dest ref String, src String) {
-  len := length(dest) + length(src)
-  (dest.p) = realloc[Char](dest.p, len + 1)
+  l := length(dest) + length(src)
+  (dest.p) = realloc[Char](dest.p, l + 1)
   memcpy((dest.p) +! length(dest), src.p, length(src))
-  unref((dest.p) +! len) = cast[Char](0)
-  (dest.len) = len
+  unref((dest.p) +! l) = cast[Char](0)
+  (dest.len) = l
 }
 fn push(dest ref String, c Char) {
-  len := length(dest) + 1
-  (dest.p) = realloc[Char](dest.p, len + 1)
+  l := length(dest) + 1
+  (dest.p) = realloc[Char](dest.p, l + 1)
   unref((dest.p) +! length(dest)) = c
-  unref((dest.p) +! len) = cast[Char](0)
-  (dest.len) = len
+  unref((dest.p) +! l) = cast[Char](0)
+  (dest.len) = l
 }
 
 fn print(s String) {

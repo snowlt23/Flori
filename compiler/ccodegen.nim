@@ -127,6 +127,9 @@ proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: FExpr, ret: stri
   ctx.codegenBody(src, toSeq(body.items), ret)
 
 proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  if fexpr.internalPragma.inline:
+    return
+  
   var decl = initSrcExpr()
   decl &= codegenType(fexpr.defn.ret)
   decl &= " "
@@ -369,11 +372,21 @@ proc codegenCallArg*(ctx: CCodegenContext, src: var SrcExpr, arg: FExpr, fnargty
   else:
     ctx.codegenFExpr(src, arg)
 
+proc codegenPatArg*(ctx: CCodegenContext, src: var SrcExpr, arg: FExpr, fnargtype: Symbol) =
+  if arg.typ.kind == symbolVar and fnargtype.kind == symbolRef:
+    src &= "&"
+    ctx.codegenFExpr(src, arg)
+  elif arg.typ.kind == symbolRef and fnargtype.kind != symbolRef:
+    src &= "*"
+    ctx.codegenFExpr(src, arg)
+  else:
+    ctx.codegenFExpr(src, arg)
+
 proc codegenPatternArgs*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, fnargtypes: seq[Symbol], ret: Symbol, pattern: var string) =
   pattern = pattern.replace("$#0", codegenType(ret))
   for i, arg in fexpr.sons.reversed():
     var comp = initSrcExpr()
-    ctx.codegenCallArg(comp, arg, fnargtypes[fexpr.len-i-1])
+    ctx.codegenPatArg(comp, arg, fnargtypes[fexpr.len-i-1])
     src.prev &= comp.prev
     pattern = pattern.replace("$#" & $(fexpr.len-i), codegenType(arg.typ))
     pattern = pattern.replace("$" & $(fexpr.len-i), comp.exp)

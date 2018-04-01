@@ -19,18 +19,27 @@ destructor(mt MyType) {
   println("MyType destroyed!")
 }
 
-fn new_mt() MyType $[inline] {
+fn new_mt() MyType {
   mfx := init(MyFieldType){1; 2}
   mfy := init(MyFieldType){3; 4}
   mt := init(MyType){mfx; mfy}
   mt
 }
 
+fn mt_wrap() MyType {
+  new_mt()
+}
+
+fn update(mt ref MyType, mf MyFieldType) {
+  mt.mfx = mf
+}
+
 fn main() {
   println("start!")
-  mt := new_mt()
+  mt := mt_wrap()
   newmfx := init(MyFieldType){5; 6}
-  mt.mfx = newmfx
+  # mt.mfx = newmfx
+  update(mt, newmfx)
   println("end!")
 }
 

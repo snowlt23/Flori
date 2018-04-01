@@ -49,6 +49,7 @@ type
     declc*: Option[string]
     internal*: bool
     isSyntax*: bool
+    inline*: bool
 
 type
   DefnExpr* = object
@@ -98,6 +99,8 @@ defMetadata(ctrc, CTRC)
 defMetadata(effect, Effect)
 defMetadata(evaluated, bool)
 defMetadata(constvalue, FExpr)
+
+defMetadata(internalExpand, FExpr)
 
 defMetadata(internalScope, Scope)
 defMetadata(internalCtx, SemanticContext)

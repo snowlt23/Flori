@@ -77,8 +77,8 @@ proc chainDestroy*(ctrc: CTRC) =
   ctrc.destroyed = true
   ctrc.exdestroyed = true
   for depend in ctrc.depends:
-    depend.destroyed = true
-    depend.exdestroyed = true
+    depend.dest = true
+    depend.exdest = true
   
 proc cnt*(ctrc: CTRC): int =
   if ctrc.alias.isSome:

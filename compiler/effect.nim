@@ -23,6 +23,7 @@ proc expandDestructor*(rootPass: PassProcType, scope: Scope, body: FExpr) =
     body[^1] = tmpvar
     isret = true
   for scopevalue in scope.scopevalues.reversed:
+    # echo scopevalue, ":", scopevalue.ctrc.destroyed, ":", scopevalue.ctrc.exdestroyed
     if scopevalue.ctrc.exdestroyed:
       continue
     if scopevalue.ctrc.destroyed:
@@ -92,6 +93,8 @@ proc expandScopeLiftingFn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr): 
     
     if not depend.right.isInfixFuncCall and not depend.right.ctrc.destroyed and not depend.right.ctrc.isret and depend.right.ctrc.argcnt.isNone:
       discard genLiftName(rootPass, scope, cnt, fexpr.defn.args, fexpr.defn.body, result.resulttypes, depend.right)
+    echo depend
+    fexpr.defn.body.addSon(fexpr.span.quoteFExpr("track(`embed -> `embed)", [depend.left, depend.right]))
     result.trackings.add(depend)
 
   if not ret.isNil:
@@ -104,7 +107,7 @@ proc expandScopeLiftingFn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr): 
     fexpr.defn.body.addSon(ret)
     result.retctrc = some(ret.ctrc)
 
-  # echo fexpr.defn.name, fexpr.defn.args, fexpr.defn.body
+  echo fexpr.defn.name, fexpr.defn.args, fexpr.defn.body
 
 proc expandEffectedArgs*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, body: var FExpr, args: FExpr, eff: Effect) =
   let ret = fident(body.span, scope.ctx.genTmpName())
@@ -180,6 +183,6 @@ proc fnScopeout*(rootPass: PassProcType, scope: Scope, fexpr: FExpr) =
   fexpr.assert(fexpr.hasDefn)
   scope.scopeoutCTRC()
   expandDestructor(rootPass, scope, fexpr.defn.body)
-  let eff = expandScopeLiftingFn(rootPass, scope, fexpr)
-  if not eff.isPureEffect:
-    fexpr.effect = eff
+  # let eff = expandScopeLiftingFn(rootPass, scope, fexpr)
+  # if not eff.isPureEffect:
+    # fexpr.effect = eff

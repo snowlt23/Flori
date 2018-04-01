@@ -160,4 +160,4 @@ a := 1
 add5(a)
 """)
     ctx.semModule(processSemPass, name("testmodule"), fexprs)
-    check $fexprs[^1][1][0].typ == "testmodule.Int"
+    check $fexprs[^1].typ == "testmodule.Void"
