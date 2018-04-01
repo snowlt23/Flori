@@ -509,15 +509,20 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   elif parsed.value.kind == fexprBlock and parsed.value.len != 0 and parsed.value[^1].kind == fexprSymbol: # alias
     varsym.fexpr.ctrc = parsed.value[^1].ctrc
   elif parsed.value.hasCTRC:
-    if parsed.value.ctrc.cnt == 0: # unique
-      varsym.fexpr.ctrc = initCTRC(cnt = 1)
-    else:
-      body.addSon(fexpr)
-      varsym.fexpr.ctrc = parsed.value.ctrc
-      for key, value in parsed.value.ctrc.fieldbody:
-        let field = fexpr.span.quoteFExpr("`embed . `embed", [fexpr[1], fident(fexpr.span, key)])
+    varsym.fexpr.ctrc = initCTRCWithFields(parsed.value.typ.fexpr.deftype.body)
+    varsym.fexpr.ctrc.cnt = 1
+    body.addSon(fexpr)
+    for key, value in parsed.value.ctrc.fieldbody:
+      if value.kind == fexprSymbol and value.symbol.kind == symbolDef:
+        if scope.getFunc(procname(name("destruct"), @[value.typ])).isNone:
+          continue
+          
+        # if not value.ctrc.inc:
+        #   value.error("$# has been destroyed." % $value)
+        var field = fexpr.span.quoteFExpr("`embed . `embed", [fexpr[1], fident(fexpr.span, key)])
         body.addSon(fexpr.span.quoteFExpr("track(`embed -> `embed)", [field, value]))
-        scope.tracking(field)
+        if not varsym.fexpr.ctrc.depend(value.ctrc):
+          value.error("$# has been destroyed." % $value)
     scope.tracking(varsym.fexpr)
   else:
     varsym.fexpr.ctrc = initCTRC(cnt = 1)
@@ -530,7 +535,6 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.internalDefExpr = parsed
   if body.len != 0:
     fexpr = body
-    echo fexpr
     scope.rootPass(fexpr)
     fexpr.typ = fexpr[^1].typ
   
@@ -554,12 +558,23 @@ proc semTrack*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     depend.error("track arguments should be FIdent, actually $#" % $depend)
   scope.rootPass(variable)
   scope.rootPass(depend)
-  
-  if not variable.ctrc.depend(depend.ctrc):
-    depend.error("$# variable has been destroyed.")
-  if twoway:
-    if not depend.ctrc.depend(variable.ctrc):
-      variable.error("$# variable has been destroyed.")
+
+  if variable.kind in {fexprIdent, fexprSymbol}:
+    if not variable.ctrc.depend(depend.ctrc):
+      depend.error("$# variable has been destroyed." % $depend)
+  else:
+    if not variable[1].ctrc[name(variable[2])].ctrc.depend(depend.ctrc):
+      depend.error("$# variable has been destroyed." % $depend)
+
+  # if twoway:
+  #   if depend.kind in {fexprIdent, fexprSymbol}:
+  #   else:
+        
+  # if not variable.ctrc.depend(depend.ctrc):
+  #   depend.error("$# variable has been destroyed.")
+  # if twoway:
+  #   if not depend.ctrc.depend(variable.ctrc):
+  #     variable.error("$# variable has been destroyed.")
       
   scope.scopedepends.add(initDepend(variable, depend))
   if twoway:
@@ -633,8 +648,8 @@ proc semInit*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.ctrc = initCTRC(cnt = 0)
   for i, b in fexpr[2]:
     if b.hasCTRC:
-      if not b.ctrc.inc:
-        b.error("$# has been destroyed!" % $b)
+      # if not b.ctrc.inc:
+      #   b.error("$# has been destroyed!" % $b)
       fexpr.ctrc[name(fexpr.typ.fexpr.deftype.body[i][0])] = b
 
   let argtypes = fexpr[2].mapIt(it.typ)
@@ -708,7 +723,7 @@ proc semIsDestructable*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) 
     fexpr.error("usage: is_destructable(type)")
   
   let typesym = scope.semTypeExpr(fexpr[1][0])
-  if fexpr.internalScope.getFunc(procname(name("destructor"), @[typesym])).isSome:
+  if fexpr.internalScope.getFunc(procname(name("destruct"), @[typesym])).isSome:
     fexpr = fexpr.span.quoteFExpr("true", [])
   else:
     fexpr = fexpr.span.quoteFExpr("false", [])

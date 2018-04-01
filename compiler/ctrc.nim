@@ -14,6 +14,13 @@ proc initCTRC*(cnt = 1): CTRC =
   result.dest = false
   result.fieldbody = initTable[Name, FExpr]()
   result.alias = none(CTRC)
+proc initCTRCWithFields*(body: FExpr): CTRC =
+  result = initCTRC(cnt = 0)
+  for b in body:
+    var f: FExpr
+    f.deepCopy(b[0])
+    result.fieldbody[name(b[0])] = f
+    result.fieldbody[name(b[0])].ctrc = initCTRCWithFields(b[1].symbol.fexpr.deftype.body)
   
 proc isret*(ctrc: CTRC): bool =
   if ctrc.alias.isSome:

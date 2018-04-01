@@ -38,26 +38,26 @@ proc expandDestructor*(rootPass: PassProcType, scope: Scope, body: FExpr) =
 proc genLiftName*(rootPass: PassProcType, scope: Scope, cnt: var int, args: FExpr, body: FExpr, resulttype: var seq[Symbol], fexpr: FExpr): int =
   if fexpr.isInfixFuncCall:
     if fexpr[1].symbol.kind == symbolArg:
-      fexpr[1].symbol.fexpr.ctrc.argcnt = some(fexpr[1].symbol.argpos)
-      return fexpr[1].symbol.argpos
+      fexpr.ctrc.argcnt = some(fexpr[1].symbol.argpos)
+      return fexpr.symbol.argpos
   else:
     if fexpr.symbol.kind == symbolArg:
-      fexpr.symbol.fexpr.ctrc.argcnt = some(fexpr.symbol.argpos)
+      fexpr.ctrc.argcnt = some(fexpr.symbol.argpos)
       return fexpr.symbol.argpos
       
   let n = if fexpr.isInfixFuncCall:
-            fexpr[1].symbol.fexpr.ctrc.argcnt
+            fexpr.ctrc.argcnt
           else:
-            fexpr.symbol.fexpr.ctrc.argcnt
+            fexpr.ctrc.argcnt
   if n.isSome:
     result = n.get
   else:
     result = cnt
     resulttype.add(fexpr.typ)
     if fexpr.isInfixFuncCall:
-      fexpr[1].symbol.fexpr.ctrc.argcnt = some(result)
+      fexpr.ctrc.argcnt = some(result)
     else:
-      fexpr.symbol.fexpr.ctrc.argcnt = some(result)
+      fexpr.ctrc.argcnt = some(result)
     
     let argf = fident(fexpr.span, name("tmpresult" & $cnt))
     argf.ctrc = initCTRC(cnt = 0)
@@ -87,17 +87,28 @@ proc expandScopeLiftingFn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr): 
   
   var cnt = 0
   for depend in scope.scopedepends:
-    if not depend.left.ctrc.destroyed:
-      discard genLiftName(rootPass, scope, cnt, fexpr.defn.args, fexpr.defn.body, result.resulttypes, depend.left)
+    if depend.left.isInfixFuncCall and not depend.left.ctrc.destroyed:
+      if depend.right.ctrc.isret:
+        continue
       discard genLiftName(rootPass, scope, cnt, fexpr.defn.args, fexpr.defn.body, result.resulttypes, depend.right)
+      result.trackings.add(depend)
+    elif not depend.left.ctrc.destroyed:
+      if not depend.left.ctrc.isret:
+        discard genLiftName(rootPass, scope, cnt, fexpr.defn.args, fexpr.defn.body, result.resulttypes, depend.left)
+      if not depend.right.ctrc.isret:
+        discard genLiftName(rootPass, scope, cnt, fexpr.defn.args, fexpr.defn.body, result.resulttypes, depend.right)
       result.trackings.add(depend)
 
   if not ret.isNil:
-    if ret.kind == fexprSymbol and ret.symbol.fexpr.ctrc.argcnt.isSome:
-      var f = ret.span.quoteFExpr("returnset(tmpresult$#, `embed)" % $ret.symbol.fexpr.ctrc.argcnt.get, [ret])
-      scope.rootPass(f)
-    else:
-      fexpr.defn.body.addSon(ret)
+    # if ret.kind == fexprSymbol and ret.ctrc.argcnt.isSome:
+    #   var f = ret.span.quoteFExpr("returnset(tmpresult$#, `embed)" % $ret.ctrc.argcnt.get, [ret])
+    #   scope.rootPass(f)
+    #   fexpr.defn.body.addSon(f)
+    # else:
+    #   fexpr.defn.body.addSon(ret)
+    fexpr.defn.body.addSon(ret)
+
+  # echo fexpr.defn.name, fexpr.defn.args, fexpr.defn.body
 
 proc expandEffectedArgs*(rootPass: PassProcType, scope: Scope, body: var FExpr, args: FExpr, eff: Effect) =
   var tmpnames = newSeq[FExpr]()
@@ -113,9 +124,14 @@ proc expandEffectedArgs*(rootPass: PassProcType, scope: Scope, body: var FExpr, 
     scope.rootPass(tmpvarsym)
     args.addSon(tmpvarsym)
   for track in eff.trackings:
-    let left = tmpnames[track.left.ctrc.argcnt.get]
-    let right = tmpnames[track.right.ctrc.argcnt.get]
-    body.addSon(body.span.quoteFExpr("track(`embed -> `embed)", [left, right]))
+    if track.left.isInfixFuncCall:
+      discard
+    else:
+      if track.left.ctrc.isret or track.right.ctrc.isret:
+        continue
+      let left = tmpnames[track.left.ctrc.argcnt.get]
+      let right = tmpnames[track.right.ctrc.argcnt.get]
+      body.addSon(body.span.quoteFExpr("track(`embed -> `embed)", [left, right]))
   scope.rootPass(body)
 
 proc expandEffectedCall*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
@@ -128,11 +144,8 @@ proc expandEffectedCall*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr)
                fexpr.error("expandEffectedCall not supported infix call in currently.")
                fseq(fexpr.span)
   var body = fblock(fexpr.span)
-  let retpos = args.len
   expandEffectedArgs(rootPass, scope, body, args, eff)
   body.addSon(fexpr)
-  if retpos < args.len:
-    body.addSon(args[retpos])
   body.typ = body[^1].typ
   fexpr = body
 
