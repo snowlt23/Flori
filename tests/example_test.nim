@@ -43,7 +43,7 @@ suite "example":
   test "string":
     checkio "examples/string.flori", "Hello Yukari! and Maki!\nHello Yukari! and Maki! and Akari!\n9\n9\n"
   test "vec eff":
-    checkio "examples/vec_eff.flori", "Vec destroyed!\nFile destroyed!\n"
+    checkio "examples/vec_eff.flori", "start!\nend!\nVec destroyed!\nFile destroyed!\n"
   test "array":
     checkio "examples/array.flori", ""
   test "const":
@@ -53,4 +53,4 @@ suite "example":
   test "float literal":
     checkio "examples/floatlit.flori", "2.000000\n"
   test "field track":
-    checkio "examples/field_track.flori", "start!\MyFieldType(1, 2) destroyed!\nend!\nMyType destroyed!\nMyFieldType(5, 6) destroyed!\nMyFieldType(3, 4) destroyed!\n"
+    checkio "examples/field_track.flori", "start!\nMyFieldType(1, 2) destroyed!\nend!\nMyType destroyed!\nMyFieldType(5, 6) destroyed!\nMyFieldType(3, 4) destroyed!\n"
