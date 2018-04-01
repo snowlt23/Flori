@@ -115,7 +115,7 @@ proc getMacroArgs*(scope: Scope, pd: ProcDecl, args: FExpr): seq[Symbol] =
     elif $pd.argtypes[i].name == "TExpr":
       let opt = scope.getDecl(name("TExpr"))
       if opt.isNone:
-        args[i].error("undeclared FExpr type.")
+        args[i].error("undeclared TExpr type.")
       let sym = symcopy(opt.get)
       sym.types.add(args[i].typ)
       result.add(sym)
@@ -313,16 +313,32 @@ proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   else:
     scope.nextPass(fexpr)
 
+proc ctrcOverloadInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+  if fexpr.isFuncCall:
+    if fexpr[0].symbol.fexpr.hasEffect:
+      if fexpr[0].symbol.fexpr.effect.retctrc.isSome:
+        # var ctrc: CTRC
+        # ctrc.deepCopy(fexpr[0].symbol.fexpr.effect.retctrc.get)
+        # fexpr.ctrc = ctrc
+        fexpr.ctrc = fexpr[0].symbol.fexpr.effect.retctrc.get
+  scope.nextPass(fexpr)
+
 proc canApplyEffect*(fexpr: FExpr): bool =
   fexpr[0].kind == fexprSymbol and fexpr[0].symbol.fexpr.hasEffect
 
 proc effectPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   if fexpr.isNormalFuncCall or fexpr.isGenericsFuncCall:
-    if fexpr.canApplyEffect:
+    if fexpr.canApplyEffect and not fexpr.isToplevel:
       expandEffectedCall(rootPassProc, scope, fexpr)
     scope.nextPass(fexpr)
   else:
     scope.nextPass(fexpr)
+    
+proc ctrcBlockInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+  if fexpr.kind == fexprBlock and fexpr.len != 0:
+    if fexpr[^1].hasCTRC:
+      fexpr.ctrc = fexpr[^1].ctrc
+  scope.nextPass(fexpr)
 
 proc destroyCheckPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   if fexpr.isFuncCall:

@@ -87,17 +87,12 @@ proc expandScopeLiftingFn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr): 
   
   var cnt = 0
   for depend in scope.scopedepends:
-    if depend.left.isInfixFuncCall and not depend.left.ctrc.destroyed:
-      if depend.right.ctrc.isret:
-        continue
+    if not depend.left.isInfixFuncCall and not depend.left.ctrc.destroyed and not depend.left.ctrc.isret and depend.left.ctrc.argcnt.isNone:
+      discard genLiftName(rootPass, scope, cnt, fexpr.defn.args, fexpr.defn.body, result.resulttypes, depend.left)
+    
+    if not depend.right.isInfixFuncCall and not depend.right.ctrc.destroyed and not depend.right.ctrc.isret and depend.right.ctrc.argcnt.isNone:
       discard genLiftName(rootPass, scope, cnt, fexpr.defn.args, fexpr.defn.body, result.resulttypes, depend.right)
-      result.trackings.add(depend)
-    elif not depend.left.ctrc.destroyed:
-      if not depend.left.ctrc.isret:
-        discard genLiftName(rootPass, scope, cnt, fexpr.defn.args, fexpr.defn.body, result.resulttypes, depend.left)
-      if not depend.right.ctrc.isret:
-        discard genLiftName(rootPass, scope, cnt, fexpr.defn.args, fexpr.defn.body, result.resulttypes, depend.right)
-      result.trackings.add(depend)
+    result.trackings.add(depend)
 
   if not ret.isNil:
     # if ret.kind == fexprSymbol and ret.ctrc.argcnt.isSome:
@@ -107,10 +102,12 @@ proc expandScopeLiftingFn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr): 
     # else:
     #   fexpr.defn.body.addSon(ret)
     fexpr.defn.body.addSon(ret)
+    result.retctrc = some(ret.ctrc)
 
   # echo fexpr.defn.name, fexpr.defn.args, fexpr.defn.body
 
-proc expandEffectedArgs*(rootPass: PassProcType, scope: Scope, body: var FExpr, args: FExpr, eff: Effect) =
+proc expandEffectedArgs*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, body: var FExpr, args: FExpr, eff: Effect) =
+  let ret = fident(body.span, scope.ctx.genTmpName())
   var tmpnames = newSeq[FExpr]()
   for arg in args:
     tmpnames.add(arg)
@@ -123,15 +120,37 @@ proc expandEffectedArgs*(rootPass: PassProcType, scope: Scope, body: var FExpr, 
     var tmpvarsym = args.span.quoteFExpr($tmpname, [])
     scope.rootPass(tmpvarsym)
     args.addSon(tmpvarsym)
+  if not fexpr.typ.isVoidType:
+    body.addSon(fexpr.span.quoteFExpr("`embed := `embed", [ret, fexpr]))
+  else:
+    body.addSon(fexpr)
+  fexpr.evaluated = true
+    
   for track in eff.trackings:
     if track.left.isInfixFuncCall:
-      discard
+      let leftvar = if track.left[1].ctrc.argcnt.isSome:
+                      tmpnames[track.left[1].ctrc.argcnt.get]
+                    else:
+                      ret
+      let leftfield = track.left[2]
+      let left = body.span.quoteFExpr("`embed . `embed", [leftvar, leftfield])
+      let right = if track.right.ctrc.argcnt.isSome:
+                      tmpnames[track.right.ctrc.argcnt.get]
+                    else:
+                      ret
+      body.addSon(body.span.quoteFExpr("track(`embed -> `embed)", [left, right]))
+    elif track.left.ctrc.isret:
+      let right = tmpnames[track.right.ctrc.argcnt.get]
+      body.addSon(body.span.quoteFExpr("track(`embed -> `embed)", [ret, right]))
+    elif track.right.ctrc.isret:
+      let left = tmpnames[track.left.ctrc.argcnt.get]
+      body.addSon(body.span.quoteFExpr("track(`embed -> `embed)", [left, ret]))
     else:
-      if track.left.ctrc.isret or track.right.ctrc.isret:
-        continue
       let left = tmpnames[track.left.ctrc.argcnt.get]
       let right = tmpnames[track.right.ctrc.argcnt.get]
       body.addSon(body.span.quoteFExpr("track(`embed -> `embed)", [left, right]))
+  if not fexpr.typ.isVoidType:
+    body.addSon(ret)
   scope.rootPass(body)
 
 proc expandEffectedCall*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
@@ -144,10 +163,9 @@ proc expandEffectedCall*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr)
                fexpr.error("expandEffectedCall not supported infix call in currently.")
                fseq(fexpr.span)
   var body = fblock(fexpr.span)
-  expandEffectedArgs(rootPass, scope, body, args, eff)
-  body.addSon(fexpr)
-  body.typ = body[^1].typ
+  expandEffectedArgs(rootPass, scope, fexpr, body, args, eff)
   fexpr = body
+  # echo fexpr
 
 proc bodyScopeout*(rootPass: PassProcType, scope: Scope, fexpr: FExpr) =
   scope.scopeoutCTRC()

@@ -24,3 +24,4 @@ void (*flori_set)(flori_fexpr fexpr, flori_int i, flori_fexpr value);
 char* (*flori_to_cs)(flori_fexpr fexpr);
 char* (*flori_strval)(flori_fexpr fexpr);
 flori_fexpr (*flori_gensym)();
+void (*flori_debug_ctrc)(flori_fexpr fexpr);

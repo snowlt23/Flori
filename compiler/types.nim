@@ -80,6 +80,7 @@ type
   Effect* = object
     trackings*: seq[Depend]
     resulttypes*: seq[Symbol]
+    retctrc*: Option[CTRC]
 
   FExpr* = ref object
     span*: Span

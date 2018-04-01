@@ -92,6 +92,7 @@ fn to_cs(fexpr FIntLit) CString $[importc "flori_to_cs", header "floriffi.h"]
 
 fn strval(fexpr FStrLit) CString $[importc "flori_strval", header "floriffi.h"]
 fn gensym() FExpr $[importc "flori_gensym", header "floriffi.h"]
+fn debug_ctrc_impl(fexpr FExpr) $[importc "flori_debug_ctrc", header "floriffi.h"]
 
 fn quote_expand_inside(fexpr FExpr, args FExpr, count Int) Int {
   i := 0
@@ -113,4 +114,9 @@ fn quote_expand(fexpr FExpr, args FExpr) FExpr {
   count := 0
   quote_expand_inside(fexpr, args, count)
   fexpr
+}
+
+macro debug_ctrc[T](fexpr TExpr[T]) FExpr {
+  debug_ctrc_impl(cast[FExpr](fexpr))
+  quote {}
 }

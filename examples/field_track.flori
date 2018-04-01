@@ -26,9 +26,13 @@ fn new_mt() MyType {
   mt
 }
 
+fn mt_wrap() MyType {
+  new_mt()
+}
+
 fn main() {
   println("start!")
-  mt := new_mt()
+  mt := mt_wrap()
   newmfx := init(MyFieldType){5; 6}
   mt.mfx = newmfx
   println("end!")

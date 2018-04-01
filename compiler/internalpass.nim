@@ -266,7 +266,7 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: var De
       if not parsed.body[^1].typ.spec(rettype):
         parsed.body[^1].error("function expect $# return type, actually $#" % [$rettype, $parsed.body[^1].typ])
     if parsed.body.len != 0 and not parsed.body[^1].typ.isVoidType:
-      if parsed.body[^1].kind == fexprSymbol and parsed.body[^1].hasCTRC:
+      if parsed.body[^1].hasCTRC:
         if not parsed.body[^1].ctrc.inc:
           parsed.body[^1].error("value is already destroyed.")
     fnScopeout(rootPass, fnscope, fexpr) # FIXME:
@@ -360,7 +360,7 @@ proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let typescope = scope.extendScope()
 
   let typename = name(parsed.name)
-  let sym = scope.symbol(typename, symbolType, fexpr)
+  let sym = scope.symbol(typename, if parsed.isGenerics: symbolTypeGenerics else: symbolType, fexpr)
   let status = scope.addDecl(typename, sym)
   if not status:
     fexpr.error("redefinition $# type." % $typename)
@@ -517,12 +517,9 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
         if scope.getFunc(procname(name("destruct"), @[value.typ])).isNone:
           continue
           
-        # if not value.ctrc.inc:
-        #   value.error("$# has been destroyed." % $value)
+        # varsym.fexpr.ctrc[key] = value
         var field = fexpr.span.quoteFExpr("`embed . `embed", [fexpr[1], fident(fexpr.span, key)])
         body.addSon(fexpr.span.quoteFExpr("track(`embed -> `embed)", [field, value]))
-        if not varsym.fexpr.ctrc.depend(value.ctrc):
-          value.error("$# has been destroyed." % $value)
     scope.tracking(varsym.fexpr)
   else:
     varsym.fexpr.ctrc = initCTRC(cnt = 1)
@@ -559,16 +556,14 @@ proc semTrack*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   scope.rootPass(variable)
   scope.rootPass(depend)
 
-  if variable.kind in {fexprIdent, fexprSymbol}:
+  if variable.isInfixFuncCall:
+    if not variable[1].ctrc.depend(variable.ctrc):
+      depend.error("$# variable has been destroyed." % $depend)
     if not variable.ctrc.depend(depend.ctrc):
       depend.error("$# variable has been destroyed." % $depend)
   else:
-    if not variable[1].ctrc[name(variable[2])].ctrc.depend(depend.ctrc):
+    if not variable.ctrc.depend(depend.ctrc):
       depend.error("$# variable has been destroyed." % $depend)
-
-  # if twoway:
-  #   if depend.kind in {fexprIdent, fexprSymbol}:
-  #   else:
         
   # if not variable.ctrc.depend(depend.ctrc):
   #   depend.error("$# variable has been destroyed.")
@@ -601,12 +596,14 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     let ctrc = parsed.dst.ctrc
     ctrc.dec
     if ctrc.destroyed:
+      if parsed.dst.isInfixFuncCall:
+        ctrc.chainDestroy()
       if scope.getFunc(procname(name("destruct"), @[parsed.dst.typ])).isSome:
         let dcall = parsed.dst.span.quoteFExpr("destruct(`embed)", [parsed.dst])
         fexpr = fblock(parsed.dst.span, @[dcall, fexpr])
         scope.rootPass(fexpr)
-    if parsed.value.hasCTRC:
-      parsed.dst.ctrc = parsed.value.ctrc
+  if parsed.value.hasCTRC:
+    parsed.dst.ctrc = parsed.value.ctrc
 
 proc semFieldAccess*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let fieldname = fexpr[2]
