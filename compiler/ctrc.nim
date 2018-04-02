@@ -32,15 +32,15 @@ proc `isret=`*(ctrc: CTRC, value: bool) =
     return
   ctrc.ret = value
 
-proc argcnt*(ctrc: CTRC): Option[int] =
-  if ctrc.alias.isSome:
-    return ctrc.alias.get.argcnt
-  return ctrc.tmpname
-proc `argcnt=`*(ctrc: CTRC, value: Option[int]) =
-  if ctrc.alias.isSome:
-    ctrc.alias.get.argcnt = value
-    return
-  ctrc.tmpname = value
+# proc argcnt*(ctrc: CTRC): Option[int] =
+#   if ctrc.alias.isSome:
+#     return ctrc.alias.get.argcnt
+#   return ctrc.tmpname
+# proc `argcnt=`*(ctrc: CTRC, value: Option[int]) =
+#   if ctrc.alias.isSome:
+#     ctrc.alias.get.argcnt = value
+#     return
+#   ctrc.tmpname = value
 
 proc hasKey*(ctrc: CTRC, name: Name): bool =
   if ctrc.alias.isSome:

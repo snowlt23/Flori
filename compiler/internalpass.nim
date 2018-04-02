@@ -524,12 +524,14 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     varsym.fexpr.ctrc.cnt = 1
     body.addSon(fexpr)
     for key, value in parsed.value.ctrc.fieldbody:
-      if value.kind == fexprSymbol and value.symbol.kind == symbolDef:
+      if value.ctrc.cnt != 0:
         if scope.getFunc(procname(name("destruct"), @[value.typ])).isNone:
           continue
           
         varsym.fexpr.ctrc[key] = value
         var field = fexpr.span.quoteFExpr("`embed . `embed", [fexpr[1], fident(fexpr.span, key)])
+        scope.rootPass(field)
+        scope.tracking(field)
         # var track = fexpr.span.quoteFExpr("track(`embed -> `embed)", [field, value])
         # scope.rootPass(track)
         # body.addSon(track)
@@ -584,9 +586,9 @@ proc semTrack*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   #   if not depend.ctrc.depend(variable.ctrc):
   #     variable.error("$# variable has been destroyed.")
       
-  scope.scopedepends.add(initDepend(variable, depend))
-  if twoway:
-    scope.scopedepends.add(initDepend(depend, variable))
+  # scope.scopedepends.add(initDepend(variable, depend))
+  # if twoway:
+  #   scope.scopedepends.add(initDepend(depend, variable))
     
   fexpr.internalMark = internalTrack
 
@@ -615,8 +617,12 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
         parsed.dst.ctrc.exdestroyed = true
         if parsed.dst.isInfixFuncCall:
           parsed.dst[1].ctrc[name(parsed.dst[2])].ctrc = parsed.value.ctrc
+          if parsed.dst[1].symbol.scope.level != scope.level:
+            parsed.dst[1].symbol.fexpr.ctrc.fuzzy = true
         else:
           parsed.dst.ctrc = parsed.value.ctrc
+          if parsed.dst.symbol.scope.level != scope.level:
+            parsed.dst.symbol.fexpr.fuzzy = true
   # if parsed.value.hasCTRC:
   #   if parsed.dst.hasCTRC:
   #     if parsed.dst.isInfixFuncCall:

@@ -76,7 +76,7 @@ type
     ret*: bool
     fieldbody*: Table[Name, FExpr]
     alias*: Option[CTRC]
-    tmpname*: Option[int]
+    fuzzy*: bool
   Effect* = object
     trackings*: seq[Depend]
     resulttypes*: seq[Symbol]

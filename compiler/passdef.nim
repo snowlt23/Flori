@@ -339,8 +339,8 @@ proc canApplyEffect*(fexpr: FExpr): bool =
 
 proc effectPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   if fexpr.isNormalFuncCall or fexpr.isGenericsFuncCall:
-    if fexpr.canApplyEffect and not fexpr.isToplevel:
-      expandEffectedCall(rootPassProc, scope, fexpr)
+    # if fexpr.canApplyEffect and not fexpr.isToplevel:
+    #   expandEffectedCall(rootPassProc, scope, fexpr)
     scope.nextPass(fexpr)
   else:
     scope.nextPass(fexpr)
@@ -360,7 +360,7 @@ proc destroyCheckPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
                else:
                  fseq(fexpr.span, @[fexpr[1], fexpr[2]])
     for arg in args:
-      if arg.kind == fexprSymbol and arg.symbol.fexpr.ctrc.exdestroyed:
+      if arg.kind == fexprSymbol and not arg.symbol.fexpr.hasFuzzy and arg.symbol.fexpr.ctrc.exdestroyed:
         fexpr.error("$# has been explicit destroyed." % $arg)
     scope.nextPass(fexpr)
   else:

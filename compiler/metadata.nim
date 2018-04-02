@@ -96,6 +96,7 @@ type
 
 defMetadata(typ, Symbol)
 defMetadata(ctrc, CTRC)
+defMetadata(fuzzy, bool)
 defMetadata(effect, Effect)
 defMetadata(evaluated, bool)
 defMetadata(constvalue, FExpr)
