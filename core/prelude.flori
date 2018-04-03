@@ -12,6 +12,7 @@ type UInt8 $[importc "uint8_t", header "stdint.h"]
 type UInt32 $[importc "uint32_t", header "stdint.h"]
 type UInt64 $[importc "uint64_t", header "stdint.h"]
 type Float $[importc "float", header nodeclc]
+type Double $[importc "double", header nodeclc]
 
 fn `||(a Bool, b Bool) Bool $[importc "||", header nodeclc, pattern infixc]
 fn `&&(a Bool, b Bool) Bool $[importc "&&", header nodeclc, pattern infixc]
@@ -49,8 +50,10 @@ fn `<=(a Float, b Float) Bool $[importc "<=", header nodeclc, pattern infixc]
 fn `>(a Float, b Float) Bool $[importc ">", header nodeclc, pattern infixc]
 fn `>=(a Float, b Float) Bool $[importc ">=", header nodeclc, pattern infixc]
 
-fn `/(a Int, b Int) Float {
-  cast[Float](a) / cast[Float](b)
+fn `/(a Double, b Double) Double $[importc "/", header nodeclc, pattern infixc]
+
+fn `/(a Int, b Int) Double {
+  cast[Double](a) / cast[Double](b)
 }
 
 fn `<<(a UInt32, b UInt32) UInt32 $[importc "<<", header nodeclc, pattern infixc]

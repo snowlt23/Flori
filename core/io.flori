@@ -10,7 +10,7 @@ fn print(x Char) {
   printf("%c", x)
 }
 fn print(x Int) {
-  printf("%d", x)
+  printf("%lld", x)
 }
 fn print(x UInt8) {
   printf("%d", x)
