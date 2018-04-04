@@ -6,8 +6,6 @@ import strutils
 import options
 import tables
 
-var gCtx*: SemanticContext
-
 proc ffiSpan*(): Span =
   Span(filename: "expanded", line: 0, linepos: 0, pos: 0)
 

@@ -834,6 +834,7 @@ proc newSemanticContext*(ccoptions = ""): SemanticContext =
   result.importpaths = @[getAppDir() / "..", ".", getHomeDir() / ".rabbit"]
   result.ccoptions = ccoptions
   result.globaltoplevels = @[]
+  result.expands = @[]
   gCtx = result
 
 proc semModule*(ctx: SemanticContext, rootPass: PassProcType, name: Name, fexprs: var seq[FExpr]) =

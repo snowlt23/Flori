@@ -33,3 +33,15 @@ proc genTmpName*(ctx: SemanticContext): Name =
 
 proc genManglingName*(name: Name, types: seq[Symbol]): Name =
   name($name & "_" & types.mapIt($it).join("_"))
+
+proc expandStart*(scope: Scope, span: Span) =
+  scope.ctx.expands.add(span)
+proc expandEnd*(scope: Scope) =
+  scope.ctx.expands.del(scope.ctx.expands.high)
+
+template expandBy*(scope: Scope, span: Span, body: untyped) =
+  try:
+    scope.expandStart(span)
+    body
+  finally:
+    scope.expandEnd()

@@ -1,6 +1,6 @@
 
-import parser, types, fexpr, scope, metadata, ctrc
-import passutils
+import fexpr_core
+import ctrc
 
 import strutils
 import options

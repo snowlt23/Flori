@@ -1,0 +1,10 @@
+
+import "core"
+
+fn ex[T](x T) {
+  to_cs(x)
+}
+
+fn main() {
+  ex(1)
+}

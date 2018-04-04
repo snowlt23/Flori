@@ -1,5 +1,5 @@
 
-import types, scope, metadata, fexpr
+import fexpr_core
 
 import tables
 import options

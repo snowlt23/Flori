@@ -148,7 +148,12 @@ type
     tmpcount*: int
     importpaths*: seq[string]
     ccoptions*: string
+    expands*: seq[Span]
 
+# globals
+    
+var gCtx*: SemanticContext
+    
 #
 # Scope
 #

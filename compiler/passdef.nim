@@ -1,6 +1,7 @@
 
-import parser, types, fexpr, scope, metadata, ctrc, effect
-import passmacro, expandpass, passutils, typepass, inline
+import fexpr_core
+import ctrc, effect
+import passmacro, expandpass, typepass, macropass, inlinepass
 
 import options
 import strutils, sequtils
@@ -122,34 +123,36 @@ proc getMacroArgs*(scope: Scope, pd: ProcDecl, args: FExpr): seq[Symbol] =
     
 proc expandMacro*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   if fexpr.isNormalFuncCall:
-    let args = fexpr[1]
-    let pd = matchMacro(rootPassProc, scope, scope, fexpr[0], args, false)
-    if pd.isSome:
-      if not pd.get.sym.fexpr.defn.generics.isSpecTypes:
-        fexpr[0] = expandMacrofn(rootPassProc, scope, pd.get.sym.fexpr, scope.getMacroArgs(pd.get, args))
-        var expanded = fexpr[0].symbol.macroproc.call(args)
-        scope.rootPass(expanded)
-        fexpr = expanded
-      else:
-        var expanded = pd.get.macroproc.call(args)
-        scope.rootPass(expanded)
-        fexpr = expanded
-      return
+    scope.expandBy(fexpr.span):
+      let args = fexpr[1]
+      let pd = matchMacro(rootPassProc, scope, scope, fexpr[0], args, false)
+      if pd.isSome:
+        if not pd.get.sym.fexpr.defn.generics.isSpecTypes:
+          fexpr[0] = expandMacrofn(rootPassProc, scope, pd.get.sym.fexpr, scope.getMacroArgs(pd.get, args))
+          var expanded = fexpr[0].symbol.macroproc.call(args)
+          scope.rootPass(expanded)
+          fexpr = expanded
+        else:
+          var expanded = pd.get.macroproc.call(args)
+          scope.rootPass(expanded)
+          fexpr = expanded
+        return
       
   if fexpr.kind == fexprSeq:
-    let args = fexpr[1..^1]
-    let pd = matchMacro(rootPassProc, scope, scope, fexpr[0], args, false)
-    if pd.isSome:
-      if not pd.get.sym.fexpr.defn.generics.isSpecTypes:
-        fexpr[0] = expandMacrofn(rootPassProc, scope, pd.get.sym.fexpr, scope.getMacroArgs(pd.get, args))
-        var expanded = fexpr[0].symbol.macroproc.call(args)
-        scope.rootPass(expanded)
-        fexpr = expanded
-      else:
-        var expanded = pd.get.macroproc.call(args)
-        scope.rootPass(expanded)
-        fexpr = expanded
-      return
+    scope.expandBy(fexpr.span):
+      let args = fexpr[1..^1]
+      let pd = matchMacro(rootPassProc, scope, scope, fexpr[0], args, false)
+      if pd.isSome:
+        if not pd.get.sym.fexpr.defn.generics.isSpecTypes:
+          fexpr[0] = expandMacrofn(rootPassProc, scope, pd.get.sym.fexpr, scope.getMacroArgs(pd.get, args))
+          var expanded = fexpr[0].symbol.macroproc.call(args)
+          scope.rootPass(expanded)
+          fexpr = expanded
+        else:
+          var expanded = pd.get.macroproc.call(args)
+          scope.rootPass(expanded)
+          fexpr = expanded
+        return
     
   scope.nextPass(fexpr)
 
@@ -278,36 +281,39 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
 
 proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   if fexpr.isNormalFuncCall:
-    let fnsym = fexpr[0]
-    let argtypes = fexpr[1].mapIt(it.typ)
-    if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.generics.len != 0:
-      let exsym = expandDefn(rootPassProc, scope, fnsym.symbol.fexpr, argtypes)
-      fexpr[0] = exsym
-      fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
+    scope.expandBy(fexpr.span):
+      let fnsym = fexpr[0]
+      let argtypes = fexpr[1].mapIt(it.typ)
+      if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.generics.len != 0:
+        let exsym = expandDefn(rootPassProc, scope, fnsym.symbol.fexpr, argtypes)
+        fexpr[0] = exsym
+        fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
       
     scope.nextPass(fexpr)
   elif fexpr.isGenericsFuncCall:
-    let fnsym = fexpr[0]
-    let genericstypes = fexpr[1].mapIt(it)
-    let argtypes = fexpr[2].mapIt(it.typ)
-    if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.generics.len != 0:
-      let defngenerics = fnsym.symbol.fexpr.defn.generics
-      for i, gtype in genericstypes:
-        defngenerics[i].assert(defngenerics[i].kind == fexprSymbol)
-        gtype.assert(gtype.kind == fexprSymbol)
-        defngenerics[i].symbol.instance = some(gtype.symbol)
-      let exsym = expandDefn(rootPassProc, scope, fnsym.symbol.fexpr, argtypes)
-      fexpr[0] = exsym
-      fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
+    scope.expandBy(fexpr.span):
+      let fnsym = fexpr[0]
+      let genericstypes = fexpr[1].mapIt(it)
+      let argtypes = fexpr[2].mapIt(it.typ)
+      if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.generics.len != 0:
+        let defngenerics = fnsym.symbol.fexpr.defn.generics
+        for i, gtype in genericstypes:
+          defngenerics[i].assert(defngenerics[i].kind == fexprSymbol)
+          gtype.assert(gtype.kind == fexprSymbol)
+          defngenerics[i].symbol.instance = some(gtype.symbol)
+        let exsym = expandDefn(rootPassProc, scope, fnsym.symbol.fexpr, argtypes)
+        fexpr[0] = exsym
+        fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
 
     scope.nextPass(fexpr)
   elif fexpr.isInfixFuncCall:
-    let fnsym = fexpr[0]
-    let argtypes = @[fexpr[1].typ, fexpr[2].typ]
-    if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.generics.len != 0:
-      let exsym = expandDefn(rootPassProc, scope, fnsym.symbol.fexpr, argtypes)
-      fexpr[0] = exsym
-      fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
+    scope.expandBy(fexpr.span):
+      let fnsym = fexpr[0]
+      let argtypes = @[fexpr[1].typ, fexpr[2].typ]
+      if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.generics.len != 0:
+        let exsym = expandDefn(rootPassProc, scope, fnsym.symbol.fexpr, argtypes)
+        fexpr[0] = exsym
+        fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
       
     scope.nextPass(fexpr)
   else:
@@ -315,13 +321,14 @@ proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
 
 proc expandInline*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   if fexpr.isFuncCall:
-    if fexpr[0].symbol.fexpr.hasInternalPragma and fexpr[0].symbol.fexpr.internalPragma.inline:
-      let inlinescope = fexpr[0].symbol.fexpr.internalScope
-      scope.importScope(name("inline_scope_" & $inlinescope.name), inlinescope)
-      for name, s in inlinescope.importscopes:
-        scope.importScope(name, s)
-      scope.expandInlineFunc(fexpr)
-      scope.rootPass(fexpr)
+    scope.expandBy(fexpr.span):
+      if fexpr[0].symbol.fexpr.hasInternalPragma and fexpr[0].symbol.fexpr.internalPragma.inline:
+        let inlinescope = fexpr[0].symbol.fexpr.internalScope
+        scope.importScope(name("inline_scope_" & $inlinescope.name), inlinescope)
+        for name, s in inlinescope.importscopes:
+          scope.importScope(name, s)
+        scope.expandInlineFunc(fexpr)
+        scope.rootPass(fexpr)
   scope.nextPass(fexpr)
 
 # proc ctrcOverloadInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =

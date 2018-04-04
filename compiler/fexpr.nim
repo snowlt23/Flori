@@ -20,7 +20,10 @@ proc `$`*(fexpr: FExpr): string
 proc hint*(span: Span, msg: string) =
   let h = " $#($#:$#): " % [span.filename, $span.line, $span.linepos] & msg
   styledEcho(fgGreen, "[Hint] ", resetStyle, h)
-proc error*(span: Span, msg: string, ctx: SemanticContext) =
+proc error*(span: Span, msg: string) =
+  for expand in gCtx.expands:
+    let e = "$#($#:$#): expand by" % [expand.filename, $expand.line, $expand.linepos]
+    styledEcho(fgGreen, "[Expand] ", resetStyle, e)
   let e = "$#($#:$#): " % [span.filename, $span.line, $span.linepos] & msg
   styledEcho(fgRed, "[Error] ", resetStyle, e)
 
@@ -35,7 +38,7 @@ template assert*(fexpr: FExpr, b: typed) =
       fexpr.error("internal error.")
 
 proc hint*(fexpr: FExpr, msg: string) = fexpr.span.hint(msg)
-proc error*(fexpr: FExpr, msg: string, ctx: SemanticContext = nil) = fexpr.span.error(msg, ctx)
+proc error*(fexpr: FExpr, msg: string) = fexpr.span.error(msg)
 
 template internalSpan*(): Span =
   const internalname = instantiationInfo().filename
