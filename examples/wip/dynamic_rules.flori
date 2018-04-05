@@ -1,0 +1,93 @@
+
+import "core"
+
+#
+# primitives
+#
+
+type Int $[importc "int64_t", copyable]
+
+fn copy(x Int) Int {
+  x
+}
+
+type String $[copyable] {
+  
+}
+
+fn copy(s String) String {
+  ...
+}
+
+#
+# Table
+#
+
+const TableSize := 1024
+
+type Table[K, T] {
+  data Array[TableSize, T]
+}
+
+fn hash(s String) Int {
+  ...
+}
+
+fn set[K, T](table ref Table[K, T], key K, value unique T) {
+  get(table.data, hash(key)) = value
+}
+fn set[K, T](table ref Table[K, T], key K, value T) {
+  effect {
+    sharable -> table
+  }
+  get(table.data, hash(key)) = value
+}
+
+fn del[K, T](table ref Table[K, T], key K) {
+  when (is_unique(table)) {
+    destruct(get(table.data, hash(key)))
+  }
+  get(table.data, hash(key)) = empty[T]()
+}
+
+#
+# main
+#
+
+type Enemy {
+  name String
+  hp Int
+  mp Int
+}
+
+destructor(e Enemy) {
+  println("Enemy destroyed!")
+}
+
+type Ctx {
+  enemies Table[Enemy]
+}
+
+fn spawn_enemy_unique(ctx ref Ctx, name String, hp Int, mp Int) Enemy {
+  e := init(Enemy){name; hp; mp} # e moved to ctx.vec
+  set(ctx.vec, name, e) # set(ctx.vec, name, move(e))
+}
+fn spawn_enemy(ctx ref Ctx, name String, hp Int, mp Int) Enemy {
+  e := init(Enemy){name; hp; mp}
+  set(ctx.vec, name, e)
+  return e
+}
+
+fn kill_enemy(ctx ref Ctx, name String) {
+  del(ctx.vec, name)
+}
+
+fn main() {
+  ctx := init(Ctx){vec[Enemy]()}
+  zombiea := spawn_enemy(ctx, "ZombieA", 100, 10) # returned A
+  zombieb : =spawn_enemy(ctx, "ZombieB", 100, 10) # returned B
+  # destruct(zombiea) # illegal, because zimbie has been move to ctx.vec
+  kill_enemy(ctx, "ZombieA") # destruct A
+  kill_enemy(ctx, "ZombieB") # destruct B
+  # zonbiea.hp = 1 # illegal, because zombiea has been destruct by ctx.vec
+}
