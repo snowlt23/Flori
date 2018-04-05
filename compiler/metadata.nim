@@ -1,10 +1,15 @@
 
+import types, fexpr
+
 import macros
 import types
 import tables
 import options
+import strutils
 
-macro defMetadata*(key: untyped, T: typed): untyped =
+var parsedstmt {.compileTime.} = newStmtList()
+
+macro defMetadata*(key: untyped, T: typed, metacopy = true): untyped =
   let tsym = ident("Metadata" & $T)
   let keyhas = ident("has" & $key)
   let keyget = key
@@ -20,7 +25,86 @@ macro defMetadata*(key: untyped, T: typed): untyped =
       `tsym`(fexpr.metadata[`keystr`]).data
     proc `keyset`*(fexpr: FExpr, value: `T`) =
       fexpr.metadata[`keystr`] = `tsym`(data: value)
+  if metacopy.boolVal:
+    parsedstmt.add(quote do:
+      if fexpr.`keyhas`:
+        copied.`key` = fexpr.`key`
+    )
   # echo result.repr
+
+macro defBoolMetadata*(key: untyped): untyped =
+  let metaid = ident("internal" & $key)
+  let hasid = ident("hasinternal" & $key)
+  let setkey = ident($key & "=")
+  result = quote do:
+    defMetadata(`metaid`, bool)
+    proc `key`*(fexpr: FExpr): bool = fexpr.`hasid` and fexpr.`metaid`
+    proc `setkey`*(fexpr: FExpr, b: bool) = fexpr.`metaid` = b
+
+macro defParsedType*(name: untyped, body: untyped): untyped =
+  var objbody = nnkRecList.newTree()
+  var fieldprocs = newStmtList()
+  let metaname = ident(toLowerAscii($name))
+  var metacopy = newStmtList()
+  objbody.add(nnkIdentDefs.newTree(nnkPostfix.newTree(ident"*", ident"fexpr"), ident("FExpr"), newEmptyNode()))
+  for b in body:
+    if b.kind == nnkIdent:
+      let fieldname = b
+      let fieldposname = ident($b & "pos=")
+      let setfieldname = ident($b & "=")
+      let hasname = ident("has" & $b)
+      objbody.add(nnkIdentDefs.newTree(fieldname, ident"int", newEmptyNode()))
+      fieldprocs.add(quote do:
+        proc `fieldname`*(this: `name`): var FExpr =
+          this.fexpr[this.`fieldname`]
+        proc `setfieldname`*(this: `name`, value: FExpr) =
+          this.fexpr[this.`fieldname`] = value
+        proc `fieldposname`*(this: var `name`, value: int) =
+          this.`fieldname` = value
+        proc `hasname`*(this: `name`): bool = this.`fieldname` != -1
+      )
+      metacopy.add(quote do:
+        copied.`metaname`.`fieldname` = fexpr.`metaname`.`fieldname`
+      )
+    elif b.kind == nnkAsgn:
+      let f = b[0]
+      let fieldname = nnkPostfix.newTree(ident"*", b[0])
+      let fieldtype = b[1]
+      objbody.add(nnkIdentDefs.newTree(fieldname, fieldtype, newEmptyNode()))
+      metacopy.add(quote do:
+        copied.`metaname`.`f` = fexpr.`metaname`.`f`
+      )
+    else:
+      error("unexpected kind: $#" % $b.kind, b)
+    
+  let obj = nnkObjectTy.newTree(newEmptyNode(), newEmptyNode(), objbody)
+  result = quote do:
+    type `name`* = `obj`
+    `fieldprocs`
+    defMetadata(`metaname`, `name`, false)
+
+  let hasname = ident("has" & $name)
+  parsedstmt.add(quote do:
+    if fexpr.`hasname`:
+      copied.`metaname` = `name`()
+      `metacopy`
+      copied.`metaname`.fexpr = copied
+  )
+
+defParsedType Defn:
+  name
+  generics
+  args
+  isretref = bool
+  ret
+  retgenerics
+  pragma
+  body
+defParsedType Deftype:
+  name
+  generics
+  pragma
+  body
       
 type
   InternalMarkKind* = enum
@@ -52,24 +136,6 @@ type
     inline*: bool
 
 type
-  DefnExpr* = object
-    name*: FExpr
-    generics*: FExpr
-    args*: FExpr
-    ret*: FExpr
-    retgenerics*: FExpr
-    isretref*: bool
-    pragma*: FExpr
-    body*: FExpr
-  DeftypeExpr* = object
-    name*: FExpr
-    generics*: FExpr
-    pragma*: FExpr
-    body*: FExpr
-  ProtocolExpr* = object
-    name*: FExpr
-    generics*: Option[FExpr]
-    body*: FExpr
   InitExpr* = object
     typ*: FExpr
     body*: FExpr
@@ -96,23 +162,21 @@ type
 
 defMetadata(typ, Symbol)
 defMetadata(ctrc, CTRC)
-defMetadata(fuzzy, bool)
 defMetadata(effect, Effect)
-defMetadata(evaluated, bool)
 defMetadata(constvalue, FExpr)
+
+defBoolMetadata(isEvaluated)
+defBoolMetadata(isToplevel)
+defBoolMetadata(isGenerated)
 
 defMetadata(internalExpand, FExpr)
 
 defMetadata(internalScope, Scope)
 defMetadata(internalCtx, SemanticContext)
-defMetadata(internalToplevel, bool)
-defMetadata(internalGenerated, bool)
 defMetadata(internalMark, InternalMarkKind)
 defMetadata(internalPragma, InternalPragma)
 
 defMetadata(initexpr, InitExpr)
-defMetadata(defn, DefnExpr)
-defMetadata(deftype, DeftypeExpr)
 defMetadata(cstruct, bool)
 
 defMetadata(internalIfExpr, IfExpr)
@@ -123,10 +187,43 @@ defMetadata(internalFieldAccessExpr, FieldAccessExpr)
 defMetadata(internalImportExpr, ImportExpr)
 defMetadata(parent, FExpr)
 
-proc isToplevel*(fexpr: FExpr): bool = fexpr.hasInternalToplevel and fexpr.internalToplevel
-proc `isToplevel=`*(fexpr: FExpr, b: bool) = fexpr.internalToplevel = b
-proc isGenerated*(fexpr: FExpr): bool = fexpr.hasInternalGenerated and fexpr.internalGenerated
-proc `isGenerated=`*(fexpr: FExpr, b: bool) = fexpr.internalGenerated = b
+proc copy*(fexpr: FExpr): FExpr
 
-proc isGenerics*(defn: DefnExpr): bool = not defn.generics.isSpecTypes
-proc isGenerics*(deftype: DeftypeExpr): bool = not deftype.generics.isSpecTypes
+proc copyKind*(fexpr: FExpr): FExpr =
+  new result
+  result.kind = fexpr.kind
+  result.span = fexpr.span
+  result.metadata = initTable[string, Metadata]()
+  
+  case fexpr.kind
+  of fexprIdent, fexprPrefix,  fexprInfix:
+    result.idname = fexpr.idname
+    result.priority = fexpr.priority
+    result.isleft = fexpr.isleft
+  of fexprQuote:
+    result.quoted = fexpr.quoted.copy
+  of fexprSymbol:
+    result.symbol = fexpr.symbol
+  of fexprIntLit:
+    result.intval = fexpr.intval
+  of fexprFloatLit:
+    result.floatval = fexpr.floatval
+  of fexprStrLit:
+    result.strval = fexpr.strval
+  of fexprContainer:
+    result = fcontainer(fexpr.span, fexpr.kind)
+    result.metadata = initTable[string, Metadata]()
+    for son in fexpr:
+      result.addSon(son.copy)
+      
+macro expandFExprCopy*(): untyped =
+  let id = ident"copied"
+  let fexpr = ident"fexpr"
+  # echo parsedstmt.repr
+  result = quote do:
+    proc copy*(`fexpr`: FExpr): FExpr =
+      let `id` = `fexpr`.copyKind
+      `parsedstmt`
+      return `id`
+
+expandFExprCopy()

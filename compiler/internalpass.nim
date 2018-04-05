@@ -22,66 +22,134 @@ proc getFieldType*(fexpr: FExpr, fieldname: string): Option[Symbol] =
       return some(field[1].symbol)
   return none(Symbol)
 
-proc parseDefn*(fexpr: FExpr): DefnExpr =
+proc parseDefn*(fexpr: var FExpr): Defn =
+  let newfexpr = fseq(fexpr.span)
+  newfexpr.metadata = fexpr.metadata
+  newfexpr.addSon(fexpr[0])
   var pos = 1
 
-  let ftyp = fexpr.parseTypeExpr(pos)
-  result.name = ftyp.typ
-  result.generics = ftyp.generics
+  # name
+  if pos >= fexpr.len or fexpr[pos].kind notin {fexprIdent, fexprSymbol, fexprQuote}:
+    fexpr.error("fn syntax expect function name.")
+  result.namepos = newfexpr.len
+  newfexpr.addSon(fexpr[pos])
+  pos.inc
 
-  if fexpr[pos].kind == fexprList:
-    result.args = fexpr[pos]
+  # generics
+  if fexpr[pos].kind == fexprArray:
+    result.genericspos = newfexpr.len
+    newfexpr.addSon(fexpr[pos])
     pos.inc
   else:
-    fexpr[pos].error("function arguments should be FList.")
-  
-  if fexpr.isParametricTypeExpr(pos) or fexpr[pos].kind == fexprIdent:
-    let rtyp = fexpr.parseTypeExpr(pos)
-    result.ret = rtyp.typ
-    result.retgenerics = rtyp.generics
-    result.isretref = rtyp.isref
-  else:
-    result.ret = voidtypeExpr(fexpr.span)
-    result.retgenerics = farray(fexpr.span)
+    result.genericspos = newfexpr.len
+    newfexpr.addSon(farray(fexpr.span))
 
-  if fexpr.len > pos and fexpr[pos].isPragmaPrefix:
-    pos.inc
-    if fexpr[pos].kind != fexprArray:
-      fexpr[pos].error("pragma should be FArray.")
-    result.pragma = fexpr[pos]
+  # args
+  if pos >= fexpr.len or fexpr[pos].kind != fexprList:
+    fexpr.error("fn syntax expect function arguments.")
+  result.argspos = newfexpr.len
+  newfexpr.addSon(fexpr[pos])
+  pos.inc
+
+  # ret ref
+  if pos < fexpr.len and $fexpr[pos] == "ref":
+    newfexpr.addSon(fexpr[pos])
+    result.isretref = true
     pos.inc
   else:
-    result.pragma = farray(fexpr.span)
+    result.isretref = false
 
-  if fexpr.len > pos:
-    if fexpr[pos].kind != fexprBlock:
-      fexpr[pos].error("function body should be FBlock.")
-    result.body = fexpr[pos]
+  # ret
+  if pos < fexpr.len and fexpr[pos].kind in {fexprIdent, fexprSymbol}:
+    result.retpos = newfexpr.len
+    newfexpr.addSon(fexpr[pos])
+    pos.inc
   else:
-    result.body = fblock(fexpr.span)
+    result.retpos = newfexpr.len
+    newfexpr.addSon(fident(fexpr.span, name("Void")))
 
-proc parseDeftype*(fexpr: FExpr): DeftypeExpr =
+  # ret generics
+  if pos < fexpr.len and fexpr[pos].kind == fexprArray:
+    result.retgenericspos = newfexpr.len
+    newfexpr.addSon(fexpr[pos])
+    pos.inc
+  else:
+    result.retgenericspos = newfexpr.len
+    newfexpr.addSon(farray(fexpr.span))
+
+  # pragma
+  if pos < fexpr.len and $fexpr[pos] == "$":
+    newfexpr.addSon(fexpr[pos])
+    pos.inc
+    if pos >= fexpr.len or fexpr[pos].kind != fexprArray:
+      fexpr.error("fn syntax expect function pragma after `$.")
+    result.pragmapos = newfexpr.len
+    newfexpr.addSon(fexpr[pos])
+    pos.inc
+  else:
+    newfexpr.addSon(fprefix(fexpr.span, name("$")))
+    result.pragmapos = newfexpr.len
+    newfexpr.addSon(farray(fexpr.span))
+
+  # body
+  if pos < fexpr.len and fexpr[pos].kind == fexprBlock:
+    result.bodypos = newfexpr.len
+    newfexpr.addSon(fexpr[pos])
+    pos.inc
+  else:
+    result.bodypos = newfexpr.len
+    newfexpr.addSon(fblock(fexpr.span))
+
+  result.fexpr = newfexpr
+  fexpr = newfexpr
+
+proc parseDeftype*(fexpr: var FExpr): Deftype =
+  let newfexpr = fseq(fexpr.span)
+  newfexpr.metadata = fexpr.metadata
+  newfexpr.addSon(fident(fexpr.span, name("type")))
   var pos = 1
 
-  let ttyp = fexpr.parseTypeExpr(pos)
-  result.name = ttyp.typ
-  result.generics = ttyp.generics
+  # name
+  if pos >= fexpr.len or fexpr[pos].kind notin {fexprIdent, fexprSymbol}:
+    fexpr.error("type syntax expect name.")
+  result.namepos = newfexpr.len
+  newfexpr.addSon(fexpr[pos])
+  pos.inc
 
-  if fexpr[pos].isPragmaPrefix:
-    pos.inc
-    if fexpr[pos].kind != fexprArray:
-      fexpr[pos].error("pragma should be FArray.")
-    result.pragma = fexpr[pos]
+  # generics
+  if pos < fexpr.len and fexpr[pos].kind == fexprArray:
+    result.genericspos = newfexpr.len
+    newfexpr.addSon(fexpr[pos])
     pos.inc
   else:
-    result.pragma = farray(fexpr.span)
-  
-  if fexpr.len > pos:
-    if fexpr[pos].kind != fexprBlock:
-      fexpr[pos].error("function body should be FBlock.")
-    result.body = fexpr[pos]
+    result.genericspos = newfexpr.len
+    newfexpr.addSon(farray(fexpr.span))
+
+  # pragma
+  if pos < fexpr.len and $fexpr[pos] == "$":
+    newfexpr.addSon(fexpr[pos])
+    pos.inc
+    if pos >= fexpr.len or fexpr[pos].kind != fexprArray:
+      fexpr.error("type syntax expect pragma after `$.")
+    result.pragmapos = newfexpr.len
+    newfexpr.addSon(fexpr[pos])
+    pos.inc
   else:
-    result.body = fblock(fexpr.span)
+    newfexpr.addSon(fprefix(fexpr.span, name("$")))
+    result.pragmapos = newfexpr.len
+    newfexpr.addSon(farray(fexpr.span))
+
+  # body
+  if pos < fexpr.len and fexpr[pos].kind == fexprBlock:
+    result.bodypos = newfexpr.len
+    newfexpr.addSon(fexpr[pos])
+    pos.inc
+  else:
+    result.bodypos = newfexpr.len
+    newfexpr.addSon(fblock(fexpr.span))
+
+  result.fexpr = newfexpr
+  fexpr = newfexpr
 
 proc parseIf*(fexpr: FExpr): IfExpr =
   if fexpr.len < 3:
@@ -251,7 +319,7 @@ proc isIncludeRef*(argtypes: seq[Symbol]): bool =
       return true
   return false
         
-proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: var DefnExpr, defsym: SymbolKind): (Scope, seq[Symbol], seq[Symbol], Symbol, Symbol) =
+proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: Defn, defsym: SymbolKind): (Scope, seq[Symbol], seq[Symbol], Symbol, Symbol) =
   let fnscope = scope.extendScope()
   let generics = if parsed.isGenerics:
                    fnscope.declGenerics(parsed.generics)
@@ -268,10 +336,11 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: var De
 
   fexpr.internalScope = fnscope
   fexpr.defn = parsed
+  scope.resolveByVoid(fexpr)
 
   semPragma(rootPass, scope, fexpr, parsed.pragma)
-  if argtypes.isIncludeRef and fexpr.internalPragma.importc.isNone and generics.len == 0:
-    fexpr.internalPragma.inline = true
+  # if argtypes.isIncludeRef and fexpr.internalPragma.importc.isNone and generics.len == 0:
+  #   fexpr.internalPragma.inline = true
   if parsed.generics.isSpecTypes and not fexpr.internalPragma.inline:
     fnscope.rootPass(parsed.body)
     if parsed.body.len != 0:
@@ -285,15 +354,11 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: var De
 
   # symbol resolve
   let fsym = fsymbol(fexpr[0].span, sym)
-  fexpr[1] = fsym
   parsed.name = fsym
-  
-  fexpr.defn = parsed
   
   return (fnscope, generics, argtypes, rettype, sym)
 
 proc semDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
-  fexpr.internalMark = internalDefn
   var parsed = parseDefn(fexpr)
   let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed, symbolFunc)
 
@@ -301,11 +366,11 @@ proc semDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let status = scope.addFunc(pd)
   if not status:
     fexpr.error("redefinition $# function." % $parsed.name)
-    
-  # if not fexpr.isToplevel:
-  #   scope.top.toplevels.add(fexpr)
-  #   scope.ctx.globaltoplevels.add(fexpr)
-  #   fexpr.isGenerated = true
+  fexpr.internalMark = internalDefn
+
+  if not fexpr.isToplevel:
+    scope.ctx.globaltoplevels.add(fexpr)
+    fexpr.isGenerated = true
 
 proc semSyntax*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.kind == fexprIdent:
@@ -314,7 +379,6 @@ proc semSyntax*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     fexpr.parent.internalPragma.isSyntax = true
     return
   
-  fexpr.internalMark = internalMacro
   var parsed = parseDefn(fexpr)
   let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed, symbolSyntax)
 
@@ -323,23 +387,18 @@ proc semSyntax*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let status = scope.addFunc(pd)
   if not status:
     fexpr.error("redefinition $# macro." % $parsed.name)
+  fexpr.internalMark = internalMacro
 
-  scope.top.toplevels.add(fexpr)
   scope.ctx.globaltoplevels.add(fexpr)
-    
   scope.ctx.macroprocs.add(mp)
   scope.ctx.reloadMacroLibrary(scope.top)
-
-  scope.top.toplevels.del(high(scope.top.toplevels))
   scope.ctx.globaltoplevels.del(high(scope.ctx.globaltoplevels))
   
   if not fexpr.isToplevel:
-    scope.top.toplevels.add(fexpr)
     scope.ctx.globaltoplevels.add(fexpr)
     fexpr.isGenerated = true
 
 proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
-  fexpr.internalMark = internalMacro
   var parsed = parseDefn(fexpr)
   let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed, symbolMacro)
 
@@ -349,19 +408,15 @@ proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let status = scope.addFunc(pd)
   if not status:
     fexpr.error("redefinition $# macro." % $parsed.name)
-
-  scope.top.toplevels.add(fexpr)
+  fexpr.internalMark = internalMacro
+  
   scope.ctx.globaltoplevels.add(fexpr)
-
   if parsed.generics.isSpecTypes:
     scope.ctx.macroprocs.add(mp)
     scope.ctx.reloadMacroLibrary(scope.top)
-    
-  scope.top.toplevels.del(high(scope.top.toplevels))
   scope.ctx.globaltoplevels.del(high(scope.ctx.globaltoplevels))
   
   if not fexpr.isToplevel:
-    scope.top.toplevels.add(fexpr)
     scope.ctx.globaltoplevels.add(fexpr)
     fexpr.isGenerated = true
     
@@ -520,21 +575,22 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   elif parsed.value.kind == fexprBlock and parsed.value.len != 0 and parsed.value[^1].kind == fexprSymbol: # alias
     varsym.fexpr.ctrc = parsed.value[^1].ctrc
   elif parsed.value.hasCTRC:
-    varsym.fexpr.ctrc = initCTRCWithFields(parsed.value.typ.fexpr.deftype.body)
-    varsym.fexpr.ctrc.cnt = 1
-    body.addSon(fexpr)
-    for key, value in parsed.value.ctrc.fieldbody:
-      if value.ctrc.cnt != 0:
-        if scope.getFunc(procname(name("destruct"), @[value.typ])).isNone:
-          continue
+    varsym.fexpr.ctrc = initCTRC(cnt = 1)
+    # varsym.fexpr.ctrc = initCTRCWithFields(parsed.value.typ.fexpr.deftype.body)
+    # varsym.fexpr.ctrc.cnt = 1
+    # body.addSon(fexpr)
+    # for key, value in parsed.value.ctrc.fieldbody:
+    #   if value.ctrc.cnt != 0:
+    #     if scope.getFunc(procname(name("destruct"), @[value.typ])).isNone:
+    #       continue
           
-        varsym.fexpr.ctrc[key] = value
-        var field = fexpr.span.quoteFExpr("`embed . `embed", [fexpr[1], fident(fexpr.span, key)])
-        scope.rootPass(field)
-        scope.tracking(field)
-        # var track = fexpr.span.quoteFExpr("track(`embed -> `embed)", [field, value])
-        # scope.rootPass(track)
-        # body.addSon(track)
+    #     varsym.fexpr.ctrc[key] = value
+    #     var field = fexpr.span.quoteFExpr("`embed . `embed", [fexpr[1], fident(fexpr.span, key)])
+    #     scope.rootPass(field)
+    #     scope.tracking(field)
+    #     # var track = fexpr.span.quoteFExpr("track(`embed -> `embed)", [field, value])
+    #     # scope.rootPass(track)
+    #     # body.addSon(track)
     scope.tracking(varsym.fexpr)
   else:
     varsym.fexpr.ctrc = initCTRC(cnt = 1)
@@ -622,7 +678,7 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
         else:
           parsed.dst.ctrc = parsed.value.ctrc
           if parsed.dst.symbol.scope.level != scope.level:
-            parsed.dst.symbol.fexpr.fuzzy = true
+            parsed.dst.symbol.fexpr.ctrc.fuzzy = true
   # if parsed.value.hasCTRC:
   #   if parsed.dst.hasCTRC:
   #     if parsed.dst.isInfixFuncCall:
@@ -670,13 +726,14 @@ proc semInit*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.typ = typesym
   scope.rootPass(fexpr[2])
 
-  fexpr.ctrc = initCTRCWithFields(fexpr.typ.fexpr.deftype.body)
-  for i, b in fexpr[2]:
-    if b.hasCTRC:
-      # if not b.ctrc.inc:
-      #   b.error("$# has been destroyed!" % $b)
-      fexpr.ctrc[name(fexpr.typ.fexpr.deftype.body[i][0])] = b
-      # fexpr.ctrc[name(fexpr.typ.fexpr.deftype.body[i][0])].ctrc = b.ctrc
+  fexpr.ctrc = initCTRC()
+  # fexpr.ctrc = initCTRCWithFields(fexpr.typ.fexpr.deftype.body)
+  # for i, b in fexpr[2]:
+  #   if b.hasCTRC:
+  #     # if not b.ctrc.inc:
+  #     #   b.error("$# has been destroyed!" % $b)
+  #     fexpr.ctrc[name(fexpr.typ.fexpr.deftype.body[i][0])] = b
+  #     # fexpr.ctrc[name(fexpr.typ.fexpr.deftype.body[i][0])].ctrc = b.ctrc
 
   let argtypes = fexpr[2].mapIt(it.typ)
 
@@ -845,7 +902,6 @@ proc semModule*(ctx: SemanticContext, rootPass: PassProcType, name: Name, fexprs
   for f in fexprs.mitems:
     f.isToplevel = true
     scope.rootPass(f)
-    scope.toplevels.add(f)
     scope.ctx.globaltoplevels.add(f)
   ctx.modules[name] = scope
 

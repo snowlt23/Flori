@@ -10,7 +10,7 @@ import tables
 definePass SemPass
 
 proc internalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
-  if fexpr.hasEvaluated:
+  if fexpr.isEvaluated:
     return
   fexpr.internalScope = scope
   
@@ -25,7 +25,7 @@ proc internalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
     if internalopt.isSome and internalopt.get.isInternal:
       if scope.getDecl(name("Void")).isSome:
         scope.resolveByVoid(fexpr)
-      fexpr.evaluated = true
+      fexpr.isEvaluated = true
       internalopt.get.internalproc(rootPassProc, scope, fexpr)
     elif internalopt.isSome and internalopt.get.isSyntax:
       var expanded = internalopt.get.macroproc.call(fexpr)
@@ -221,6 +221,8 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
     scope.nextPass(fexpr)
   of fexprBlock:
     if fexpr.len != 0:
+      if not fexpr[^1].hasTyp:
+        echo fexpr[^1]
       fexpr[^1].assert(fexpr[^1].hasTyp)
       fexpr.typ = fexpr[^1].typ
     else:
@@ -233,7 +235,7 @@ proc ctrcInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   if fexpr.kind == fexprSymbol and fexpr.symbol.fexpr.hasCTRC:
     fexpr.ctrc = fexpr.symbol.fexpr.ctrc
   scope.nextPass(fexpr)
-    
+
 proc checkArgsHastype*(args: FExpr) =
   for arg in args:
     if not arg.hasTyp:
@@ -293,15 +295,15 @@ proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   elif fexpr.isGenericsFuncCall:
     scope.expandBy(fexpr.span):
       let fnsym = fexpr[0]
-      let genericstypes = fexpr[1].mapIt(it)
+      let genericstypes = fexpr[1]
       let argtypes = fexpr[2].mapIt(it.typ)
       if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.generics.len != 0:
-        let defngenerics = fnsym.symbol.fexpr.defn.generics
+        # let defngenerics = fnsym.symbol.fexpr.defn.generics
+        let newfexpr = fnsym.symbol.fexpr.copy
         for i, gtype in genericstypes:
-          defngenerics[i].assert(defngenerics[i].kind == fexprSymbol)
           gtype.assert(gtype.kind == fexprSymbol)
-          defngenerics[i].symbol.instance = some(gtype.symbol)
-        let exsym = expandDefn(rootPassProc, scope, fnsym.symbol.fexpr, argtypes)
+          newfexpr.defn.generics[i].symbol.instance = some(gtype.symbol)
+        let exsym = expandDefn(rootPassProc, scope, newfexpr, argtypes)
         fexpr[0] = exsym
         fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
 
@@ -319,17 +321,17 @@ proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   else:
     scope.nextPass(fexpr)
 
-proc expandInline*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
-  if fexpr.isFuncCall:
-    scope.expandBy(fexpr.span):
-      if fexpr[0].symbol.fexpr.hasInternalPragma and fexpr[0].symbol.fexpr.internalPragma.inline:
-        let inlinescope = fexpr[0].symbol.fexpr.internalScope
-        scope.importScope(name("inline_scope_" & $inlinescope.name), inlinescope)
-        for name, s in inlinescope.importscopes:
-          scope.importScope(name, s)
-        scope.expandInlineFunc(fexpr)
-        scope.rootPass(fexpr)
-  scope.nextPass(fexpr)
+# proc expandInline*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+#   if fexpr.isFuncCall:
+#     scope.expandBy(fexpr.span):
+#       if fexpr[0].symbol.fexpr.hasInternalPragma and fexpr[0].symbol.fexpr.internalPragma.inline:
+#         let inlinescope = fexpr[0].symbol.fexpr.internalScope
+#         scope.importScope(name("inline_scope_" & $inlinescope.name), inlinescope)
+#         for name, s in inlinescope.importscopes:
+#           scope.importScope(name, s)
+#         scope.expandInlineFunc(fexpr)
+#         scope.rootPass(fexpr)
+#   scope.nextPass(fexpr)
 
 # proc ctrcOverloadInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
 #   if fexpr.isFuncCall:
@@ -341,22 +343,22 @@ proc expandInline*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
 #         fexpr.ctrc = fexpr[0].symbol.fexpr.effect.retctrc.get
 #   scope.nextPass(fexpr)
 
-proc canApplyEffect*(fexpr: FExpr): bool =
-  fexpr[0].kind == fexprSymbol and fexpr[0].symbol.fexpr.hasEffect
+# proc canApplyEffect*(fexpr: FExpr): bool =
+#   fexpr[0].kind == fexprSymbol and fexpr[0].symbol.fexpr.hasEffect
 
-proc effectPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
-  if fexpr.isNormalFuncCall or fexpr.isGenericsFuncCall:
-    # if fexpr.canApplyEffect and not fexpr.isToplevel:
-    #   expandEffectedCall(rootPassProc, scope, fexpr)
-    scope.nextPass(fexpr)
-  else:
-    scope.nextPass(fexpr)
+# proc effectPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+#   if fexpr.isNormalFuncCall or fexpr.isGenericsFuncCall:
+#     # if fexpr.canApplyEffect and not fexpr.isToplevel:
+#     #   expandEffectedCall(rootPassProc, scope, fexpr)
+#     scope.nextPass(fexpr)
+#   else:
+#     scope.nextPass(fexpr)
     
-proc ctrcBlockInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
-  if fexpr.kind == fexprBlock and fexpr.len != 0:
-    if fexpr[^1].hasCTRC:
-      fexpr.ctrc = fexpr[^1].ctrc
-  scope.nextPass(fexpr)
+# proc ctrcBlockInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+#   if fexpr.kind == fexprBlock and fexpr.len != 0:
+#     if fexpr[^1].hasCTRC:
+#       fexpr.ctrc = fexpr[^1].ctrc
+#   scope.nextPass(fexpr)
 
 proc destroyCheckPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   if fexpr.isFuncCall:
@@ -367,7 +369,7 @@ proc destroyCheckPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
                else:
                  fseq(fexpr.span, @[fexpr[1], fexpr[2]])
     for arg in args:
-      if arg.kind == fexprSymbol and not arg.symbol.fexpr.hasFuzzy and arg.symbol.fexpr.ctrc.exdestroyed:
+      if arg.kind == fexprSymbol and not arg.symbol.fexpr.ctrc.fuzzy and arg.symbol.fexpr.ctrc.exdestroyed:
         fexpr.error("$# has been explicit destroyed." % $arg)
     scope.nextPass(fexpr)
   else:
@@ -383,6 +385,6 @@ proc explicitDestructPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
     scope.nextPass(fexpr)  
 
 proc finalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
-  fexpr.evaluated = true
+  fexpr.isEvaluated = true
     
 instPass SemPass, processSemPass

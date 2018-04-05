@@ -19,7 +19,7 @@ destructor(mt MyType) {
   println("MyType destroyed!")
 }
 
-fn new_mt() MyType $[inline] {
+fn new_mt() MyType {
   mfx := init(MyFieldType){1; 2}
   mfy := init(MyFieldType){3; 4}
   mt := init(MyType){mfx; mfy}

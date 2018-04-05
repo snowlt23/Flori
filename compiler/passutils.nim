@@ -5,6 +5,9 @@ import options
 import strutils, sequtils
 import tables
 
+proc isGenerics*(defn: Defn): bool = not defn.generics.isSpecTypes
+proc isGenerics*(deftype: Deftype): bool = not deftype.generics.isSpecTypes
+
 proc isEqualTypes*(types: seq[Symbol]): bool =
   var first = types[0]
   for t in types[1..^1]:
