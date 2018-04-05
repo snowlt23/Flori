@@ -13,6 +13,10 @@ type Table[K, V] {
 type Table[K, V] {
   data Array[TableSize, V]
 }
+# if borrow
+type Table[K, V] {
+  data Array[TableSize, V]
+}
 # if sharable
 type Table[K, V] {
   data Array[TableSize, Rc[V]]
@@ -22,6 +26,9 @@ type Table[K, V] {
 **Function can apply effect to variable type**
 ```
 fn set[K, V](table Table[K, V], key K, value unique V) {
+  get(table.data, hash(key)) = value
+}
+fn set[K, V](table Table[K, V], key K, value borrow V) {
   get(table.data, hash(key)) = value
 }
 # if not unique value, apply sharable mode effect to table type.
@@ -61,9 +68,11 @@ fn kill_enemy(ctx ref Ctx, name String) {
 fn spawn_enemy() {
   tbl := table[String, Enemy]()
   e := enemy(100, 10)
+  # e.typ is unique Table[String, Enemy]
   set(tbl, "ZombieA", e) # unique value
   block {
     g := graph[Enemy](e) # sharable value, but `g scope level is lower than `tbl, so `tbl has keep uniqueness.
+    # g.typ is borrow Graph[Enemy]
   }
 }
 ```
