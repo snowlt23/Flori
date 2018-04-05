@@ -270,7 +270,7 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: var De
   fexpr.defn = parsed
 
   semPragma(rootPass, scope, fexpr, parsed.pragma)
-  if argtypes.isIncludeRef and fexpr.internalPragma.importc.isNone:
+  if argtypes.isIncludeRef and fexpr.internalPragma.importc.isNone and generics.len == 0:
     fexpr.internalPragma.inline = true
   if parsed.generics.isSpecTypes and not fexpr.internalPragma.inline:
     fnscope.rootPass(parsed.body)
