@@ -1,0 +1,14 @@
+
+import "core"
+
+type Clock $[importc "clock_t", header "time.h"]
+fn get_clock() Clock $[importc "clock", header "time.h"]
+fn `+(a Clock, b Clock) Clock $[importc "+", header nodeclc, patternc infixc]
+fn `-(a Clock, b Clock) Clock $[importc "-", header nodeclc, patternc infixc]
+fn `/(a Clock, b Int) Float {
+  cast[Float](a) / cast[Float](b)
+}
+
+fn print(x Clock) {
+  printf("%lld", x)
+}

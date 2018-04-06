@@ -28,9 +28,10 @@ proc internalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
       fexpr.isEvaluated = true
       internalopt.get.internalproc(rootPassProc, scope, fexpr)
     elif internalopt.isSome and internalopt.get.isSyntax:
-      var expanded = internalopt.get.macroproc.call(fexpr)
-      scope.rootPass(expanded)
-      fexpr = expanded
+      scope.expandBy(fexpr.span):
+        var expanded = internalopt.get.macroproc.call(fexpr)
+        scope.rootPass(expanded)
+        fexpr = expanded
     else:
       scope.nextPass(fexpr)
   else:
@@ -321,17 +322,17 @@ proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   else:
     scope.nextPass(fexpr)
 
-# proc expandInline*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
-#   if fexpr.isFuncCall:
-#     scope.expandBy(fexpr.span):
-#       if fexpr[0].symbol.fexpr.hasInternalPragma and fexpr[0].symbol.fexpr.internalPragma.inline:
-#         let inlinescope = fexpr[0].symbol.fexpr.internalScope
-#         scope.importScope(name("inline_scope_" & $inlinescope.name), inlinescope)
-#         for name, s in inlinescope.importscopes:
-#           scope.importScope(name, s)
-#         scope.expandInlineFunc(fexpr)
-#         scope.rootPass(fexpr)
-#   scope.nextPass(fexpr)
+proc expandInline*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+  if fexpr.isFuncCall:
+    scope.expandBy(fexpr.span):
+      if fexpr[0].symbol.fexpr.hasInternalPragma and fexpr[0].symbol.fexpr.internalPragma.inline:
+        let inlinescope = fexpr[0].symbol.fexpr.internalScope
+        scope.importScope(name("inline_scope_" & $inlinescope.name), inlinescope)
+        for name, s in inlinescope.importscopes:
+          scope.importScope(name, s)
+        scope.expandInlineFunc(fexpr)
+        scope.rootPass(fexpr)
+  scope.nextPass(fexpr)
 
 # proc ctrcOverloadInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
 #   if fexpr.isFuncCall:

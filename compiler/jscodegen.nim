@@ -6,31 +6,131 @@ import options
 import strutils, sequtils
 import os
 import algorithm
+import base64
 
 type
   SrcExpr* = object
     prev*: string
     exp*: string
+    line*: int
+    linepos*: int
+  FExprmap* = object
+    fexpr*: FExpr
+    sourceid*: int
+    jsline*: int
+    jslinepos*: int
+  Sourcemap* = object
+    sources*: seq[tuple[name: string, src: string]]
+    fexprs*: seq[FExprmap]
   JSCodegenContext* = ref object
     tmpcount*: int
+    sourcemap*: Sourcemap
     
 proc codegenFExpr*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr)
 proc codegenCallArg*(ctx: JSCodegenContext, src: var SrcExpr, arg: FExpr, fnargtype: Symbol)
 
+#
+# Base64 VLQ
+#
+
+const basechars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+
+proc itoChar*(x: int): char =
+  for i, c in basechars:
+    if i == x:
+      return c
+  assert(false)
+
+proc encodeInteger*(n: int): string =
+  result = ""
+  var num = n
+
+  if (num < 0):
+    num = (-num shl 1) or 1
+  else:
+    num = num shl 1
+    
+  var clamped = num and 31
+  num = num shr 5
+  if (num > 0):
+    clamped = clamped or 32
+  result &= itoChar(clamped)
+
+  while (num > 0):
+    var clamped = num and 31
+    num = num shr 5
+    if (num > 0):
+      clamped = clamped or 32
+    result &= itoChar(clamped)
+
+proc encodeBase64VLQ*(xs: openArray[int]): string =
+  result = ""
+  for x in xs:
+    result &= encodeInteger(x)
+    
+#
+# codegen
+#
+
+proc getSourcename*(modscope: Scope): string =
+  return $modscope.name & ".flori"
+
+proc getSourceid*(ctx: JSCodegenContext, modscope: Scope): int =
+  for i, source in ctx.sourcemap.sources:
+    if source.name == modscope.getSourcename:
+      return i
+  assert(false)
+
+proc addFExprmap*(ctx: JSCodegenContext, src: SrcExpr, fexpr: FExpr) =
+  ctx.sourcemap.fexprs.add(FExprmap(fexpr: fexpr, sourceid: ctx.getSourceid(fexpr.internalScope), jsline: src.line, jslinepos: src.linepos))
+
+proc initSourcemap*(semctx: SemanticContext): Sourcemap =
+  result.sources = @[]
+  result.fexprs = @[]
+  for modscope in semctx.modules.values:
+    if existsFile(modscope.path):
+      result.sources.add((modscope.getSourcename, readFile(modscope.path)))
+    else:
+      result.sources.add((modscope.getSourcename, ""))
+
 proc initSrcExpr*(): SrcExpr =
   result.prev = ""
   result.exp = ""
-proc `&=`*(src: var SrcExpr, s: string) = src.exp &= s
+  result.line = 1
+  result.linepos = 1
+proc `&=`*(src: var SrcExpr, s: string) =
+  src.exp &= s
+  let lf = char(10)
+  for c in s:
+    if c == lf:
+      src.line += 1
+      src.linepos = 1
+    else:
+      src.linepos += 1
 proc `&=`*(src: var SrcExpr, s: SrcExpr) =
   src.exp &= s.prev
   src.exp &= s.exp
+  let lf = char(10)
+  for c in s.prev:
+    if c == lf:
+      src.line += 1
+      src.linepos = 1
+    else:
+      src.linepos += 1
+  for c in s.exp:
+    if c == lf:
+      src.line += 1
+      src.linepos = 1
+    else:
+      src.linepos += 1
+    
 proc addPrev*(src: var SrcExpr, s: string) = src.prev &= s
 proc addPrev*(src: var SrcExpr, s: SrcExpr) =
   src.prev &= s.prev
   src.prev &= s.exp
 
-proc newJSCodegenContext*(): JSCodegenContext =
-  JSCodegenContext(tmpcount: 0)
+proc newJSCodegenContext*(semctx: SemanticContext): JSCodegenContext =
+  return JSCodegenContext(tmpcount: 0, sourcemap: initSourcemap(semctx))
 proc gentmpsym*(ctx: JSCodegenContext): string =
   result = "__floritmp" & $ctx.tmpcount
   ctx.tmpcount.inc
@@ -436,7 +536,7 @@ proc codegenFExpr*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     else:
       let tmp = ctx.gentmpsym()
       var blocksrc = initSrcExpr()
-      ctx.codegenBody(blocksrc, toSeq(fexpr.items), ret = codegenType(fexpr[^1].typ) & " " & tmp & " = ")
+      ctx.codegenBody(blocksrc, toSeq(fexpr.items), ret = "var " & tmp & " = ")
       src.addPrev(blocksrc)
       src &= tmp
   of fexprSeq:
@@ -449,6 +549,8 @@ proc codegenFExpr*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 
 proc codegenToplevel*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.hasinternalMark:
+    if fexpr.internalMark in {internalDefn, internalDef}:
+      ctx.addFExprmap(src, fexpr)
     ctx.codegenInternal(src, fexpr, topcodegen = true)
   elif fexpr.kind == fexprBlock:
     for son in fexpr:
@@ -456,7 +558,70 @@ proc codegenToplevel*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
         continue
       son.isToplevel = true
       ctx.codegenToplevel(src, son)
-  
+
+proc generateSourcemap*(sourcemap: var Sourcemap, filename: string): string =
+  result = ""
+  result &= "{"
+  result &= "\"version\": 3, "
+  result &= "\"file\": \"$#\", " % filename
+  result &= "\"sourceRoot\": \"\", "
+  result &= "\"names\": [], "
+  result &= "\"sources\": "
+  result &= "[" & sourcemap.sources.mapIt("\"" & it.name & "\"").join(", ") & "], "
+  result &= "\"mappings\": \""
+  sourcemap.fexprs.sort(
+    proc (x, y: FExprmap): int =
+      if x.jsline == y.jsline:
+        if x.sourceid == y.sourceid:
+          cmp(x.fexpr.span.line, y.fexpr.span.line)
+        else:
+          cmp(x.sourceid, y.sourceid)
+      else:
+        cmp(x.jsline, y.jsline)
+  )
+  var curjsline = 1
+  var prevmap = sourcemap.fexprs[0]
+  var newline = true
+  var isfirst = true
+  for fmap in sourcemap.fexprs:
+    while curjsline != fmap.jsline:
+      result &= ";"
+      newline = true
+      curjsline += 1
+    if not newline:
+      result &= ","
+    let jslinepos = if isfirst:
+                      fmap.jslinepos - 1
+                    else:
+                      fmap.jslinepos - prevmap.jslinepos
+    let sourceid = if isfirst:
+                     fmap.sourceid
+                   else:
+                     fmap.sourceid - prevmap.sourceid
+    let line = if isfirst:
+                 fmap.fexpr.span.line - 1
+               else:
+                 fmap.fexpr.span.line - prevmap.fexpr.span.line
+    let linepos = if isfirst:
+                    fmap.fexpr.span.linepos - 1
+                  else:
+                    fmap.fexpr.span.linepos - prevmap.fexpr.span.linepos
+    # echo fmap.fexpr
+    # echo @[jslinepos, sourceid, line, linepos]
+    result &= encodeBase64VLQ([jslinepos, sourceid, line, linepos])
+    prevmap = fmap
+    isfirst = false
+    newline = false
+  result &= ";\", "
+  result &= "\"sourcesContent\": "
+  result &= "[" & sourcemap.sources.mapIt("\"" & it.src.replace("\"", "\\\"").replace("\\n", "\\\\n").replace($0x0d.char).replace($0x0a.char, "\\n") & "\"").join(", ") & "]"
+  result &= "}"
+  # echo result
+  result = encode(result, newline = "")
+
+proc generateSourcemap*(ctx: JSCodegenContext, filename: string): string =
+  return ctx.sourcemap.generateSourcemap(filename)
+
 proc codegenSingle*(ctx: JSCodegenContext, sem: SemanticContext): string =
   var src = initSrcExpr()
   for f in sem.globaltoplevels:

@@ -9,7 +9,7 @@ Flori programming language.
 
 Usage:
   flori c <name> [-o=<outname>] [--opt=<level>] [--cc=<cc>] [--bench] [--ccoptions=<options>]
-  flori js <name> [-o=<outname>] [--bench] [--ccoptions=<options>]
+  flori js <name> [-o=<outname>] [--bench] [--ccoptions=<options>] [--sourcemap]
 
 Options:
   -h --help      Show this screen.
@@ -21,6 +21,7 @@ Options:
     tcc  Tiny C Compiler
   --bench        Show benchmark information.
   --ccoptions=<options>  CC Options.
+  --sourcemap    Generate sourcemap in JS backend.
 """
 
 proc main() =
@@ -28,6 +29,10 @@ proc main() =
   if args["c"]:
     compileFloriC(ccoptions(args))
   elif args["js"]:
-    compileFloriJS(ccoptions(args))
+    let usesourcemap = if args["--sourcemap"]:
+                         true
+                       else:
+                         false
+    compileFloriJS(ccoptions(args), usesourcemap)
 
 main()

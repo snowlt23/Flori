@@ -918,7 +918,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("inline"), semInline)
 
 proc initInternalScope*(ctx: SemanticContext) =
-  let scope = ctx.newScope(name("internal"))
+  let scope = ctx.newScope(name("internal"), "internal")
   scope.initInternalEval()
   ctx.modules[name("internal")] = scope
 
@@ -938,10 +938,9 @@ proc newSemanticContext*(ccoptions = ""): SemanticContext =
   result.expands = @[]
   gCtx = result
 
-proc semModule*(ctx: SemanticContext, rootPass: PassProcType, name: Name, fexprs: var seq[FExpr]) =
+proc semModule*(ctx: SemanticContext, rootPass: PassProcType, name: Name, scope: Scope, fexprs: var seq[FExpr]) =
   if ctx.modules.hasKey(name):
     return
-  let scope = ctx.newScope(name)
   scope.importScope(name("internal"), ctx.internalScope)
   for f in fexprs.mitems:
     f.isToplevel = true
@@ -958,7 +957,8 @@ proc semFile*(ctx: SemanticContext, rootPass: PassProcType, filepath: string): O
                       name(dir.replace("/", ".") & "." & n)
                     else:
                       name(n)
-      ctx.semModule(rootPass, modname, fexprs)
+      let scope = ctx.newScope(modname, importpath / filepath)
+      ctx.semModule(rootPass, modname, scope, fexprs)
       return some(modname)
     elif existsFile(importpath / filepath / "root.flori"):
       var fexprs = parseToplevel(filepath, readFile(importpath / filepath / "root.flori"))
@@ -967,7 +967,8 @@ proc semFile*(ctx: SemanticContext, rootPass: PassProcType, filepath: string): O
                       name(dir.replace("/", ".") & "." & n)
                     else:
                       name(n)
-      ctx.semModule(rootPass, modname, fexprs)
+      let scope = ctx.newScope(modname, importpath / filepath / "root.flori")
+      ctx.semModule(rootPass, modname, scope, fexprs)
       return some(modname)
       
   return none(Name)

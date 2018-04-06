@@ -77,15 +77,20 @@ proc compileFloriC*(options: CCOptions) =
       genctx.compileWithGCC(cachedir, genGCCOptions(options))
     of ccTCC:
       genctx.compileWithTCC(cachedir, genTCCOptions(options))
-
-proc compileFloriJS*(options: CCOptions) =
+      
+proc compileFloriJS*(options: CCOptions, sourcemap: bool) =
   let semctx = newSemanticContext(options.ccoptions)
-  let genctx = newJSCodegenContext()
   bench "eval":
     discard semctx.semFile(processSemPass, options.filepath)
+    
+  let genctx = newJSCodegenContext(semctx)
   bench "codegen":
     if not existsDir(cachedir):
       createDir(cachedir)
     let src = genctx.codegenSingle(semctx).replace("#include \"floriffi.h\"\n")
-    writeFile(cachedir / "flori_compiled.js", src)
+    if sourcemap:
+      let mapprefix = "\n//# sourceMappingURL=data:application/json;base64,"
+      writeFile(cachedir / "flori_compiled.js", src & mapprefix & genctx.generateSourcemap(options.output & ".js"))
+    else:
+      writeFile(cachedir / "flori_compiled.js", src)
   copyFile(cachedir / "flori_compiled.js", options.output & ".js")

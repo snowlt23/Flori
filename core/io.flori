@@ -28,9 +28,6 @@ fn print(x Bool) {
     print("false")
   }
 }
-fn print(x Clock) {
-  printf("%lld", x)
-}
 
 macro println(args FList) FExpr $[syntax] {
   ret := new_fblock()

@@ -14,9 +14,10 @@ export types.Scope
 
 import fexpr
 
-proc newScope*(ctx: SemanticContext, name: Name): Scope =
+proc newScope*(ctx: SemanticContext, name: Name, path: string): Scope =
   new result
   result.ctx = ctx
+  result.path = path
   result.name = name
   result.top = result
   result.level = 0
@@ -31,6 +32,7 @@ proc newScope*(ctx: SemanticContext, name: Name): Scope =
 proc extendScope*(scope: Scope): Scope =
   new result
   result.ctx = scope.ctx
+  result.path = scope.path
   result.name = scope.name
   result.top = scope.top
   result.level = scope.level + 1

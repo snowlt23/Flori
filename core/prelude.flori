@@ -52,40 +52,40 @@ fn `>=(a Float, b Float) Bool $[importc ">=", header nodeclc, patternc infixc, i
 
 fn `/(a Double, b Double) Double $[importc "/", header nodeclc, patternc infixc, importjs "/", patternjs infixjs]
 
-fn `/(a Int, b Int) Double {
+fn `/(a Int, b Int) Double $[inline] {
   cast[Double](a) / cast[Double](b)
 }
 
 fn `<<(a UInt32, b UInt32) UInt32 $[importc "<<", header nodeclc, patternc infixc, importjs "<<", patternjs infixjs]
 fn `>>(a UInt32, b UInt32) UInt32 $[importc ">>", header nodeclc, patternc infixc, importjs ">>", patternjs infixjs]
 
-fn uint32(x Int) UInt32 {
+fn uint32(x Int) UInt32 $[inline] {
   cast[UInt32](x)
 }
-fn int(x UInt32) Int {
+fn int(x UInt32) Int $[inline] {
   cast[Int](x)
 }
-fn float(x Int) Float {
+fn float(x Int) Float $[inline] {
   cast[Float](x)
 }
-fn float(x UInt32) Float {
+fn float(x UInt32) Float $[inline] {
   cast[Float](x)
 }
 
-fn uint8(x Int) UInt8 {
+fn uint8(x Int) UInt8 $[inline] {
   cast[UInt8](x)
 }
-fn int(x UInt8) Int {
+fn int(x UInt8) Int $[inline] {
   cast[Int](x)
 }
 
-fn bool(x Int) Bool {
+fn bool(x Int) Bool $[inline] {
   cast[Bool](x)
 }
 
 true := bool(1)
 false := bool(0)
-fn not(b Bool) Bool {
+fn not(b Bool) Bool $[inline] {
   if (b) {
     false
   } else {
@@ -98,22 +98,13 @@ fn not(b Bool) Bool {
 
 # string.h
 fn strcmp(a CString, b CString) Int $[importc "strcmp", header "string.h", importjs "===", patternjs infixjs]
-fn `==(a CString, b CString) Bool {
+fn `==(a CString, b CString) Bool $[inline] {
   if (strcmp(a, b) == 0) {
     true
   } else {
     false
   }
 }
-fn `!=(a CString, b CString) Bool {
+fn `!=(a CString, b CString) Bool $[inline] {
   not(a == b)
-}
-
-# time.h
-type Clock $[importc "clock_t", header "time.h"]
-fn get_clock() Clock $[importc "clock", header "time.h"]
-fn `+(a Clock, b Clock) Clock $[importc "+", header nodeclc, patternc infixc]
-fn `-(a Clock, b Clock) Clock $[importc "-", header nodeclc, patternc infixc]
-fn `/(a Clock, b Int) Float {
-  cast[Float](a) / cast[Float](b)
 }

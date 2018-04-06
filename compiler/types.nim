@@ -130,6 +130,7 @@ type
     right*: FExpr
   Scope* = ref object
     ctx*: SemanticContext
+    path*: string
     name*: Name
     top*: Scope
     level*: int
