@@ -83,8 +83,10 @@ fn bool(x Int) Bool $[inline] {
   cast[Bool](x)
 }
 
-true := bool(1)
-false := bool(0)
+fn true_fn() Bool $[importc, patternc "1", importjs, patternjs "true"]
+fn false_fn() Bool $[importc, patternc "0", importjs, patternjs "false"]
+true := true_fn()
+false := false_fn()
 fn not(b Bool) Bool $[inline] {
   if (b) {
     false
@@ -98,7 +100,7 @@ fn not(b Bool) Bool $[inline] {
 
 # string.h
 fn strcmp(a CString, b CString) Int $[importc "strcmp", header "string.h", importjs "===", patternjs infixjs]
-fn `==(a CString, b CString) Bool $[inline] {
+fn `==(a CString, b CString) Bool $[importjs "===", patternjs infixjs] {
   if (strcmp(a, b) == 0) {
     true
   } else {

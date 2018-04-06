@@ -76,6 +76,8 @@ proc codegenType*(sym: Symbol): string =
     return codegenType(sym.wrapped)
   elif sym.kind == symbolRef:
     return codegenType(sym.wrapped) & "*"
+  elif sym.kind == symbolFuncType:
+    return "$# (*)($#)" % [codegenType(sym.rettype), sym.argtypes.mapIt(codegenType(it)).join(", ")]
   
   if sym.fexpr.hasInternalPragma and sym.fexpr.internalPragma.importc.isSome:
     return codegenTypeImportc(sym)
@@ -484,7 +486,10 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   of fexprIdent:
     src &= $fexpr
   of fexprSymbol:
-    src &= codegenSymbol(fexpr)
+    if fexpr.typ.kind == symbolFuncType:
+      src &= codegenMangling(fexpr.symbol, @[], fexpr.typ.argtypes) # FIXME:
+    else:
+      src &= codegenSymbol(fexpr)
   of fexprIntLit:
     src &= $fexpr
   of fexprFloatLit:

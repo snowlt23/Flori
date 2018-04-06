@@ -101,7 +101,7 @@ proc matchMacro*(rootPass: PassProcType, scope: Scope, curscope: Scope, n: FExpr
 
 proc isFExprName*(name: Name): bool =
   case $name
-  of "FSeq", "FArray", "FList", "FBlock", "FStrLit", "FIntLit", "FIdent", "FSymbol":
+  of "FExpr", "FSeq", "FArray", "FList", "FBlock", "FStrLit", "FIntLit", "FIdent", "FSymbol":
     true
   else:
     false
@@ -178,10 +178,17 @@ proc symbolResolve*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   case fexpr.kind
   of fexprIdent:
     let opt = scope.getDecl(name(fexpr))
-    if opt.isNone:
+    if opt.isSome:
+      fexpr = fsymbol(fexpr.span, opt.get)
+      scope.nextPass(fexpr)
+    elif scope.procdecls.hasKey(name(fexpr)):
+      let fnopt = scope.procdecls[name(fexpr)].decls
+      if fnopt.len != 1:
+        fexpr.error("ambigous function ident.")
+      fexpr = fsymbol(fexpr.span, fnopt[0].sym)
+      scope.nextPass(fexpr)
+    else:
       fexpr.error("undeclared $# ident." % $fexpr)
-    fexpr = fsymbol(fexpr.span, opt.get)
-    scope.nextPass(fexpr)
   else:
     scope.nextPass(fexpr)
 
@@ -190,7 +197,14 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   of fexprIdent:
     fexpr.error("unresolved $# ident by symbolResolve pass." % $fexpr)
   of fexprSymbol:
-    if fexpr.symbol.fexpr.hasTyp:
+    if fexpr.symbol.kind == symbolFunc:
+      let sym = scope.symbol(name("Fn"), symbolFuncType, fexpr)
+      sym.argtypes = @[]
+      for arg in fexpr.symbol.fexpr.defn.args:
+        sym.argtypes.add(arg[1].symbol)
+      sym.rettype = fexpr.symbol.fexpr.defn.ret.symbol
+      fexpr.typ = sym
+    elif fexpr.symbol.fexpr.hasTyp:
       fexpr.typ = fexpr.symbol.fexpr.typ
       if fexpr.typ.instance.isSome:
         fexpr.typ = fexpr.typ.instance.get
@@ -370,7 +384,7 @@ proc destroyCheckPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
                else:
                  fseq(fexpr.span, @[fexpr[1], fexpr[2]])
     for arg in args:
-      if arg.kind == fexprSymbol and not arg.symbol.fexpr.ctrc.fuzzy and arg.symbol.fexpr.ctrc.exdestroyed:
+      if arg.kind == fexprSymbol and arg.symbol.fexpr.hasCTRC and not arg.symbol.fexpr.ctrc.fuzzy and arg.symbol.fexpr.ctrc.exdestroyed:
         fexpr.error("$# has been explicit destroyed." % $arg)
     scope.nextPass(fexpr)
   else:

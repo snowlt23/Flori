@@ -228,14 +228,13 @@ proc codegenDefnInstance*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr)
   if fexpr.internalPragma.inline:
     return
   
-  var decl = initSrcExpr()
   src &= "function "
   if fexpr.internalPragma.exportjs.isSome:
     src &= fexpr.internalPragma.exportjs.get
   else:
     src &= codegenMangling(fexpr.defn.name.symbol, fexpr.defn.generics.mapIt(it.symbol), fexpr.defn.args.mapIt(it[1].symbol))
   src &= "("
-  for arg in ctx.codegenArgs(decl, fexpr.defn.args):
+  for arg in ctx.codegenArgs(src, fexpr.defn.args):
     src &= codegenSymbol(arg[0])
   src &= ")"
   src &= " {\n"
@@ -270,10 +269,11 @@ proc codegenIf*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   var ifbodysrc = initSrcExpr()
   ctx.codegenFExpr(ifcondsrc, elifbranch[0].cond)
   ctx.codegenBody(ifbodysrc, elifbranch[0].body, ret)
+  var elsecnt = 1
   src.prev &= ifcondsrc.prev
   src.prev &= "if (" & ifcondsrc.exp & ") {\n"
   src.addPrev(ifbodysrc)
-  src.prev &= "}"
+  src.prev &= "} else {"
 
   for branch in elifbranch[1..^1]:
     var elifcondsrc = initSrcExpr()
@@ -281,15 +281,15 @@ proc codegenIf*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     ctx.codegenFExpr(elifcondsrc, branch.cond)
     ctx.codegenBody(elifbodysrc, branch.body, ret)
     src.prev &= elifcondsrc.prev
-    src.prev &= " else if (" & elifcondsrc.exp & ") {\n"
+    src.prev &= "if (" & elifcondsrc.exp & ") {\n"
     src.addPrev(elifbodysrc)
-    src.prev &= "}"
+    src.prev &= "} else {"
+    elsecnt += 1
 
   var elsebodysrc = initSrcExpr()
   ctx.codegenBody(elsebodysrc, fexpr.internalIfExpr.elsebranch, ret)
-  src.prev &= " else {\n"
   src.addPrev(elsebodysrc)
-  src.prev &= "}"
+  src.prev &= "}".repeat(elsecnt)
 
   # return temporary variable.
   if not fexpr.typ.isVoidType:
@@ -511,7 +511,10 @@ proc codegenFExpr*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   of fexprIdent:
     src &= $fexpr
   of fexprSymbol:
-    src &= codegenSymbol(fexpr)
+    if fexpr.hasTyp and fexpr.typ.kind == symbolFuncType:
+      src &= codegenMangling(fexpr.symbol, @[], fexpr.typ.argtypes) # FIXME:
+    else:
+      src &= codegenSymbol(fexpr)
   of fexprIntLit:
     src &= $fexpr
   of fexprFloatLit:

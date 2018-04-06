@@ -715,9 +715,12 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
           if parsed.dst[1].symbol.scope.level != scope.level:
             parsed.dst[1].symbol.fexpr.ctrc.fuzzy = true
         else:
-          parsed.dst.ctrc = parsed.value.ctrc
-          if parsed.dst.symbol.scope.level != scope.level:
-            parsed.dst.symbol.fexpr.ctrc.fuzzy = true
+          if parsed.value.hasCTRC:
+            parsed.dst.ctrc = parsed.value.ctrc
+            if parsed.dst.symbol.scope.level != scope.level:
+              parsed.dst.symbol.fexpr.ctrc.fuzzy = true
+          else:
+            parsed.dst.ctrc = initCTRC(cnt = 1)
   # if parsed.value.hasCTRC:
   #   if parsed.dst.hasCTRC:
   #     if parsed.dst.isInfixFuncCall:

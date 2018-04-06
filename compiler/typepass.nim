@@ -7,10 +7,11 @@ import strutils, sequtils
 import tables
 
 type
-  ParsedType* = object
+  ParsedType* = ref object
+    isref*: bool
     typ*: FExpr
     generics*: FExpr
-    isref*: bool
+    ret*: ParsedType
 
 proc parseTypeExpr*(fexpr: FExpr, pos: var int): ParsedType =
   if fexpr.kind in {fexprIdent, fexprSymbol, fexprQuote}:
@@ -18,6 +19,7 @@ proc parseTypeExpr*(fexpr: FExpr, pos: var int): ParsedType =
   elif fexpr.kind == fexprIntLit:
     result = ParsedType(typ: fexpr, generics: farray(fexpr.span), isref: false)
   elif fexpr.kind == fexprSeq:
+    new result
     if $fexpr[pos] == "ref":
       result.isref = true
       pos += 1
@@ -32,12 +34,28 @@ proc parseTypeExpr*(fexpr: FExpr, pos: var int): ParsedType =
       result.typ = fexpr[pos]
       result.generics = farray(fexpr[pos].span)
       pos += 1
+
+    if $result.typ == "Fn":
+      if pos < fexpr.len:
+        result.ret = fexpr.parseTypeExpr(pos)
+      else:
+        result.ret = ParsedType(typ: fident(fexpr.span, name("Void")), generics: farray(fexpr.span), isref: false)
   else:
     fexpr[pos].error("$# isn't type expression." % $fexpr[pos])
 
 proc semType*(scope: Scope, parsed: ParsedType): Symbol =
   if parsed.typ.kind == fexprIntLit:
     return scope.intsym(parsed.typ)
+
+  if $parsed.typ == "Fn":
+    let sym = scope.symbol(name("Fn"), symbolFuncType, parsed.typ)
+    sym.argtypes = @[]
+    for arg in parsed.generics.mitems:
+      var pos = 1
+      let argtyp = arg.parseTypeExpr(pos)
+      sym.argtypes.add(scope.semType(argtyp))
+    sym.rettype = scope.semType(parsed.ret)
+    return sym
   
   let opt = scope.getDecl(name(parsed.typ))
   if opt.isNone:

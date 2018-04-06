@@ -26,6 +26,7 @@ type
     symbolOnce
     symbolFunc
     symbolFuncGenerics
+    symbolFuncType
     symbolInfix
     symbolMacro
     symbolSyntax
@@ -45,6 +46,9 @@ type
       wrapped*: Symbol
     of symbolSyntax, symbolMacro:
       macroproc*: MacroProc
+    of symbolFuncType:
+      argtypes*: seq[Symbol]
+      rettype*: Symbol
     of symbolIntLit:
       intval*: int64
     else:
@@ -233,6 +237,12 @@ proc isSpecSymbol*(sym: Symbol): bool =
   elif sym.kind in {symbolRef, symbolVar, symbolOnce}:
     return sym.wrapped.isSpecSymbol()
   elif sym.kind == symbolIntLit:
+    return true
+  elif sym.kind == symbolFuncType:
+    for t in sym.argtypes:
+      if not t.isSpecSymbol:
+        return false
+    if not sym.rettype.isSpecSymbol: return false
     return true
   elif sym.kind == symbolTypeGenerics:
     for t in sym.types:

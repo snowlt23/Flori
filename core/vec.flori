@@ -11,7 +11,7 @@ type Vec[T] {
   len Int
 }
 
-fn vec[T](len Int, cap Int) Vec[T] {
+fn vec[T](len Int, cap Int) Vec[T] $[importjs, patternjs "new Array($1)"] {
   v := init(Vec[T]) {
     alloc[T](cap)
     cap
@@ -19,29 +19,33 @@ fn vec[T](len Int, cap Int) Vec[T] {
   }
   v
 }
-fn vec[T](len Int) Vec[T] {
+fn vec[T](len Int) Vec[T] $[inline] {
   vec[T](len, len * 2)
 }
-fn vec[T]() Vec[T] {
+fn vec[T]() Vec[T] $[inline] {
   vec[T](0, 8)
 }
 
-# syntax v(fexpr FExpr) FExpr {
-#   if (length(fexpr) != 2) {
-#     error(fexpr, "usage: v[...]")
-#   }
-#   arr := get(fexpr, 1)
-#   parsed := quote {
-#     := vec[]
-#   }
-# }
+macro v(t FArray, elems FList) FExpr $[syntax] {
+  ret := new_fblock()
+  tmp := gensym()
+  push(ret, quote {
+      `tmp := vec `t ()
+    })
+  for e in elems {
+    push(ret, quote {
+        push(`tmp, `e)
+      })
+  }
+  ret
+}
 
 fn extend[T](v ref Vec[T]) {
   (v.data) = realloc(v.data, (v.cap)*2)
   (v.cap) = (v.cap)*2
 }
 
-fn push[T](v ref Vec[T], value T) {
+fn push[T](v ref Vec[T], value T) $[importjs, patternjs "$1.push($2)"] {
   track(v -> value)
   if ((v.cap) < ((v.len)+1)) {
     extend(v)
@@ -50,11 +54,11 @@ fn push[T](v ref Vec[T], value T) {
   (v.len) += 1
 }
 
-fn length[T](v Vec[T]) Int {
+fn length[T](v Vec[T]) Int $[importjs, patternjs "$1.length"] {
   v.len
 }
 
-fn get[T](v Vec[T], i Int) T {
+fn get[T](v Vec[T], i Int) T $[importjs, patternjs "$1[$2]"] {
   unref((v.data) +! (i * sizeof[T]()))
 }
 
@@ -85,6 +89,6 @@ fn print[T](v Vec[T]) {
   print("]")
 }
 
-fn getref[T](v ref Vec[T]) Ptr[T] {
+fn getref[T](v ref Vec[T]) Ptr[T] $[inline] {
   v.data
 }

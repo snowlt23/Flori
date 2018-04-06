@@ -22,7 +22,8 @@ suite "semantic step test":
     var fexprs = parseToplevel("testmodule.flori", prelude & """
 printf("%d", 9)
 """)
-    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
+    ctx.semModule(processSemPass, name("testmodule"), scope, fexprs)
     check $fexprs[^1][1][0].typ == "testmodule.CString"
     check $fexprs[^1][1][1].typ == "testmodule.Int"
     check $fexprs[^1].typ == "testmodule.Void"
@@ -31,7 +32,8 @@ printf("%d", 9)
     var fexprs = parseToplevel("testmodule.flori", prelude & """
 4 + 5
 """)
-    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
+    ctx.semModule(processSemPass, name("testmodule"), scope, fexprs)
     check $fexprs[^1].typ == "testmodule.Int"
   test "fn":
     let ctx = newSemanticContext()
@@ -41,7 +43,8 @@ fn add5(x Int) Int {
 }
 add5(4)
 """)
-    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
+    ctx.semModule(processSemPass, name("testmodule"), scope, fexprs)
     check $fexprs[^1].typ == "testmodule.Int"
   test "if":
     let ctx = newSemanticContext()
@@ -52,7 +55,8 @@ if (1 == 1) {
   2
 }
 """)
-    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
+    ctx.semModule(processSemPass, name("testmodule"), scope, fexprs)
     check $fexprs[^1].typ == "testmodule.Int"
     check fexprs[^1].internalMark == internalIf
   test "while":
@@ -62,7 +66,8 @@ while (1 == 2) {
   printf("%d", 9)
 }
 """)
-    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
+    ctx.semModule(processSemPass, name("testmodule"), scope, fexprs)
     check $fexprs[^1].typ == "testmodule.Void"
     check $fexprs[^1][0] == "while"
     check fexprs[^1].internalMark == internalWhile
@@ -72,7 +77,8 @@ while (1 == 2) {
 nine := 9
 printf("%d", nine)
 """)
-    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
+    ctx.semModule(processSemPass, name("testmodule"), scope, fexprs)
     check fexprs[^2].internalMark == internalDef
     check $fexprs[^2].typ == "testmodule.Void"
     check $fexprs[^1][1][1] == "nine"
@@ -85,7 +91,8 @@ type Wrap[T] {
 }
 init(Wrap[Int]){9}
 """)
-    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
+    ctx.semModule(processSemPass, name("testmodule"), scope, fexprs)
     check fexprs[^1].internalMark == internalInit
     check $fexprs[^1].typ == "testmodule.Wrap[testmodule.Int]"
   test "generics fn":
@@ -99,7 +106,8 @@ fn wrap[T](x T) Wrap[T] {
 }
 wrap(9)
 """)
-    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
+    ctx.semModule(processSemPass, name("testmodule"), scope, fexprs)
     check $fexprs[^1].typ == "testmodule.Wrap[testmodule.Int]"
   test "recursion call":
     let ctx = newSemanticContext()
@@ -114,7 +122,8 @@ fn fib(n Int) Int {
 
 printf("%d\n", fib(30))
 """)
-    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
+    ctx.semModule(processSemPass, name("testmodule"), scope, fexprs)
     check $fexprs[^1][1][1].typ == "testmodule.Int"
   test "generics call fn":
     let ctx = newSemanticContext()
@@ -141,13 +150,15 @@ fn wrap[T](x Int) Wrap[T] {
 wrap(9)
 """)
     expect(FExprError):
-      ctx.semModule(processSemPass, name("testmodule"), fexprs)
+      let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
+      ctx.semModule(processSemPass, name("testmodule"), scope, fexprs)
   test "import":
     let ctx = newSemanticContext()
     var fexprs = parseToplevel("testmodule.flori", prelude & """
 import "core/prelude"
 """)
-    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
+    ctx.semModule(processSemPass, name("testmodule"), scope, fexprs)
     check fexprs[^1].internalMark == internalImport
   test "ref type":
     let ctx = newSemanticContext()
@@ -159,5 +170,6 @@ fn add5(x ref Int) {
 a := 1
 add5(a)
 """)
-    ctx.semModule(processSemPass, name("testmodule"), fexprs)
+    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
+    ctx.semModule(processSemPass, name("testmodule"), scope, fexprs)
     check $fexprs[^1].typ == "testmodule.Void"

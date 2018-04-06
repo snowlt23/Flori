@@ -329,6 +329,8 @@ proc parseToplevel*(filename: string, src: string): seq[FExpr] =
   var context = newParserContext(filename, src)
   result = @[]
   while not context.isEOF:
+    if context.curchar in EndList:
+      context.error("couldn't parse F expression: $#" % $context.curchar)
     let ret = parseFExpr(context)
     if not ret.isNil:
       result.add(ret)

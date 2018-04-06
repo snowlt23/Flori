@@ -54,6 +54,13 @@ proc match*(a, b: Symbol): bool =
       if not a.types[i].match(b.types[i]):
         return false
     return true
+  elif a.kind == symbolFuncType and b.kind == symbolFuncType:
+    if a.argtypes.len != b.argtypes.len: return false
+    for i in 0..<a.argtypes.len:
+      if not a.argtypes[i].match(b.argtypes[i]):
+        return false
+    if not a.rettype.match(b.rettype): return false
+    return true
   elif a.kind == symbolRef and b.kind == symbolRef:
     return a.wrapped.match(b.wrapped)
   elif a.kind == symbolVar and b.kind == symbolRef:
@@ -90,6 +97,13 @@ proc spec*(a, b: Symbol): bool =
     for i in 0..<a.types.len:
       if not a.types[i].spec(b.types[i]):
         return false
+    return true
+  elif a.kind == symbolFuncType and b.kind == symbolFuncType:
+    if a.argtypes.len != b.argtypes.len: return false
+    for i in 0..<a.argtypes.len:
+      if not a.argtypes[i].spec(b.argtypes[i]):
+        return false
+    if not a.rettype.spec(b.rettype): return false
     return true
   elif a.kind == symbolIntLit and b.kind == symbolIntLit:
     return a.intval == b.intval
