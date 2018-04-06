@@ -46,6 +46,7 @@ suite "F expression parser test":
     let fexpr = parseToplevel("test.flori", """
     println("Hello Yukari!")
     """)[0]
+    check $fexpr == "println(\"Hello Yukari!\")"
     check fexpr.len == 2
     check fexpr.kind == fexprSeq
     check fexpr[0].kind == fexprIdent
@@ -53,7 +54,6 @@ suite "F expression parser test":
     check fexpr[1].kind == fexprList
     check fexpr[1][0].kind == fexprStrLit
     check $fexpr[1][0] == "\"Hello Yukari!\""
-    check $fexpr == "println(\"Hello Yukari!\")"
   test "if":
     let fexpr = parseToplevel("test.flori", """
     if (true) {
@@ -114,3 +114,11 @@ suite "F expression parser test":
     check $fexpr[3] == "(p Ptr [T], i Int)"
     check $fexpr[4] == "Ptr"
     check $fexpr[5] == "[T]"
+  test "infix priority":
+    let fexpr = parseToplevel("test.flori", """
+    p.x = 1 + 1
+    """)[0]
+    check $fexpr == "p.x = 1 + 1"
+    check $fexpr[0] == "="
+    check $fexpr[1][0] == "."
+    check $fexpr[2][0] == "+"

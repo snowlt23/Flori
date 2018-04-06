@@ -1,10 +1,21 @@
 
-import core/prelude
+import "core/prelude"
+import "core/macros"
+import "core/syntax"
 
-fn print(fmt CString) $[importc "printf", header "stdio.h"]
-fn printf[T](fmt CString, x T) $[importc "printf", header "stdio.h"]
+fn print(fmt CString) $[importc "printf", header "stdio.h", importjs "console.log"]
+fn printf[T](fmt CString, x T) $[importc "printf", header "stdio.h", importjs, patternjs "console.log($2)"]
 
+fn print(x Char) {
+  printf("%c", x)
+}
 fn print(x Int) {
+  printf("%lld", x)
+}
+fn print(x UInt8) {
+  printf("%d", x)
+}
+fn print(x UInt32) {
   printf("%d", x)
 }
 fn print(x Float) {
@@ -21,7 +32,15 @@ fn print(x Clock) {
   printf("%lld", x)
 }
 
-fn println[T](x T) {
-  print(x)
-  print("\n")
+macro println(args FList) FExpr $[syntax] {
+  ret := new_fblock()
+  for son in args {
+    push(ret, quote {
+        print(`son)
+      })
+  }
+  push(ret, quote {
+      print("\n")
+    })
+  ret
 }

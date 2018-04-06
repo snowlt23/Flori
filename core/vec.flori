@@ -1,38 +1,90 @@
 
-import core.prelude
-import core.pointer
+import "core/prelude"
+import "core/pointer"
+import "core/io"
+import "core/syntax"
+import "core/macros"
 
 type Vec[T] {
   data Ptr[T]
+  cap Int
   len Int
 }
 
-fn vec[T](len Int) {
-  init(Vec) {
-    alloc[T](len)
+fn vec[T](len Int, cap Int) Vec[T] {
+  v := init(Vec[T]) {
+    alloc[T](cap)
+    cap
     len
   }
+  v
+}
+fn vec[T](len Int) Vec[T] {
+  vec[T](len, len * 2)
+}
+fn vec[T]() Vec[T] {
+  vec[T](0, 8)
 }
 
-fn push[T](v Vec[T], value T) {
-  v.data = realloc(realloc(vec.data, vec.len+1))
-  v.data[vec.len] = value
-  v.len += 1
+# syntax v(fexpr FExpr) FExpr {
+#   if (length(fexpr) != 2) {
+#     error(fexpr, "usage: v[...]")
+#   }
+#   arr := get(fexpr, 1)
+#   parsed := quote {
+#     := vec[]
+#   }
+# }
+
+fn extend[T](v ref Vec[T]) {
+  (v.data) = realloc(v.data, (v.cap)*2)
+  (v.cap) = (v.cap)*2
 }
 
-fn len[T](v Vec[T]) {
+fn push[T](v ref Vec[T], value T) {
+  track(v -> value)
+  if ((v.cap) < ((v.len)+1)) {
+    extend(v)
+  }
+  unref((v.data) +! ((v.len) * sizeof[T]())) = value
+  (v.len) += 1
+}
+
+fn length[T](v Vec[T]) Int {
   v.len
 }
 
-fn `[][T](v Vec[T], i Int) T {
-  v.data[i]
+fn get[T](v Vec[T], i Int) T {
+  unref((v.data) +! (i * sizeof[T]()))
 }
 
-fn destructor[T](v Vec[T]) {
-  when (is_destructable(T)) {
-    for i in 0..<v.len {
-      destructor(v[i])
+destructor[T](v Vec[T]) {
+  println("Vec destroyed!")
+  dealloc(v.data)
+}
+
+iterator items[T](v TExpr[Vec[T]]) {
+  i := gensym()
+  quote {
+    for `i in range(0, length(`v)-1) {
+      `element := get(`v, `i)
+      `yield
     }
   }
-  dealloc(vec.data)
+}
+
+fn print[T](v Vec[T]) {
+  print("vec[")
+  if (length(v) > 0) {
+    print(get(v, 0))
+  }
+  for i in range(1, length(v)-1) {
+    print(", ")
+    print(get(v, i))
+  }
+  print("]")
+}
+
+fn getref[T](v ref Vec[T]) Ptr[T] {
+  v.data
 }

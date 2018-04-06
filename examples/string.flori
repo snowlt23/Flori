@@ -1,12 +1,18 @@
 
-import core/prelude
-import core/io
-import core/string
+import "core/prelude"
+import "core/io"
+import "core/string"
 
 fn main() {
-  s := string("Hello Yukari!")
-  push(s, string(" and Maki!"))
-  println(s)
+  s1 := string("Hello Yukari!")
+  push(s1, string(" and Maki!"))
+  println(s1)
+  s2 := s1 & string(" and Akari!")
+  println(s2)
+  s3 := to_s(9)
+  println(s3)
+  ch := c"9"
+  println(ch)
 }
 
 main()

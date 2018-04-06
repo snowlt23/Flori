@@ -39,4 +39,18 @@ suite "example":
   test "formacro":
     checkio "examples/formacro.flori", "12345678910\n"
   test "destructor":
-    checkio "examples/destructor.flori", "MyInt destroyed!\n3\n4\nMyInt destroyed!\nMyInt destroyed!\n"
+    checkio "examples/destructor.flori", "MyInt(1, 2) destroyed!\n3\n4\nMyInt(3, 4) destroyed!\n"
+  test "string":
+    checkio "examples/string.flori", "Hello Yukari! and Maki!\nHello Yukari! and Maki! and Akari!\n9\n9\n"
+  test "vec eff":
+    checkio "examples/vec_eff.flori", "start!\nend!\nVec destroyed!\nFile destroyed!\n"
+  test "array":
+    checkio "examples/array.flori", ""
+  test "const":
+    checkio "examples/const.flori", "9\n"
+  test "syntax macro":
+    checkio "examples/syntax_macro.flori", "FList!\nFArray!\nFList!\n"
+  test "float literal":
+    checkio "examples/floatlit.flori", "2.000000\n"
+  test "field track":
+    checkio "examples/field_track.flori", "start!\nMyFieldType(1, 2) destroyed!\nend!\nMyFieldType(5, 6) destroyed!\nMyType destroyed!\nMyFieldType(3, 4) destroyed!\n"

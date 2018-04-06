@@ -3,37 +3,61 @@ type Void $[importc "void", header nodeclc]
 type Bool $[importc "bool", header "stdbool.h"]
 type CString $[importc "char*", header nodeclc]
 type Char $[importc "char", header nodeclc]
+type CInt $[importc "int", header "stdint.h"]
 type Int $[importc "int64_t", header "stdint.h"]
+type Int8 $[importc "int8_t", header "stdint.h"]
 type Int32 $[importc "int32_t", header "stdint.h"]
 type Int64 $[importc "int64_t", header "stdint.h"]
+type UInt8 $[importc "uint8_t", header "stdint.h"]
 type UInt32 $[importc "uint32_t", header "stdint.h"]
+type UInt64 $[importc "uint64_t", header "stdint.h"]
 type Float $[importc "float", header nodeclc]
+type Double $[importc "double", header nodeclc]
 
-fn `||(a Bool, b Bool) Bool $[importc "||", header nodeclc, pattern infixc]
-fn `&&(a Bool, b Bool) Bool $[importc "&&", header nodeclc, pattern infixc]
+fn `||(a Bool, b Bool) Bool $[importc "||", header nodeclc, patternc infixc, importjs "||", patternjs infixjs]
+fn `&&(a Bool, b Bool) Bool $[importc "&&", header nodeclc, patternc infixc, importjs "||", patternjs infixjs]
 
-fn `+(a Int, b Int) Int $[importc "+", header nodeclc, pattern infixc]
-fn `+=(a Int, b Int) $[importc "+=", header nodeclc, pattern infixc]
-fn `-(a Int, b Int) Int $[importc "-", header nodeclc, pattern infixc]
-fn `*(a Int, b Int) Int $[importc "*", header nodeclc, pattern infixc]
-fn `<<(a Int, b Int) Int $[importc "<<", header nodeclc, pattern infixc]
-fn `>>(a Int, b Int) Int $[importc ">>", header nodeclc, pattern infixc]
-fn `<(a Int, b Int) Bool $[importc "<", header nodeclc, pattern infixc]
-fn `<=(a Int, b Int) Bool $[importc "<=", header nodeclc, pattern infixc]
-fn `>(a Int, b Int) Bool $[importc ">", header nodeclc, pattern infixc]
-fn `>=(a Int, b Int) Bool $[importc ">=", header nodeclc, pattern infixc]
-fn `==(a Int, b Int) Bool $[importc "==", header nodeclc, pattern infixc]
-fn `!=(a Int, b Int) Bool $[importc "!=", header nodeclc, pattern infixc]
+fn `+(a Int, b Int) Int $[importc "+", header nodeclc, patternc infixc, importjs "+", patternjs infixjs]
+fn `+=(a Int, b Int) $[importc "+=", header nodeclc, patternc infixc, importjs "+=", patternjs infixjs]
+fn `-=(a Int, b Int) $[importc "-=", header nodeclc, patternc infixc, importjs "-=", patternjs infixjs]
+fn `-(a Int, b Int) Int $[importc "-", header nodeclc, patternc infixc, importjs "-", patternjs infixjs]
+fn `*(a Int, b Int) Int $[importc "*", header nodeclc, patternc infixc, importjs "*", patternjs infixjs]
+fn `<<(a Int, b Int) Int $[importc "<<", header nodeclc, patternc infixc, importjs "<<", patternjs infixjs]
+fn `>>(a Int, b Int) Int $[importc ">>", header nodeclc, patternc infixc, importjs ">>", patternjs infixjs]
+fn `<(a Int, b Int) Bool $[importc "<", header nodeclc, patternc infixc, importjs "<", patternjs infixjs]
+fn `<=(a Int, b Int) Bool $[importc "<=", header nodeclc, patternc infixc, importjs "<=", patternjs infixjs]
+fn `>(a Int, b Int) Bool $[importc ">", header nodeclc, patternc infixc, importjs ">", patternjs infixjs]
+fn `>=(a Int, b Int) Bool $[importc ">=", header nodeclc, patternc infixc, importjs ">=", patternjs infixjs]
+fn `==(a Int, b Int) Bool $[importc "==", header nodeclc, patternc infixc, importjs "==", patternjs infixjs]
+fn `!=(a Int, b Int) Bool $[importc "!=", header nodeclc, patternc infixc, importjs "!=", patternjs infixjs]
 
-fn cast[T, F](val F) T $[importc, header nodeclc, pattern "((#1)($1))"]
+fn `==(a Char, b Char) Bool $[importc "==", header nodeclc, patternc infixc, importjs "==", patternjs infixjs]
+fn `!=(a Char, b Char) Bool $[importc "!=", header nodeclc, patternc infixc, importjs "!=", patternjs infixjs]
 
-fn `/(a Float, b Float) Float $[importc "/", header nodeclc, pattern infixc]
-fn `/(a Int, b Int) Float {
-  cast[Float](a) / cast[Float](b)
+fn `==(a UInt32, b UInt32) Bool $[importc "==", header nodeclc, patternc infixc, importjs "==", patternjs infixjs]
+fn `!=(a UInt32, b UInt32) Bool $[importc "!=", header nodeclc, patternc infixc, importjs "!=", patternjs infixjs]
+
+fn cast[T, F](val F) T $[importc, header nodeclc, patternc "((#1)($1))", importjs, patternjs "$1"]
+
+fn `+=(a Float, b Float) $[importc "+=", header nodeclc, patternc infixc, importjs "+=", patternjs infixjs]
+fn `-=(a Float, b Float) $[importc "-=", header nodeclc, patternc infixc, importjs "-=", patternjs infixjs]
+fn `+(a Float, b Float) Float $[importc "+", header nodeclc, patternc infixc, importjs "+", patternjs infixjs]
+fn `-(a Float, b Float) Float $[importc "-", header nodeclc, patternc infixc, importjs "-", patternjs infixjs]
+fn `*(a Float, b Float) Float $[importc "*", header nodeclc, patternc infixc, importjs "*", patternjs infixjs]
+fn `/(a Float, b Float) Float $[importc "/", header nodeclc, patternc infixc, importjs "/", patternjs infixjs]
+fn `<(a Float, b Float) Bool $[importc "<", header nodeclc, patternc infixc, importjs "<", patternjs infixjs]
+fn `<=(a Float, b Float) Bool $[importc "<=", header nodeclc, patternc infixc, importjs "<=", patternjs infixjs]
+fn `>(a Float, b Float) Bool $[importc ">", header nodeclc, patternc infixc, importjs ">", patternjs infixjs]
+fn `>=(a Float, b Float) Bool $[importc ">=", header nodeclc, patternc infixc, importjs ">=", patternjs infixjs]
+
+fn `/(a Double, b Double) Double $[importc "/", header nodeclc, patternc infixc, importjs "/", patternjs infixjs]
+
+fn `/(a Int, b Int) Double {
+  cast[Double](a) / cast[Double](b)
 }
 
-fn `<<(a UInt32, b UInt32) UInt32 $[importc "<<", header nodeclc, pattern infixc]
-fn `>>(a UInt32, b UInt32) UInt32 $[importc ">>", header nodeclc, pattern infixc]
+fn `<<(a UInt32, b UInt32) UInt32 $[importc "<<", header nodeclc, patternc infixc, importjs "<<", patternjs infixjs]
+fn `>>(a UInt32, b UInt32) UInt32 $[importc ">>", header nodeclc, patternc infixc, importjs ">>", patternjs infixjs]
 
 fn uint32(x Int) UInt32 {
   cast[UInt32](x)
@@ -48,8 +72,19 @@ fn float(x UInt32) Float {
   cast[Float](x)
 }
 
-true := cast[Bool](1)
-false := cast[Bool](0)
+fn uint8(x Int) UInt8 {
+  cast[UInt8](x)
+}
+fn int(x UInt8) Int {
+  cast[Int](x)
+}
+
+fn bool(x Int) Bool {
+  cast[Bool](x)
+}
+
+true := bool(1)
+false := bool(0)
 fn not(b Bool) Bool {
   if (b) {
     false
@@ -58,8 +93,11 @@ fn not(b Bool) Bool {
   }
 }
 
+# fn returnset[T](dst ref T, src T) $[importc, header nodeclc, patternc "*($1) = $2"]
+# fn get_inline_ref[T](x ref T) ref T $[importc, header nodeclc, patternc "(&$1)"]
+
 # string.h
-fn strcmp(a CString, b CString) Int $[importc "strcmp", header "string.h"]
+fn strcmp(a CString, b CString) Int $[importc "strcmp", header "string.h", importjs "===", patternjs infixjs]
 fn `==(a CString, b CString) Bool {
   if (strcmp(a, b) == 0) {
     true
@@ -74,8 +112,8 @@ fn `!=(a CString, b CString) Bool {
 # time.h
 type Clock $[importc "clock_t", header "time.h"]
 fn get_clock() Clock $[importc "clock", header "time.h"]
-fn `+(a Clock, b Clock) Clock $[importc "+", header nodeclc, pattern infixc]
-fn `-(a Clock, b Clock) Clock $[importc "-", header nodeclc, pattern infixc]
+fn `+(a Clock, b Clock) Clock $[importc "+", header nodeclc, patternc infixc]
+fn `-(a Clock, b Clock) Clock $[importc "-", header nodeclc, patternc infixc]
 fn `/(a Clock, b Int) Float {
   cast[Float](a) / cast[Float](b)
 }

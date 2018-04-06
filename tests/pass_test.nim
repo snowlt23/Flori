@@ -9,10 +9,10 @@ type Bool $[importc "bool", header "stdbool.h"]
 type CString $[importc "char*", header nodeclc]
 type Int $[importc "int64_t", header "stdint.h"]
 
-fn `+(a Int, b Int) Int $[importc "+", header nodeclc, pattern infixc]
-fn `-(a Int, b Int) Int $[importc "-", header nodeclc, pattern infixc]
-fn `<(a Int, b Int) Bool $[importc "<", header nodeclc, pattern infixc]
-fn `==(a Int, b Int) Bool $[importc "==", header nodeclc, pattern infixc]
+fn `+(a Int, b Int) Int $[importc "+", header nodeclc, patternc infixc]
+fn `-(a Int, b Int) Int $[importc "-", header nodeclc, patternc infixc]
+fn `<(a Int, b Int) Bool $[importc "<", header nodeclc, patternc infixc]
+fn `==(a Int, b Int) Bool $[importc "==", header nodeclc, patternc infixc]
 fn printf(fmt CString, x Int) $[importc "printf", header "stdio.h"]
 """
 
@@ -145,14 +145,14 @@ wrap(9)
   test "import":
     let ctx = newSemanticContext()
     var fexprs = parseToplevel("testmodule.flori", prelude & """
-import core/prelude
+import "core/prelude"
 """)
     ctx.semModule(processSemPass, name("testmodule"), fexprs)
     check fexprs[^1].internalMark == internalImport
   test "ref type":
     let ctx = newSemanticContext()
     var fexprs = parseToplevel("testmodule.flori", prelude & """
-fn `+=(a ref Int, b Int) $[importc, header nodeclc, pattern infixc]
+fn `+=(a ref Int, b Int) $[importc, header nodeclc, patternc infixc]
 fn add5(x ref Int) {
   x += 5
 }
@@ -160,4 +160,4 @@ a := 1
 add5(a)
 """)
     ctx.semModule(processSemPass, name("testmodule"), fexprs)
-    check $fexprs[^1][1][0].typ == "testmodule.Int"
+    check $fexprs[^1].typ == "testmodule.Void"

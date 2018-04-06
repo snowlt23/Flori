@@ -1,10 +1,10 @@
 
-import core/prelude
-import core/io
-import core/macros
+import "core/prelude"
+import "core/io"
+import "core/macros"
 
-macro bench(fexpr FExpr) FExpr {
-  body := access(fexpr, 1)
+syntax bench(fexpr FExpr) FExpr {
+  body := get(fexpr, 1)
   quote {
     starttime := get_clock()
     `body

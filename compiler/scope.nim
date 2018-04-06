@@ -23,7 +23,10 @@ proc newScope*(ctx: SemanticContext, name: Name): Scope =
   result.decls = initTable[Name, Symbol]()
   result.procdecls = initTable[Name, ProcDeclGroup]()
   result.importscopes = initOrderedTable[Name, Scope]()
+  result.exportscopes = initOrderedTable[Name, Scope]()
   result.toplevels = @[]
+  result.scopevalues = @[]
+  result.scopedepends = @[]
 
 proc extendScope*(scope: Scope): Scope =
   new result
@@ -34,7 +37,10 @@ proc extendScope*(scope: Scope): Scope =
   result.decls = scope.decls
   result.procdecls = scope.procdecls
   result.importscopes = scope.importscopes
+  result.exportscopes = scope.exportscopes
   result.toplevels = @[]
+  result.scopevalues = @[]
+  result.scopedepends = @[]
 
 proc match*(a, b: Symbol): bool =
   if b.kind == symbolGenerics:
@@ -47,13 +53,17 @@ proc match*(a, b: Symbol): bool =
         return false
     return true
   elif a.kind == symbolRef and b.kind == symbolRef:
-    return a.types[0].match(b.types[0])
+    return a.wrapped.match(b.wrapped)
   elif a.kind == symbolVar and b.kind == symbolRef:
-    return a.types[0].match(b.types[0])
+    return a.wrapped.match(b.wrapped)
+  elif a.kind == symbolOnce and b.kind == symbolOnce:
+    return a.wrapped.match(b.wrapped)
+  elif b.kind == symbolOnce:
+    return a.match(b.wrapped)
   elif a.kind == symbolRef:
-    return a.types[0].match(b)
+    return a.wrapped.match(b)
   elif a.kind == symbolVar:
-    return a.types[0].match(b)
+    return a.wrapped.match(b)
   else:
     return a == b
 
@@ -63,7 +73,7 @@ proc procname*(name: Name, argtypes: seq[Symbol], generics = newSeq[Symbol]()): 
 proc match*(a: ProcName, b: ProcDecl): bool =
   if a.name != b.name: return false
   if b.isInternal: return true
-  if b.isMacro: return true
+  if b.isSyntax: return true
   if a.argtypes.len != b.argtypes.len: return false
   for i in 0..<a.argtypes.len:
     if not a.argtypes[i].match(b.argtypes[i]): return false
@@ -79,14 +89,20 @@ proc spec*(a, b: Symbol): bool =
       if not a.types[i].spec(b.types[i]):
         return false
     return true
+  elif a.kind == symbolIntLit and b.kind == symbolIntLit:
+    return a.intval == b.intval
   elif a.kind == symbolRef and b.kind == symbolRef:
-    return a.types[0].match(b.types[0])
+    return a.wrapped.match(b.wrapped)
   elif a.kind == symbolVar and b.kind == symbolRef:
-    return a.types[0].match(b.types[0])
+    return a.wrapped.match(b.wrapped)
+  elif a.kind == symbolOnce and b.kind == symbolOnce:
+    return a.wrapped.match(b.wrapped)
+  elif b.kind == symbolOnce:
+    return a.match(b.wrapped)
   elif a.kind == symbolRef:
-    return a.types[0].match(b)
+    return a.wrapped.match(b)
   elif a.kind == symbolVar:
-    return a.types[0].match(b)
+    return a.wrapped.match(b)
   else:
     return false
 proc spec*(a: ProcName, b: ProcDecl): bool =
@@ -193,6 +209,8 @@ proc addSpecFunc*(scope: Scope, decl: ProcDecl) =
 
 proc importScope*(scope: Scope, name: Name, importscope: Scope) =
   scope.importscopes[name] = importscope
+  for name, exportscope in importscope.exportscopes:
+    scope.importscopes[name] = exportscope
 
 proc isType*(sym: Symbol, name: string): bool =
   $sym.name == name

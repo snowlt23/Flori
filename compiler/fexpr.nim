@@ -20,7 +20,10 @@ proc `$`*(fexpr: FExpr): string
 proc hint*(span: Span, msg: string) =
   let h = " $#($#:$#): " % [span.filename, $span.line, $span.linepos] & msg
   styledEcho(fgGreen, "[Hint] ", resetStyle, h)
-proc error*(span: Span, msg: string, ctx: SemanticContext) =
+proc error*(span: Span, msg: string) =
+  for expand in gCtx.expands:
+    let e = "$#($#:$#): expand by" % [expand.filename, $expand.line, $expand.linepos]
+    styledEcho(fgGreen, "[Expand] ", resetStyle, e)
   let e = "$#($#:$#): " % [span.filename, $span.line, $span.linepos] & msg
   styledEcho(fgRed, "[Error] ", resetStyle, e)
 
@@ -35,7 +38,7 @@ template assert*(fexpr: FExpr, b: typed) =
       fexpr.error("internal error.")
 
 proc hint*(fexpr: FExpr, msg: string) = fexpr.span.hint(msg)
-proc error*(fexpr: FExpr, msg: string, ctx: SemanticContext = nil) = fexpr.span.error(msg, ctx)
+proc error*(fexpr: FExpr, msg: string) = fexpr.span.error(msg)
 
 template internalSpan*(): Span =
   const internalname = instantiationInfo().filename
@@ -46,14 +49,16 @@ proc fident*(span: Span, name: Name): FExpr =
   FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprIdent, idname: name)
 proc fprefix*(span: Span, name: Name): FExpr =
   FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprPrefix, idname: name)
-proc finfix*(span: Span, name: Name): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprInfix, idname: name)
+proc finfix*(span: Span, name: Name, p: int, isleft: bool): FExpr =
+  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprInfix, idname: name, priority: p, isleft: isleft)
 proc fquote*(span: Span, q: FExpr): FExpr =
   FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprQuote, quoted: q)
 proc fsymbol*(span: Span, sym: Symbol): FExpr =
   FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprSymbol, symbol: sym)
 proc fintlit*(span: Span, x: int64): FExpr =
   FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprIntLit, intval: x)
+proc ffloatlit*(span: Span, x: float): FExpr =
+  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprFloatLit, floatval: x)
 proc fstrlit*(span: Span, s: string): FExpr =
   FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprStrLit, strval: s)
 proc fseq*(span: Span, sons = newSeq[FExpr]()): FExpr =
@@ -111,6 +116,8 @@ proc addSon*(fexpr: FExpr, f: FExpr) =
   if fexpr.kind notin fexprContainer:
     fexpr.error("$# isn't farray" % $fexpr.kind)
   fexpr.sons.add(f)
+proc delSon*(fexpr: FExpr, i: int) =
+  fexpr.sons.del(i)
 proc `[]`*(fexpr: FExpr, i: int): var FExpr =
   case fexpr.kind
   of fexprContainer:
@@ -142,6 +149,15 @@ proc `[]=`*(fexpr: FExpr, i: int, f: FExpr) =
 proc `[]=`*(fexpr: FExpr, i: BackwardsIndex, f: FExpr) =
   fexpr[fexpr.len-int(i)] = f
 
+proc isNormalFuncCall*(fexpr: FExpr): bool =
+  fexpr.kind == fexprSeq and fexpr.len == 2 and fexpr[1].kind == fexprList
+proc isGenericsFuncCall*(fexpr: FExpr): bool =
+  fexpr.kind == fexprSeq and fexpr.len == 3 and fexpr[1].kind == fexprArray and fexpr[2].kind == fexprList
+proc isInfixFuncCall*(fexpr: FExpr): bool =
+  fexpr.kind == fexprSeq and fexpr.len == 3 and (fexpr[0].kind == fexprInfix or (fexpr[0].kind == fexprSymbol and fexpr[0].symbol.kind == symbolInfix))
+proc isFuncCall*(fexpr: FExpr): bool =
+  fexpr.isNormalFuncCall or fexpr.isGenericsFuncCall or fexpr.isInfixFuncCall
+
 proc genIndent*(indent: int): string =
   repeat(' ', indent)
 
@@ -158,15 +174,20 @@ proc toString*(fexpr: FExpr, indent: int, desc: bool): string =
       $fexpr.symbol.name
   of fexprIntLit:
     $fexpr.intval
+  of fexprFloatLit:
+    $fexpr.floatval
   of fexprStrLit:
     "\"" & fexpr.strval & "\""
   of fexprSeq:
-    if fexpr.len == 2 and fexpr[1].kind in {fexprList, fexprArray}:
-      fexpr.sons[0].toString(indent, desc) & fexpr.sons[1..^1].mapIt(it.toString(indent, desc)).join(" ")
-    elif fexpr.len == 3 and fexpr[0].kind == fexprInfix:
-      fexpr[1].toString(indent, desc) & " " & fexpr.sons[0].toString(indent, desc) & " " & fexpr[2].toString(indent, desc)
-    elif fexpr.len == 3 and fexpr[0].kind == fexprSymbol and fexpr[0].symbol.kind == symbolInfix:
-      fexpr[1].toString(indent, desc) & " " & fexpr.sons[0].toString(indent, desc) & " " & fexpr[2].toString(indent, desc)
+    if fexpr.isNormalFuncCall:
+      fexpr[0].toString(indent, desc) & fexpr[1].toString(indent, desc)
+    elif fexpr.isGenericsFuncCall:
+      fexpr[0].toString(indent, desc) & fexpr[1].toString(indent, desc) & fexpr[2].toString(indent, desc)
+    elif fexpr.isInfixFuncCall:
+      if ($fexpr[0])[0] == '.':
+        fexpr[1].toString(indent, desc) & fexpr.sons[0].toString(indent, desc) & fexpr[2].toString(indent, desc)
+      else:
+        fexpr[1].toString(indent, desc) & " " & fexpr.sons[0].toString(indent, desc) & " " & fexpr[2].toString(indent, desc)
     else:
       fexpr.sons.mapIt(it.toString(indent, desc)).join(" ")
   of fexprArray:
@@ -198,9 +219,6 @@ proc name*(fexpr: FExpr): Name =
 proc isParametricTypeExpr*(fexpr: FExpr, pos: int): bool =
   if fexpr.kind != fexprSeq: return false
   if fexpr.len <= pos+1: return false
-  return (fexpr[pos].kind == fexprIdent or fexpr[pos].kind == fexprQuote) and fexpr[pos+1].kind == fexprArray
+  return (fexpr[pos].kind == fexprIdent or fexpr[pos].kind == fexprQuote or fexpr[pos].kind == fexprSymbol) and fexpr[pos+1].kind == fexprArray
 proc isPragmaPrefix*(fexpr: FExpr): bool =
   fexpr.kind == fexprPrefix and $fexpr == "$"
-
-proc isGenericsFuncCall*(fexpr: FExpr): bool =
-  fexpr.kind == fexprSeq and fexpr.len == 3 and fexpr[1].kind == fexprArray and fexpr[2].kind == fexprList

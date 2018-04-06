@@ -1,0 +1,20 @@
+
+import "core"
+import "std/env"
+
+when (is_windows()) {
+  import "std/windows"
+}
+
+fn sleep(msec Int) {
+  when (is_windows()) {
+    win_sleep(msec)
+  }
+}
+
+fn rand() Int  $[importc "rand", header "stdlib.h"]
+
+fn get_rand_max() Int $[importc, header "stdlib.h", pattern "RAND_MAX"]
+RAND_MAX := get_rand_max()
+
+fn exit(x Int) $[importc "exit", header "stdlib.h"]

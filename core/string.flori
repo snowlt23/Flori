@@ -1,9 +1,27 @@
 
-import core/prelude
-import core/pointer
-import core/io
+import "core/prelude"
+import "core/pointer"
+import "core/io"
+import "core/syntax"
+import "core/math"
+import "core/macros"
+
+fn get(cs CString, i Int) Char {
+  unref(cast[Ptr[Char]](cs) +! i)
+}
 
 fn strlen(cs CString) Int $[importc "strlen", header "string.h"]
+
+macro c(s FStrLit) FExpr $[syntax] {
+  len := strlen(strval(s))
+  if (len != 1) {
+    error(s, "char literal should be 1 length string.")
+  }
+  i := new_fintlit(cast[Int](get(strval(s), 0)))
+  quote {
+    cast[Char](`i)
+  }
+}
 
 type String {
   p Ptr[Char]
@@ -11,22 +29,109 @@ type String {
 }
 
 fn string(cs CString) String {
-  s := init(String){alloc[Char](strlen(cs) + 1); strlen(cs)}
-  memcpy(s.p, cast[Ptr[Char]](cs), strlen(cs))
+  len := strlen(cs)
+  s := init(String){alloc[Char](len + 1); len}
+  memcpy(s.p, cast[Ptr[Char]](cs), len)
+  unref((s.p) +! len) = cast[Char](0)
   s
+}
+fn string(len Int) String {
+  s := init(String){alloc[Char](len+1); len}
+  unref((s.p) +! len) = cast[Char](0)
+  s
+}
+
+fn get(s String, i Int) Char {
+  unref((s.p) +! i)
+}
+
+# syntax s(fexpr FExpr) FExpr {
+#   if (length(fexpr) != 2) {
+#     error(fexpr, "usage: s\"...\"")
+#   }
+#   strlit := get(fexpr, 1)
+#   quote {
+#     string(`strlit)
+#   }
+# }
+
+fn to_cs(s String) CString {
+  cast[CString](s.p)
 }
 
 fn length(s String) Int {
   s.len
 }
 
+fn push(dest ref String, src CString) {
+  l := length(dest) + strlen(src)
+  (dest.p) = realloc[Char](dest.p, l + 1)
+  memcpy((dest.p) +! length(dest), cast[Ptr[Char]](src), strlen(src))
+  unref((dest.p) +! l) = cast[Char](0)
+  (dest.len) = l
+}
 fn push(dest ref String, src String) {
-  len := length(dest) + length(src)
-  (dest.p) = realloc[Char](dest.p, len + 1)
+  l := length(dest) + length(src)
+  (dest.p) = realloc[Char](dest.p, l + 1)
   memcpy((dest.p) +! length(dest), src.p, length(src))
-  (dest.len) = len
+  unref((dest.p) +! l) = cast[Char](0)
+  (dest.len) = l
+}
+fn push(dest ref String, c Char) {
+  l := length(dest) + 1
+  (dest.p) = realloc[Char](dest.p, l + 1)
+  unref((dest.p) +! length(dest)) = c
+  unref((dest.p) +! l) = cast[Char](0)
+  (dest.len) = l
 }
 
 fn print(s String) {
   print(cast[CString](s.p))
+}
+
+destructor(s String) {
+  dealloc(s.p)
+}
+
+fn `&(a String, b String) String {
+  ret := string("")
+  push(ret, a)
+  push(ret, b)
+  ret
+}
+
+fn reverse(a String) String {
+  ret := string("")
+  for i in range(0, length(a)-1) {
+    push(ret, get(a, (length(a) - i) - 1))
+  }
+  ret
+}
+
+fn to_s(val Int) String {
+  x := val
+  str := string("")
+  if (x == 0) {
+    push(str, cast[Char](48))
+  }
+  while (x > 0) {
+    push(str, cast[Char](48 + (x % 10)))
+    x = cast[Int](x / 10)
+  }
+  reverse(str)
+}
+
+cr := cast[Char](13)
+lf := cast[Char](10)
+
+fn replace(s CString, dst Char, src CString) String {
+  newstr := string("")
+  for i in range(0, strlen(s)-1) {
+    if (get(s, i) == dst) {
+      push(newstr, src)
+    } else {
+      push(newstr, get(s, i))
+    }
+  }
+  newstr
 }

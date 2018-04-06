@@ -27,14 +27,16 @@ Flori is statically typed programming language without GC for system/application
 
 ### Hello World
 ```
-import core/io
+import "core/prelude"
+import "core/io"
 
 println("Hello World!")
 ```
 
 ### Fibonacci
 ```
-import core/io
+import "core/prelude"
+import "core/io"
 
 fn fib(n Int) Int {
   if (n < 2) {
@@ -49,7 +51,8 @@ println(fib(38))
 
 ### File I/O
 ```
-import core/fileio
+import "core/prelude"
+import "core/fileio"
 
 fn main() {
   f := openFile("voiceroids.txt", "w")
@@ -63,6 +66,12 @@ fn main() {
 main()
 ```
 
+# Usage
+
+```sh
+$ flori c <filename>
+```
+
 # Build
 
 **Requirements**
@@ -73,26 +82,29 @@ main()
 - TCC (Tiny C Compiler)
 
 ```sh
+# Build
+$ nimble install nake
 $ nimble install docopt
 $ nim c -d:release compiler/flori.nim
+$ export PATH="$PATH:<flori-dir>/bin"
 ```
 
 ```sh
-$ compiler/flori c <filename>
-```
-
-```sh
+# Test
 $ nim c -r tests/tester.nim
 ```
 
 # TODO
 
-- CTRefCount
-- Hot Reload
-- Memory Lifting
+- Loop Lifting
 - Condition System
+- Memory Lifting
+- Type level macro
 - Standard Library
+- Reduction Build Times
+- LiveReload
 - Disassembler, Debugger, Profiler
 - Build System & Package Manager
+- IDE tool (Rabbit)
 - Concurrency
 - Self Hosting

@@ -16,23 +16,39 @@ type
     pos*: int
     internal*: tuple[filename: string, line: int]
   SymbolKind* = enum
-    symbolVar
+    symbolDef
+    symbolArg
     symbolType
     symbolGenerics
     symbolTypeGenerics
+    symbolVar
     symbolRef
+    symbolOnce
     symbolFunc
     symbolFuncGenerics
     symbolInfix
     symbolMacro
+    symbolSyntax
     symbolInternal
+    symbolIntLit
   Symbol* = ref object
     scope*: Scope
     name*: Name
-    kind*: SymbolKind
-    types*: seq[Symbol]
     fexpr*: FExpr
     instance*: Option[Symbol]
+    case kind*: SymbolKind
+    of symbolArg:
+      argpos*: int
+    of symbolTypeGenerics:
+      types*: seq[Symbol]
+    of symbolVar, symbolRef, symbolOnce:
+      wrapped*: Symbol
+    of symbolSyntax, symbolMacro:
+      macroproc*: MacroProc
+    of symbolIntLit:
+      intval*: int64
+    else:
+      discard
   Name* = object
     names*: seq[string]
   FExprKind* = enum
@@ -44,6 +60,7 @@ type
     fexprSymbol
     
     fexprIntLit
+    fexprFloatLit
     fexprStrLit
 
     fexprSeq
@@ -53,7 +70,17 @@ type
 
   CTRC* = ref object
     refcnt*: int
-    link*: CTRC
+    depends*: seq[CTRC]
+    dest*: bool
+    exdest*: bool
+    ret*: bool
+    fieldbody*: Table[Name, FExpr]
+    alias*: Option[CTRC]
+    fuzzy*: bool
+  Effect* = object
+    trackings*: seq[Depend]
+    resulttypes*: seq[Symbol]
+    retctrc*: Option[CTRC]
 
   FExpr* = ref object
     span*: Span
@@ -61,13 +88,16 @@ type
     case kind*: FExprKind
     of fexprIdent, fexprPrefix, fexprInfix:
       idname*: Name
-      resolve*: FExpr
+      priority*: int
+      isleft*: bool
     of fexprQuote:
       quoted*: FExpr
     of fexprSymbol:
       symbol*: Symbol
     of fexprIntLit:
       intval*: int64
+    of fexprFloatLit:
+      floatval*: float
     of fexprStrLit:
       strval*: string
     of fexprSeq, fexprArray, fexprList, fexprBlock:
@@ -80,6 +110,7 @@ type
   ProcDecl* = object
     isInternal*: bool
     internalProc*: InternalProcType
+    isSyntax*: bool
     isMacro*: bool
     macroproc*: MacroProc
     name*: Name
@@ -87,12 +118,16 @@ type
     generics*: seq[Symbol]
     returntype*: Symbol
     sym*: Symbol
+    fexpr*: FExpr
   ProcName* = object
     name*: Name
     argtypes*: seq[Symbol]
     generics*: seq[Symbol]
   ProcDeclGroup* = object
     decls*: seq[ProcDecl]
+  Depend* = object
+    left*: FExpr
+    right*: FExpr
   Scope* = ref object
     ctx*: SemanticContext
     name*: Name
@@ -101,13 +136,24 @@ type
     decls*: Table[Name, Symbol]
     procdecls*: Table[Name, ProcDeclGroup]
     importscopes*: OrderedTable[Name, Scope]
+    exportscopes*: OrderedTable[Name, Scope]
     toplevels*: seq[FExpr]
+    scopevalues*: seq[FExpr]
+    scopedepends*: seq[Depend]
   SemanticContext* = ref object
     modules*: OrderedTable[Name, Scope]
+    globaltoplevels*: seq[FExpr]
     macrolib*: LibHandle
     macroprocs*: seq[MacroProc]
     tmpcount*: int
+    importpaths*: seq[string]
+    ccoptions*: string
+    expands*: seq[Span]
 
+# globals
+    
+var gCtx*: SemanticContext
+    
 #
 # Scope
 #
@@ -134,24 +180,45 @@ proc `$`*(name: Name): string = name.names.join(".")
 #
 
 proc symbol*(scope: Scope, name: Name, kind: SymbolKind, fexpr: FExpr): Symbol =
-  Symbol(scope: scope, name: name, kind: kind, types: @[], fexpr: fexpr)
+  result = Symbol(scope: scope, name: name, kind: kind, fexpr: fexpr)
+  if kind == symbolTypeGenerics:
+    result.types = @[]
 proc `==`*(a, b: Symbol): bool =
   a.name == b.name and a.scope == b.scope
 proc `$`*(sym: Symbol): string =
-  if sym.types.len == 0:
-    $sym.scope.name & "." & $sym.name
-  elif sym.kind == symbolRef:
-    "ref " & $sym.types[0]
-  elif sym.kind == symbolVar:
-    $sym.types[0]
-  else:
+  case sym.kind
+  of symbolTypeGenerics:
     $sym.scope.name & "." & $sym.name & "[" & sym.types.mapIt($it).join(",") & "]"
+  of symbolRef:
+    "ref " & $sym.wrapped
+  of symbolOnce:
+    "once " & $sym.wrapped
+  of symbolIntLit:
+    $sym.intval
+  else:
+    $sym.scope.name & "." & $sym.name
+    
 proc refsym*(scope: Scope, sym: Symbol): Symbol =
   result = scope.symbol(sym.name, symbolRef, sym.fexpr)
-  result.types.add(sym)
+  result.wrapped = sym
 proc varsym*(scope: Scope, sym: Symbol): Symbol =
   result = scope.symbol(sym.name, symbolVar, sym.fexpr)
-  result.types.add(sym)
+  result.wrapped = sym
+proc oncesym*(scope: Scope, sym: Symbol): Symbol =
+  result = scope.symbol(sym.name, symbolOnce, sym.fexpr)
+  result.wrapped = sym
+proc symcopy*(sym: Symbol): Symbol =
+  result = sym.scope.symbol(sym.name, sym.kind, sym.fexpr)
+  result.instance = sym.instance
+  if sym.kind == symbolArg:
+    result.argpos = sym.argpos
+  elif sym.kind == symbolTypeGenerics:
+    result.types = sym.types
+  elif sym.kind == symbolIntLit:
+    result.intval = sym.intval
+proc intsym*(scope: Scope, fexpr: FExpr): Symbol =
+  result = scope.symbol(name("IntLit"), symbolIntLit, fexpr)
+  result.intval = fexpr.intval
 
 #
 # is spec
@@ -162,13 +229,18 @@ proc isSpecSymbol*(sym: Symbol): bool =
     return true
   elif sym.kind == symbolGenerics:
     return false
-  elif sym.kind in {symbolVar, symbolRef}:
-    return sym.types[0].isSpecSymbol()
-  else:
+  elif sym.kind in {symbolRef, symbolVar, symbolOnce}:
+    return sym.wrapped.isSpecSymbol()
+  elif sym.kind == symbolIntLit:
+    return true
+  elif sym.kind == symbolTypeGenerics:
     for t in sym.types:
       if not t.isSpecSymbol:
         return false
     return true
+  else:
+    echo "$# kind is not type." % $sym.kind
+    assert(false)
 proc isSpecTypes*(types: seq[Symbol]): bool =
   for t in types:
     if not t.isSpecSymbol:

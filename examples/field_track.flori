@@ -1,0 +1,37 @@
+
+import "core"
+
+type MyFieldType {
+  x Int
+  y Int
+}
+
+destructor(mt MyFieldType) {
+  println("MyFieldType(", mt.x, ", ", mt.y, ") destroyed!")
+}
+
+type MyType {
+  mfx MyFieldType
+  mfy MyFieldType
+}
+
+destructor(mt MyType) {
+  println("MyType destroyed!")
+}
+
+fn new_mt() MyType {
+  mfx := init(MyFieldType){1; 2}
+  mfy := init(MyFieldType){3; 4}
+  mt := init(MyType){mfx; mfy}
+  mt
+}
+
+fn main() {
+  println("start!")
+  mt := new_mt()
+  newmfx := init(MyFieldType){5; 6}
+  mt.mfx = newmfx
+  println("end!")
+}
+
+main()

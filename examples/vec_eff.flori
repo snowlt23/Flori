@@ -1,0 +1,22 @@
+
+import "core"
+import "std/fileio"
+
+#
+# eff
+#
+
+fn vec_eff() Vec[File] {
+  v := vec[File]()
+  f := open_file("voiceroids.txt", "w")
+  push(v, f)
+  v
+}
+
+fn main() {
+  println("start!")
+  v := vec_eff()
+  println("end!")
+}
+
+main()

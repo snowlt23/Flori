@@ -1,31 +1,31 @@
 
-import core/prelude
-import core/io
-import core/macros
+import "core/prelude"
+import "core/io"
+import "core/macros"
 
-macro hellomacro(fexpr FExpr) FExpr {
+macro hellomacro() FExpr {
   new_fident("hello")
 }
 
-macro def_add5(fexpr FExpr) FExpr {
-  parsed := parse("
-fn add5(x Int) Int {
-    x + 5
-}
-")
-  println(parsed)
-  parsed
+macro def_add5() FExpr {
+  quote {
+    fn add5(x Int) Int {
+      x + 5
+    }
+  }
 }
 
-macro bench(fexpr FExpr) FExpr {
-  ret := new_fblock()
-  push(ret, parse("starttime := get_clock()"))
-  push(ret, access(fexpr, 1))
-  push(ret, parse("print(\"Elapsed: \")"))
-  push(ret, parse("println((get_clock() - starttime) / 1000)"))
-  println(ret)
-  ret
+macro mac(x Int) FExpr {
+  quote {
+    "Int!"
+  }
 }
+macro mac(x CString) FExpr {
+  quote {
+    "String!"
+  }
+}
+
 
 hello := "Hello Yukari!"
 println(hellomacro())
@@ -33,14 +33,5 @@ println(hellomacro())
 def_add5()
 println(add5(4))
 
-fn fib(n Int) Int {
-  if (n < 2) {
-    n
-  } else {
-    fib(n-1) + fib(n-2)
-  }
-}
-
-bench {
-  println(fib(30))
-}
+println(mac(1))
+println(mac("str"))
