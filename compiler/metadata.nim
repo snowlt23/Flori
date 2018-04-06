@@ -125,12 +125,19 @@ type
     internalCEmit
     internalBlock
   InternalPragma* = object
+    # c codegen
     importc*: Option[string]
     header*: Option[string]
     exportc*: Option[string]
-    infixc*: bool
-    pattern*: Option[string]
+    patternc*: Option[string]
     declc*: Option[string]
+    # js codegen
+    importjs*: Option[string]
+    exportjs*: Option[string]
+    patternjs*: Option[string]
+    # general
+    infixc*: bool
+    infixjs*: bool
     internal*: bool
     isSyntax*: bool
     inline*: bool

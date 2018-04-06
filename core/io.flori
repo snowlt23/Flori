@@ -3,8 +3,8 @@ import "core/prelude"
 import "core/macros"
 import "core/syntax"
 
-fn print(fmt CString) $[importc "printf", header "stdio.h"]
-fn printf[T](fmt CString, x T) $[importc "printf", header "stdio.h"]
+fn print(fmt CString) $[importc "printf", header "stdio.h", importjs "console.log"]
+fn printf[T](fmt CString, x T) $[importc "printf", header "stdio.h", importjs, patternjs "console.log($2)"]
 
 fn print(x Char) {
   printf("%c", x)
@@ -44,8 +44,3 @@ macro println(args FList) FExpr $[syntax] {
     })
   ret
 }
-
-# fn println[T](x T) {
-#   print(x)
-#   print("\n")
-# }

@@ -9,10 +9,10 @@ type Bool $[importc "bool", header "stdbool.h"]
 type CString $[importc "char*", header nodeclc]
 type Int $[importc "int64_t", header "stdint.h"]
 
-fn `+(a Int, b Int) Int $[importc "+", header nodeclc, pattern infixc]
-fn `-(a Int, b Int) Int $[importc "-", header nodeclc, pattern infixc]
-fn `<(a Int, b Int) Bool $[importc "<", header nodeclc, pattern infixc]
-fn `==(a Int, b Int) Bool $[importc "==", header nodeclc, pattern infixc]
+fn `+(a Int, b Int) Int $[importc "+", header nodeclc, patternc infixc]
+fn `-(a Int, b Int) Int $[importc "-", header nodeclc, patternc infixc]
+fn `<(a Int, b Int) Bool $[importc "<", header nodeclc, patternc infixc]
+fn `==(a Int, b Int) Bool $[importc "==", header nodeclc, patternc infixc]
 fn printf(fmt CString, x Int) $[importc "printf", header "stdio.h"]
 """
 
@@ -152,7 +152,7 @@ import "core/prelude"
   test "ref type":
     let ctx = newSemanticContext()
     var fexprs = parseToplevel("testmodule.flori", prelude & """
-fn `+=(a ref Int, b Int) $[importc, header nodeclc, pattern infixc]
+fn `+=(a ref Int, b Int) $[importc, header nodeclc, patternc infixc]
 fn add5(x ref Int) {
   x += 5
 }

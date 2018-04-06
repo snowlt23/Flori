@@ -26,8 +26,8 @@ FEXPR_ARRAY := cast[FExprKind](9)
 FEXPR_LIST := cast[FExprKind](10)
 FEXPR_BLOCK := cast[FExprKind](11)
 
-fn `==(a FExprKind, b FExprKind) Bool $[importc "==", header nodeclc, pattern infixc]
-fn `!=(a FExprKind, b FExprKind) Bool $[importc "!=", header nodeclc, pattern infixc]
+fn `==(a FExprKind, b FExprKind) Bool $[importc "==", header nodeclc, patternc infixc]
+fn `!=(a FExprKind, b FExprKind) Bool $[importc "!=", header nodeclc, patternc infixc]
 
 fn to_fexpr[T](t TExpr[T]) FExpr {
   cast[FExpr](t)

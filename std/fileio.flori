@@ -2,15 +2,15 @@
 import "core"
 import "std/env"
 
-when (is_windows()) {
+when (is_windows) {
   import "std/windows"
 }
 
 type File $[importc "FILE*", header "stdio.h"]
 
-fn SEEK_END() Int $[importc, header "stdio.h", pattern "SEEK_END"]
+fn SEEK_END() Int $[importc, header "stdio.h", patternc "SEEK_END"]
 SEEK_END := SEEK_END()
-fn SEEK_SET() Int $[importc, header "stdio.h", pattern "SEEK_SET"]
+fn SEEK_SET() Int $[importc, header "stdio.h", patternc "SEEK_SET"]
 SEEK_SET := SEEK_SET()
 
 fn fprintf(f File, cs CString) $[importc "fprintf", header "stdio.h"]
@@ -20,8 +20,8 @@ fn fseek(f File, pos Int, flag Int) $[importc "fseek", header "stdio.h"]
 fn ftell(f File) Int $[importc "ftell", header "stdio.h"]
 fn fread(cs CString, x Int, size Int, f File) Int $[importc "fread", header "stdio.h"]
 
-fn stdin() File $[importc, header "stdio.h", pattern "stdin"]
-fn stdout() File $[importc, header "stdio.h", pattern "stdout"]
+fn stdin() File $[importc, header "stdio.h", patternc "stdin"]
+fn stdout() File $[importc, header "stdio.h", patternc "stdout"]
 
 destructor(f File) {
   println("File destroyed!")
@@ -54,7 +54,7 @@ fn read_file(filename CString) String {
 }
 
 fn copy_file(src CString, dest CString) Bool {
-  when (is_windows()) {
+  when (is_windows) {
     win_copyfile(src, dest, false)
   }
 }

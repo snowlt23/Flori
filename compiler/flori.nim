@@ -9,6 +9,7 @@ Flori programming language.
 
 Usage:
   flori c <name> [-o=<outname>] [--opt=<level>] [--cc=<cc>] [--bench] [--ccoptions=<options>]
+  flori js <name> [-o=<outname>] [--bench] [--ccoptions=<options>]
 
 Options:
   -h --help      Show this screen.
@@ -25,6 +26,8 @@ Options:
 proc main() =
   let args = docopt(doc, version = "Flori 0.1.0")
   if args["c"]:
-    compileFlori(ccoptions(args))
+    compileFloriC(ccoptions(args))
+  elif args["js"]:
+    compileFloriJS(ccoptions(args))
 
 main()

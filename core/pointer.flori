@@ -2,12 +2,12 @@
 import "core/prelude"
 
 type Pointer $[importc "void*", header nodeclc]
-type Ptr[T] $[importc, header nodeclc, pattern "#1*"]
+type Ptr[T] $[importc, header nodeclc, patternc "#1*"]
 
 fn unsafe_malloc(size Int) Pointer $[importc "malloc", header "stdlib.h"]
 fn unsafe_realloc(ptr Pointer, size Int) $[importc "realloc", header "stdlib.h"]
 fn unsafe_free(ptr Pointer) $[importc "free", header "stdlib.h"]
-fn sizeof[T]() Int $[importc "sizeof", header nodeclc, pattern "sizeof(#1)"]
+fn sizeof[T]() Int $[importc "sizeof", header nodeclc, patternc "sizeof(#1)"]
 fn unsafe_memcpy(dest Pointer, src Pointer, n Int) $[importc "memcpy", header "string.h"]
 
 fn null() Pointer {
@@ -18,7 +18,7 @@ fn unsafe_null[T]() Ptr[T] {
   cast[Ptr[T]](0)
 }
 
-fn `==(a Pointer, b Pointer) Bool $[importc "==", header nodeclc, pattern infixc]
+fn `==(a Pointer, b Pointer) Bool $[importc "==", header nodeclc, patternc infixc]
 
 fn alloc[T](len Int) Ptr[T] {
   cast[Ptr[T]](unsafe_malloc(sizeof[T]()*len))
@@ -37,8 +37,8 @@ fn `+![T](p Ptr[T], i Int) Ptr[T] {
   cast[Ptr[T]](cast[Int](p) + i)
 }
 
-fn unref[T](p Ptr[T]) T $[importc, header nodeclc, pattern "(*($1))"]
-fn getptr[T](p T) Ptr[T] $[importc, header nodeclc, pattern "(&$1)"]
+fn unref[T](p Ptr[T]) T $[importc, header nodeclc, patternc "(*($1))"]
+fn getptr[T](p T) Ptr[T] $[importc, header nodeclc, patternc "(&$1)"]
 
 fn print[T](p Ptr[T]) {
   printf("%p", p)

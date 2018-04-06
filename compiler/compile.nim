@@ -1,7 +1,7 @@
 
 import parser, types, fexpr, scope, metadata
 import passmacro, passdef, internalpass
-import ccodegen
+import ccodegen, jscodegen
 import compileutils
 
 import os
@@ -61,7 +61,7 @@ proc ccoptions*(args: Table[string, Value]): CCOptions =
                      else:
                        ""
 
-proc compileFlori*(options: CCOptions) =
+proc compileFloriC*(options: CCOptions) =
   let semctx = newSemanticContext(options.ccoptions)
   let genctx = newCCodegenContext()
   bench "eval":
@@ -77,3 +77,15 @@ proc compileFlori*(options: CCOptions) =
       genctx.compileWithGCC(cachedir, genGCCOptions(options))
     of ccTCC:
       genctx.compileWithTCC(cachedir, genTCCOptions(options))
+
+proc compileFloriJS*(options: CCOptions) =
+  let semctx = newSemanticContext(options.ccoptions)
+  let genctx = newJSCodegenContext()
+  bench "eval":
+    discard semctx.semFile(processSemPass, options.filepath)
+  bench "codegen":
+    if not existsDir(cachedir):
+      createDir(cachedir)
+    let src = genctx.codegenSingle(semctx).replace("#include \"floriffi.h\"\n")
+    writeFile(cachedir / "flori_compiled.js", src)
+  copyFile(cachedir / "flori_compiled.js", options.output & ".js")

@@ -204,7 +204,7 @@ proc parseDef*(fexpr: FExpr): DefExpr =
   result.value = fexpr[2]
 
 #
-# Pragma
+# C pragmas
 #
 
 proc semImportc*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
@@ -238,18 +238,7 @@ proc semExportc*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
       fexpr[1].error("exportc argument should be FStrLit")
     let name = fexpr[1].strval
     fexpr.parent.internalPragma.exportc = some(name)
-
-proc semPattern*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
-  if fexpr.len == 2:
-    if $fexpr[1] == "infixc":
-      fexpr.parent.internalPragma.infixc = true
-    elif fexpr[1].kind == fexprStrLit:
-      fexpr.parent.internalPragma.pattern = some(fexpr[1].strval)
-    else:
-      fexpr[1].error("unsupported in pattern pragma")
-  else:
-    fexpr.error("usage: `pattern \"#1($1)\"` or `pattern infixc`")
-
+    
 proc semDeclc*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.len == 2:
     if fexpr[1].kind == fexprStrLit:
@@ -259,6 +248,56 @@ proc semDeclc*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   else:
     fexpr.error("usage: `declc \"#1($1)\"``")
 
+proc semPatternc*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.len == 2:
+    if $fexpr[1] == "infixc":
+      fexpr.parent.internalPragma.infixc = true
+    elif fexpr[1].kind == fexprStrLit:
+      fexpr.parent.internalPragma.patternc = some(fexpr[1].strval)
+    else:
+      fexpr[1].error("unsupported in patternc pragma")
+  else:
+    fexpr.error("usage: `patternc \"#1($1)\"` or `patternc infixc`")
+
+#
+# JS pragmas
+#
+
+proc semImportjs*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.kind == fexprIdent:
+    let name = $fexpr.parent[1]
+    fexpr.parent.internalPragma.importjs = some(name)
+  else:
+    if fexpr[1].kind != fexprStrLit:
+      fexpr[1].error("importjs argument should be FStrLit")
+    let name = fexpr[1].strval
+    fexpr.parent.internalPragma.importjs = some(name)
+
+proc semExportjs*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.kind == fexprIdent:
+    let name = $fexpr.parent[1]
+    fexpr.parent.internalPragma.exportjs = some(name)
+  else:
+    if fexpr[1].kind != fexprStrLit:
+      fexpr[1].error("exportjs argument should be FStrLit")
+    let name = fexpr[1].strval
+    fexpr.parent.internalPragma.exportjs = some(name)
+
+proc semPatternjs*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.len == 2:
+    if $fexpr[1] == "infixjs":
+      fexpr.parent.internalPragma.infixjs = true
+    elif fexpr[1].kind == fexprStrLit:
+      fexpr.parent.internalPragma.patternjs = some(fexpr[1].strval)
+    else:
+      fexpr[1].error("unsupported in patternjs pragma")
+  else:
+    fexpr.error("usage: `patternjs \"#1($1)\"` or `patternjs infixc`")
+
+#
+# General pragmas
+#
+    
 proc semInline*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.parent.internalPragma.inline = true
 
@@ -865,12 +904,17 @@ proc initInternalEval*(scope: Scope) =
 
   scope.addInternalEval(name("is_destructable"), semIsDestructable)
 
-  # pragmas
+  # c pragmas
   scope.addInternalEval(name("importc"), semImportc)
   scope.addInternalEval(name("header"), semHeader)
   scope.addInternalEval(name("exportc"), semExportc)
-  scope.addInternalEval(name("pattern"), semPattern)
+  scope.addInternalEval(name("patternc"), semPatternc)
   scope.addInternalEval(name("declc"), semDeclc)
+  # js pragmas
+  scope.addInternalEval(name("importjs"), semImportjs)
+  scope.addInternalEval(name("exportjs"), semExportjs)
+  scope.addInternalEval(name("patternjs"), semPatternjs)
+  # general pragmas
   scope.addInternalEval(name("inline"), semInline)
 
 proc initInternalScope*(ctx: SemanticContext) =
