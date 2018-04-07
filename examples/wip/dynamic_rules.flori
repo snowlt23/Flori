@@ -162,3 +162,7 @@ fn main2() {
     # e not destruct, because e is borrow value
   }
 }
+
+#
+# pool
+#
