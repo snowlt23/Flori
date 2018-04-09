@@ -1,95 +1,66 @@
 
-# Resource Management System
+# Onwed Marking Resource Management
 
-Statically Automatic Resource Management came true by multiple compile time system.
-
-- compile time reference counting (CTRC)
-- effect system
-- extent lifting
-- field tracking
+- owned marking
+- field marking
 - explicit destruct
 - dynamic type
 - dynamic type polymorphism
-- ctrc polymorphism
 
-# Compile Time Reference Counting
+# owned marking
 
+**basic**
 ```
 fn main() {
-  f := open_file("test.txt") # f.cnt = 1
-  # f.cnt = 0
+  f := open_file("test.txt") # compiletime: f.owned = true
   # destruct(f)
 }
 ```
 
-# Effect System
-
+**function**
 ```
-fn eff(v ref Vec[File], f File) {
-  push(v, f)
-  # track(v -> f)
+fn owned_fn() {
+  f := open_file("test.txt") # compiletime: f.owned = true
+  return f # compiletime: f.owned = false
 }
+
 fn main() {
-  v := vec[File]()
-  f := open_file("test.txt")
-  eff(v, f)
-  # track(v -> f)
-}
-```
-
-# Extent Lifting
-
-```
-fn vec_eff() Vec[File] {
-  v := vec[File]()
-  f := open_file("test.txt")
-  push(v, f)
-  v # return v, and f because depend by v
-}
-fn main() {
-  v := vec_eff() # retruned v, and f
-  # v.cnt = 1, f.cnt = 2
-  # v.cnt = 0, f.cnt = 0
+  f := owned_fn() # compiletime: f.owned = true
   # destruct(f)
-  # destruct(v)
 }
 ```
 
-# Field Tracking
-
-# Explicit Destruct
-
+**field**
 ```
-fn d() File {
-  f := open_file("test.txt")
-  destruct(f) # explicit destructor call
-  f # illegal at compile time, because f is destroyed.
+type FiledEnemy {
+  hp Int
+  file File
+}
+fn field_fn() {
+  e := init(FiledEnemy){100; open_file("enemy1.txt")} # e.owned = true, e.hp.owned = true, e.file.owned = true
+  return e.file # e.file.owned = false
+  # destruct(e.hp)
+  # destruct(e)
 }
 fn main() {
-  d()
+  
 }
 ```
 
-# Dynamic Type
-
-- unique
-- borrow
-- share
-- pool
-
-**share value wrapped by ShareCont[T]**
+# explicit destruct
 
 ```
-type ShareCont[T] {
-  owned Bool
-  value T
+fn exfn() File {
+  f := open_file("test.txt")
+  destruct(f) # explicit destruct call
+  return f # illegal at compile time, because f has been destroyed.
 }
-destructor[T](sc ShareCont[T]) {
-  if (sc.owned) {
-    destruct(sc.value)
-  }
+fn main() {
+  exfn()
 }
 ```
+
+# dynamic type
 
 **Example Type**
 
@@ -108,14 +79,13 @@ type Enemy {
 }
 ```
 
-**Rules**
 - if all set value has uniqueness, apply unique to dynamic
 
 ```
 # example
 fn spawn_enemy(tbl Table[String, Enemy], name String, hp Int, mp Int) {
   e := init(Enemy){hp; mp}
-  set(tbl, name, e) # e has uniqueness!
+  set(tbl, name, e) # e has uniqueness! # compiletime: value.owned = true
 }
 fn main() {
   tbl := new_table[String, Enemy]() # tbl.typ = Table[String, unique Enemy]
@@ -131,11 +101,11 @@ fn main() {
 fn main() {
   enemies := vec[Enemy]() # enemies.typ = Vec[unique Enemy]
   for i in range(1, 10) {
-    push(enemies, init(Enemy){i*100; i*10})
+    push(enemies, init(Enemy){i*100; i*10}) # value.owned = true
   }
   tbl := new_table[String, Enemy]() # tbl.typ = Table[String, borrow Enemy]
   for i in range(0, length(enemies)-1) {
-    set(tbl, "Zombie" & to_s(i), get(enemies, i)) # set value has borrowness!
+    set(tbl, "Zombie" & to_s(i), get(enemies, i)) # set value has borrowness! compiletime: value.owned = false, because tbl.scope.level <= enemies.scope.level
   }
 }
 ```
@@ -151,9 +121,9 @@ fn main() {
   }
   tbl := new_table[String, Enemy]() # tbl.typ = Table[String, share Enemy] => Table[String, ShareCont[Enemy]]
   for i in range(0, length(enemies)-1) {
-    set(tbl, "Zombie" & to_s(i), get(enemies, i)) # value is borrow
+    set(tbl, "Zombie" & to_s(i), get(enemies, i)) # value is borrow, runtime: value.owned = false
   }
-  set(tbl, "BossZombie", init(Enemy){10000; 1000}) # value is unique
+  set(tbl, "BossZombie", init(Enemy){10000; 1000}) # value is unique, runtime: value.owned = true
 }
 ```
 
@@ -168,17 +138,13 @@ fn spawn_enemy(tbl Table[String, Enemy], name String, hp Int, mp Int) {
 fn get_first_enemy() Enemy {
   tbl := new_table[String, Enemy]() # tbl.typ = Table[String, share Enemy] => Table[String, ShareCont[Enemy]]
   for i in range(1, 10) {
-    spawn_enemy(tbl, "Zombie" & to_s(i), 100 * i, 10 * i)
+    spawn_enemy(tbl, "Zombie" & to_s(i), 100 * i, 10 * i) # runtime: value.owned = true
   }
-  return tbl.data[0] # tbl.data[0].owned = false
+  return tbl.data[0] # runtime: tbl.data[0].owned = false
 }
 fn main() {
   fe := get_first_enemy() # fe is unique
 }
 ```
 
-share-value manage resource by reference counting. (RC)
-reference counting decide `initial-value, `increment-amount and `decrenment-amount at compile time.
-
-# Dynamic Type Polymorphism
-# CTRC Polymorphism (for know refcount amount at compile time)
+# dynamic type polymorphism
