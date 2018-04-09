@@ -1,5 +1,5 @@
 
-import types, fexpr, parser, metadata, scope, ctrc
+import types, fexpr, parser, metadata, scope
 import passutils
 
 import strutils
@@ -55,10 +55,4 @@ proc ffiGensym*(): FExpr {.cdecl.} =
   return fident(internalSpan, gCtx.genTmpName())
 
 proc ffiDebugCTRC*(fexpr: FExpr) =
-  if fexpr.hasCTRC:
-    var s = newSeq[string]()
-    for key, value in fexpr.ctrc.fieldbody:
-      s.add("$#:{cnt:$#}" % [$key, $value.ctrc.cnt])
-    echo "CTRC(cnt: $#, fieldbody: { $# })" % [$fexpr.ctrc.cnt, s.join(", ")]
-  else:
-    echo "noCTRC()"
+  echo "debug_ctrc is deprecated"

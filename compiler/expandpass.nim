@@ -1,5 +1,5 @@
 
-import parser, types, fexpr, scope, metadata, ctrc, effect
+import parser, types, fexpr, scope, metadata
 import passutils, ccodegen, compileutils
 
 import options
@@ -137,12 +137,8 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, argtypes: s
 
   exscope.importScope(name("flori_current_scope"), scope.top)
   exscope.rootPass(expanded.defn.body)
-  if expanded.defn.body.len != 0 and not expanded.defn.body[^1].typ.isVoidType:
-    if expanded.defn.body[^1].kind == fexprSymbol:
-      if not expanded.defn.body[^1].symbol.fexpr.ctrc.inc:
-        expanded.defn.body[^1].error("$# has been destroyed." % $expanded.defn.body[^1])
   scope.ctx.globaltoplevels.add(expanded)
-  fnScopeout(rootPass, exscope, expanded)
+  # fnScopeout(rootPass, exscope, expanded)
 
   return fsym
 
@@ -151,7 +147,6 @@ proc expandMacrofn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argt
   let mp = MacroProc(importname: codegenMangling(result.symbol, result.symbol.fexpr.defn.generics.mapIt(it.symbol), result.symbol.fexpr.defn.args.mapIt(it[1].symbol)) & "_macro")
   result.symbol.macroproc = mp
   result.symbol.kind = symbolMacro
-  # result.symbol.fexpr[0] = fident(fexpr.span, name("macro"))
   
   scope.ctx.macroprocs.add(mp)
   scope.ctx.reloadMacroLibrary(scope.top)

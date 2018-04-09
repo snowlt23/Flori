@@ -234,3 +234,6 @@ proc isBoolType*(sym: Symbol): bool =
   sym.isType("Bool")
 proc isVoidType*(sym: Symbol): bool =
   sym.isType("Void")
+
+proc tracking*(scope: Scope, value: FExpr) =
+  scope.scopevalues.add(value)

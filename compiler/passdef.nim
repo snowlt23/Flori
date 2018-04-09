@@ -1,6 +1,5 @@
 
 import fexpr_core
-import ctrc, effect
 import passmacro, expandpass, typepass, macropass, inlinepass
 
 import options
@@ -246,11 +245,6 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   else:
     scope.nextPass(fexpr)
 
-proc ctrcInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
-  if fexpr.kind == fexprSymbol and fexpr.symbol.fexpr.hasCTRC:
-    fexpr.ctrc = fexpr.symbol.fexpr.ctrc
-  scope.nextPass(fexpr)
-
 proc checkArgsHastype*(args: FExpr) =
   for arg in args:
     if not arg.hasTyp:
@@ -347,57 +341,6 @@ proc expandInline*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
         scope.expandInlineFunc(fexpr)
         scope.rootPass(fexpr)
   scope.nextPass(fexpr)
-
-# proc ctrcOverloadInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
-#   if fexpr.isFuncCall:
-#     if fexpr[0].symbol.fexpr.hasEffect:
-#       if fexpr[0].symbol.fexpr.effect.retctrc.isSome:
-#         # var ctrc: CTRC
-#         # ctrc.deepCopy(fexpr[0].symbol.fexpr.effect.retctrc.get)
-#         # fexpr.ctrc = ctrc
-#         fexpr.ctrc = fexpr[0].symbol.fexpr.effect.retctrc.get
-#   scope.nextPass(fexpr)
-
-# proc canApplyEffect*(fexpr: FExpr): bool =
-#   fexpr[0].kind == fexprSymbol and fexpr[0].symbol.fexpr.hasEffect
-
-# proc effectPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
-#   if fexpr.isNormalFuncCall or fexpr.isGenericsFuncCall:
-#     # if fexpr.canApplyEffect and not fexpr.isToplevel:
-#     #   expandEffectedCall(rootPassProc, scope, fexpr)
-#     scope.nextPass(fexpr)
-#   else:
-#     scope.nextPass(fexpr)
-    
-# proc ctrcBlockInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
-#   if fexpr.kind == fexprBlock and fexpr.len != 0:
-#     if fexpr[^1].hasCTRC:
-#       fexpr.ctrc = fexpr[^1].ctrc
-#   scope.nextPass(fexpr)
-
-proc destroyCheckPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
-  if fexpr.isFuncCall:
-    let args = if fexpr.isNormalFuncCall:
-                 fexpr[1]
-               elif fexpr.isGenericsFuncCall:
-                 fexpr[2]
-               else:
-                 fseq(fexpr.span, @[fexpr[1], fexpr[2]])
-    for arg in args:
-      if arg.kind == fexprSymbol and arg.symbol.fexpr.hasCTRC and not arg.symbol.fexpr.ctrc.fuzzy and arg.symbol.fexpr.ctrc.exdestroyed:
-        fexpr.error("$# has been explicit destroyed." % $arg)
-    scope.nextPass(fexpr)
-  else:
-    scope.nextPass(fexpr)
-
-proc explicitDestructPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
-  if fexpr.isNormalFuncCall:
-    if $fexpr[0].symbol.name == "destruct":
-      if fexpr[1][0].kind == fexprSymbol:
-        fexpr[1][0].symbol.fexpr.ctrc.exdestroyed = true
-    scope.nextPass(fexpr)
-  else:
-    scope.nextPass(fexpr)  
 
 proc finalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   fexpr.isEvaluated = true
