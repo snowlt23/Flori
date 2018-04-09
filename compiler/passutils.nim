@@ -48,3 +48,6 @@ template expandBy*(scope: Scope, span: Span, body: untyped) =
     body
   finally:
     scope.expandEnd()
+
+proc isDestructable*(scope: Scope, typ: Symbol): bool =
+  scope.getFunc(procname(name("destruct"), @[typ])).isSome

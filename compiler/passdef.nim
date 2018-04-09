@@ -342,6 +342,12 @@ proc expandInline*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
         scope.rootPass(fexpr)
   scope.nextPass(fexpr)
 
+# marking pass
+proc markingInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+  if fexpr.kind == fexprSymbol and fexpr.symbol.fexpr.hasMarking:
+    fexpr.marking = fexpr.symbol.fexpr.marking
+  scope.nextPass(fexpr)
+
 proc finalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   fexpr.isEvaluated = true
     

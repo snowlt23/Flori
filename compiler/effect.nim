@@ -6,13 +6,6 @@ import strutils
 import options
 import algorithm
 
-# proc initDepend*(left, right: FExpr): Depend =
-#   Depend(left: left, right: right)
-
-proc scopeoutCTRC*(scope: Scope) =
-  for scopevalue in scope.scopevalues:
-    scopevalue.ctrc.dec
-
 proc expandDestructor*(rootPass: PassProcType, scope: Scope, body: FExpr) =
   var tmpsym: Name
   var isret = false

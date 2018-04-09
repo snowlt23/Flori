@@ -1,5 +1,5 @@
 
-import parser, types, fexpr, scope, metadata
+import fexpr_core, scopeout, marking
 import passutils, typepass
 import compileutils, macroffi
 
@@ -385,14 +385,12 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: Defn, 
   scope.resolveByVoid(fexpr)
 
   semPragma(rootPass, scope, fexpr, parsed.pragma)
-  # if argtypes.isIncludeRef and fexpr.internalPragma.importc.isNone and generics.len == 0:
-  #   fexpr.internalPragma.inline = true
   if parsed.generics.isSpecTypes and not fexpr.internalPragma.inline:
     fnscope.rootPass(parsed.body)
     if parsed.body.len != 0:
       if not parsed.body[^1].typ.spec(rettype):
         parsed.body[^1].error("function expect $# return type, actually $#" % [$rettype, $parsed.body[^1].typ])
-    # fnScopeout(rootPass, fnscope, fexpr) # FIXME:
+    expandDestructor(rootPass, fnscope, fexpr.defn.body)
 
   # symbol resolve
   let fsym = fsymbol(fexpr[0].span, sym)
@@ -533,7 +531,7 @@ proc semWhile*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     parsed.cond.error("while statement cond type chould be Bool.")
   let bodyscope = scope.extendScope()
   bodyscope.rootPass(parsed.body)
-  # bodyScopeout(rootPass, bodyscope, parsed.body)
+  expandDestructor(rootPass, bodyscope, parsed.body)
   scope.resolveByVoid(fexpr)
   fexpr.internalMark = internalWhile
   fexpr.whileexpr = parsed
@@ -555,6 +553,7 @@ proc semVar*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let status = scope.addDecl(name(n), varsym)
   if not status:
     fexpr.error("redefinition $# variable." % $n)
+  varsym.fexpr.marking = newMarking(typsym)
   scope.tracking(varsym.fexpr)
   
   let fsym = fsymbol(fexpr[1].span, varsym)
@@ -606,6 +605,8 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let status = scope.addDecl(name(parsed.name), varsym)
   if not status:
     fexpr.error("redefinition $# variable." % $parsed.name)
+  varsym.fexpr.marking = newMarking(parsed.value.typ)
+  scope.tracking(varsym.fexpr)
 
   let fsym = fsymbol(fexpr[1].span, varsym)
   fexpr[1] = fsym
@@ -628,8 +629,24 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if not parsed.dst.typ.match(parsed.value.typ):
     parsed.value.error("cannot set $# value to $#." % [$parsed.value.typ, $parsed.dst.typ])
 
+  var body = fblock(fexpr.span)
+  if parsed.dst.hasMarking and parsed.value.hasMarking:
+    if parsed.dst.marking.owned:
+      if scope.isDestructable(parsed.dst.typ):
+        var destcall = fexpr.span.quoteFExpr("destruct(`embed)", [parsed.dst])
+        scope.rootPass(destcall)
+        body.addSon(destcall)
+        body.addSon(fexpr)
+        parsed.dst.marking.owned = false
+    # TODO: when dynShare
+    parsed.dst.marking = parsed.value.marking
+
   fexpr.internalMark = internalSet
   fexpr.setexpr = parsed
+  
+  if body.len != 0:
+    fexpr = body
+    scope.rootPass(fexpr)
 
 proc semFieldAccess*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let fieldname = fexpr[2]
@@ -757,6 +774,7 @@ proc semBlock*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     fexpr.error("usage: block {...}")
   let blockscope = scope.extendScope()
   blockscope.rootPass(fexpr[1])
+  expandDestructor(rootPass, blockscope, fexpr[1])
   fexpr.internalMark = internalBlock
     
 #
