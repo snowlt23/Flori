@@ -105,6 +105,24 @@ defParsedType Deftype:
   generics
   pragma
   body
+defParsedType InitExpr:
+  typ
+  body
+defParsedType WhileExpr:
+  cond
+  body
+defParsedType DefExpr:
+  isPrefix = bool
+  name
+  value
+defParsedType SetExpr:
+  dst
+  value
+defParsedType FieldAccessExpr:
+  value
+  fieldname
+defParsedType ImportExpr:
+  importname
       
 type
   InternalMarkKind* = enum
@@ -143,29 +161,9 @@ type
     inline*: bool
 
 type
-  InitExpr* = object
-    typ*: FExpr
-    body*: FExpr
-
-type
   IfExpr* = object
     elifbranch*: seq[tuple[cond: FExpr, body: FExpr]]
     elsebranch*: FExpr
-  WhileExpr* = object
-    cond*: FExpr
-    body*: FExpr
-  DefExpr* = object
-    name*: FExpr
-    value*: FExpr
-  SetExpr* = object
-    dst*: FExpr
-    value*: FExpr
-  FieldAccessExpr* = object
-    value*: FExpr
-    fieldname*: FExpr
-  ImportExpr* = object
-    modname*: Name
-    importname*: Name
 
 defMetadata(typ, Symbol)
 defMetadata(ctrc, CTRC)
@@ -175,23 +173,16 @@ defMetadata(constvalue, FExpr)
 defBoolMetadata(isEvaluated)
 defBoolMetadata(isToplevel)
 defBoolMetadata(isGenerated)
+defBoolMetadata(isCStruct)
 
 defMetadata(internalExpand, FExpr)
 
 defMetadata(internalScope, Scope)
-defMetadata(internalCtx, SemanticContext)
+# defMetadata(internalCtx, SemanticContext)
 defMetadata(internalMark, InternalMarkKind)
 defMetadata(internalPragma, InternalPragma)
 
-defMetadata(initexpr, InitExpr)
-defMetadata(cstruct, bool)
-
 defMetadata(internalIfExpr, IfExpr)
-defMetadata(internalWhileExpr, WhileExpr)
-defMetadata(internalDefExpr, DefExpr)
-defMetadata(internalSetExpr, SetExpr)
-defMetadata(internalFieldAccessExpr, FieldAccessExpr)
-defMetadata(internalImportExpr, ImportExpr)
 defMetadata(parent, FExpr)
 
 proc copy*(fexpr: FExpr): FExpr

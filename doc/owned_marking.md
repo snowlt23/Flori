@@ -1,7 +1,7 @@
 
 # Onwed Marking Resource Management
 
-- owned marking
+- owned marking with scope level
 - explicit destruct
 - dynamic type
 - dynamic type polymorphism

@@ -178,7 +178,7 @@ proc codegenType*(sym: Symbol): string =
   if sym.fexpr.hasInternalPragma and sym.fexpr.internalPragma.importjs.isSome:
     return codegenTypeImportjs(sym)
   result = ""
-  if sym.fexpr.hasCStruct:
+  if sym.fexpr.isCStruct:
     result &= "struct "
   result &= codegenSymbol(sym)
 proc codegenType*(fexpr: FExpr): string =
@@ -297,9 +297,9 @@ proc codegenIf*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 
 proc codegenWhile*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "while ("
-  ctx.codegenFExpr(src, fexpr.internalWhileExpr.cond[0])
+  ctx.codegenFExpr(src, fexpr.whileexpr.cond[0])
   src &= ") {\n"
-  ctx.codegenBody(src, fexpr.internalWhileExpr.body)
+  ctx.codegenBody(src, fexpr.whileexpr.body)
   src &= "}"
   
 proc codegenVar*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
@@ -314,29 +314,29 @@ proc codegenConst*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   
 proc codegenDef*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "var "
-  src &= codegenSymbol(fexpr.internalDefExpr.name)
+  src &= codegenSymbol(fexpr.defexpr.name)
   src &= " = "
-  ctx.codegenFExpr(src, fexpr.internalDefExpr.value)
+  ctx.codegenFExpr(src, fexpr.defexpr.value)
 
 proc codegenDefDecl*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "var "
-  src &= codegenSymbol(fexpr.internalDefExpr.name)
+  src &= codegenSymbol(fexpr.defexpr.name)
   src &= ";\n"
 proc codegenDefValue*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  src &= codegenSymbol(fexpr.internalDefExpr.name)
+  src &= codegenSymbol(fexpr.defexpr.name)
   src &= " = "
-  ctx.codegenFExpr(src, fexpr.internalDefExpr.value)
+  ctx.codegenFExpr(src, fexpr.defexpr.value)
 
 proc codegenSet*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  let dsttyp = fexpr.internalSetExpr.dst.typ
-  ctx.codegenFExpr(src, fexpr.internalSetExpr.dst)
+  let dsttyp = fexpr.setexpr.dst.typ
+  ctx.codegenFExpr(src, fexpr.setexpr.dst)
   src &= " = "
-  ctx.codegenFExpr(src, fexpr.internalSetExpr.value)
+  ctx.codegenFExpr(src, fexpr.setexpr.value)
 
 proc codegenFieldAccess*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  ctx.codegenFExpr(src, fexpr.internalFieldAccessExpr.value)
+  ctx.codegenFExpr(src, fexpr.fieldaccessexpr.value)
   src &= "."
-  ctx.codegenFExpr(src, fexpr.internalFieldAccessExpr.fieldname)
+  ctx.codegenFExpr(src, fexpr.fieldaccessexpr.fieldname)
 
 proc codegenInit*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "{"

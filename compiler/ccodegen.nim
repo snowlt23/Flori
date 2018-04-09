@@ -82,7 +82,7 @@ proc codegenType*(sym: Symbol): string =
   if sym.fexpr.hasInternalPragma and sym.fexpr.internalPragma.importc.isSome:
     return codegenTypeImportc(sym)
   result = ""
-  if sym.fexpr.hasCStruct:
+  if sym.fexpr.isCStruct:
     result &= "struct "
   result &= codegenSymbol(sym)
 proc codegenType*(fexpr: FExpr): string =
@@ -242,9 +242,9 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 
 proc codegenWhile*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "while ("
-  ctx.codegenFExpr(src, fexpr.internalWhileExpr.cond[0])
+  ctx.codegenFExpr(src, fexpr.whileexpr.cond[0])
   src &= ") {\n"
-  ctx.codegenBody(src, fexpr.internalWhileExpr.body)
+  ctx.codegenBody(src, fexpr.whileexpr.body)
   src &= "}"
   
 proc codegenVar*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
@@ -260,38 +260,38 @@ proc codegenConst*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "\n"
   
 proc codegenDef*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  src &= codegenType(fexpr.internalDefExpr.value.typ)
+  src &= codegenType(fexpr.defexpr.value.typ)
   src &= " "
-  src &= codegenSymbol(fexpr.internalDefExpr.name)
+  src &= codegenSymbol(fexpr.defexpr.name)
   src &= " = "
-  ctx.codegenFExpr(src, fexpr.internalDefExpr.value)
+  ctx.codegenFExpr(src, fexpr.defexpr.value)
 
 proc codegenDefDecl*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  let t = codegenType(fexpr.internalDefExpr.value.typ)
-  let n = codegenSymbol(fexpr.internalDefExpr.name)
+  let t = codegenType(fexpr.defexpr.value.typ)
+  let n = codegenSymbol(fexpr.defexpr.name)
   src &= "$# $#;\n" % [t, n]
 proc codegenDefValue*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  src &= codegenSymbol(fexpr.internalDefExpr.name)
+  src &= codegenSymbol(fexpr.defexpr.name)
   src &= " = "
-  ctx.codegenFExpr(src, fexpr.internalDefExpr.value)
+  ctx.codegenFExpr(src, fexpr.defexpr.value)
 
 proc codegenSet*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  let dsttyp = fexpr.internalSetExpr.dst.typ
+  let dsttyp = fexpr.setexpr.dst.typ
   if dsttyp.kind == symbolRef:
     src &= "*"
-  ctx.codegenFExpr(src, fexpr.internalSetExpr.dst)
+  ctx.codegenFExpr(src, fexpr.setexpr.dst)
   src &= " = "
-  if dsttyp.kind != symbolRef and fexpr.internalSetExpr.value.typ.kind == symbolRef:
+  if dsttyp.kind != symbolRef and fexpr.setexpr.value.typ.kind == symbolRef:
     src &= "*"
-  ctx.codegenFExpr(src, fexpr.internalSetExpr.value)
+  ctx.codegenFExpr(src, fexpr.setexpr.value)
 
 proc codegenFieldAccess*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  ctx.codegenFExpr(src, fexpr.internalFieldAccessExpr.value)
-  if fexpr.internalFieldAccessExpr.value.typ.kind == symbolRef:
+  ctx.codegenFExpr(src, fexpr.fieldaccessexpr.value)
+  if fexpr.fieldaccessexpr.value.typ.kind == symbolRef:
     src &= "->"
   else:
     src &= "."
-  ctx.codegenFExpr(src, fexpr.internalFieldAccessExpr.fieldname)
+  ctx.codegenFExpr(src, fexpr.fieldaccessexpr.fieldname)
 
 proc codegenInit*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "(" & codegenType(fexpr.initexpr.typ) & "){"

@@ -188,20 +188,28 @@ proc parseIf*(fexpr: FExpr): IfExpr =
       break
 
 proc parseWhile*(fexpr: FExpr): WhileExpr =
+  result.fexpr = fexpr
   if fexpr.len < 3:
     fexpr.error("while statement require arguments greater than 2")
-  result.cond = fexpr[1]
-  result.body = fexpr[2]
+  result.condpos = 1
+  result.bodypos = 2
   if result.cond.kind != fexprList:
     result.cond.error("while cond should be FBlock.")
   if result.body.kind != fexprBlock:
     result.body.error("while body should be FBlock.")
 
 proc parseDef*(fexpr: FExpr): DefExpr =
+  result.fexpr = fexpr
   if fexpr.len != 3:
     fexpr.error("def expression require 2 arguments.")
-  result.name = fexpr[1]
-  result.value = fexpr[2]
+  if fexpr[1].kind == fexprSeq and fexpr[1].len == 2:
+    result.isPrefix = true
+    result.namepos = 1
+    result.valuepos = 2
+  else:
+    result.isPrefix = false
+    result.namepos = 1
+    result.valuepos = 2
 
 #
 # C pragmas
@@ -490,7 +498,7 @@ proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.deftype = parsed
 
   if fexpr.internalPragma.importc.isNone:
-    sym.fexpr.cstruct = true
+    sym.fexpr.isCStruct = true
 
 proc semIf*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var parsed = parseIf(fexpr)
@@ -533,7 +541,7 @@ proc semWhile*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   bodyScopeout(rootPass, bodyscope, parsed.body)
   scope.resolveByVoid(fexpr)
   fexpr.internalMark = internalWhile
-  fexpr.internalWhileExpr = parsed
+  fexpr.whileexpr = parsed
 
 proc semVar*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let n = fexpr[1]
@@ -582,18 +590,16 @@ proc semConst*(rootPass: PassProcType, scope: Scope, name: var FExpr, value: var
   csym.fexpr.ctrc = initCTRC()
   
 proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
-  if fexpr.len != 3:
-    fexpr.error("usage: name := value")
-  if fexpr[1].len == 2:
-    let defmode = fexpr[1][0]
+  var parsed = parseDef(fexpr)
+  if parsed.isPrefix:
+    let defmode = parsed.name[0]
     if $defmode == "const":
       semConst(rootPass, scope, fexpr[1][1], fexpr[2])
       fexpr.internalMark = internalConst
       return
     else:
       defmode.error("$# is unknwon def mode, please specify `const." % $defmode)
-      
-  var parsed = parseDef(fexpr)
+    
   if parsed.name.kind != fexprIdent:
     parsed.name.error("variable name should be FIdent.")
 
@@ -639,7 +645,7 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr[1] = fsym
   parsed.name = fsym
   fexpr.internalMark = internalDef
-  fexpr.internalDefExpr = parsed
+  fexpr.defexpr = parsed
   if body.len != 0:
     fexpr = body
     scope.rootPass(fexpr)
@@ -690,7 +696,10 @@ proc semTrack*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
 proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.len != 3:
     fexpr.error("expected set syntax: left = value")
-  var parsed = SetExpr(dst: fexpr[1], value: fexpr[2])
+  var parsed: SetExpr
+  parsed.fexpr = fexpr
+  parsed.dstpos = 1
+  parsed.valuepos = 2
 
   scope.resolveByVoid(fexpr)
   scope.rootPass(parsed.dst)
@@ -700,7 +709,7 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     parsed.value.error("cannot set $# value to $#." % [$parsed.value.typ, $parsed.dst.typ])
 
   fexpr.internalMark = internalSet
-  fexpr.internalSetExpr = parsed
+  fexpr.setexpr = parsed
 
   if parsed.dst.hasCTRC:
     parsed.dst.ctrc.dec
@@ -749,7 +758,9 @@ proc semFieldAccess*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
       fexpr.ctrc = fexpr[1].ctrc[name(fieldname)].ctrc
 
   fexpr.internalMark = internalFieldAccess
-  fexpr.internalFieldAccessExpr = FieldAccessExpr(value: fexpr[1], fieldname: fieldname)
+  fexpr.fieldaccessexpr = FieldAccessExpr(fexpr: fexpr)
+  fexpr.fieldaccessexpr.valuepos = 1
+  fexpr.fieldaccessexpr.fieldnamepos = 2
   
 proc semInit*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.len != 3:
@@ -779,10 +790,10 @@ proc semInit*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
 
   let argtypes = fexpr[2].mapIt(it.typ)
 
-  fexpr.initexpr = InitExpr(
-    typ: fsymbol(inittype.typ.span, typesym),
-    body: fexpr[2]
-  )
+  fexpr.initexpr = InitExpr(fexpr: fexpr)
+  fexpr.initexpr.typpos = 1
+  fexpr.initexpr.bodypos = 2
+  fexpr.initexpr.typ = fsymbol(inittype.typ.span, typesym)
   fexpr.internalMark = internalInit
 
 proc semImport*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
@@ -799,10 +810,8 @@ proc semImport*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
       fexpr.error("cannot import $#" % $fexpr[1])
   scope.top.importScope(importname, scope.ctx.modules[modname.get])
   fexpr.internalMark = internalImport
-  fexpr.internalImportExpr = ImportExpr(
-    importname: importname,
-    modname: modname.get
-  )
+  fexpr.importexpr = ImportExpr(fexpr: fexpr)
+  fexpr.importexpr.importnamepos = 1
 
 proc semExport*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.len != 2:
