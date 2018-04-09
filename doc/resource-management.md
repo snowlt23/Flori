@@ -6,6 +6,7 @@ Statically Automatic Resource Management came true by multiple compile time syst
 - compile time reference counting (CTRC)
 - effect system
 - extent lifting
+- field tracking
 - explicit destruct
 - dynamic type
 - dynamic type polymorphism
@@ -54,6 +55,8 @@ fn main() {
 }
 ```
 
+# Field Tracking
+
 # Explicit Destruct
 
 ```
@@ -74,6 +77,20 @@ fn main() {
 - share
 - pool
 
+**share value wrapped by ShareCont[T]**
+
+```
+type ShareCont[T] {
+  owned Bool
+  value T
+}
+destructor[T](sc ShareCont[T]) {
+  if (sc.owned) {
+    destruct(sc.value)
+  }
+}
+```
+
 **Example Type**
 
 ```
@@ -82,12 +99,18 @@ type Table[K, V] {
   data Array[TableSize, dynamic V]
 }
 fn set[K, V](table Table[K, V], key K, value V) {
-  
+  set(table.data, hash(key), value)
+}
+
+type Enemy {
+  hp Int
+  mp Int
 }
 ```
 
 **Rules**
 - if all set value has uniqueness, apply unique to dynamic
+
 ```
 # example
 fn spawn_enemy(tbl Table[String, Enemy], name String, hp Int, mp Int) {
@@ -95,25 +118,22 @@ fn spawn_enemy(tbl Table[String, Enemy], name String, hp Int, mp Int) {
   set(tbl, name, e) # e has uniqueness!
 }
 fn main() {
-  tbl := new_table[String, Resource]()
-  spawn_enemy(tbl, "ZombieA", 100, 10)
-  spawn_enemy(tbl, "ZombieB", 200, 20)
+  tbl := new_table[String, Enemy]() # tbl.typ = Table[String, unique Enemy]
+  for i in range(1, 10) {
+    spawn_enemy(tbl, "Zombie" & to_s(i), i * 100, i * 10)
+  }
 }
 ```
 
 - if all set value has borrowness, apply borrow to dynamic
+
 ```
-# example
-fn spawn_enemy(tbl Table[String, Enemy], name String, hp Int, mp Int) {
-  e := init(Enemy){hp; mp}
-  set(tbl, name, e) # set value has uniqueness!
-}
 fn main() {
-  enemies := vec[Enemy]()
+  enemies := vec[Enemy]() # enemies.typ = Vec[unique Enemy]
   for i in range(1, 10) {
     push(enemies, init(Enemy){i*100; i*10})
   }
-  tbl := new_table[String, Resource]()
+  tbl := new_table[String, Enemy]() # tbl.typ = Table[String, borrow Enemy]
   for i in range(0, length(enemies)-1) {
     set(tbl, "Zombie" & to_s(i), get(enemies, i)) # set value has borrowness!
   }
@@ -121,20 +141,42 @@ fn main() {
 ```
 
 - if value has mixed uniqueness and borrowness, apply share to dynamic
+
 ```
 # example
 fn main() {
-  enemies := vec[Enemy]()
+  enemies := vec[Enemy]() # enemies.typ = Vec[unique Enemy]
   for i in range(1, 10) {
     push(enemies, init(Enemy){i*100; i*10})
   }
-  tbl := new_table[String, Resource]()
+  tbl := new_table[String, Enemy]() # tbl.typ = Table[String, share Enemy] => Table[String, ShareCont[Enemy]]
   for i in range(0, length(enemies)-1) {
-    set(tbl, "ZOmbie" & to_s(i), get(enemies, i)) # value is borrow
+    set(tbl, "Zombie" & to_s(i), get(enemies, i)) # value is borrow
   }
   set(tbl, "BossZombie", init(Enemy){10000; 1000}) # value is unique
 }
 ```
+
+- if dynamic value partial returned, apply share to dynamic and set false to `owned field.
+
+```
+# example
+fn spawn_enemy(tbl Table[String, Enemy], name String, hp Int, mp Int) {
+  e := init(Enemy){hp; mp}
+  set(tbl, name, e) # set value has uniqueness!
+}
+fn get_first_enemy() Enemy {
+  tbl := new_table[String, Enemy]() # tbl.typ = Table[String, share Enemy] => Table[String, ShareCont[Enemy]]
+  for i in range(1, 10) {
+    spawn_enemy(tbl, "Zombie" & to_s(i), 100 * i, 10 * i)
+  }
+  return tbl.data[0] # tbl.data[0].owned = false
+}
+fn main() {
+  fe := get_first_enemy() # fe is unique
+}
+```
+
 share-value manage resource by reference counting. (RC)
 reference counting decide `initial-value, `increment-amount and `decrenment-amount at compile time.
 
