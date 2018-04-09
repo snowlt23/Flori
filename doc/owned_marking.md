@@ -2,7 +2,6 @@
 # Onwed Marking Resource Management
 
 - owned marking
-- field marking
 - explicit destruct
 - dynamic type
 - dynamic type polymorphism
