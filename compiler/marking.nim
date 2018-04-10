@@ -9,8 +9,9 @@ proc newMarking*(typesym: Symbol): Marking =
   result.owned = true
   result.dynamic = dynNone
   result.fieldbody = initTable[Name, Marking]()
-  for b in typesym.fexpr.deftype.body:
-    result.fieldbody[name(b[0])] = newMarking(b[1].symbol)
+  if typesym.fexpr.hasDeftype:
+    for b in typesym.fexpr.deftype.body:
+      result.fieldbody[name(b[0])] = newMarking(b[1].symbol)
 
 proc moveFrom*(mark: Marking, frm: Marking) =
   if not frm.owned:

@@ -62,7 +62,7 @@ fn get[T](v Vec[T], i Int) T $[importjs, patternjs "$1[$2]"] {
 }
 
 destructor[T](v Vec[T]) {
-  println("Vec destroyed!")
+  # println("Vec destroyed!")
   dealloc(v.data)
 }
 
