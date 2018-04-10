@@ -159,6 +159,7 @@ type
     internal*: bool
     isSyntax*: bool
     inline*: bool
+    nodestruct*: bool
 
 type
   IfExpr* = object

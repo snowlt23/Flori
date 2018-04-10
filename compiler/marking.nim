@@ -12,13 +12,11 @@ proc newMarking*(typesym: Symbol): Marking =
   for b in typesym.fexpr.deftype.body:
     result.fieldbody[name(b[0])] = newMarking(b[1].symbol)
 
-proc move*(mark: Marking): Marking =
-  if not mark.owned:
-    mark.typesym.fexpr.error("move value should be owned.")
+proc moveFrom*(mark: Marking, frm: Marking) =
+  if not frm.owned:
+    frm.typesym.fexpr.error("move value should be owned.")
+  frm.owned = false
+  mark.owned = true
+proc borrowFrom*(mark: Marking, frm: Marking) =
   mark.owned = false
-  result = newMarking(mark.typesym)
-proc borrow*(mark: Marking): Marking =
-  result = newMarking(mark.typesym)
-  result.owned = false
-  result.dynamic = dynBorrow
-  result.origin = mark
+  mark.origin = frm

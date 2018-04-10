@@ -215,10 +215,11 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   var ifbodysrc = initSrcExpr()
   ctx.codegenFExpr(ifcondsrc, elifbranch[0].cond)
   ctx.codegenBody(ifbodysrc, elifbranch[0].body, ret)
+  var elsecnt = 1
   src.prev &= ifcondsrc.prev
   src.prev &= "if (" & ifcondsrc.exp & ") {\n"
   src.addPrev(ifbodysrc)
-  src.prev &= "}"
+  src.prev &= "} else {"
 
   for branch in elifbranch[1..^1]:
     var elifcondsrc = initSrcExpr()
@@ -226,15 +227,15 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     ctx.codegenFExpr(elifcondsrc, branch.cond)
     ctx.codegenBody(elifbodysrc, branch.body, ret)
     src.prev &= elifcondsrc.prev
-    src.prev &= " else if (" & elifcondsrc.exp & ") {\n"
+    src.prev &= "if (" & elifcondsrc.exp & ") {\n"
     src.addPrev(elifbodysrc)
-    src.prev &= "}"
+    src.prev &= "} else {"
+    elsecnt += 1
 
   var elsebodysrc = initSrcExpr()
   ctx.codegenBody(elsebodysrc, fexpr.internalIfExpr.elsebranch, ret)
-  src.prev &= " else {\n"
   src.addPrev(elsebodysrc)
-  src.prev &= "}"
+  src.prev &= "}".repeat(elsecnt)
 
   # return temporary variable.
   if not fexpr.typ.isVoidType:

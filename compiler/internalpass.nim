@@ -308,6 +308,8 @@ proc semPatternjs*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     
 proc semInline*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.parent.internalPragma.inline = true
+proc semNoDestruct*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  fexpr.parent.internalPragma.nodestruct = true
 
 proc semPragma*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, pragma: FExpr) =
   if pragma.kind != fexprArray:
@@ -355,6 +357,7 @@ proc declArgtypes*(scope: Scope, fexpr: FExpr, isGenerics: bool): seq[Symbol] =
     result.add(typesym)
 
     if not isGenerics:
+      argsym.fexpr.marking = newMarking(typesym)
       let status = scope.addDecl(name(arg[0]), argsym)
       if not status:
         arg[0].error("redefinition $# variable." % $arg[0])
@@ -390,7 +393,8 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: Defn, 
     if parsed.body.len != 0:
       if not parsed.body[^1].typ.spec(rettype):
         parsed.body[^1].error("function expect $# return type, actually $#" % [$rettype, $parsed.body[^1].typ])
-    expandDestructor(rootPass, fnscope, fexpr.defn.body)
+    if not fexpr.internalPragma.nodestruct:
+      expandDestructor(rootPass, fnscope, fexpr.defn.body)
 
   # symbol resolve
   let fsym = fsymbol(fexpr[0].span, sym)
@@ -407,10 +411,6 @@ proc semDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if not status:
     fexpr.error("redefinition $# function." % $parsed.name)
   fexpr.internalMark = internalDefn
-
-  if not fexpr.isToplevel:
-    scope.ctx.globaltoplevels.add(fexpr)
-    fexpr.isGenerated = true
 
 proc semSyntax*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.kind == fexprIdent:
@@ -450,11 +450,12 @@ proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     fexpr.error("redefinition $# macro." % $parsed.name)
   fexpr.internalMark = internalMacro
   
+  let delpos = scope.ctx.globaltoplevels.len
   scope.ctx.globaltoplevels.add(fexpr)
   if parsed.generics.isSpecTypes:
     scope.ctx.macroprocs.add(mp)
     scope.ctx.reloadMacroLibrary(scope.top)
-  scope.ctx.globaltoplevels.del(high(scope.ctx.globaltoplevels))
+  scope.ctx.globaltoplevels.del(delpos)
   
   if not fexpr.isToplevel:
     scope.ctx.globaltoplevels.add(fexpr)
@@ -605,11 +606,13 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let status = scope.addDecl(name(parsed.name), varsym)
   if not status:
     fexpr.error("redefinition $# variable." % $parsed.name)
-  varsym.fexpr.marking = newMarking(parsed.value.typ)
+  if parsed.value.hasMarking:
+    varsym.fexpr.marking = parsed.value.marking
+  else:
+    varsym.fexpr.marking = newMarking(parsed.value.typ)
   scope.tracking(varsym.fexpr)
 
   let fsym = fsymbol(fexpr[1].span, varsym)
-  fexpr[1] = fsym
   parsed.name = fsym
   fexpr.internalMark = internalDef
   fexpr.defexpr = parsed
@@ -630,7 +633,9 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     parsed.value.error("cannot set $# value to $#." % [$parsed.value.typ, $parsed.dst.typ])
 
   var body = fblock(fexpr.span)
-  if parsed.dst.hasMarking and parsed.value.hasMarking:
+  if not parsed.value.hasMarking:
+    parsed.value.marking = newMarking(parsed.value.typ)
+  if parsed.dst.hasMarking:
     if parsed.dst.marking.owned:
       if scope.isDestructable(parsed.dst.typ):
         var destcall = fexpr.span.quoteFExpr("destruct(`embed)", [parsed.dst])
@@ -638,8 +643,10 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
         body.addSon(destcall)
         body.addSon(fexpr)
         parsed.dst.marking.owned = false
-    # TODO: when dynShare
-    parsed.dst.marking = parsed.value.marking
+    if parsed.value.marking.owned:
+      parsed.dst.marking.borrowFrom(parsed.value.marking)
+    else:
+      parsed.dst.marking = parsed.value.marking
 
   fexpr.internalMark = internalSet
   fexpr.setexpr = parsed
@@ -662,6 +669,9 @@ proc semFieldAccess*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     fexpr.typ = fieldopt.get.scope.varsym(fieldopt.get)
   else:
     fexpr.typ = fieldopt.get
+
+  if fexpr[1].hasMarking:
+    fexpr.marking = fexpr[1].marking.fieldbody[name(fexpr[2])]
 
   fexpr.internalMark = internalFieldAccess
   fexpr.fieldaccessexpr = FieldAccessExpr(fexpr: fexpr)
@@ -686,6 +696,13 @@ proc semInit*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   scope.rootPass(fexpr[2])
 
   let argtypes = fexpr[2].mapIt(it.typ)
+
+  fexpr.marking = newMarking(typesym)
+  for i, b in fexpr[2]:
+    # let typefield = typesym.fexpr.deftype.body[i]
+    if b.hasMarking:
+      b.marking.owned = false
+      # fexpr.marking.fieldbody[name(typefield[0])] = b.marking
 
   fexpr.initexpr = InitExpr(fexpr: fexpr)
   fexpr.initexpr.typpos = 1
@@ -825,6 +842,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("patternjs"), semPatternjs)
   # general pragmas
   scope.addInternalEval(name("inline"), semInline)
+  scope.addInternalEval(name("nodestruct"), semNoDestruct)
 
 proc initInternalScope*(ctx: SemanticContext) =
   let scope = ctx.newScope(name("internal"), "internal")

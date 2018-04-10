@@ -53,4 +53,4 @@ suite "example":
   test "float literal":
     checkio "examples/floatlit.flori", "2.000000\n"
   test "field track":
-    checkio "examples/field_track.flori", "start!\nMyFieldType(1, 2) destroyed!\nend!\nMyFieldType(5, 6) destroyed!\nMyType destroyed!\nMyFieldType(3, 4) destroyed!\n"
+    checkio "examples/field_track.flori", "start!\nMyFieldType(1, 2) destroyed!\nend!\nMyFieldType(5, 6) destroyed!\nMyFieldType(3, 4) destroyed!\nMyType destroyed!\n"

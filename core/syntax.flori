@@ -103,7 +103,7 @@ syntax destructor(fexpr FExpr) FExpr {
     body := get(fexpr, 2)
     
     quote {
-      fn destruct `args `body
+      fn destruct `args $[nodestruct] `body
     }
   } else {
     generics := get(fexpr, 1)
@@ -111,7 +111,7 @@ syntax destructor(fexpr FExpr) FExpr {
     body := get(fexpr, 3)
     
     quote {
-      fn destruct `generics `args `body
+      fn destruct `generics `args $[nodestruct] `body
     }
   }
 }

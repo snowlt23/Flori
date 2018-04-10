@@ -1,5 +1,5 @@
 
-import parser, types, fexpr, scope, metadata
+import fexpr_core, scopeout, marking
 import passutils, ccodegen, compileutils
 
 import options
@@ -115,6 +115,7 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, argtypes: s
     argcopy.symbol = argcopy.symbol.symcopy
     argcopy.symbol.fexpr.typ = extype.symbol
     arg[0] = argcopy
+    arg[0].marking = newMarking(extype.symbol)
     arg[1] = extype
     let status = exscope.addDecl(name(argcopy), argcopy.symbol)
     if not status:
@@ -138,7 +139,8 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, argtypes: s
   exscope.importScope(name("flori_current_scope"), scope.top)
   exscope.rootPass(expanded.defn.body)
   scope.ctx.globaltoplevels.add(expanded)
-  # fnScopeout(rootPass, exscope, expanded)
+  if not expanded.internalPragma.nodestruct:
+    expandDestructor(rootPass, exscope, expanded.defn.body)
 
   return fsym
 
