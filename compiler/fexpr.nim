@@ -7,9 +7,6 @@ import deques
 import algorithm
 
 import types
-export types.Span
-export types.FExprKind
-export types.FExpr
 
 const fexprAtoms* = {fexprIdent..fexprStrLit}
 const fexprNames* = {fexprIdent, fexprPrefix, fexprInfix}

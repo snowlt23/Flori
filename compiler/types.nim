@@ -23,7 +23,6 @@ type
     symbolTypeGenerics
     symbolVar
     symbolRef
-    symbolOnce
     symbolFunc
     symbolFuncGenerics
     symbolFuncType
@@ -37,13 +36,15 @@ type
     name*: Name
     fexpr*: FExpr
     instance*: Option[Symbol]
+    instmarking*: Option[Marking]
     case kind*: SymbolKind
     of symbolArg:
       argpos*: int
     of symbolTypeGenerics:
       types*: seq[Symbol]
-    of symbolVar, symbolRef, symbolOnce:
+    of symbolVar, symbolRef:
       wrapped*: Symbol
+      marking*: Option[Marking]
     of symbolSyntax, symbolMacro:
       macroproc*: MacroProc
     of symbolFuncType:
@@ -72,19 +73,18 @@ type
     fexprList
     fexprBlock
 
-  CTRC* = ref object
-    refcnt*: int
-    depends*: seq[CTRC]
-    dest*: bool
-    exdest*: bool
-    ret*: bool
-    fieldbody*: Table[Name, FExpr]
-    alias*: Option[CTRC]
-    fuzzy*: bool
-  Effect* = object
-    trackings*: seq[Depend]
-    resulttypes*: seq[Symbol]
-    retctrc*: Option[CTRC]
+  DynamicKind* = enum
+    dynNone
+    dynUnique
+    dynBorrow
+    dynShare
+    # dynPool
+  Marking* = ref object
+    typesym*: Symbol
+    owned*: bool
+    origin*: Marking
+    dynamic*: DynamicKind
+    fieldbody*: Table[Name, Marking]
 
   FExpr* = ref object
     span*: Span
@@ -196,22 +196,19 @@ proc `$`*(sym: Symbol): string =
     $sym.scope.name & "." & $sym.name & "[" & sym.types.mapIt($it).join(",") & "]"
   of symbolRef:
     "ref " & $sym.wrapped
-  of symbolOnce:
-    "once " & $sym.wrapped
   of symbolIntLit:
     $sym.intval
   else:
     $sym.scope.name & "." & $sym.name
-    
+
 proc refsym*(scope: Scope, sym: Symbol): Symbol =
   result = scope.symbol(sym.name, symbolRef, sym.fexpr)
   result.wrapped = sym
+  result.marking = none(Marking)
 proc varsym*(scope: Scope, sym: Symbol): Symbol =
   result = scope.symbol(sym.name, symbolVar, sym.fexpr)
   result.wrapped = sym
-proc oncesym*(scope: Scope, sym: Symbol): Symbol =
-  result = scope.symbol(sym.name, symbolOnce, sym.fexpr)
-  result.wrapped = sym
+  result.marking = none(Marking)
 proc symcopy*(sym: Symbol): Symbol =
   result = sym.scope.symbol(sym.name, sym.kind, sym.fexpr)
   result.instance = sym.instance
@@ -221,6 +218,9 @@ proc symcopy*(sym: Symbol): Symbol =
     result.types = sym.types
   elif sym.kind == symbolIntLit:
     result.intval = sym.intval
+  elif sym.kind in {symbolVar, symbolRef}:
+    result.wrapped = sym.wrapped.symcopy
+    result.marking = sym.marking
 proc intsym*(scope: Scope, fexpr: FExpr): Symbol =
   result = scope.symbol(name("IntLit"), symbolIntLit, fexpr)
   result.intval = fexpr.intval
@@ -234,7 +234,7 @@ proc isSpecSymbol*(sym: Symbol): bool =
     return true
   elif sym.kind == symbolGenerics:
     return false
-  elif sym.kind in {symbolRef, symbolVar, symbolOnce}:
+  elif sym.kind in {symbolRef, symbolVar}:
     return sym.wrapped.isSpecSymbol()
   elif sym.kind == symbolIntLit:
     return true

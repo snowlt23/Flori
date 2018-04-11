@@ -166,20 +166,6 @@ type
     elifbranch*: seq[tuple[cond: FExpr, body: FExpr]]
     elsebranch*: FExpr
 
-type
-  DynamicKind* = enum
-    dynNone
-    dynUnique
-    dynBorrow
-    dynShare
-    # dynPool
-  Marking* = ref object
-    typesym*: Symbol
-    owned*: bool
-    origin*: Marking
-    dynamic*: DynamicKind
-    fieldbody*: Table[Name, Marking]
-
 defMetadata(typ, Symbol)
 defMetadata(marking, Marking)
 defMetadata(constvalue, FExpr)

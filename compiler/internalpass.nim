@@ -356,17 +356,12 @@ proc declArgtypes*(scope: Scope, fexpr: FExpr, isGenerics: bool): seq[Symbol] =
     arg[1].replaceByTypesym(typesym)
     result.add(typesym)
 
-    if not isGenerics:
-      argsym.fexpr.marking = newMarking(typesym)
-      let status = scope.addDecl(name(arg[0]), argsym)
-      if not status:
-        arg[0].error("redefinition $# variable." % $arg[0])
-
-proc isIncludeRef*(argtypes: seq[Symbol]): bool =
-  for argt in argtypes:
-    if argt.kind == symbolRef:
-      return true
-  return false
+  if not isGenerics and not fexpr.mapIt(it[1]).isIncludeRef:
+    for i, arg in fexpr:
+      if not isGenerics:
+        let status = scope.addDecl(name(arg[0]), arg[0].symbol)
+        if not status:
+          arg[0].error("redefinition $# variable." % $arg[0])
         
 proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: Defn, defsym: SymbolKind): (Scope, seq[Symbol], seq[Symbol], Symbol, Symbol) =
   let fnscope = scope.extendScope()
@@ -388,7 +383,7 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: Defn, 
   scope.resolveByVoid(fexpr)
 
   semPragma(rootPass, scope, fexpr, parsed.pragma)
-  if parsed.generics.isSpecTypes and not fexpr.internalPragma.inline:
+  if parsed.generics.isSpecTypes and not fexpr.internalPragma.inline and not argtypes.isIncludeRef:
     fnscope.rootPass(parsed.body)
     if parsed.body.len != 0:
       if not parsed.body[^1].typ.spec(rettype):

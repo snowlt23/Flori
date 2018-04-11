@@ -1,5 +1,5 @@
 
-import fexpr_core
+import fexpr_core, marking
 import passmacro, expandpass, typepass, macropass, inlinepass
 
 import options
@@ -295,7 +295,7 @@ proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
     scope.expandBy(fexpr.span):
       let fnsym = fexpr[0]
       let argtypes = fexpr[1].mapIt(it.typ)
-      if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.generics.len != 0:
+      if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.isGenerics:
         let exsym = expandDefn(rootPassProc, scope, fnsym.symbol.fexpr, argtypes)
         fexpr[0] = exsym
         fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
@@ -306,8 +306,7 @@ proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
       let fnsym = fexpr[0]
       let genericstypes = fexpr[1]
       let argtypes = fexpr[2].mapIt(it.typ)
-      if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.generics.len != 0:
-        # let defngenerics = fnsym.symbol.fexpr.defn.generics
+      if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.isGenerics:
         let newfexpr = fnsym.symbol.fexpr.copy
         for i, gtype in genericstypes:
           gtype.assert(gtype.kind == fexprSymbol)
@@ -321,7 +320,7 @@ proc expandTemplates*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
     scope.expandBy(fexpr.span):
       let fnsym = fexpr[0]
       let argtypes = @[fexpr[1].typ, fexpr[2].typ]
-      if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.generics.len != 0:
+      if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.isGenerics:
         let exsym = expandDefn(rootPassProc, scope, fnsym.symbol.fexpr, argtypes)
         fexpr[0] = exsym
         fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
@@ -349,6 +348,11 @@ proc expandInline*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
 proc markingInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   if fexpr.kind == fexprSymbol and fexpr.symbol.fexpr.hasMarking:
     fexpr.marking = fexpr.symbol.fexpr.marking
+    if fexpr.typ.kind in {symbolVar, symbolRef}:
+      fexpr.typ.marking = some(fexpr.symbol.fexpr.marking)
+  elif fexpr.isFuncCall:
+    if not fexpr.hasMarking:
+      fexpr.marking = newMarking(fexpr.typ)
   scope.nextPass(fexpr)
 
 proc finalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =

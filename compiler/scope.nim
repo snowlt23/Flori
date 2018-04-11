@@ -3,16 +3,7 @@ import tables
 import options
 import strutils
 
-import types
-export types.SymbolKind
-export types.Symbol
-export types.Name
-export types.ProcDecl
-export types.ProcName
-export types.ProcDeclGroup
-export types.Scope
-
-import fexpr
+import types, fexpr, marking
 
 proc newScope*(ctx: SemanticContext, name: Name, path: string): Scope =
   new result
@@ -65,10 +56,6 @@ proc match*(a, b: Symbol): bool =
     return a.wrapped.match(b.wrapped)
   elif a.kind == symbolVar and b.kind == symbolRef:
     return a.wrapped.match(b.wrapped)
-  elif a.kind == symbolOnce and b.kind == symbolOnce:
-    return a.wrapped.match(b.wrapped)
-  elif b.kind == symbolOnce:
-    return a.match(b.wrapped)
   elif a.kind == symbolRef:
     return a.wrapped.match(b)
   elif a.kind == symbolVar:
@@ -108,23 +95,32 @@ proc spec*(a, b: Symbol): bool =
   elif a.kind == symbolIntLit and b.kind == symbolIntLit:
     return a.intval == b.intval
   elif a.kind == symbolRef and b.kind == symbolRef:
-    return a.wrapped.match(b.wrapped)
+    if a.marking.isSome and b.marking.isSome:
+      if a.marking != b.marking:
+        return false
+    elif a.marking.isSome or b.marking.isSome:
+      return false
+    return a.wrapped.spec(b.wrapped)
   elif a.kind == symbolVar and b.kind == symbolRef:
-    return a.wrapped.match(b.wrapped)
-  elif a.kind == symbolOnce and b.kind == symbolOnce:
-    return a.wrapped.match(b.wrapped)
-  elif b.kind == symbolOnce:
-    return a.match(b.wrapped)
+    if a.marking.isSome and b.marking.isSome:
+      if a.marking != b.marking:
+        return false
+    elif a.marking.isSome or b.marking.isSome:
+      return false
+    return a.wrapped.spec(b.wrapped)
   elif a.kind == symbolRef:
-    return a.wrapped.match(b)
+    return a.wrapped.spec(b)
   elif a.kind == symbolVar:
-    return a.wrapped.match(b)
+    return a.wrapped.spec(b)
   else:
     return false
 proc spec*(a: ProcName, b: ProcDecl): bool =
   if a.generics.len != b.generics.len: return false
+  if a.argtypes.len != b.argtypes.len: return false
   for i in 0..<a.generics.len:
     if not a.generics[i].spec(b.generics[i]): return false
+  for i in 0..<a.argtypes.len:
+    if not a.argtypes[i].spec(b.argtypes[i]): return false
   return true
 
 proc initProcIdentGroup*(): ProcDeclGroup =

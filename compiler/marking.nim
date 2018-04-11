@@ -1,5 +1,5 @@
 
-import fexpr_core
+import types, fexpr, metadata
 
 import tables
 
@@ -21,3 +21,18 @@ proc moveFrom*(mark: Marking, frm: Marking) =
 proc borrowFrom*(mark: Marking, frm: Marking) =
   mark.owned = false
   mark.origin = frm
+
+proc `==`*(a, b: Marking): bool =
+  if a.owned != b.owned:
+    return false
+  for key, value in a.fieldbody:
+    if value != b.fieldbody[key]:
+      return false
+  return true
+
+proc copy*(mark: Marking): Marking =
+  result = newMarking(mark.typesym)
+  result.owned = mark.owned
+  result.dynamic = mark.dynamic
+  for key, value in result.fieldbody.mpairs:
+    value = mark.fieldbody[key].copy

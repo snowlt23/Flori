@@ -92,7 +92,7 @@ fn to_cs(fexpr FIntLit) CString $[importc "flori_to_cs", header "floriffi.h", im
 
 fn strval(fexpr FStrLit) CString $[importc "flori_strval", header "floriffi.h", importjs]
 fn gensym() FExpr $[importc "flori_gensym", header "floriffi.h", importjs]
-fn debug_ctrc_impl(fexpr FExpr) $[importc "flori_debug_ctrc", header "floriffi.h", importjs]
+fn debug_marking_impl(fexpr FExpr) $[importc "flori_debug_marking", header "floriffi.h", importjs]
 
 fn quote_expand_inside(fexpr FExpr, args FExpr, count Int) Int $[importjs] {
   i := 0
@@ -116,7 +116,7 @@ fn quote_expand(fexpr FExpr, args FExpr) FExpr $[importjs] {
   fexpr
 }
 
-macro debug_ctrc[T](fexpr TExpr[T]) FExpr {
-  debug_ctrc_impl(cast[FExpr](fexpr))
+macro debug_marking[T](fexpr TExpr[T]) FExpr {
+  debug_marking_impl(cast[FExpr](fexpr))
   quote {}
 }

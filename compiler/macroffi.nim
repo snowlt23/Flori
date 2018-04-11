@@ -54,5 +54,16 @@ proc ffiStrval*(fexpr: FExpr): cstring {.cdecl.} =
 proc ffiGensym*(): FExpr {.cdecl.} =
   return fident(internalSpan, gCtx.genTmpName())
 
-proc ffiDebugCTRC*(fexpr: FExpr) =
-  echo "debug_ctrc is deprecated"
+proc debugMarking*(marking: Marking, indent: int) =
+  echo marking.owned, " {"
+  for key, value in marking.fieldbody:
+    stdout.write(" ".repeat(indent+2) & $key & ":")
+    debugMarking(value, indent+2)
+  echo " ".repeat(indent) & "}"
+  
+proc ffiDebugMarking*(fexpr: FExpr) =
+  if fexpr.hasMarking:
+    stdout.write($fexpr, ":")
+    debugMarking(fexpr.marking, 0)
+  else:
+    echo fexpr, ":hasntMarking"

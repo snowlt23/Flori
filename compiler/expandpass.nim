@@ -8,12 +8,12 @@ import strutils, sequtils
 proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr
 
 proc applyInstance*(sym: Symbol, instance: Symbol) =
-  if sym.kind in {symbolVar, symbolRef, symbolOnce} and instance.kind in {symbolVar, symbolRef, symbolOnce}:
+  if sym.kind in {symbolVar, symbolRef} and instance.kind in {symbolVar, symbolRef}:
     sym.wrapped.applyInstance(instance.wrapped)
-  elif instance.kind in {symbolVar, symbolRef, symbolOnce}:
+    if instance.marking.isSome:
+      sym.instmarking = some(instance.marking.get)
+  elif instance.kind in {symbolVar, symbolRef}:
     sym.applyInstance(instance.wrapped)
-  # elif sym.kind in {symbolVar, symbolRef, symbolOnce}: # FIXME:
-  #   sym.wrapped.applyInstance(instance)
   elif sym.kind == symbolGenerics:
     sym.instance = some(instance)
   elif sym.kind == symbolTypeGenerics:
@@ -27,8 +27,12 @@ proc applyInstance*(sym: Symbol, instance: Symbol) =
 proc expandSymbol*(scope: Scope, sym: Symbol): Symbol =
   if sym.kind == symbolVar:
     result = scope.varsym(scope.expandSymbol(sym.wrapped))
+    if sym.instmarking.isSome:
+      result.marking = some(sym.instmarking.get.copy)
   elif sym.kind == symbolRef:
     result = scope.refsym(scope.expandSymbol(sym.wrapped))
+    if sym.instmarking.isSome:
+      result.marking = some(sym.instmarking.get.copy)
   elif sym.kind == symbolGenerics:
     if sym.instance.isNone:
       sym.fexpr.error("cannot instantiate $#." % $sym)
@@ -51,6 +55,8 @@ proc expandGenerics*(generics: FExpr) =
     if g.symbol.instance.isNone:
       g.error("cannot instantiate $#." % $g)
     g.symbol = g.symbol.instance.get
+    if g.symbol.instmarking.isSome:
+      g.symbol.marking = some(g.symbol.instmarking.get.copy)
       
 proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr =
   fexpr.assert(fexpr.hasDeftype)
@@ -98,6 +104,9 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, argtypes: s
   defer:
     for g in fexpr.defn.generics:
       g.symbol.instance = none(Symbol)
+    for arg in fexpr.defn.args:
+      if arg[1].symbol.kind == symbolRef:
+        arg[1].symbol.instmarking = none(Marking)
   expanded.defn.generics.expandGenerics()
 
   let funcname = fexpr.defn.name.symbol.name
@@ -114,9 +123,14 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, argtypes: s
     let argcopy = arg[0].copy
     argcopy.symbol = argcopy.symbol.symcopy
     argcopy.symbol.fexpr.typ = extype.symbol
+    if extype.symbol.kind == symbolRef and extype.symbol.marking.isSome:
+      argcopy.symbol.fexpr.marking = extype.symbol.marking.get
+    else:
+      argcopy.symbol.fexpr.marking = newMarking(extype.symbol)
     arg[0] = argcopy
-    arg[0].marking = newMarking(extype.symbol)
-    arg[1] = extype
+    arg[1].symbol = extype.symbol.symcopy
+    if extype.symbol.kind == symbolRef and extype.symbol.marking.isSome:
+      arg[1].symbol.marking = some(extype.symbol.marking.get.copy)
     let status = exscope.addDecl(name(argcopy), argcopy.symbol)
     if not status:
       argcopy.error("redefinition $# variable." % $arg[0])

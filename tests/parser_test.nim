@@ -1,6 +1,6 @@
 
 import unittest
-import compiler.fexpr, compiler.parser
+import compiler.types, compiler.fexpr, compiler.parser
 
 suite "F expression parser test":
   test "atom":

@@ -59,7 +59,7 @@ proc setupFFI*(handle: LibHandle) =
   ffi "flori_to_cs", ffiToCS
   ffi "flori_strval", ffiStrval
   ffi "flori_gensym", ffiGensym
-  ffi "flori_debug_ctrc", ffiDebugCTRC
+  ffi "flori_debug_marking", ffiDebugMarking
 
 proc reloadMacroLibrary*(semctx: SemanticContext, scope: Scope) =
   if semctx.macrolib != nil:

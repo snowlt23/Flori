@@ -5,7 +5,25 @@ import options
 import strutils, sequtils
 import tables
 
-proc isGenerics*(defn: Defn): bool = not defn.generics.isSpecTypes
+proc isIncludeRef*(argtypes: seq[Symbol]): bool =
+  for argt in argtypes:
+    if argt.kind == symbolRef:
+      return true
+  return false
+proc isIncludeRef*(fexpr: seq[FExpr]): bool =
+  for son in fexpr:
+    if son.kind != fexprSymbol: return false
+    if son.symbol.kind == symbolRef:
+      return true
+  return false
+proc isResolveRef*(fexpr: seq[FExpr]): bool =
+  for son in fexpr:
+    if son.kind != fexprSymbol: return false
+    if son.symbol.kind == symbolRef and son.symbol.marking.isNone:
+      return false
+  return true
+
+proc isGenerics*(defn: Defn): bool = not defn.generics.isSpecTypes or defn.args.mapIt(it[1]).isIncludeRef
 proc isGenerics*(deftype: Deftype): bool = not deftype.generics.isSpecTypes
 
 proc isEqualTypes*(types: seq[Symbol]): bool =

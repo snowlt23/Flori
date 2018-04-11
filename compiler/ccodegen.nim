@@ -42,12 +42,24 @@ proc replaceSpecialSymbols*(s: string): string =
 
 proc codegenSymbol*(sym: Symbol): string
 
+proc collectNotOwnedNames*(marking: Marking): seq[Name] =
+  result = @[]
+  for key, value in marking.fieldbody:
+    if not value.owned:
+      result.add(key)
+    result &= value.collectNotOwnedNames()
+
 proc codegenSymbol*(sym: Symbol): string =
   result = ""
   if sym.kind == symbolTypeGenerics and sym.types.len != 0:
     result &= $sym.scope.name & "_" & $sym.name & "_" & sym.types.mapIt(codegenSymbol(it)).join("_")
   elif sym.kind == symbolVar:
     result &= codegenSymbol(sym.wrapped)
+  elif sym.kind == symbolRef:
+    result &= codegenSymbol(sym.wrapped)
+    if sym.marking.isSome:
+      let owns = collectNotOwnedNames(sym.marking.get)
+      result &= "M" & owns.mapIt($it).join("_") & "M"
   elif sym.kind == symbolIntLit:
     result &= $sym.intval
   else:
@@ -130,6 +142,8 @@ proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: FExpr, ret: stri
 
 proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.internalPragma.inline:
+    return
+  if fexpr.defn.args.mapIt(it[1]).isIncludeRef and not fexpr.defn.args.mapIt(it[1]).isResolveRef:
     return
   
   var decl = initSrcExpr()
