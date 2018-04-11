@@ -126,7 +126,7 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, argtypes: s
     if extype.symbol.kind == symbolRef and extype.symbol.marking.isSome:
       argcopy.symbol.fexpr.marking = extype.symbol.marking.get
     else:
-      argcopy.symbol.fexpr.marking = newMarking(extype.symbol)
+      argcopy.symbol.fexpr.marking = newMarking(exscope, extype.symbol)
     arg[0] = argcopy
     arg[1].symbol = extype.symbol.symcopy
     if extype.symbol.kind == symbolRef and extype.symbol.marking.isSome:

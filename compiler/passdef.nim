@@ -352,7 +352,7 @@ proc markingInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
       fexpr.typ.marking = some(fexpr.symbol.fexpr.marking)
   elif fexpr.isFuncCall:
     if not fexpr.hasMarking:
-      fexpr.marking = newMarking(fexpr.typ)
+      fexpr.marking = newMarking(scope, fexpr.typ)
   scope.nextPass(fexpr)
 
 proc finalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =

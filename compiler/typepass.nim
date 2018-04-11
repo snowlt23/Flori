@@ -8,23 +8,23 @@ import tables
 
 type
   ParsedType* = ref object
-    isref*: bool
+    prefix*: Option[FExpr]
     typ*: FExpr
     generics*: FExpr
     ret*: ParsedType
 
 proc parseTypeExpr*(fexpr: FExpr, pos: var int): ParsedType =
   if fexpr.kind in {fexprIdent, fexprSymbol, fexprQuote}:
-    result = ParsedType(typ: fexpr, generics: farray(fexpr.span), isref: false)
+    result = ParsedType(typ: fexpr, generics: farray(fexpr.span), prefix: none(FExpr))
   elif fexpr.kind == fexprIntLit:
-    result = ParsedType(typ: fexpr, generics: farray(fexpr.span), isref: false)
+    result = ParsedType(typ: fexpr, generics: farray(fexpr.span), prefix: none(FExpr))
   elif fexpr.kind == fexprSeq:
     new result
-    if $fexpr[pos] == "ref":
-      result.isref = true
+    if $fexpr[pos] == "ref" or $fexpr[pos] == "dynamic":
+      result.prefix = some(fexpr[pos])
       pos += 1
     else:
-      result.isref = false
+      result.prefix = none(FExpr)
 
     if fexpr.isParametricTypeExpr(pos):
       result.typ = fexpr[pos]
@@ -39,7 +39,7 @@ proc parseTypeExpr*(fexpr: FExpr, pos: var int): ParsedType =
       if pos < fexpr.len:
         result.ret = fexpr.parseTypeExpr(pos)
       else:
-        result.ret = ParsedType(typ: fident(fexpr.span, name("Void")), generics: farray(fexpr.span), isref: false)
+        result.ret = ParsedType(typ: fident(fexpr.span, name("Void")), generics: farray(fexpr.span), prefix: none(FExpr))
   else:
     fexpr[pos].error("$# isn't type expression." % $fexpr[pos])
 
@@ -83,8 +83,11 @@ proc semType*(scope: Scope, parsed: ParsedType): Symbol =
     if result.types.isSpecTypes and result.fexpr.hasDeftype and result.fexpr.deftype.isGenerics:
       result = scope.expandDeftype(result.fexpr, result.types).symbol
 
-  if parsed.isref:
-    result = scope.refsym(result)
+  if parsed.prefix.isSome:
+    if $parsed.prefix.get == "ref":
+      result = scope.refsym(result)
+    elif $parsed.prefix.get == "dynamic":
+      result = scope.dynsym(result)
 
 proc semTypeExpr*(scope: Scope, typ: FExpr): Symbol =
   var pos = 0

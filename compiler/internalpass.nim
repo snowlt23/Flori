@@ -53,11 +53,11 @@ proc parseDefn*(fexpr: var FExpr): Defn =
 
   # ret ref
   if pos < fexpr.len and $fexpr[pos] == "ref":
+    result.retprefixpos = newfexpr.len
     newfexpr.addSon(fexpr[pos])
-    result.isretref = true
     pos.inc
   else:
-    result.isretref = false
+    result.retprefixpos = -1
 
   # ret
   if pos < fexpr.len and fexpr[pos].kind in {fexprIdent, fexprSymbol}:
@@ -372,7 +372,7 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: Defn, 
                  else:
                    @[]
   let argtypes = fnscope.declArgtypes(parsed.args, parsed.isGenerics)
-  let rettype = fnscope.semType(ParsedType(typ: parsed.ret, generics: parsed.retgenerics, isref: parsed.isretref))
+  let rettype = fnscope.semType(ParsedType(typ: parsed.ret, generics: parsed.retgenerics, prefix: if parsed.hasRetprefix: some(parsed.retprefix) else: none(FExpr)))
   parsed.ret.replaceByTypesym(rettype)
   
   let symkind = if parsed.name.kind == fexprQuote: symbolInfix else: defsym
@@ -551,7 +551,7 @@ proc semVar*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let status = scope.addDecl(name(n), varsym)
   if not status:
     fexpr.error("redefinition $# variable." % $n)
-  varsym.fexpr.marking = newMarking(typsym)
+  varsym.fexpr.marking = newMarking(scope, typsym)
   scope.tracking(varsym.fexpr)
   
   let fsym = fsymbol(fexpr[1].span, varsym)
@@ -613,7 +613,7 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if parsed.value.hasMarking:
     varsym.fexpr.marking = parsed.value.marking
   else:
-    varsym.fexpr.marking = newMarking(parsed.value.typ)
+    varsym.fexpr.marking = newMarking(scope, parsed.value.typ)
   scope.tracking(varsym.fexpr)
 
   let fsym = fsymbol(fexpr[1].span, varsym)
@@ -641,7 +641,7 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
 
   var body = fblock(fexpr.span)
   if not parsed.value.hasMarking:
-    parsed.value.marking = newMarking(parsed.value.typ)
+    parsed.value.marking = newMarking(scope, parsed.value.typ)
   if parsed.dst.hasMarking:
     if parsed.dst.marking.owned:
       if scope.isDestructable(parsed.dst.typ):
@@ -649,11 +649,12 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
         scope.rootPass(destcall)
         body.addSon(destcall)
         body.addSon(fexpr)
-        parsed.dst.marking.owned = false
-    if parsed.value.marking.owned:
-      parsed.dst.marking.borrowFrom(parsed.value.marking)
-    else:
-      parsed.dst.marking = parsed.value.marking
+        returnFrom(parsed.dst.marking)
+    parsed.dst.marking.getFrom(parsed.value.marking)
+    # if parsed.value.marking.owned:
+    #   parsed.dst.marking.getFrom(parsed.value.marking)
+    # else:
+    #   parsed.dst.marking = parsed.value.marking
 
   fexpr.internalMark = internalSet
   fexpr.setexpr = parsed
@@ -704,11 +705,12 @@ proc semInit*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
 
   let argtypes = fexpr[2].mapIt(it.typ)
 
-  fexpr.marking = newMarking(typesym)
+  fexpr.marking = newMarking(scope, typesym)
   for i, b in fexpr[2]:
-    # let typefield = typesym.fexpr.deftype.body[i]
+    let typefield = typesym.fexpr.deftype.body[i]
     if b.hasMarking:
-      b.marking.owned = false
+      fexpr.marking.fieldbody[name(typefield[0])].getFrom(b.marking)
+      # returnFrom(b.marking)
       # fexpr.marking.fieldbody[name(typefield[0])] = b.marking
 
   fexpr.initexpr = InitExpr(fexpr: fexpr)

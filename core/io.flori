@@ -3,11 +3,13 @@ import "core/prelude"
 import "core/macros"
 import "core/syntax"
 
-fn print(fmt CString) $[importc "printf", header "stdio.h", importjs "console.log"]
 fn printf[T](fmt CString, x T) $[importc "printf", header "stdio.h", importjs, patternjs "console.log($2)"]
 
 fn print(x Char) $[inline] {
   printf("%c", x)
+}
+fn print(cs CString) $[inline] {
+  printf("%s", cs)
 }
 fn print(x Int) $[inline] {
   printf("%lld", x)

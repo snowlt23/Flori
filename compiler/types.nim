@@ -23,6 +23,7 @@ type
     symbolTypeGenerics
     symbolVar
     symbolRef
+    symbolDynamic
     symbolFunc
     symbolFuncGenerics
     symbolFuncType
@@ -42,7 +43,7 @@ type
       argpos*: int
     of symbolTypeGenerics:
       types*: seq[Symbol]
-    of symbolVar, symbolRef:
+    of symbolVar, symbolRef, symbolDynamic:
       wrapped*: Symbol
       marking*: Option[Marking]
     of symbolSyntax, symbolMacro:
@@ -74,12 +75,12 @@ type
     fexprBlock
 
   DynamicKind* = enum
-    dynNone
     dynUnique
     dynBorrow
     dynShare
     # dynPool
   Marking* = ref object
+    scope*: Scope
     typesym*: Symbol
     owned*: bool
     origin*: Marking
@@ -209,6 +210,10 @@ proc varsym*(scope: Scope, sym: Symbol): Symbol =
   result = scope.symbol(sym.name, symbolVar, sym.fexpr)
   result.wrapped = sym
   result.marking = none(Marking)
+proc dynsym*(scope: Scope, sym: Symbol): Symbol =
+  result = scope.symbol(sym.name, symbolDynamic, sym.fexpr)
+  result.wrapped = sym
+  result.marking = none(Marking)
 proc symcopy*(sym: Symbol): Symbol =
   result = sym.scope.symbol(sym.name, sym.kind, sym.fexpr)
   result.instance = sym.instance
@@ -218,7 +223,7 @@ proc symcopy*(sym: Symbol): Symbol =
     result.types = sym.types
   elif sym.kind == symbolIntLit:
     result.intval = sym.intval
-  elif sym.kind in {symbolVar, symbolRef}:
+  elif sym.kind in {symbolVar, symbolRef, symbolDynamic}:
     result.wrapped = sym.wrapped.symcopy
     result.marking = sym.marking
 proc intsym*(scope: Scope, fexpr: FExpr): Symbol =

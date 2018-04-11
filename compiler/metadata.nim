@@ -95,7 +95,7 @@ defParsedType Defn:
   name
   generics
   args
-  isretref = bool
+  retprefix
   ret
   retgenerics
   pragma

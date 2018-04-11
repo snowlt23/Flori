@@ -4,6 +4,7 @@ import "core/pointer"
 import "core/io"
 import "core/syntax"
 import "core/macros"
+import "core/dynamics"
 
 type Vec[T] {
   data Ptr[T]
@@ -61,6 +62,17 @@ fn get[T](v Vec[T], i Int) T $[importjs, patternjs "$1[$2]"] {
   unref((v.data) +! (i * sizeof[T]()))
 }
 
+# fn set[T](v ref Vec[T], i Int, value dynamic T) {
+#   when (is_share(T)) {
+#     p := v.data +! (i * sizeof[T]())
+#     oldvalue := unref()
+#     if (unref(p).owned) {
+#       destruct(unref(p).data)
+#     }
+#     unref(p) = new_share(value)
+#   }
+# }
+
 destructor[T](v Vec[T]) {
   # println("Vec destroyed!")
   dealloc(v.data)
@@ -88,6 +100,6 @@ fn print[T](v Vec[T]) {
   print("]")
 }
 
-fn getref[T](v ref Vec[T]) Ptr[T] $[inline] {
+fn getref[T](v ref Vec[T]) Ptr[T] {
   v.data
 }

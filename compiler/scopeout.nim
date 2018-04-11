@@ -10,10 +10,10 @@ proc expandDestructor*(rootPass: PassProcType, scope: Scope, body: FExpr) =
   var tmpsym = none(Name)
   if body.len != 0 and not body[^1].typ.isVoidType: # escape ret value by destrutors
     if body[^1].hasMarking:
-      body[^1].marking.owned = false
+      returnFrom(body[^1].marking)
     else:
-      body[^1].marking = newMarking(body[^1].typ)
-      body[^1].marking.owned = false
+      body[^1].marking = newMarking(scope, body[^1].typ)
+      returnFrom(body[^1].marking)
     tmpsym = some(scope.ctx.genTmpName())
     var tmpvar = body[^1].span.quoteFExpr("$# := `embed" % $tmpsym.get, [body[^1]])
     scope.rootPass(tmpvar)

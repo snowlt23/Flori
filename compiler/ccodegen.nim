@@ -42,12 +42,18 @@ proc replaceSpecialSymbols*(s: string): string =
 
 proc codegenSymbol*(sym: Symbol): string
 
-proc collectNotOwnedNames*(marking: Marking): seq[Name] =
+proc collectDynamicNames*(marking: Marking): seq[string] =
   result = @[]
   for key, value in marking.fieldbody:
     if not value.owned:
-      result.add(key)
-    result &= value.collectNotOwnedNames()
+      case value.dynamic
+      of dynUnique:
+        result.add("U" & $key)
+      of dynBorrow:
+        result.add("B" & $key)
+      of dynShare:
+        result.add("S" & $key)
+    result &= value.collectDynamicNames()
 
 proc codegenSymbol*(sym: Symbol): string =
   result = ""
@@ -58,7 +64,7 @@ proc codegenSymbol*(sym: Symbol): string =
   elif sym.kind == symbolRef:
     result &= codegenSymbol(sym.wrapped)
     if sym.marking.isSome:
-      let owns = collectNotOwnedNames(sym.marking.get)
+      let owns = collectDynamicNames(sym.marking.get)
       result &= "M" & owns.mapIt($it).join("_") & "M"
   elif sym.kind == symbolIntLit:
     result &= $sym.intval
@@ -155,9 +161,16 @@ proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
     decl &= codegenMangling(fexpr.defn.name.symbol, fexpr.defn.generics.mapIt(it.symbol), fexpr.defn.args.mapIt(it[1].symbol))
   decl &= "("
   for arg in ctx.codegenArgs(decl, fexpr.defn.args):
-    decl &= codegenType(arg[1])
-    decl &= " "
-    decl &= codegenSymbol(arg[0])
+    if arg[1].symbol.kind == symbolFuncType:
+      decl &= "$# (*$#)($#)" % [
+        codegenType(arg[1].symbol.rettype),
+        codegenSymbol(arg[0]),
+        arg[1].symbol.argtypes.mapIt(codegenType(it)).join(", ")
+      ]
+    else:
+      decl &= codegenType(arg[1])
+      decl &= " "
+      decl &= codegenSymbol(arg[0])
   decl &= ")"
 
   src &= decl
