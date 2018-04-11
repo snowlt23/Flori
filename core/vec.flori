@@ -19,10 +19,10 @@ fn vec[T](len Int, cap Int) Vec[T] $[importjs, patternjs "new Array($1)"] {
   }
   v
 }
-fn vec[T](len Int) Vec[T] $[inline] {
+fn vec[T](len Int) Vec[T] {
   vec[T](len, len * 2)
 }
-fn vec[T]() Vec[T] $[inline] {
+fn vec[T]() Vec[T] {
   vec[T](0, 8)
 }
 

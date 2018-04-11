@@ -325,7 +325,7 @@ proc codegenBlock*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topcodegen: bool) =
   if fexpr.hasInternalPragma and not ctx.macrogen and fexpr.internalPragma.compiletime:
     return
-  if fexpr.isEliminated:
+  if not (fexpr.hasInternalPragma and fexpr.internalPragma.exportc.isSome) and fexpr.isEliminated:
     return
   
   case fexpr.internalMark

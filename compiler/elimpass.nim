@@ -32,7 +32,12 @@ proc elimMarkingPass*(scope: Scope, fexpr: var FExpr) {.pass: ElimPass.} =
   if fexpr.isFuncCall:
     if fexpr[0].kind == fexprSymbol and not fexpr[0].symbol.fexpr.internalPragma.compiletime:
       fexpr[0].symbol.fexpr.isEliminated = false
+      if $fexpr[0].name == "vec":
+        echo fexpr
       scope.rootPass(fexpr[0].symbol.fexpr.defn.body)
+  elif fexpr.kind == fexprSymbol and fexpr.symbol.kind == symbolFunc:
+    fexpr.symbol.fexpr.isEliminated = false
+    scope.rootPass(fexpr.symbol.fexpr.defn.body)
   scope.nextPass(fexpr)
 
 instPass ElimPass, processElimPass
