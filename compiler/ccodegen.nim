@@ -128,7 +128,7 @@ proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: seq[FExpr], ret:
       var newsrc = initSrcExpr()
       ctx.codegenFExpr(newsrc, b)
       src &= newsrc.prev
-      if newsrc.exp != "":
+      if newsrc.exp.len != 0:
         src &= newsrc.exp & ";\n"
   var newsrc = initSrcExpr()
   ctx.codegenFExpr(newsrc, body[^1])
@@ -277,16 +277,16 @@ proc codegenConst*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 proc codegenDef*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= codegenType(fexpr.defexpr.value.typ)
   src &= " "
-  src &= codegenSymbol(fexpr.defexpr.name)
+  src &= codegenSymbol(if fexpr.defexpr.name.kind == fexprSymbol: fexpr.defexpr.name else: fexpr.defexpr.name[0])
   src &= " = "
   ctx.codegenFExpr(src, fexpr.defexpr.value)
 
 proc codegenDefDecl*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   let t = codegenType(fexpr.defexpr.value.typ)
-  let n = codegenSymbol(fexpr.defexpr.name)
+  let n = codegenSymbol(if fexpr.defexpr.name.kind == fexprSymbol: fexpr.defexpr.name else: fexpr.defexpr.name[0])
   src &= "$# $#;\n" % [t, n]
 proc codegenDefValue*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  src &= codegenSymbol(fexpr.defexpr.name)
+  src &= codegenSymbol(if fexpr.defexpr.name.kind == fexprSymbol: fexpr.defexpr.name else: fexpr.defexpr.name[0])
   src &= " = "
   ctx.codegenFExpr(src, fexpr.defexpr.value)
 
@@ -323,6 +323,11 @@ proc codegenBlock*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "\n}\n"
 
 proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topcodegen: bool) =
+  if fexpr.hasInternalPragma and not ctx.macrogen and fexpr.internalPragma.compiletime:
+    return
+  if fexpr.isEliminated:
+    return
+  
   case fexpr.internalMark
   of internalDefn:
     if topcodegen:
@@ -553,6 +558,8 @@ proc codegenToplevel*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 proc codegenSingle*(ctx: CCodegenContext, sem: SemanticContext): string =
   var src = initSrcExpr()
   if ctx.macrogen:
+    ctx.headers["floriffi.h"] = true
+    src &= "#include \"floriffi.h\""
     src &= "#define FLORI_COMPILETIME\n"
   for f in sem.globaltoplevels:
     ctx.codegenToplevel(src, f)

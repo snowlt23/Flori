@@ -149,17 +149,18 @@ type
     exportc*: Option[string]
     patternc*: Option[string]
     declc*: Option[string]
+    infixc*: bool
     # js codegen
     importjs*: Option[string]
     exportjs*: Option[string]
     patternjs*: Option[string]
-    # general
-    infixc*: bool
     infixjs*: bool
+    # general
     internal*: bool
     isSyntax*: bool
     inline*: bool
     nodestruct*: bool
+    compiletime*: bool
 
 type
   IfExpr* = object
@@ -174,6 +175,8 @@ defBoolMetadata(isEvaluated)
 defBoolMetadata(isToplevel)
 defBoolMetadata(isGenerated)
 defBoolMetadata(isCStruct)
+defBoolMetadata(isElimEvaluated)
+defBoolMetadata(isEliminated)
 
 defMetadata(internalExpand, FExpr)
 

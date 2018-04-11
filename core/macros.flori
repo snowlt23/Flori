@@ -13,23 +13,23 @@ type FIntLit $[importc "flori_fexpr", header "floriffi.h"]
 type TExpr[T] $[importc "flori_fexpr", header "floriffi.h"]
 type FExprKind $[importc "int", header "floriffi.h"]
 
-FEXPR_IDENT := cast[FExprKind](0)
-FEXPR_PREFIX := cast[FExprKind](1)
-FEXPR_INFIX := cast[FExprKind](2)
-FEXPR_QUOTE := cast[FExprKind](3)
-FEXPR_SYMBOL := cast[FExprKind](4)
-FEXPR_INTLIT := cast[FExprKind](5)
-FEXPR_FLOATLIT := cast[FExprKind](6)
-FEXPR_STRLIT := cast[FExprKind](7)
-FEXPR_SEQ := cast[FExprKind](8)
-FEXPR_ARRAY := cast[FExprKind](9)
-FEXPR_LIST := cast[FExprKind](10)
-FEXPR_BLOCK := cast[FExprKind](11)
+FEXPR_IDENT $[compiletime] := cast[FExprKind](0)
+FEXPR_PREFIX $[compiletime] := cast[FExprKind](1)
+FEXPR_INFIX $[compiletime] := cast[FExprKind](2)
+FEXPR_QUOTE $[compiletime] := cast[FExprKind](3)
+FEXPR_SYMBOL $[compiletime] := cast[FExprKind](4)
+FEXPR_INTLIT $[compiletime] := cast[FExprKind](5)
+FEXPR_FLOATLIT $[compiletime] := cast[FExprKind](6)
+FEXPR_STRLIT $[compiletime] := cast[FExprKind](7)
+FEXPR_SEQ $[compiletime] := cast[FExprKind](8)
+FEXPR_ARRAY $[compiletime] := cast[FExprKind](9)
+FEXPR_LIST $[compiletime] := cast[FExprKind](10)
+FEXPR_BLOCK $[compiletime] := cast[FExprKind](11)
 
 fn `==(a FExprKind, b FExprKind) Bool $[importc "==", header nodeclc, patternc infixc, importjs]
 fn `!=(a FExprKind, b FExprKind) Bool $[importc "!=", header nodeclc, patternc infixc, importjs]
 
-fn to_fexpr[T](t TExpr[T]) FExpr {
+fn to_fexpr[T](t TExpr[T]) FExpr $[inline] {
   cast[FExpr](t)
 }
 
@@ -94,7 +94,7 @@ fn strval(fexpr FStrLit) CString $[importc "flori_strval", header "floriffi.h", 
 fn gensym() FExpr $[importc "flori_gensym", header "floriffi.h", importjs]
 fn debug_marking_impl(fexpr FExpr) $[importc "flori_debug_marking", header "floriffi.h", importjs]
 
-fn quote_expand_inside(fexpr FExpr, args FExpr, count Int) Int $[importjs] {
+fn quote_expand_inside(fexpr FExpr, args FExpr, count Int) Int $[compiletime, importjs] {
   i := 0
   while (i < length(fexpr)) {
     k := kind(get(fexpr, i))
@@ -110,7 +110,7 @@ fn quote_expand_inside(fexpr FExpr, args FExpr, count Int) Int $[importjs] {
   count
 }
 
-fn quote_expand(fexpr FExpr, args FExpr) FExpr $[importjs] {
+fn quote_expand(fexpr FExpr, args FExpr) FExpr $[compiletime, importjs] {
   count := 0
   quote_expand_inside(fexpr, args, count)
   fexpr

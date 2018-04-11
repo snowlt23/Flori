@@ -8,7 +8,7 @@ let doc = """
 Flori programming language.
 
 Usage:
-  flori c <name> [-o=<outname>] [--opt=<level>] [--cc=<cc>] [--bench] [--ccoptions=<options>]
+  flori c <name> [-o=<outname>] [--opt=<level>] [--cc=<cc>] [--bench] [--ccoptions=<options>] [--src-comment]
   flori js <name> [-o=<outname>] [--bench] [--ccoptions=<options>] [--sourcemap]
 
 Options:
@@ -22,6 +22,7 @@ Options:
   --bench        Show benchmark information.
   --ccoptions=<options>  CC Options.
   --sourcemap    Generate sourcemap in JS backend.
+  --src-comment  Add src comment to generated file.
 """
 
 proc main() =
@@ -29,10 +30,7 @@ proc main() =
   if args["c"]:
     compileFloriC(ccoptions(args))
   elif args["js"]:
-    let usesourcemap = if args["--sourcemap"]:
-                         true
-                       else:
-                         false
+    let usesourcemap = bool(args["--sourcemap"])
     compileFloriJS(ccoptions(args), usesourcemap)
 
 main()

@@ -1,6 +1,6 @@
 
 import parser, types, fexpr, scope, metadata
-import passmacro, passdef, internalpass
+import passmacro, passdef, internalpass, elimpass
 import ccodegen, jscodegen
 import compileutils
 
@@ -20,6 +20,7 @@ type
     optlevel*: int
     bench*: bool
     ccoptions*: string
+    srccomment*: bool
 
 template bench*(name: string, body: untyped) =
   if options.bench:
@@ -60,17 +61,24 @@ proc ccoptions*(args: Table[string, Value]): CCOptions =
                        $args["--ccoptions"]
                      else:
                        ""
+  result.srccomment = bool(args["--src-comment"])
 
 proc compileFloriC*(options: CCOptions) =
   let semctx = newSemanticContext(options.ccoptions)
   let genctx = newCCodegenContext()
   bench "eval":
     discard semctx.semFile(processSemPass, options.filepath)
+    for top in semctx.globaltoplevels.mitems:
+      top.internalScope.processElimPass(top)
   bench "codegen":
     if not existsDir(cachedir):
       createDir(cachedir)
-    let src = readFile(getAppDir() / "../ffi/floriffi.h") & "\n" & genctx.codegenSingle(semctx).replace("#include \"floriffi.h\"\n")
-    writeFile(cachedir / "flori_compiled.c", src)
+    let src = genctx.codegenSingle(semctx).replace("#include \"floriffi.h\"\n")
+    if options.srccomment:
+      let origsrc = readFile(options.filepath)
+      writeFile(cachedir / "flori_compiled.c", "/*\n" & origsrc & "\n*/\n" & src)
+    else:
+      writeFile(cachedir / "flori_compiled.c", src)
   bench "cc":
     case options.cc
     of ccGCC:
@@ -82,7 +90,8 @@ proc compileFloriJS*(options: CCOptions, sourcemap: bool) =
   let semctx = newSemanticContext(options.ccoptions)
   bench "eval":
     discard semctx.semFile(processSemPass, options.filepath)
-    
+    for top in semctx.globaltoplevels.mitems:
+      top.internalScope.processElimPass(top)
   let genctx = newJSCodegenContext(semctx)
   bench "codegen":
     if not existsDir(cachedir):

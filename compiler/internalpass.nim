@@ -202,7 +202,7 @@ proc parseDef*(fexpr: FExpr): DefExpr =
   result.fexpr = fexpr
   if fexpr.len != 3:
     fexpr.error("def expression require 2 arguments.")
-  if fexpr[1].kind == fexprSeq and fexpr[1].len == 2:
+  if fexpr[1].kind == fexprSeq and (fexpr[1].len == 2 or fexpr[1].len == 4):
     result.isPrefix = true
     result.namepos = 1
     result.valuepos = 2
@@ -310,6 +310,8 @@ proc semInline*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.parent.internalPragma.inline = true
 proc semNoDestruct*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.parent.internalPragma.nodestruct = true
+proc semCompiletime*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  fexpr.parent.internalPragma.compiletime = true
 
 proc semPragma*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, pragma: FExpr) =
   if pragma.kind != fexprArray:
@@ -588,19 +590,26 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     else:
       defmode.error("$# is unknwon def mode, please specify `const." % $defmode)
     
-  if parsed.name.kind != fexprIdent:
+  if parsed.name.kind notin {fexprIdent, fexprSeq}:
     parsed.name.error("variable name should be FIdent.")
+  let name = if parsed.name.kind == fexprIdent:
+               parsed.name
+             else:
+               parsed.name[0]
+
+  if parsed.name.kind == fexprSeq and parsed.name[1].isPragmaPrefix:
+    semPragma(rootPass, scope, fexpr, parsed.name[2])
 
   scope.rootPass(parsed.value)
   if parsed.value.typ.isVoidType:
     parsed.value.error("value is Void.")
   scope.resolveByVoid(fexpr)
 
-  let varsym = scope.symbol(name(parsed.name), symbolDef, parsed.name)
-  parsed.name.typ = parsed.value.typ.scope.varsym(parsed.value.typ)
-  let status = scope.addDecl(name(parsed.name), varsym)
+  let varsym = scope.symbol(name(name), symbolDef, name)
+  name.typ = parsed.value.typ.scope.varsym(parsed.value.typ)
+  let status = scope.addDecl(name(name), varsym)
   if not status:
-    fexpr.error("redefinition $# variable." % $parsed.name)
+    fexpr.error("redefinition $# variable." % $name)
   if parsed.value.hasMarking:
     varsym.fexpr.marking = parsed.value.marking
   else:
@@ -608,7 +617,10 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   scope.tracking(varsym.fexpr)
 
   let fsym = fsymbol(fexpr[1].span, varsym)
-  parsed.name = fsym
+  if parsed.name.kind == fexprIdent:
+    parsed.name = fsym
+  else:
+    parsed.name[0] = fsym
   fexpr.internalMark = internalDef
   fexpr.defexpr = parsed
 
@@ -838,6 +850,7 @@ proc initInternalEval*(scope: Scope) =
   # general pragmas
   scope.addInternalEval(name("inline"), semInline)
   scope.addInternalEval(name("nodestruct"), semNoDestruct)
+  scope.addInternalEval(name("compiletime"), semCompiletime)
 
 proc initInternalScope*(ctx: SemanticContext) =
   let scope = ctx.newScope(name("internal"), "internal")
