@@ -53,6 +53,8 @@ proc ffiStrval*(fexpr: FExpr): cstring {.cdecl.} =
   cstring($fexpr.strval)
 proc ffiGensym*(): FExpr {.cdecl.} =
   return fident(internalSpan, gCtx.genTmpName())
+proc ffiIsUnique*(fexpr: FExpr): bool {.cdecl.} =
+  fexpr.hasMarking and fexpr.marking.dynamic == dynUnique
 
 proc debugMarking*(marking: Marking, indent: int) =
   echo marking.owned, " {"

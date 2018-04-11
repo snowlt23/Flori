@@ -651,10 +651,6 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
         body.addSon(fexpr)
         returnFrom(parsed.dst.marking)
     parsed.dst.marking.getFrom(parsed.value.marking)
-    # if parsed.value.marking.owned:
-    #   parsed.dst.marking.getFrom(parsed.value.marking)
-    # else:
-    #   parsed.dst.marking = parsed.value.marking
 
   fexpr.internalMark = internalSet
   fexpr.setexpr = parsed

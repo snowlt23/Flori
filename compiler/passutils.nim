@@ -23,6 +23,15 @@ proc isResolveRef*(fexpr: seq[FExpr]): bool =
       return false
   return true
 
+proc isIncludeDynamic*(fexpr: seq[FExpr]): bool =
+  for son in fexpr:
+    if son.kind != fexprSymbol: return false
+    if son.symbol.kind == symbolDynamic:
+      return true
+  return false
+proc isIncludeDynamic*(deftype: Deftype): bool =
+  return deftype.body.mapIt(it[1]).isIncludeDynamic
+
 proc isGenerics*(defn: Defn): bool = not defn.generics.isSpecTypes or defn.args.mapIt(it[1]).isIncludeRef
 proc isGenerics*(deftype: Deftype): bool = not deftype.generics.isSpecTypes
 

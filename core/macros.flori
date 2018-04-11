@@ -92,6 +92,7 @@ fn to_cs(fexpr FIntLit) CString $[importc "flori_to_cs", header "floriffi.h", im
 
 fn strval(fexpr FStrLit) CString $[importc "flori_strval", header "floriffi.h", importjs]
 fn gensym() FExpr $[importc "flori_gensym", header "floriffi.h", importjs]
+fn is_unique_impl(fexpr FExpr) Bool $[importc "flori_is_unique", header "floriffi.h", importjs]
 fn debug_marking_impl(fexpr FExpr) $[importc "flori_debug_marking", header "floriffi.h", importjs]
 
 fn quote_expand_inside(fexpr FExpr, args FExpr, count Int) Int $[compiletime, importjs] {
@@ -114,6 +115,14 @@ fn quote_expand(fexpr FExpr, args FExpr) FExpr $[compiletime, importjs] {
   count := 0
   quote_expand_inside(fexpr, args, count)
   fexpr
+}
+
+macro is_unique[T](fexpr TExpr[T]) FExpr {
+  b := is_unique_impl(cast[FExpr](fexpr))
+  intlit := new_fintlit(cast[Int](b))
+  quote {
+    cast[Bool](`intlit)
+  }
 }
 
 macro debug_marking[T](fexpr TExpr[T]) FExpr {

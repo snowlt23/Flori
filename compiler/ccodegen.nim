@@ -76,7 +76,7 @@ proc codegenSymbol*(fexpr: FExpr): string =
     fexpr.error("$# isn't symbol." % $fexpr)
   return codegenSymbol(fexpr.symbol)
 
-proc codegenType*(sym: Symbol): string
+proc codegenType*(sym: Symbol, share = false): string
   
 proc codegenTypePattern*(pattern: string, types: seq[Symbol]): string =
   result = pattern
@@ -89,13 +89,13 @@ proc codegenTypeImportc*(sym: Symbol): string =
   else:
     sym.fexpr.internalPragma.importc.get
 
-proc codegenType*(sym: Symbol): string =
+proc codegenType*(sym: Symbol, share = false): string =
   if sym.kind == symbolVar:
-    return codegenType(sym.wrapped)
+    return codegenType(sym.wrapped, share)
   elif sym.kind == symbolRef:
-    return codegenType(sym.wrapped) & "*"
+    return codegenType(sym.wrapped, share) & "*"
   elif sym.kind == symbolFuncType:
-    return "$# (*)($#)" % [codegenType(sym.rettype), sym.argtypes.mapIt(codegenType(it)).join(", ")]
+    return "$# (*)($#)" % [codegenType(sym.rettype, share), sym.argtypes.mapIt(codegenType(it, share)).join(", ")]
   
   if sym.fexpr.hasInternalPragma and sym.fexpr.internalPragma.importc.isSome:
     return codegenTypeImportc(sym)

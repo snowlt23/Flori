@@ -7,7 +7,7 @@ import "core/macros"
 import "core/dynamics"
 
 type Vec[T] {
-  data Ptr[T]
+  data Ptr[dynamic T]
   cap Int
   len Int
 }
@@ -46,7 +46,7 @@ fn extend[T](v ref Vec[T]) {
   (v.cap) = (v.cap)*2
 }
 
-fn push[T](v ref Vec[T], value T) $[importjs, patternjs "$1.push($2)"] {
+fn push[T](v ref Vec[T], value dynamic T) $[importjs, patternjs "$1.push($2)"] {
   if ((v.cap) < ((v.len)+1)) {
     extend(v)
   }
@@ -73,11 +73,6 @@ fn get[T](v Vec[T], i Int) T $[importjs, patternjs "$1[$2]"] {
 #   }
 # }
 
-destructor[T](v Vec[T]) {
-  # println("Vec destroyed!")
-  dealloc(v.data)
-}
-
 iterator items[T](v TExpr[Vec[T]]) {
   i := gensym()
   quote {
@@ -86,6 +81,16 @@ iterator items[T](v TExpr[Vec[T]]) {
       `yield
     }
   }
+}
+
+destructor[T](v Vec[T]) {
+  when (is_unique(v)) {
+    for e in v {
+      destruct(e)
+    }
+  }
+  dealloc(v.data)
+  println("Vec destroyed!")
 }
 
 fn print[T](v Vec[T]) {

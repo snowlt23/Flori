@@ -197,6 +197,8 @@ proc `$`*(sym: Symbol): string =
     $sym.scope.name & "." & $sym.name & "[" & sym.types.mapIt($it).join(",") & "]"
   of symbolRef:
     "ref " & $sym.wrapped
+  of symbolDynamic:
+    "dynamic " & $sym.wrapped
   of symbolIntLit:
     $sym.intval
   else:
@@ -241,6 +243,8 @@ proc isSpecSymbol*(sym: Symbol): bool =
     return false
   elif sym.kind in {symbolRef, symbolVar}:
     return sym.wrapped.isSpecSymbol()
+  elif sym.kind == symbolDynamic:
+    return false
   elif sym.kind == symbolIntLit:
     return true
   elif sym.kind == symbolFuncType:

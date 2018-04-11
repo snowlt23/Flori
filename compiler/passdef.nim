@@ -350,9 +350,15 @@ proc markingInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
     fexpr.marking = fexpr.symbol.fexpr.marking
     if fexpr.typ.kind in {symbolVar, symbolRef}:
       fexpr.typ.marking = some(fexpr.symbol.fexpr.marking)
-  elif fexpr.isFuncCall:
-    if not fexpr.hasMarking:
-      fexpr.marking = newMarking(scope, fexpr.typ)
+  # elif fexpr.isFuncCall:
+  #   if not fexpr.hasMarking:
+  #     fexpr.marking = newMarking(scope, fexpr.typ)
+  scope.nextPass(fexpr)
+
+proc explicitDestruct*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
+  if fexpr.isNormalFuncCall and $fexpr[0] == "destruct" and fexpr[1].len == 1:
+    if fexpr[1][0].hasMarking:
+      returnFrom(fexpr[1][0].marking)
   scope.nextPass(fexpr)
 
 proc finalPass*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =

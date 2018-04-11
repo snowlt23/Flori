@@ -23,12 +23,12 @@ proc returnFrom*(frm: Marking) =
     returnFrom(value)
     
 proc getFrom*(mark: Marking, frm: Marking) =
-  if frm.dynamic == dynUnique and mark.scope.level > frm.scope.level:
+  if frm.dynamic == dynUnique and mark.scope.level >= frm.scope.level:
     frm.owned = false
     frm.dynamic = dynShare
     mark.owned = true
     mark.dynamic = dynUnique
-  elif frm.dynamic == dynBorrow and mark.scope.level > frm.scope.level:
+  elif frm.dynamic == dynBorrow and mark.scope.level >= frm.scope.level:
     frm.origin.owned = false
     frm.origin.dynamic = dynShare
     mark.owned = true
