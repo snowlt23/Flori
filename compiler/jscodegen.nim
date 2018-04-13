@@ -407,6 +407,9 @@ proc codegenInternal*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr, top
   of internalBlock:
     if not topcodegen:
       ctx.codegenBlock(src, fexpr)
+  of internalMove:
+    # TODO: internalMove of jscodegen
+    discard
 
 proc codegenCallArg*(ctx: JSCodegenContext, src: var SrcExpr, arg: FExpr, fnargtype: Symbol) =
   ctx.codegenFExpr(src, arg)

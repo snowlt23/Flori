@@ -663,7 +663,12 @@ proc semFieldAccess*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fieldname.kind != fexprIdent:
     fieldname.error("field name should be FIdent.")
   scope.rootPass(fexpr[1])
-  let fieldopt = fexpr[1].typ.fexpr.getFieldType($fieldname)
+  let fieldopt = if fexpr[1].typ.kind == symbolDynamic:
+                   fexpr[1].typ.wrapped.fexpr.getFieldType($fieldname)
+                 elif fexpr[1].typ.kind == symbolVar and fexpr[1].typ.wrapped.kind == symbolDynamic:
+                   fexpr[1].typ.wrapped.wrapped.fexpr.getFieldType($fieldname)
+                 else:
+                   fexpr[1].typ.fexpr.getFieldType($fieldname)
   if fieldopt.isNone:
     fieldname.error("$# hasn't $# field." % [$fexpr[1].typ, $fieldname])
   if fexpr[1].typ.kind == symbolRef:
@@ -674,7 +679,10 @@ proc semFieldAccess*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     fexpr.typ = fieldopt.get
 
   if fexpr[1].hasMarking:
-    fexpr.marking = fexpr[1].marking.fieldbody[name(fexpr[2])]
+    if fexpr[1].marking.fieldbody.hasKey(name(fexpr[2])):
+      fexpr.marking = fexpr[1].marking.fieldbody[name(fexpr[2])]
+    else:
+      fexpr.marking = scope.newMarking(fieldopt.get)
 
   fexpr.internalMark = internalFieldAccess
   fexpr.fieldaccessexpr = FieldAccessExpr(fexpr: fexpr)
@@ -797,6 +805,15 @@ proc semBlock*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   blockscope.rootPass(fexpr[1])
   expandDestructor(rootPass, blockscope, fexpr[1])
   fexpr.internalMark = internalBlock
+
+proc semMove*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.len != 2 or fexpr[1].kind != fexprList or fexpr[1].len != 1:
+    fexpr.error("usage: move(value)")
+  scope.rootPass(fexpr[1])
+  fexpr.typ = fexpr[1][0].typ
+  if fexpr[1][0].hasMarking:
+    fexpr.marking = fexpr[1][0].marking
+  fexpr.internalMark = internalMove
     
 #
 # Internal
@@ -831,6 +848,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("quote"), semQuote)
   scope.addInternalEval(name("cemit"), semCEmit)
   scope.addInternalEval(name("block"), semBlock)
+  scope.addInternalEval(name("move"), semMove)
 
   scope.addInternalEval(name("is_destructable"), semIsDestructable)
 

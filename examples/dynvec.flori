@@ -41,7 +41,7 @@ fn length[T](v DynVec[T]) Int {
 }
 
 fn get[T](v DynVec[T], i Int) dynamic T {
-  unref((v.data) +! (i * sizeof[T]()))
+  move(unref((v.data) +! (i * sizeof[T]())))
 }
 
 iterator items[T](v TExpr[DynVec[T]]) {
@@ -59,6 +59,13 @@ destructor[T](v DynVec[T]) {
   when (is_unique(v)) {
     for e in v {
       destruct(e)
+    }
+  }
+  when (is_share(v)) {
+    for e in v {
+      if (e.owned) {
+        destruct(e.value)
+      }
     }
   }
   dealloc(v.data)

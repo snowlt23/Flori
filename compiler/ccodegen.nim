@@ -361,6 +361,16 @@ proc codegenBlock*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   ctx.codegenFExpr(src, fexpr[1])
   src &= "\n}\n"
 
+proc codegenMove*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  if fexpr[1][0].typ.kind == symbolDynamic and fexpr[1][0].typ.marking.get.dynamic == dynShare:
+    var movesrc = initSrcExpr()
+    ctx.codegenFExpr(movesrc, fexpr[1][0])
+    src.prev &= movesrc.prev
+    src.prev &= movesrc.exp & ".owned = false;" & "\n"
+    src &= movesrc.exp
+  else:
+    ctx.codegenFExpr(src, fexpr[1][0])
+
 proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topcodegen: bool) =
   if fexpr.hasInternalPragma and not ctx.macrogen and fexpr.internalPragma.compiletime:
     return
@@ -422,6 +432,9 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
   of internalBlock:
     if not topcodegen:
       ctx.codegenBlock(src, fexpr)
+  of internalMove:
+    if not topcodegen:
+      ctx.codegenMove(src, fexpr)
 
 proc codegenCallArg*(ctx: CCodegenContext, src: var SrcExpr, arg: FExpr, fnargtype: Symbol) =
   if arg.typ.kind == symbolVar and fnargtype.kind == symbolRef:
