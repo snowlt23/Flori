@@ -37,6 +37,7 @@ type
     name*: Name
     fexpr*: FExpr
     instance*: Option[Symbol]
+    marking*: Option[Marking]
     instmarking*: Option[Marking]
     case kind*: SymbolKind
     of symbolArg:
@@ -45,7 +46,6 @@ type
       types*: seq[Symbol]
     of symbolVar, symbolRef, symbolDynamic:
       wrapped*: Symbol
-      marking*: Option[Marking]
     of symbolSyntax, symbolMacro:
       macroproc*: MacroProc
     of symbolFuncType:
@@ -195,6 +195,8 @@ proc `$`*(sym: Symbol): string =
   case sym.kind
   of symbolTypeGenerics:
     $sym.scope.name & "." & $sym.name & "[" & sym.types.mapIt($it).join(",") & "]"
+  of symbolVar:
+    $sym.wrapped
   of symbolRef:
     "ref " & $sym.wrapped
   of symbolDynamic:
@@ -241,10 +243,8 @@ proc isSpecSymbol*(sym: Symbol): bool =
     return true
   elif sym.kind == symbolGenerics:
     return false
-  elif sym.kind in {symbolRef, symbolVar}:
+  elif sym.kind in {symbolRef, symbolVar, symbolDynamic}:
     return sym.wrapped.isSpecSymbol()
-  elif sym.kind == symbolDynamic:
-    return false
   elif sym.kind == symbolIntLit:
     return true
   elif sym.kind == symbolFuncType:
@@ -270,4 +270,16 @@ proc isSpecTypes*(types: FExpr): bool =
   for t in types.sons:
     if t.kind != fexprSymbol: return false
     if not t.symbol.isSpecSymbol: return false
+  return true
+
+#
+# Marking
+#
+
+proc `==`*(a, b: Marking): bool =
+  if a.dynamic != b.dynamic:
+    return false
+  for key, value in a.fieldbody:
+    if value != b.fieldbody[key]:
+      return false
   return true

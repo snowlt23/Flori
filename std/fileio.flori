@@ -24,7 +24,6 @@ fn stdin() File $[importc, header "stdio.h", patternc "stdin"]
 fn stdout() File $[importc, header "stdio.h", patternc "stdout"]
 
 destructor(f File) {
-  println("File destroyed!")
   fclose(f)
 }
 

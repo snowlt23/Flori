@@ -42,16 +42,16 @@ macro v(t FArray, elems FList) FExpr $[syntax] {
 }
 
 fn extend[T](v ref Vec[T]) {
-  (v.data) = realloc(v.data, (v.cap)*2)
-  (v.cap) = (v.cap)*2
+  v.data = realloc(v.data, (v.cap)*2)
+  v.cap = (v.cap)*2
 }
 
 fn push[T](v ref Vec[T], value dynamic T) $[importjs, patternjs "$1.push($2)"] {
-  if ((v.cap) < ((v.len)+1)) {
+  if (v.cap < v.len+1) {
     extend(v)
   }
-  unref((v.data) +! ((v.len) * sizeof[T]())) = value
-  (v.len) += 1
+  unref(v.data +! (v.len * sizeof[T]())) = value
+  v.len += 1
 }
 
 fn length[T](v Vec[T]) Int $[importjs, patternjs "$1.length"] {
@@ -59,7 +59,7 @@ fn length[T](v Vec[T]) Int $[importjs, patternjs "$1.length"] {
 }
 
 fn get[T](v Vec[T], i Int) T $[importjs, patternjs "$1[$2]"] {
-  unref((v.data) +! (i * sizeof[T]()))
+  unref(v.data +! (i * sizeof[T]()))
 }
 
 # fn set[T](v ref Vec[T], i Int, value dynamic T) {
@@ -90,7 +90,6 @@ destructor[T](v Vec[T]) {
     }
   }
   dealloc(v.data)
-  println("Vec destroyed!")
 }
 
 fn print[T](v Vec[T]) {

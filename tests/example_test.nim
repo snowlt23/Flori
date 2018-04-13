@@ -42,8 +42,6 @@ suite "example":
     checkio "examples/destructor.flori", "MyInt(1, 2) destroyed!\n3\n4\nMyInt(3, 4) destroyed!\n"
   test "string":
     checkio "examples/string.flori", "Hello Yukari! and Maki!\nHello Yukari! and Maki! and Akari!\n9\n9\n"
-  test "vec eff":
-    checkio "examples/vec_eff.flori", "start!\nend!\nFile destroyed!\nVec destroyed!\n"
   test "array":
     checkio "examples/array.flori", ""
   test "const":
@@ -54,3 +52,9 @@ suite "example":
     checkio "examples/floatlit.flori", "2.000000\n"
   test "field track":
     checkio "examples/field_track.flori", "start!\nMyFieldType(1, 2) destroyed!\nend!\nMyFieldType(3, 4) destroyed!\nMyFieldType(5, 6) destroyed!\nMyType destroyed!\n"
+  test "dynamic type: unique":
+    checkio "examples/dynunique.flori", ""
+  test "dynamic type: borrow":
+    checkio "examples/dynborrow.flori", ""
+  test "dynamic type: share":
+    checkio "examples/dynshare.flori", ""

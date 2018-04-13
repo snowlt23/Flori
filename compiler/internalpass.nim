@@ -52,7 +52,7 @@ proc parseDefn*(fexpr: var FExpr): Defn =
   pos.inc
 
   # ret ref
-  if pos < fexpr.len and $fexpr[pos] == "ref":
+  if pos < fexpr.len and ($fexpr[pos] == "ref" or $fexpr[pos] == "dynamic"):
     result.retprefixpos = newfexpr.len
     newfexpr.addSon(fexpr[pos])
     pos.inc
@@ -388,7 +388,7 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: Defn, 
   if parsed.generics.isSpecTypes and not fexpr.internalPragma.inline and not argtypes.isIncludeRef:
     fnscope.rootPass(parsed.body)
     if parsed.body.len != 0:
-      if not parsed.body[^1].typ.spec(rettype):
+      if not parsed.body[^1].typ.match(rettype):
         parsed.body[^1].error("function expect $# return type, actually $#" % [$rettype, $parsed.body[^1].typ])
     if not fexpr.internalPragma.nodestruct:
       expandDestructor(rootPass, fnscope, fexpr.defn.body)
@@ -643,13 +643,12 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if not parsed.value.hasMarking:
     parsed.value.marking = newMarking(scope, parsed.value.typ)
   if parsed.dst.hasMarking:
-    if parsed.dst.marking.owned:
-      if scope.isDestructable(parsed.dst.typ):
-        var destcall = fexpr.span.quoteFExpr("destruct(`embed)", [parsed.dst])
-        scope.rootPass(destcall)
-        body.addSon(destcall)
-        body.addSon(fexpr)
-        returnFrom(parsed.dst.marking)
+    if parsed.dst.marking.owned and scope.isDestructable(parsed.dst.typ):
+      var destcall = fexpr.span.quoteFExpr("destruct(`embed)", [parsed.dst])
+      scope.rootPass(destcall)
+      body.addSon(destcall)
+      body.addSon(fexpr)
+      returnFrom(parsed.dst.marking)
     parsed.dst.marking.getFrom(parsed.value.marking)
 
   fexpr.internalMark = internalSet

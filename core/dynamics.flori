@@ -4,13 +4,13 @@ import "core/macros"
 import "core/syntax"
 
 type ShareWrap[T] {
-  owned Bool
   value T
+  owned Bool
 }
 
 fn new_share[T](value T) {
   init(ShareWrap[T]){
-    true
     value
+    true
   }
 }

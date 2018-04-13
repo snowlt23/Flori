@@ -1,0 +1,33 @@
+
+import "core"
+import "examples/dynvec"
+
+type MyFile {}
+
+fn open_myfile() MyFile {
+  init(MyFile){}
+}
+
+destructor(mf MyFile) {
+  println("MyFile destroyed!")
+}
+
+#
+# main
+#
+
+fn dynvec_main() MyFile {
+  v := dynvec[MyFile]()
+  f := open_myfile()
+  push(v, f)
+  ret := get(v, 0) # v lifting into share type.
+  ret
+}
+
+fn main() {
+  println("start!")
+  f := dynvec_main()
+  println("end!")
+}
+
+main()

@@ -8,12 +8,18 @@ import strutils, sequtils
 proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr
 
 proc applyInstance*(sym: Symbol, instance: Symbol) =
-  if sym.kind in {symbolVar, symbolRef, symbolDynamic} and instance.kind in {symbolVar, symbolRef, symbolDynamic}:
+  if sym.kind in {symbolVar, symbolRef} and instance.kind in {symbolVar, symbolRef}:
     sym.wrapped.applyInstance(instance.wrapped)
     if instance.marking.isSome:
       sym.instmarking = some(instance.marking.get)
-  elif instance.kind in {symbolVar, symbolRef, symbolDynamic}:
+  elif sym.kind == symbolDynamic and instance.kind == symbolDynamic:
+    sym.wrapped.applyInstance(instance.wrapped)
+    if instance.marking.isSome:
+      sym.instmarking = some(instance.marking.get)
+  elif instance.kind in {symbolVar, symbolRef}:
     sym.applyInstance(instance.wrapped)
+    if instance.marking.isSome:
+      sym.instmarking = some(instance.marking.get)
   elif sym.kind == symbolGenerics:
     sym.instance = some(instance)
   elif sym.kind == symbolTypeGenerics:
@@ -21,6 +27,8 @@ proc applyInstance*(sym: Symbol, instance: Symbol) =
     sym.instance = some(instance)
     for i in 0..<sym.types.len:
       sym.types[i].applyInstance(instance.types[i])
+  # elif sym.kind == symbolDynamic:
+  #   sym.wrapped.applyInstance(instance)
   else:
     sym.instance = some(instance)
 
@@ -34,20 +42,12 @@ proc expandSymbol*(scope: Scope, sym: Symbol): Symbol =
     if sym.instmarking.isSome:
       result.marking = some(sym.instmarking.get.copy)
   elif sym.kind == symbolDynamic:
-    # for ownership
-    if sym.instmarking.isSome and sym.instmarking.get.dynamic == dynUnique:
-      result = scope.dynsym(scope.expandSymbol(sym.wrapped))
-      result.marking = some(scope.newMarking(result.wrapped))
+    result = scope.dynsym(scope.expandSymbol(sym.wrapped))
+    if sym.instmarking.isSome:
+      result.marking = some(sym.instmarking.get.copy)
       result.marking.get.getFrom(sym.instmarking.get)
-    elif sym.instmarking.isSome and sym.instmarking.get.dynamic == dynShare:
-      let opt = scope.getDecl(name("ShareCont"))
-      if opt.isNone:
-        sym.fexpr.error("undeclared ShareCont[T] type, please import core library")
-      let sharesym = opt.get.symcopy
-      sharesym.types.add(scope.expandSymbol(sym.wrapped))
-      result = sharesym
     else:
-      result = scope.expandSymbol(sym.wrapped)
+      result.marking = some(scope.newMarking(result.wrapped))
   elif sym.kind == symbolGenerics:
     if sym.instance.isNone:
       sym.fexpr.error("cannot instantiate $#." % $sym)
@@ -70,7 +70,7 @@ proc expandGenerics*(generics: FExpr) =
     if g.symbol.instance.isNone:
       g.error("cannot instantiate $#." % $g)
     g.symbol = g.symbol.instance.get
-    if g.symbol.instmarking.isSome:
+    if g.symbol.kind in {symbolRef, symbolVar, symbolDynamic} and g.symbol.instmarking.isSome:
       g.symbol.marking = some(g.symbol.instmarking.get.copy)
       
 proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr =
@@ -86,7 +86,7 @@ proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExp
   expanded.deftype.generics.expandGenerics()
 
   let typename = expanded.deftype.name.symbol.name
-  let manglingname = genManglingName(typename, argtypes)
+  let manglingname = name(codegenMangling(expanded.deftype.name.symbol, argtypes, @[]))
 
   let specopt = fexpr.internalScope.getDecl(manglingname)
   if specopt.isSome:
@@ -95,7 +95,8 @@ proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExp
   
   for b in expanded.deftype.body.mitems:
     let extype = scope.expandType(b[1])
-    b = fseq(b.span, @[b[0], extype])
+    b[1] = extype
+    # b = fseq(b.span, @[b[0], extype])
 
   let tsym = fexpr.internalScope.symbol(typename, symbolTypeGenerics, expanded)
   tsym.types = expanded.deftype.generics.mapIt(it.symbol)
@@ -139,6 +140,8 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, argtypes: s
     argcopy.symbol = argcopy.symbol.symcopy
     argcopy.symbol.fexpr.typ = extype.symbol
     if extype.symbol.kind == symbolRef and extype.symbol.marking.isSome:
+      argcopy.symbol.fexpr.marking = extype.symbol.marking.get
+    elif extype.symbol.fexpr.deftype.isIncludeDynamic and extype.symbol.marking.isSome:
       argcopy.symbol.fexpr.marking = extype.symbol.marking.get
     else:
       argcopy.symbol.fexpr.marking = newMarking(exscope, extype.symbol)

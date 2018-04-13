@@ -348,7 +348,7 @@ proc expandInline*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
 proc markingInfer*(scope: Scope, fexpr: var FExpr) {.pass: SemPass.} =
   if fexpr.kind == fexprSymbol and fexpr.symbol.fexpr.hasMarking:
     fexpr.marking = fexpr.symbol.fexpr.marking
-    if fexpr.typ.kind in {symbolVar, symbolRef}:
+    if fexpr.typ.kind in {symbolVar, symbolRef, symbolDynamic}:
       fexpr.typ.marking = some(fexpr.symbol.fexpr.marking)
   # elif fexpr.isFuncCall:
   #   if not fexpr.hasMarking:

@@ -1,0 +1,66 @@
+
+import "core"
+import "core/pointer"
+
+type DynVec[T] {
+  data Ptr[dynamic T]
+  cap Int
+  len Int
+}
+
+fn dynvec[T](len Int, cap Int) DynVec[T] {
+  v := init(DynVec[T]) {
+    alloc[dynamic T](cap)
+    cap
+    len
+  }
+  v
+}
+fn dynvec[T](len Int) DynVec[T] {
+  dynvec[T](len, len * 2)
+}
+fn dynvec[T]() DynVec[T] {
+  dynvec[T](0, 8)
+}
+
+fn extend[T](v ref DynVec[T]) {
+  v.data = realloc(v.data, (v.cap)*2)
+  v.cap = (v.cap)*2
+}
+
+fn push[T](v ref DynVec[T], value dynamic T) {
+  if (v.cap < (v.len+1)) {
+    extend(v)
+  }
+  unref(v.data +! ((v.len) * sizeof[T]())) = value
+  v.len += 1
+}
+
+fn length[T](v DynVec[T]) Int {
+  v.len
+}
+
+fn get[T](v DynVec[T], i Int) dynamic T {
+  unref((v.data) +! (i * sizeof[T]()))
+}
+
+iterator items[T](v TExpr[DynVec[T]]) {
+  i := gensym()
+  quote {
+    for `i in range(0, length(`v)-1) {
+      `element := get(`v, `i)
+      `yield
+    }
+  }
+}
+
+destructor[T](v DynVec[T]) {
+  debug_marking(v)
+  when (is_unique(v)) {
+    for e in v {
+      destruct(e)
+    }
+  }
+  dealloc(v.data)
+  println("DynVec destroyed!")
+}

@@ -1,5 +1,5 @@
 
-import fexpr_core
+import fexpr_core, marking
 import expandpass
 
 import options
@@ -88,6 +88,7 @@ proc semType*(scope: Scope, parsed: ParsedType): Symbol =
       result = scope.refsym(result)
     elif $parsed.prefix.get == "dynamic":
       result = scope.dynsym(result)
+      result.marking = some(scope.newMarking(result.wrapped))
 
 proc semTypeExpr*(scope: Scope, typ: FExpr): Symbol =
   var pos = 0

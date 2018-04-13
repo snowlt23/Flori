@@ -1,8 +1,8 @@
 
-import types, fexpr, parser, metadata, scope
+import types, fexpr, parser, metadata, scope, marking
 import passutils
 
-import strutils
+import strutils, sequtils
 import options
 import tables
 
@@ -54,18 +54,13 @@ proc ffiStrval*(fexpr: FExpr): cstring {.cdecl.} =
 proc ffiGensym*(): FExpr {.cdecl.} =
   return fident(internalSpan, gCtx.genTmpName())
 proc ffiIsUnique*(fexpr: FExpr): bool {.cdecl.} =
-  fexpr.hasMarking and fexpr.marking.dynamic == dynUnique
-
-proc debugMarking*(marking: Marking, indent: int) =
-  echo marking.owned, " {"
-  for key, value in marking.fieldbody:
-    stdout.write(" ".repeat(indent+2) & $key & ":")
-    debugMarking(value, indent+2)
-  echo " ".repeat(indent) & "}"
+  not fexpr.typ.fexpr.deftype.isShare and not fexpr.typ.fexpr.deftype.isBorrow
+proc ffiIsShare*(fexpr: FExpr): bool {.cdecl.} =
+  fexpr.typ.fexpr.deftype.isShare
   
 proc ffiDebugMarking*(fexpr: FExpr) =
   if fexpr.hasMarking:
     stdout.write($fexpr, ":")
-    debugMarking(fexpr.marking, 0)
+    echo debugMarking(fexpr.marking, 0)
   else:
     echo fexpr, ":hasntMarking"

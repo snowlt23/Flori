@@ -55,10 +55,28 @@ proc collectDynamicNames*(marking: Marking): seq[string] =
         result.add("S" & $key)
     result &= value.collectDynamicNames()
 
+proc collectDynamicType*(t: Symbol): seq[string] =
+  if t.kind == symbolTypeGenerics:
+    result = @[]
+    for sont in t.types:
+      result &= collectDynamicType(sont)
+  elif t.kind == symbolDynamic:
+    case t.marking.get.dynamic
+    of dynUnique:
+      result = @["U"]
+    of dynBorrow:
+      result = @["B"]
+    of dynShare:
+      result = @["S"]
+  else:
+    result = @[]
+
 proc codegenSymbol*(sym: Symbol): string =
   result = ""
   if sym.kind == symbolTypeGenerics and sym.types.len != 0:
     result &= $sym.scope.name & "_" & $sym.name & "_" & sym.types.mapIt(codegenSymbol(it)).join("_")
+    if sym.fexpr.hasDeftype:
+      result &= "_" & collectDynamicType(sym).join("")
   elif sym.kind == symbolVar:
     result &= codegenSymbol(sym.wrapped)
   elif sym.kind == symbolRef:
@@ -66,6 +84,13 @@ proc codegenSymbol*(sym: Symbol): string =
     if sym.marking.isSome:
       let owns = collectDynamicNames(sym.marking.get)
       result &= "M" & owns.mapIt($it).join("_") & "M"
+  elif sym.kind == symbolDynamic:
+    result &= codegenSymbol(sym.wrapped)
+    if sym.marking.isNone:
+      sym.fexpr.error("dynamic type should has marking.")
+    # let owns = collectDynamicNames(sym.marking.get)
+    # if owns.len != 0:
+    #   result &= "D" & owns.mapIt($it).join("_") & "D"
   elif sym.kind == symbolIntLit:
     result &= $sym.intval
   else:
@@ -126,7 +151,7 @@ iterator codegenArgsWithIndex*(ctx: CCodegenContext, src: var SrcExpr, args: FEx
       src &= ", "
       yield(i, args[i])
 
-proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: seq[FExpr], ret: string = nil) =
+proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: seq[FExpr], ret: string = nil, rettype: Symbol = nil) =
   if body.len == 0:
     return
   if body.len >= 2:
@@ -137,14 +162,17 @@ proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: seq[FExpr], ret:
       if newsrc.exp.len != 0:
         src &= newsrc.exp & ";\n"
   var newsrc = initSrcExpr()
-  ctx.codegenFExpr(newsrc, body[^1])
+  if not rettype.isNil:
+    ctx.codegenCallArg(newsrc, body[^1], rettype)
+  else:
+    ctx.codegenFExpr(newsrc, body[^1])
   src &= newsrc.prev
   if ret != nil:
     src &= ret
   if newsrc.exp != "":
     src &= newsrc.exp & ";\n"
-proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: FExpr, ret: string = nil) =
-  ctx.codegenBody(src, toSeq(body.items), ret)
+proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: FExpr, ret: string = nil, rettype: Symbol = nil) =
+  ctx.codegenBody(src, toSeq(body.items), ret, rettype)
 
 proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.internalPragma.inline:
@@ -179,7 +207,7 @@ proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
     if fexpr.defn.body[^1].typ.isVoidType:
       ctx.codegenBody(src, fexpr.defn.body)
     else:
-      ctx.codegenBody(src, fexpr.defn.body, ret = "return ")
+      ctx.codegenBody(src, fexpr.defn.body, ret = "return ", fexpr.defn.ret.symbol)
   src &= "}\n"
 
 proc codegenMacroWrapper*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
@@ -200,7 +228,7 @@ proc codegenDefn*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
       ctx.codegenDefnInstance(src, fexpr)
       if $fexpr[0] == "macro":
         ctx.codegenMacroWrapper(src, fexpr)
-      
+        
 proc codegenDeftypeStruct*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "struct $# {\n" % codegenSymbol(fexpr.deftype.name.symbol)
   for field in fexpr.deftype.body:
@@ -309,9 +337,7 @@ proc codegenSet*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     src &= "*"
   ctx.codegenFExpr(src, fexpr.setexpr.dst)
   src &= " = "
-  if dsttyp.kind != symbolRef and fexpr.setexpr.value.typ.kind == symbolRef:
-    src &= "*"
-  ctx.codegenFExpr(src, fexpr.setexpr.value)
+  ctx.codegenCallArg(src, fexpr.setexpr.value, dsttyp)
 
 proc codegenFieldAccess*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   ctx.codegenFExpr(src, fexpr.fieldaccessexpr.value)
@@ -404,6 +430,25 @@ proc codegenCallArg*(ctx: CCodegenContext, src: var SrcExpr, arg: FExpr, fnargty
   elif arg.typ.kind == symbolRef and fnargtype.kind != symbolRef:
     src &= "*"
     ctx.codegenFExpr(src, arg)
+  elif (arg.typ.kind == symbolDynamic and arg.typ.marking.get.dynamic == dynShare) or
+       (arg.typ.kind == symbolVar and arg.typ.wrapped.kind == symbolDynamic) or
+       (arg.typ.kind == symbolVar and arg.typ.wrapped.kind == symbolVar and arg.typ.wrapped.wrapped.kind == symbolDynamic):
+    if fnargtype.kind != symbolDynamic or fnargtype.marking.get.dynamic != dynShare:
+      ctx.codegenFExpr(src, arg)
+      src &= ".value"
+    else:
+      ctx.codegenFExpr(src, arg)
+  elif fnargtype.kind == symbolDynamic and fnargtype.marking.get.dynamic == dynShare:
+    let argtypunwrap = if arg.typ.kind == symbolVar:
+                   arg.typ.wrapped
+                 else:
+                   arg.typ
+    if argtypunwrap.kind != symbolDynamic or argtypunwrap.marking.get.dynamic != dynShare:
+      src &= "($#){" % codegenType(fnargtype)
+      ctx.codegenFExpr(src, arg)
+      src &= ", true}"
+    else:
+      ctx.codegenFExpr(src, arg)
   else:
     ctx.codegenFExpr(src, arg)
 

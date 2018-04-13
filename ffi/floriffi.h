@@ -25,4 +25,5 @@ char* (*flori_to_cs)(flori_fexpr fexpr);
 char* (*flori_strval)(flori_fexpr fexpr);
 flori_fexpr (*flori_gensym)();
 flori_int (*flori_is_unique)(flori_fexpr fexpr);
+flori_int (*flori_is_share)(flori_fexpr fexpr);
 void (*flori_debug_marking)(flori_fexpr fexpr);

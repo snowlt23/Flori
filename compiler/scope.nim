@@ -3,7 +3,7 @@ import tables
 import options
 import strutils
 
-import types, fexpr, marking
+import types, fexpr
 
 proc newScope*(ctx: SemanticContext, name: Name, path: string): Scope =
   new result
@@ -60,6 +60,10 @@ proc match*(a, b: Symbol): bool =
     return a.wrapped.match(b)
   elif a.kind == symbolVar:
     return a.wrapped.match(b)
+  elif a.kind == symbolDynamic and b.kind == symbolDynamic:
+    return a.wrapped.match(b.wrapped)
+  elif a.kind == symbolDynamic:
+    return a.wrapped.match(b)
   elif b.kind == symbolDynamic:
     return a.match(b.wrapped)
   else:
@@ -114,8 +118,8 @@ proc spec*(a, b: Symbol): bool =
     return a.wrapped.spec(b)
   elif a.kind == symbolVar:
     return a.wrapped.spec(b)
-  elif b.kind == symbolDynamic:
-    return a.spec(b.wrapped)
+  elif a.kind == symbolDynamic and b.kind == symbolDynamic:
+    return a.wrapped.spec(b.wrapped)
   else:
     return false
 proc spec*(a: ProcName, b: ProcDecl): bool =

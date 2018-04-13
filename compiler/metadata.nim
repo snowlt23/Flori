@@ -187,6 +187,7 @@ defMetadata(internalPragma, InternalPragma)
 
 defMetadata(internalIfExpr, IfExpr)
 defMetadata(parent, FExpr)
+defMetadata(globalindex, int)
 
 proc copy*(fexpr: FExpr): FExpr
 
