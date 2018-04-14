@@ -20,8 +20,7 @@ fn dynvec_main() MyFile {
   v := dynvec[MyFile]()
   f := open_myfile()
   push(v, f)
-  ret := get(v, 0) # v lifting into share type.
-  ret
+  get(v, 0) # v lifting into share type.
 }
 
 fn main() {

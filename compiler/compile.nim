@@ -67,7 +67,9 @@ proc compileFloriC*(options: CCOptions) =
   let semctx = newSemanticContext(options.ccoptions)
   let genctx = newCCodegenContext()
   bench "eval":
-    discard semctx.semFile(processSemPass, options.filepath)
+    if not existsFile(options.filepath):
+      quit "flori: Please exists flori file."
+    discard semctx.semFile(processFPass, options.filepath)
     for top in semctx.globaltoplevels.mitems:
       top.internalScope.processElimPass(top)
   bench "codegen":
@@ -89,7 +91,7 @@ proc compileFloriC*(options: CCOptions) =
 proc compileFloriJS*(options: CCOptions, sourcemap: bool) =
   let semctx = newSemanticContext(options.ccoptions)
   bench "eval":
-    discard semctx.semFile(processSemPass, options.filepath)
+    discard semctx.semFile(processFPass, options.filepath)
     for top in semctx.globaltoplevels.mitems:
       top.internalScope.processElimPass(top)
   let genctx = newJSCodegenContext(semctx)

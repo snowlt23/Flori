@@ -20,6 +20,9 @@ fn print(x UInt8) $[inline] {
 fn print(x UInt32) $[inline] {
   printf("%d", x)
 }
+fn print(x Int32) $[inline] {
+  printf("%d", x)
+}
 fn print(x Float) $[inline] {
   printf("%f", x)
 }

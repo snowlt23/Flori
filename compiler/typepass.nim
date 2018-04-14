@@ -1,6 +1,5 @@
 
 import fexpr_core, marking
-import expandpass
 
 import options
 import strutils, sequtils
@@ -20,7 +19,7 @@ proc parseTypeExpr*(fexpr: FExpr, pos: var int): ParsedType =
     result = ParsedType(typ: fexpr, generics: farray(fexpr.span), prefix: none(FExpr))
   elif fexpr.kind == fexprSeq:
     new result
-    if $fexpr[pos] == "ref" or $fexpr[pos] == "dynamic":
+    if $fexpr[pos] == "ref" or $fexpr[pos] == "move":
       result.prefix = some(fexpr[pos])
       pos += 1
     else:
@@ -79,15 +78,12 @@ proc semType*(scope: Scope, parsed: ParsedType): Symbol =
       let argtyp = arg.parseTypeExpr(pos)
       sym.types.add(scope.semType(argtyp))
     result = sym
-    
-    if result.types.isSpecTypes and result.fexpr.hasDeftype and result.fexpr.deftype.isGenerics:
-      result = scope.expandDeftype(result.fexpr, result.types).symbol
 
   if parsed.prefix.isSome:
     if $parsed.prefix.get == "ref":
       result = scope.refsym(result)
-    elif $parsed.prefix.get == "dynamic":
-      result = scope.dynsym(result)
+    elif $parsed.prefix.get == "move":
+      result = scope.movesym(result)
       result.marking = some(scope.newMarking(result.wrapped))
 
 proc semTypeExpr*(scope: Scope, typ: FExpr): Symbol =

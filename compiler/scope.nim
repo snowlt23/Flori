@@ -56,15 +56,15 @@ proc match*(a, b: Symbol): bool =
     return a.wrapped.match(b.wrapped)
   elif a.kind == symbolVar and b.kind == symbolRef:
     return a.wrapped.match(b.wrapped)
+  elif b.kind == symbolVar:
+    return a.match(b.wrapped)
   elif a.kind == symbolRef:
     return a.wrapped.match(b)
   elif a.kind == symbolVar:
     return a.wrapped.match(b)
-  elif a.kind == symbolDynamic and b.kind == symbolDynamic:
-    return a.wrapped.match(b.wrapped)
-  elif a.kind == symbolDynamic:
-    return a.wrapped.match(b)
-  elif b.kind == symbolDynamic:
+  # elif a.kind == symbolMove:
+  #   return a.wrapped.match(b.wrapped)
+  elif b.kind == symbolMove:
     return a.match(b.wrapped)
   else:
     return a == b
@@ -118,8 +118,6 @@ proc spec*(a, b: Symbol): bool =
     return a.wrapped.spec(b)
   elif a.kind == symbolVar:
     return a.wrapped.spec(b)
-  elif a.kind == symbolDynamic and b.kind == symbolDynamic:
-    return a.wrapped.spec(b.wrapped)
   else:
     return false
 proc spec*(a: ProcName, b: ProcDecl): bool =

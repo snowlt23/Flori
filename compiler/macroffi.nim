@@ -53,10 +53,6 @@ proc ffiStrval*(fexpr: FExpr): cstring {.cdecl.} =
   cstring($fexpr.strval)
 proc ffiGensym*(): FExpr {.cdecl.} =
   return fident(internalSpan, gCtx.genTmpName())
-proc ffiIsUnique*(fexpr: FExpr): bool {.cdecl.} =
-  not fexpr.typ.fexpr.deftype.isShare and not fexpr.typ.fexpr.deftype.isBorrow
-proc ffiIsShare*(fexpr: FExpr): bool {.cdecl.} =
-  fexpr.typ.fexpr.deftype.isShare
   
 proc ffiDebugMarking*(fexpr: FExpr) =
   if fexpr.hasMarking:

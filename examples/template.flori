@@ -1,0 +1,13 @@
+
+import "core"
+
+fn print_arrn[N, T](arr Array[N, T]) {
+  println(N)
+}
+
+fn main() {
+  var arr Array[9, Int]
+  print_arrn(arr)
+}
+
+main()

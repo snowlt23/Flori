@@ -13,6 +13,9 @@ type
     exp*: string
   CCodegenContext* = ref object
     headers*: OrderedTable[string, bool]
+    typesrc*: string
+    fnsrc*: string
+    headersrc*: string
     tmpcount*: int
     macrogen*: bool
     
@@ -32,7 +35,7 @@ proc addPrev*(src: var SrcExpr, s: SrcExpr) =
   src.prev &= s.exp
 
 proc newCCodegenContext*(macrogen = false): CCodegenContext =
-  CCodegenContext(headers: initOrderedTable[string, bool](), tmpcount: 0, macrogen: macrogen)
+  CCodegenContext(headers: initOrderedTable[string, bool](), typesrc: "", fnsrc: "", headersrc: "", tmpcount: 0, macrogen: macrogen)
 proc gentmpsym*(ctx: CCodegenContext): string =
   result = "__floritmp" & $ctx.tmpcount
   ctx.tmpcount.inc
@@ -42,55 +45,14 @@ proc replaceSpecialSymbols*(s: string): string =
 
 proc codegenSymbol*(sym: Symbol): string
 
-proc collectDynamicNames*(marking: Marking): seq[string] =
-  result = @[]
-  for key, value in marking.fieldbody:
-    if not value.owned:
-      case value.dynamic
-      of dynUnique:
-        result.add("U" & $key)
-      of dynBorrow:
-        result.add("B" & $key)
-      of dynShare:
-        result.add("S" & $key)
-    result &= value.collectDynamicNames()
-
-proc collectDynamicType*(t: Symbol): seq[string] =
-  if t.kind == symbolTypeGenerics:
-    result = @[]
-    for sont in t.types:
-      result &= collectDynamicType(sont)
-  elif t.kind == symbolDynamic:
-    case t.marking.get.dynamic
-    of dynUnique:
-      result = @["U"]
-    of dynBorrow:
-      result = @["B"]
-    of dynShare:
-      result = @["S"]
-  else:
-    result = @[]
-
 proc codegenSymbol*(sym: Symbol): string =
   result = ""
   if sym.kind == symbolTypeGenerics and sym.types.len != 0:
     result &= $sym.scope.name & "_" & $sym.name & "_" & sym.types.mapIt(codegenSymbol(it)).join("_")
-    if sym.fexpr.hasDeftype:
-      result &= "_" & collectDynamicType(sym).join("")
   elif sym.kind == symbolVar:
     result &= codegenSymbol(sym.wrapped)
   elif sym.kind == symbolRef:
     result &= codegenSymbol(sym.wrapped)
-    if sym.marking.isSome:
-      let owns = collectDynamicNames(sym.marking.get)
-      result &= "M" & owns.mapIt($it).join("_") & "M"
-  elif sym.kind == symbolDynamic:
-    result &= codegenSymbol(sym.wrapped)
-    if sym.marking.isNone:
-      sym.fexpr.error("dynamic type should has marking.")
-    # let owns = collectDynamicNames(sym.marking.get)
-    # if owns.len != 0:
-    #   result &= "D" & owns.mapIt($it).join("_") & "D"
   elif sym.kind == symbolIntLit:
     result &= $sym.intval
   else:
@@ -133,8 +95,11 @@ proc codegenType*(fexpr: FExpr): string =
     fexpr.error("$# isn't symbol." % $fexpr)
   return codegenType(fexpr.symbol)
 
-proc codegenMangling*(sym: Symbol, generics: seq[Symbol], types: seq[Symbol]): string =
-  result = codegenSymbol(sym) & "G" & generics.mapIt(codegenSymbol(it)).join("_") & "G" & "_" & types.mapIt(codegenSymbol(it)).join("_")
+proc codegenMangling*(sym: Symbol, generics: seq[Symbol], types: seq[Symbol], internal = false): string =
+  if internal:
+    result = $sym.name & "G" & generics.mapIt(codegenSymbol(it)).join("_") & "G" & "_" & types.mapIt(codegenSymbol(it)).join("_")
+  else:
+    result = codegenSymbol(sym) & "G" & generics.mapIt(codegenSymbol(it)).join("_") & "G" & "_" & types.mapIt(codegenSymbol(it)).join("_")
 
 iterator codegenArgs*(ctx: CCodegenContext, src: var SrcExpr, args: FExpr): FExpr =
   if args.len >= 1:
@@ -222,7 +187,7 @@ proc codegenMacroWrapper*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
 proc codegenDefn*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.internalPragma.header.isSome and not ctx.headers.hasKey(fexpr.internalPragma.header.get):
     ctx.headers[fexpr.internalPragma.header.get] = true
-    src &= "#include \"$#\"\n" % fexpr.internalPragma.header.get
+    ctx.headersrc &= "#include \"$#\"\n" % fexpr.internalPragma.header.get
   if fexpr.internalPragma.importc.isNone:
     if fexpr.defn.generics.isSpecTypes:
       ctx.codegenDefnInstance(src, fexpr)
@@ -230,23 +195,23 @@ proc codegenDefn*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
         ctx.codegenMacroWrapper(src, fexpr)
         
 proc codegenDeftypeStruct*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  src &= "struct $# {\n" % codegenSymbol(fexpr.deftype.name.symbol)
+  ctx.typesrc &= "struct $# {\n" % codegenSymbol(fexpr.deftype.name.symbol)
   for field in fexpr.deftype.body:
-    src &= codegenType(field[1].symbol)
-    src &= " "
-    src &= $field[0]
-    src &= ";\n"
-  src &= "};\n"
+    ctx.typesrc &= codegenType(field[1].symbol)
+    ctx.typesrc &= " "
+    ctx.typesrc &= $field[0]
+    ctx.typesrc &= ";\n"
+  ctx.typesrc &= "};\n"
 
 proc codegenDeftypePattern*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.internalPragma.declc.isSome:
-    src &= codegenTypePattern(fexpr.internalPragma.declc.get, fexpr.deftype.name.symbol.types)
-    src &= "\n"
+    ctx.typesrc &= codegenTypePattern(fexpr.internalPragma.declc.get, fexpr.deftype.name.symbol.types)
+    ctx.typesrc &= "\n"
   
 proc codegenDeftype*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.internalPragma.header.isSome and not ctx.headers.hasKey(fexpr.internalPragma.header.get):
     ctx.headers[fexpr.internalPragma.header.get] = true
-    src &= "#include \"$#\"\n" % fexpr.internalPragma.header.get
+    ctx.headersrc &= "#include \"$#\"\n" % fexpr.internalPragma.header.get
   if fexpr.internalPragma.importc.isSome:
     if not fexpr.deftype.isGenerics:
       ctx.codegenDeftypePattern(src, fexpr)
@@ -268,7 +233,7 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 
   var ifcondsrc = initSrcExpr()
   var ifbodysrc = initSrcExpr()
-  ctx.codegenFExpr(ifcondsrc, elifbranch[0].cond)
+  ctx.codegenCallArg(ifcondsrc, elifbranch[0].cond, if elifbranch[0].cond.typ.kind == symbolRef: elifbranch[0].cond.typ.wrapped else: elifbranch[0].cond.typ)
   ctx.codegenBody(ifbodysrc, elifbranch[0].body, ret)
   var elsecnt = 1
   src.prev &= ifcondsrc.prev
@@ -279,7 +244,7 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   for branch in elifbranch[1..^1]:
     var elifcondsrc = initSrcExpr()
     var elifbodysrc = initSrcExpr()
-    ctx.codegenFExpr(elifcondsrc, branch.cond)
+    ctx.codegenCallArg(elifcondsrc, branch.cond, if branch.cond.typ.kind == symbolRef: branch.cond.typ.wrapped else: branch.cond.typ)
     ctx.codegenBody(elifbodysrc, branch.body, ret)
     src.prev &= elifcondsrc.prev
     src.prev &= "if (" & elifcondsrc.exp & ") {\n"
@@ -361,16 +326,6 @@ proc codegenBlock*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   ctx.codegenFExpr(src, fexpr[1])
   src &= "\n}\n"
 
-proc codegenMove*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  if fexpr[1][0].typ.kind == symbolDynamic and fexpr[1][0].typ.marking.get.dynamic == dynShare:
-    var movesrc = initSrcExpr()
-    ctx.codegenFExpr(movesrc, fexpr[1][0])
-    src.prev &= movesrc.prev
-    src.prev &= movesrc.exp & ".owned = false;" & "\n"
-    src &= movesrc.exp
-  else:
-    ctx.codegenFExpr(src, fexpr[1][0])
-
 proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topcodegen: bool) =
   if fexpr.hasInternalPragma and not ctx.macrogen and fexpr.internalPragma.compiletime:
     return
@@ -432,36 +387,17 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
   of internalBlock:
     if not topcodegen:
       ctx.codegenBlock(src, fexpr)
-  of internalMove:
-    if not topcodegen:
-      ctx.codegenMove(src, fexpr)
 
 proc codegenCallArg*(ctx: CCodegenContext, src: var SrcExpr, arg: FExpr, fnargtype: Symbol) =
-  if arg.typ.kind == symbolVar and fnargtype.kind == symbolRef:
+  if arg.typ.kind == symbolVar and arg.typ.wrapped.kind == symbolRef and fnargtype.kind == symbolRef:
+    src &= "*"
+    ctx.codegenFExpr(src, arg)
+  elif arg.typ.kind == symbolVar and fnargtype.kind == symbolRef:
     src &= "&"
     ctx.codegenFExpr(src, arg)
   elif arg.typ.kind == symbolRef and fnargtype.kind != symbolRef:
     src &= "*"
     ctx.codegenFExpr(src, arg)
-  elif (arg.typ.kind == symbolDynamic and arg.typ.marking.get.dynamic == dynShare) or
-       (arg.typ.kind == symbolVar and arg.typ.wrapped.kind == symbolDynamic) or
-       (arg.typ.kind == symbolVar and arg.typ.wrapped.kind == symbolVar and arg.typ.wrapped.wrapped.kind == symbolDynamic):
-    if fnargtype.kind != symbolDynamic or fnargtype.marking.get.dynamic != dynShare:
-      ctx.codegenFExpr(src, arg)
-      src &= ".value"
-    else:
-      ctx.codegenFExpr(src, arg)
-  elif fnargtype.kind == symbolDynamic and fnargtype.marking.get.dynamic == dynShare:
-    let argtypunwrap = if arg.typ.kind == symbolVar:
-                   arg.typ.wrapped
-                 else:
-                   arg.typ
-    if argtypunwrap.kind != symbolDynamic or argtypunwrap.marking.get.dynamic != dynShare:
-      src &= "($#){" % codegenType(fnargtype)
-      ctx.codegenFExpr(src, arg)
-      src &= ", true}"
-    else:
-      ctx.codegenFExpr(src, arg)
   else:
     ctx.codegenFExpr(src, arg)
 
@@ -579,6 +515,8 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   of fexprSymbol:
     if fexpr.typ.kind == symbolFuncType:
       src &= codegenMangling(fexpr.symbol, @[], fexpr.typ.argtypes) # FIXME:
+    elif fexpr.typ.kind == symbolIntLit:
+      src &= $fexpr.typ.intval
     else:
       src &= codegenSymbol(fexpr)
   of fexprIntLit:
@@ -639,4 +577,4 @@ proc codegenSingle*(ctx: CCodegenContext, sem: SemanticContext): string =
   ctx.codegenBody(src, sem.globaltoplevels)
   src &= "}\n"
   src &= "int main(int argc, char** argv) { flori_main(); }\n"
-  return src.exp
+  return ctx.headersrc & "\n" & ctx.typesrc & "\n" & src.exp

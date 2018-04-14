@@ -3,14 +3,14 @@ import "core"
 import "core/pointer"
 
 type DynVec[T] {
-  data Ptr[dynamic T]
+  data Ptr[Dynamic[T]]
   cap Int
   len Int
 }
 
 fn dynvec[T](len Int, cap Int) DynVec[T] {
   v := init(DynVec[T]) {
-    alloc[dynamic T](cap)
+    alloc[Dynamic[T]](cap)
     cap
     len
   }
@@ -28,11 +28,11 @@ fn extend[T](v ref DynVec[T]) {
   v.cap = (v.cap)*2
 }
 
-fn push[T](v ref DynVec[T], value dynamic T) {
+fn push[T](v ref DynVec[T], value move T) {
   if (v.cap < (v.len+1)) {
     extend(v)
   }
-  unref(v.data +! ((v.len) * sizeof[T]())) = value
+  unref(v.data +! ((v.len) * sizeof[T]())) = new_dynamic(value)
   v.len += 1
 }
 
@@ -40,8 +40,12 @@ fn length[T](v DynVec[T]) Int {
   v.len
 }
 
-fn get[T](v DynVec[T], i Int) dynamic T {
-  move(unref((v.data) +! (i * sizeof[T]())))
+fn get[T](v DynVec[T], i Int) T {
+  unref((v.data) +! (i * sizeof[T]())).owned = false
+  unref((v.data) +! (i * sizeof[T]())).value
+}
+fn dget[T](v DynVec[T], i Int) Dynamic[T] {
+  unref((v.data) +! (i * sizeof[T]()))
 }
 
 iterator items[T](v TExpr[DynVec[T]]) {
@@ -53,19 +57,20 @@ iterator items[T](v TExpr[DynVec[T]]) {
     }
   }
 }
-
-destructor[T](v DynVec[T]) {
-  debug_marking(v)
-  when (is_unique(v)) {
-    for e in v {
-      destruct(e)
+iterator ditems[T](v TExpr[DynVec[T]]) {
+  i := gensym()
+  quote {
+    for `i in range(0, length(`v)-1) {
+      `element := dget(`v, `i)
+      `yield
     }
   }
-  when (is_share(v)) {
-    for e in v {
-      if (e.owned) {
-        destruct(e.value)
-      }
+}
+
+destructor[T](v DynVec[T]) {
+  for e in ditems(v) {
+    if (e.owned) {
+      destruct(e.value)
     }
   }
   dealloc(v.data)

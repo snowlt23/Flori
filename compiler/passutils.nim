@@ -23,52 +23,36 @@ proc isResolveRef*(fexpr: seq[FExpr]): bool =
       return false
   return true
 
-proc isIncludeDynamic*(sym: Symbol): bool =
-  if sym.kind == symbolDynamic:
-    return true
-  elif sym.kind == symbolTypeGenerics:
-    for t in sym.types:
-      if t.isIncludeDynamic:
-        return true
-    return false
-  else:
-    return false
-proc isIncludeDynamic*(deftype: Deftype): bool =
-  for sym in deftype.body.mapIt(it[1].symbol):
-    if sym.isIncludeDynamic:
-      return true
-  return false
-
-proc isBorrow*(sym: Symbol): bool =
-  if sym.kind == symbolDynamic and sym.marking.get.dynamic == dynBorrow:
-    return true
-  elif sym.kind == symbolTypeGenerics:
-    for t in sym.types:
-      if t.isBorrow:
-        return true
-    return false
-  else:
-    return false
-proc isBorrow*(deftype: Deftype): bool =
-  for sym in deftype.body.mapIt(it[1].symbol):
-    if sym.isBorrow:
-      return true
-  return false
-proc isShare*(sym: Symbol): bool =
-  if sym.kind == symbolDynamic and sym.marking.get.dynamic == dynShare:
-    return true
-  elif sym.kind == symbolTypeGenerics:
-    for t in sym.types:
-      if t.isShare:
-        return true
-    return false
-  else:
-    return false
-proc isShare*(deftype: Deftype): bool =
-  for sym in deftype.body.mapIt(it[1].symbol):
-    if sym.isShare:
-      return true
-  return false
+# proc isBorrow*(sym: Symbol): bool =
+#   if sym.kind == symbolDynamic and sym.marking.get.dynamic == dynBorrow:
+#     return true
+#   elif sym.kind == symbolTypeGenerics:
+#     for t in sym.types:
+#       if t.isBorrow:
+#         return true
+#     return false
+#   else:
+#     return false
+# proc isBorrow*(deftype: Deftype): bool =
+#   for sym in deftype.body.mapIt(it[1].symbol):
+#     if sym.isBorrow:
+#       return true
+#   return false
+# proc isShare*(sym: Symbol): bool =
+#   if sym.kind == symbolDynamic and sym.marking.get.dynamic == dynShare:
+#     return true
+#   elif sym.kind == symbolTypeGenerics:
+#     for t in sym.types:
+#       if t.isShare:
+#         return true
+#     return false
+#   else:
+#     return false
+# proc isShare*(deftype: Deftype): bool =
+#   for sym in deftype.body.mapIt(it[1].symbol):
+#     if sym.isShare:
+#       return true
+#   return false
 
 proc isGenerics*(defn: Defn): bool = not defn.generics.isSpecTypes or defn.args.mapIt(it[1]).isIncludeRef
 proc isGenerics*(deftype: Deftype): bool = not deftype.generics.isSpecTypes

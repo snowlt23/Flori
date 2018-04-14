@@ -50,6 +50,7 @@ fn `<=(a Float, b Float) Bool $[importc "<=", header nodeclc, patternc infixc, i
 fn `>(a Float, b Float) Bool $[importc ">", header nodeclc, patternc infixc, importjs ">", patternjs infixjs]
 fn `>=(a Float, b Float) Bool $[importc ">=", header nodeclc, patternc infixc, importjs ">=", patternjs infixjs]
 
+fn `+(a Double, b Double) Double $[importc "+", header nodeclc, patternc infixc, importjs "+", patternjs infixjs]
 fn `/(a Double, b Double) Double $[importc "/", header nodeclc, patternc infixc, importjs "/", patternjs infixjs]
 
 fn `/(a Int, b Int) Double $[inline] {

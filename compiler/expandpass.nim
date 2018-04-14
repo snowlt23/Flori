@@ -1,186 +1,103 @@
 
-import fexpr_core, scopeout, marking
-import passutils, ccodegen, compileutils
+import fexpr_core
+import newpassmacro, expandutils, inlinepass
 
 import options
 import strutils, sequtils
-
-proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr
-
-proc applyInstance*(sym: Symbol, instance: Symbol) =
-  if sym.kind in {symbolVar, symbolRef} and instance.kind in {symbolVar, symbolRef}:
-    sym.wrapped.applyInstance(instance.wrapped)
-    if instance.marking.isSome:
-      sym.instmarking = some(instance.marking.get)
-  elif sym.kind == symbolDynamic and instance.kind == symbolDynamic:
-    sym.wrapped.applyInstance(instance.wrapped)
-    if instance.marking.isSome:
-      sym.instmarking = some(instance.marking.get)
-  elif instance.kind in {symbolVar, symbolRef}:
-    sym.applyInstance(instance.wrapped)
-    if instance.marking.isSome:
-      sym.instmarking = some(instance.marking.get)
-  elif sym.kind == symbolGenerics:
-    sym.instance = some(instance)
-  elif sym.kind == symbolTypeGenerics:
-    assert(sym.types.len == instance.types.len)
-    sym.instance = some(instance)
-    for i in 0..<sym.types.len:
-      sym.types[i].applyInstance(instance.types[i])
-  # elif sym.kind == symbolDynamic:
-  #   sym.wrapped.applyInstance(instance)
-  else:
-    sym.instance = some(instance)
-
-proc expandSymbol*(scope: Scope, sym: Symbol): Symbol =
-  if sym.kind == symbolVar:
-    result = scope.varsym(scope.expandSymbol(sym.wrapped))
-    if sym.instmarking.isSome:
-      result.marking = some(sym.instmarking.get.copy)
-  elif sym.kind == symbolRef:
-    result = scope.refsym(scope.expandSymbol(sym.wrapped))
-    if sym.instmarking.isSome:
-      result.marking = some(sym.instmarking.get.copy)
-  elif sym.kind == symbolDynamic:
-    result = scope.dynsym(scope.expandSymbol(sym.wrapped))
-    if sym.instmarking.isSome:
-      result.marking = some(sym.instmarking.get.copy)
-      result.marking.get.getFrom(sym.instmarking.get)
-    else:
-      result.marking = some(scope.newMarking(result.wrapped))
-  elif sym.kind == symbolGenerics:
-    if sym.instance.isNone:
-      sym.fexpr.error("cannot instantiate $#." % $sym)
-    result = sym.instance.get
-  elif sym.kind == symbolTypeGenerics:
-    var extypes = newSeq[Symbol]()
-    for t in sym.types:
-      extypes.add(scope.expandSymbol(t))
-    result = scope.expandDeftype(sym.fexpr, extypes).symbol
-  else:
-    result = sym
-
-proc expandType*(scope: Scope, fexpr: FExpr): FExpr =
-  fexpr.assert(fexpr.kind == fexprSymbol)
-  return fsymbol(fexpr.span, scope.expandSymbol(fexpr.symbol))
-
-proc expandGenerics*(generics: FExpr) =
-  for g in generics.mitems:
-    g.assert(g.kind == fexprSymbol)
-    if g.symbol.instance.isNone:
-      g.error("cannot instantiate $#." % $g)
-    g.symbol = g.symbol.instance.get
-    if g.symbol.kind in {symbolRef, symbolVar, symbolDynamic} and g.symbol.instmarking.isSome:
-      g.symbol.marking = some(g.symbol.instmarking.get.copy)
+import tables
       
-proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr =
-  fexpr.assert(fexpr.hasDeftype)
+proc applyInstancePass*(scope: Scope, fexpr: var FExpr): bool =
+  thruInternal(fexpr)
+  if fexpr.isNormalFuncCall:
+    for i, arg in fexpr[1]:
+      fexpr[0].symbol.fexpr.defn.args[i][1].symbol.applyInstance(arg.typ)
+  elif fexpr.isGenericsFuncCall:
+    for i, ginst in fexpr[1]:
+      fexpr[0].symbol.fexpr.defn.generics[i].symbol.applyInstance(ginst.symbol)
+    for i, arg in fexpr[2]:
+      fexpr[0].symbol.fexpr.defn.args[i][1].symbol.applyInstance(arg.typ)
+  elif fexpr.isInfixFuncCall:
+    fexpr[0].symbol.fexpr.defn.args[0][1].symbol.applyInstance(fexpr[1].typ)
+    fexpr[0].symbol.fexpr.defn.args[1][1].symbol.applyInstance(fexpr[2].typ)
 
-  let expanded = fexpr.copy
+  return true
 
-  for i, arg in argtypes:
-    expanded.deftype.generics[i].symbol.applyInstance(arg)
-  defer:
-    for g in fexpr.deftype.generics:
-      g.symbol.instance = none(Symbol)
-  expanded.deftype.generics.expandGenerics()
+proc expandInlinePass*(scope: Scope, fexpr: var FExpr): bool =
+  thruInternal(fexpr)
+  if fexpr.isFuncCall:
+    scope.expandBy(fexpr.span):
+      if fexpr[0].symbol.fexpr.hasInternalPragma and fexpr[0].symbol.fexpr.internalPragma.inline:
+        let inlinescope = fexpr[0].symbol.fexpr.internalScope
+        scope.importScope(name("inline_scope_" & $inlinescope.name), inlinescope)
+        for name, s in inlinescope.importscopes:
+          scope.importScope(name, s)
+        scope.expandInlineFunc(fexpr)
+        scope.rootPass(fexpr)
+  return true
 
-  let typename = expanded.deftype.name.symbol.name
-  let manglingname = name(codegenMangling(expanded.deftype.name.symbol, argtypes, @[]))
+proc expandDefnPass*(scope: Scope, fexpr: var FExpr): bool =
+  thruInternal(fexpr)
+  if fexpr.isNormalFuncCall:
+    scope.expandBy(fexpr.span):
+      let fnsym = fexpr[0]
+      let argtypes = fexpr[1].mapIt(it.typ)
+      if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.isGenerics:
+        let exsym = expandDefn(rootPass, scope, fnsym.symbol.fexpr, argtypes)
+        fexpr[0] = exsym
+        fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
+      
+    return true
+  elif fexpr.isGenericsFuncCall:
+    scope.expandBy(fexpr.span):
+      let fnsym = fexpr[0]
+      let genericstypes = fexpr[1]
+      let argtypes = fexpr[2].mapIt(it.typ)
+      if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.isGenerics:
+        let newfexpr = fnsym.symbol.fexpr.copy
+        for i, gtype in genericstypes:
+          gtype.assert(gtype.kind == fexprSymbol)
+          newfexpr.defn.generics[i].symbol.instance = some(gtype.symbol)
+        let exsym = expandDefn(rootPass, scope, newfexpr, argtypes)
+        fexpr[0] = exsym
+        fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
 
-  let specopt = fexpr.internalScope.getDecl(manglingname)
-  if specopt.isSome:
-    let fsym = fsymbol(fexpr.span, specopt.get)
-    return fsym
-  
-  for b in expanded.deftype.body.mitems:
-    let extype = scope.expandType(b[1])
-    b[1] = extype
-    # b = fseq(b.span, @[b[0], extype])
+    return true
+  elif fexpr.isInfixFuncCall:
+    scope.expandBy(fexpr.span):
+      let fnsym = fexpr[0]
+      let argtypes = @[fexpr[1].typ, fexpr[2].typ]
+      if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.isGenerics:
+        let exsym = expandDefn(rootPass, scope, fnsym.symbol.fexpr, argtypes)
+        fexpr[0] = exsym
+        fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
+      
+    return true
+  else:
+    return true
 
-  let tsym = fexpr.internalScope.symbol(typename, symbolTypeGenerics, expanded)
-  tsym.types = expanded.deftype.generics.mapIt(it.symbol)
-  let fsym = fsymbol(fexpr.span, tsym)
-  expanded.deftype.name = fsym
+proc expandDeftypePass*(scope: Scope, fexpr: var FExpr): bool =
+  if fexpr.hasInternalMark and fexpr.internalMark == internalVar and fexpr[2].symbol.kind == symbolTypeGenerics:
+    scope.expandBy(fexpr.span):
+      let exsym = expandDeftype(scope, fexpr[2].symbol.fexpr, fexpr[2].symbol.types)
+      fexpr[2] = exsym
+    return true
 
-  discard fexpr.internalScope.addDecl(manglingname, tsym)
-  scope.ctx.globaltoplevels.add(expanded)
+  thruInternal(fexpr)
+      
+  if fexpr.hasTyp and fexpr.typ.kind == symbolTypeGenerics:
+    scope.expandBy(fexpr.span):
+      let exsym = expandDeftype(scope, fexpr.typ.fexpr, fexpr.typ.types)
+      fexpr.typ = exsym.symbol
+    return true
+      
+  if fexpr.isFuncCall:
+    scope.expandBy(fexpr.span):
+      let defn = fexpr[0].symbol.fexpr.defn
+      for arg in defn.args.mitems:
+        if arg[1].symbol.kind == symbolTypeGenerics:
+          arg[1] = expandDeftype(scope, arg[1].symbol.fexpr, arg[1].symbol.types)
+      if defn.ret.symbol.kind == symbolTypeGenerics:
+        defn.ret = expandDeftype(scope, defn.ret.symbol.fexpr, defn.ret.symbol.types)
+    return true
 
-  return fsym
-    
-proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, argtypes: seq[Symbol]): FExpr =
-  fexpr.assert(fexpr.hasDefn)
-  fexpr.assert(fexpr.defn.args.len == argtypes.len)
-
-  let expanded = fexpr.copy
-
-  for i, arg in expanded.defn.args:
-    arg[1].assert(arg[1].kind == fexprSymbol)
-    arg[1].symbol.applyInstance(argtypes[i])
-  defer:
-    for g in fexpr.defn.generics:
-      g.symbol.instance = none(Symbol)
-    for arg in fexpr.defn.args:
-      if arg[1].symbol.kind == symbolRef:
-        arg[1].symbol.instmarking = none(Marking)
-  expanded.defn.generics.expandGenerics()
-
-  let funcname = fexpr.defn.name.symbol.name
-  let genericstypes = expanded.defn.generics.mapIt(it.symbol)
-
-  let specopt = fexpr.internalScope.getSpecFunc(procname(funcname, argtypes, genericstypes))
-  if specopt.isSome:
-    let fsym = fsymbol(fexpr.span, specopt.get.sym)
-    return fsym
-
-  let exscope = fexpr.internalScope.extendScope()
-  for arg in expanded.defn.args:
-    let extype = scope.expandType(arg[1])
-    let argcopy = arg[0].copy
-    argcopy.symbol = argcopy.symbol.symcopy
-    argcopy.symbol.fexpr.typ = extype.symbol
-    if extype.symbol.kind == symbolRef and extype.symbol.marking.isSome:
-      argcopy.symbol.fexpr.marking = extype.symbol.marking.get
-    elif extype.symbol.fexpr.deftype.isIncludeDynamic and extype.symbol.marking.isSome:
-      argcopy.symbol.fexpr.marking = extype.symbol.marking.get
-    else:
-      argcopy.symbol.fexpr.marking = newMarking(exscope, extype.symbol)
-    arg[0] = argcopy
-    arg[1].symbol = extype.symbol.symcopy
-    if extype.symbol.kind == symbolRef and extype.symbol.marking.isSome:
-      arg[1].symbol.marking = some(extype.symbol.marking.get.copy)
-    let status = exscope.addDecl(name(argcopy), argcopy.symbol)
-    if not status:
-      argcopy.error("redefinition $# variable." % $arg[0])
-  expanded.defn.ret = scope.expandType(expanded.defn.ret)
-
-  let sym = fexpr.internalScope.symbol(funcname, expanded.defn.name.symbol.kind, expanded)
-  let fsym = fsymbol(fexpr.span, sym)
-  fexpr.defn.name = fsym
-  let pd = ProcDecl(
-    isInternal: false,
-    name: funcname,
-    argtypes: expanded.defn.args.mapIt(it[1].symbol),
-    generics: genericstypes,
-    returntype: expanded.defn.ret.symbol,
-    sym: sym,
-    fexpr: expanded
-  )
-  fexpr.internalScope.addSpecFunc(pd)
-
-  exscope.importScope(name("flori_current_scope"), scope.top)
-  exscope.rootPass(expanded.defn.body)
-  scope.ctx.globaltoplevels.add(expanded)
-  if not expanded.internalPragma.nodestruct:
-    expandDestructor(rootPass, exscope, expanded.defn.body)
-
-  return fsym
-
-proc expandMacrofn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr =
-  result = expandDefn(rootPass, scope, fexpr, argtypes)
-  let mp = MacroProc(importname: codegenMangling(result.symbol, result.symbol.fexpr.defn.generics.mapIt(it.symbol), result.symbol.fexpr.defn.args.mapIt(it[1].symbol)) & "_macro")
-  result.symbol.macroproc = mp
-  result.symbol.kind = symbolMacro
-  
-  scope.ctx.macroprocs.add(mp)
-  scope.ctx.reloadMacroLibrary(scope.top)
+  return true

@@ -142,7 +142,6 @@ type
     internalExport
     internalCEmit
     internalBlock
-    internalMove
   InternalPragma* = object
     # c codegen
     importc*: Option[string]

@@ -7,7 +7,7 @@ import "core/macros"
 import "core/dynamics"
 
 type Vec[T] {
-  data Ptr[dynamic T]
+  data Ptr[Dynamic[T]]
   cap Int
   len Int
 }
@@ -46,7 +46,7 @@ fn extend[T](v ref Vec[T]) {
   v.cap = (v.cap)*2
 }
 
-fn push[T](v ref Vec[T], value dynamic T) $[importjs, patternjs "$1.push($2)"] {
+fn push[T](v ref Vec[T], value T) $[importjs, patternjs "$1.push($2)"] {
   if (v.cap < v.len+1) {
     extend(v)
   }
@@ -62,7 +62,7 @@ fn get[T](v Vec[T], i Int) T $[importjs, patternjs "$1[$2]"] {
   unref(v.data +! (i * sizeof[T]()))
 }
 
-# fn set[T](v ref Vec[T], i Int, value dynamic T) {
+# fn set[T](v ref Vec[T], i Int, value T) {
 #   when (is_share(T)) {
 #     p := v.data +! (i * sizeof[T]())
 #     oldvalue := unref()

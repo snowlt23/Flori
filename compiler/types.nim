@@ -23,7 +23,7 @@ type
     symbolTypeGenerics
     symbolVar
     symbolRef
-    symbolDynamic
+    symbolMove
     symbolFunc
     symbolFuncGenerics
     symbolFuncType
@@ -44,7 +44,7 @@ type
       argpos*: int
     of symbolTypeGenerics:
       types*: seq[Symbol]
-    of symbolVar, symbolRef, symbolDynamic:
+    of symbolVar, symbolRef, symbolMove:
       wrapped*: Symbol
     of symbolSyntax, symbolMacro:
       macroproc*: MacroProc
@@ -199,8 +199,8 @@ proc `$`*(sym: Symbol): string =
     $sym.wrapped
   of symbolRef:
     "ref " & $sym.wrapped
-  of symbolDynamic:
-    "dynamic " & $sym.wrapped
+  of symbolMove:
+    "move " & $sym.wrapped
   of symbolIntLit:
     $sym.intval
   else:
@@ -214,8 +214,8 @@ proc varsym*(scope: Scope, sym: Symbol): Symbol =
   result = scope.symbol(sym.name, symbolVar, sym.fexpr)
   result.wrapped = sym
   result.marking = none(Marking)
-proc dynsym*(scope: Scope, sym: Symbol): Symbol =
-  result = scope.symbol(sym.name, symbolDynamic, sym.fexpr)
+proc movesym*(scope: Scope, sym: Symbol): Symbol =
+  result = scope.symbol(sym.name, symbolMove, sym.fexpr)
   result.wrapped = sym
   result.marking = none(Marking)
 proc symcopy*(sym: Symbol): Symbol =
@@ -227,7 +227,7 @@ proc symcopy*(sym: Symbol): Symbol =
     result.types = sym.types
   elif sym.kind == symbolIntLit:
     result.intval = sym.intval
-  elif sym.kind in {symbolVar, symbolRef, symbolDynamic}:
+  elif sym.kind in {symbolVar, symbolRef, symbolMove}:
     result.wrapped = sym.wrapped.symcopy
     result.marking = sym.marking
 proc intsym*(scope: Scope, fexpr: FExpr): Symbol =
@@ -243,7 +243,7 @@ proc isSpecSymbol*(sym: Symbol): bool =
     return true
   elif sym.kind == symbolGenerics:
     return false
-  elif sym.kind in {symbolRef, symbolVar, symbolDynamic}:
+  elif sym.kind in {symbolRef, symbolVar, symbolMove}:
     return sym.wrapped.isSpecSymbol()
   elif sym.kind == symbolIntLit:
     return true

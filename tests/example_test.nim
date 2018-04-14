@@ -12,7 +12,7 @@ proc exe*(s: string): string =
     s
 
 proc checkio*(filename: string, expectoutput: string) =
-  let cout = execProcess("compiler/flori c --cc=tcc -otests/bin/$# $#" % [filename.splitFile().name.exe, filename])
+  let cout = execProcess("compiler/flori c -otests/bin/$# $#" % [filename.splitFile().name.exe, filename])
   if cout != "":
     echo cout
   let name = splitFile(filename).name
@@ -52,9 +52,9 @@ suite "example":
     checkio "examples/floatlit.flori", "2.000000\n"
   test "field track":
     checkio "examples/field_track.flori", "start!\nMyFieldType(1, 2) destroyed!\nend!\nMyFieldType(3, 4) destroyed!\nMyFieldType(5, 6) destroyed!\nMyType destroyed!\n"
+  test "template expand":
+    checkio "examples/template.flori", "9\n"
   test "dynamic type: unique":
-    checkio "examples/dynunique.flori", ""
-  test "dynamic type: borrow":
-    checkio "examples/dynborrow.flori", ""
+    checkio "examples/dynunique.flori", "start!\nend!\nMyFile destroyed!\nDynVec destroyed!\n"
   test "dynamic type: share":
-    checkio "examples/dynshare.flori", ""
+    checkio "examples/dynshare.flori", "start!\nDynVec destroyed!\nend!\nMyFile destroyed!\n"
