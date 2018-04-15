@@ -1,6 +1,6 @@
 
 import fexpr_core, marking
-import newpassmacro, typepass, macropass, expandutils, expandpass
+import newpassmacro, typepass, macropass, expandutils, expandpass, effectpass, scopeout
 
 import options
 import strutils, sequtils
@@ -225,8 +225,8 @@ proc markingInfer*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
   if fexpr.kind == fexprSymbol and fexpr.symbol.fexpr.hasMarking:
     fexpr.marking = fexpr.symbol.fexpr.marking
-    if fexpr.typ.kind in {symbolVar, symbolRef, symbolMove}:
-      fexpr.typ.marking = some(fexpr.symbol.fexpr.marking)
+    # if fexpr.typ.kind in {symbolVar, symbolRef, symbolMove}:
+    #   fexpr.typ.marking = some(fexpr.symbol.fexpr.marking)
   return true
 
 proc moveEffectPass*(scope: Scope, fexpr: var FExpr): bool =
@@ -244,7 +244,6 @@ proc moveEffectPass*(scope: Scope, fexpr: var FExpr): bool =
           if not args[i].marking.owned:
             args[i].error("$# can't move, it's borrow value.")
           args[i].marking.owned = false
-          args[i].marking.dynamic = dynShare
 
   return true
 
@@ -272,6 +271,10 @@ definePass processSemPass, (Scope, var FExpr):
   expandDefnPass
   expandDeftypePass
   markingInfer
+  inferFnEffectPass
+  applyEffectPass
+  earlySetDestruct
   moveEffectPass
+  expandDestructorPass
   explicitDestruct
   finalPass

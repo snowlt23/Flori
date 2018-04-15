@@ -170,6 +170,8 @@ type
 defMetadata(typ, Symbol)
 defMetadata(marking, Marking)
 defMetadata(constvalue, FExpr)
+defMetadata(fneffect, FnEffect)
+defMetadata(markeffect, MarkingEffect)
 
 defBoolMetadata(isEvaluated)
 defBoolMetadata(isToplevel)

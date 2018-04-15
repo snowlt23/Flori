@@ -2,6 +2,7 @@
 import "core/prelude"
 import "core/io"
 import "core/syntax"
+import "core/macros"
 
 type MyInt {
   x Int

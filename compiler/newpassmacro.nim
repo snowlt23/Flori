@@ -22,7 +22,6 @@ macro definePass*(passname: untyped, argtypes: untyped, passes: untyped): untype
     pass.expectKind(nnkIdent)
     procbody.add(parseExpr("if not $#($#): return" % [$pass, callargs.join(", ")]))
   result[6] = procbody
-  echo result.repr
 
 template thruInternal*(fexpr: FExpr) =
   if fexpr.hasInternalMark:

@@ -1,5 +1,5 @@
 
-import fexpr_core, scopeout, marking
+import fexpr_core, marking
 import passutils, ccodegen, compileutils
 
 import options
@@ -123,12 +123,10 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, argtypes: s
     let argcopy = arg[0].copy
     argcopy.symbol = argcopy.symbol.symcopy
     argcopy.symbol.fexpr.typ = extype.symbol
-    # if extype.symbol.kind == symbolRef and extype.symbol.marking.isSome:
-    #   argcopy.symbol.fexpr.marking = extype.symbol.marking.get
-    # elif extype.symbol.fexpr.deftype.isIncludeDynamic and extype.symbol.marking.isSome:
-    #   argcopy.symbol.fexpr.marking = extype.symbol.marking.get
-    # else:
-    #   argcopy.symbol.fexpr.marking = newMarking(exscope, extype.symbol)
+    if extype.symbol.kind == symbolRef and extype.symbol.marking.isSome:
+      argcopy.symbol.fexpr.marking = extype.symbol.marking.get
+    else:
+      argcopy.symbol.fexpr.marking = newMarking(exscope, extype.symbol)
     arg[0] = argcopy
     arg[1].symbol = extype.symbol.symcopy
     if extype.symbol.kind == symbolRef and extype.symbol.marking.isSome:
@@ -155,8 +153,8 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, argtypes: s
   exscope.importScope(name("flori_current_scope"), scope.top)
   exscope.rootPass(expanded.defn.body)
   scope.ctx.globaltoplevels.add(expanded)
-  if not expanded.internalPragma.nodestruct:
-    expandDestructor(rootPass, exscope, expanded.defn.body)
+  # if not expanded.internalPragma.nodestruct:
+  #   expandDestructor(rootPass, exscope, expanded.defn.body)
 
   return fsym
 

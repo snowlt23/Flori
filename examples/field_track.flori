@@ -26,11 +26,15 @@ fn new_mt() MyType {
   mt
 }
 
+fn mt_update(mt ref MyType, newmfx MyFieldType) {
+  mt.mfx = newmfx
+}
+
 fn main() {
   println("start!")
   mt := new_mt()
   newmfx := init(MyFieldType){5; 6}
-  mt.mfx = newmfx
+  mt.mfx = newmfx # mt_update(mt, newmfx)
   println("end!")
 }
 

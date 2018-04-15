@@ -1,12 +1,13 @@
 
 import fexpr_core, marking
+import newpassmacro
 
 import strutils
 import options
 import algorithm
 import tables
 
-proc expandDestructor*(rootPass: PassProcType, scope: Scope, body: FExpr) =
+proc expandDestructor*(scope: Scope, body: var FExpr) =
   var tmpsym = none(Name)
   if body.len != 0 and not body[^1].typ.isVoidType: # escape ret value by destrutors
     if body[^1].hasMarking:
@@ -36,3 +37,15 @@ proc expandDestructor*(rootPass: PassProcType, scope: Scope, body: FExpr) =
   if tmpsym.isSome:
     body.addSon(fident(body.span, tmpsym.get))
     scope.rootPass(body[^1])
+
+proc expandDestructorPass*(scope: Scope, fexpr: var FExpr): bool =
+  if fexpr.hasInternalMark:
+    if fexpr.internalMark == internalWhile:
+      fexpr.internalScope.expandDestructor(fexpr[2])
+    elif fexpr.internalMark == internalBlock:
+      fexpr.internalScope.expandDestructor(fexpr[1])
+    elif fexpr.internalMark == internalDefn:
+      if not fexpr.internalPragma.nodestruct and not fexpr.internalPragma.inline and not fexpr.defn.isGenerics:
+        fexpr.internalScope.expandDestructor(fexpr.defn.body)
+
+  return true

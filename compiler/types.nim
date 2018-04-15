@@ -74,17 +74,16 @@ type
     fexprList
     fexprBlock
 
-  DynamicKind* = enum
-    dynUnique
-    dynBorrow
-    dynShare
-    # dynPool
+  MarkingEffect* = ref object
+    moved*: bool
+    fieldbody*: Table[Name, MarkingEffect]
+  FnEffect* = ref object
+    argeffs*: seq[MarkingEffect]
   Marking* = ref object
     scope*: Scope
     typesym*: Symbol
     owned*: bool
     origin*: Marking
-    dynamic*: DynamicKind
     fieldbody*: Table[Name, Marking]
 
   FExpr* = ref object
@@ -277,7 +276,7 @@ proc isSpecTypes*(types: FExpr): bool =
 #
 
 proc `==`*(a, b: Marking): bool =
-  if a.dynamic != b.dynamic:
+  if a.owned != b.owned:
     return false
   for key, value in a.fieldbody:
     if value != b.fieldbody[key]:

@@ -142,8 +142,6 @@ proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: FExpr, ret: stri
 proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.internalPragma.inline:
     return
-  if fexpr.defn.args.mapIt(it[1]).isIncludeRef and not fexpr.defn.args.mapIt(it[1]).isResolveRef:
-    return
   
   var decl = initSrcExpr()
   decl &= codegenType(fexpr.defn.ret)

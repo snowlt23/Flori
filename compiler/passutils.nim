@@ -54,7 +54,7 @@ proc isResolveRef*(fexpr: seq[FExpr]): bool =
 #       return true
 #   return false
 
-proc isGenerics*(defn: Defn): bool = not defn.generics.isSpecTypes or defn.args.mapIt(it[1]).isIncludeRef
+proc isGenerics*(defn: Defn): bool = not defn.generics.isSpecTypes
 proc isGenerics*(deftype: Deftype): bool = not deftype.generics.isSpecTypes
 
 proc isEqualTypes*(types: seq[Symbol]): bool =
