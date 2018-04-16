@@ -6,8 +6,15 @@ import compiler.passmacro, compiler.passdef, compiler.internalpass
 let prelude = """
 type Void $[importc "void", header nodeclc]
 type Bool $[importc "bool", header "stdbool.h"]
-type CString $[importc "char*", header nodeclc]
+type IntLit $[importc "int64_t", header "stdint.h"]
+type StrLit $[importc "char*", header nodeclc]
+
 type Int $[importc "int64_t", header "stdint.h"]
+type CString $[importc "char*", header nodeclc]
+
+fn to_int(x ref IntLit) ref Int $[converter, importc, patternc "$1"]
+fn to_int(x IntLit) Int $[converter, importc, patternc "$1"]
+fn to_cstring(x StrLit) CString $[converter, importc, patternc "$1"]
 
 fn `+(a Int, b Int) Int $[importc "+", header nodeclc, patternc infixc]
 fn `-(a Int, b Int) Int $[importc "-", header nodeclc, patternc infixc]
@@ -57,7 +64,7 @@ if (1 == 1) {
 """)
     let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
     ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check $fexprs[^1].typ == "testmodule.Int"
+    check $fexprs[^1].typ == "testmodule.IntLit"
     check fexprs[^1].internalMark == internalIf
   test "while":
     let ctx = newSemanticContext()
@@ -81,7 +88,7 @@ printf("%d", nine)
     ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
     check fexprs[^2].internalMark == internalDef
     check $fexprs[^2].typ == "testmodule.Void"
-    check $fexprs[^1][1][1] == "nine"
+    check $fexprs[^1][1][1] == "to_int(nine)"
     check $fexprs[^1][1][1].typ == "testmodule.Int"
   test "generics init":
     let ctx = newSemanticContext()
@@ -108,7 +115,7 @@ wrap(9)
 """)
     let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
     ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check $fexprs[^1].typ == "testmodule.Wrap[testmodule.Int]"
+    check $fexprs[^1].typ == "testmodule.Wrap[testmodule.IntLit]"
   test "recursion call":
     let ctx = newSemanticContext()
     var fexprs = parseToplevel("testmodule.flori", prelude & """

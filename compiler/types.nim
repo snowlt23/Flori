@@ -101,7 +101,7 @@ type
     of fexprIntLit:
       intval*: int64
     of fexprFloatLit:
-      floatval*: float
+      floatval*: float64
     of fexprStrLit:
       strval*: string
     of fexprSeq, fexprArray, fexprList, fexprBlock:

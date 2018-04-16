@@ -106,6 +106,7 @@ proc symbolResolve*(scope: Scope, fexpr: var FExpr): bool =
       fexpr = fsymbol(fexpr.span, fnopt[0].sym)
       return true
     else:
+      echo fexpr
       fexpr.error("undeclared $# ident." % $fexpr)
   else:
     return true
@@ -129,27 +130,27 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr): bool =
         fexpr.typ = fexpr.typ.instance.get
     elif fexpr.symbol.instance.isSome and fexpr.symbol.instance.get.kind == symbolIntLit:
       fexpr.symbol = fexpr.symbol.instance.get
-      let opt = scope.getDecl(name("Int"))
+      let opt = scope.getDecl(name("IntLit"))
       if opt.isNone:
-        fexpr.error("undeclared Int type, please import prelude.")
+        fexpr.error("undeclared IntLit type, please import prelude.")
       fexpr.typ = opt.get
     return true
   of fexprIntLit:
-    let opt = scope.getDecl(name("Int"))
+    let opt = scope.getDecl(name("IntLit"))
     if opt.isNone:
-      fexpr.error("undeclared Int type, please import prelude.")
+      fexpr.error("undeclared IntLit type, please import prelude.")
     fexpr.typ = opt.get
     return true
   of fexprFloatLit:
-    let opt = scope.getDecl(name("Float"))
+    let opt = scope.getDecl(name("FloatLit"))
     if opt.isNone:
-      fexpr.error("undeclared Float type, please import prelude.")
+      fexpr.error("undeclared FloatLit type, please import prelude.")
     fexpr.typ = opt.get
     return true
   of fexprStrLit:
-    let opt = scope.getDecl(name("CString"))
+    let opt = scope.getDecl(name("StrLit"))
     if opt.isNone:
-      fexpr.error("undeclared CString type, please import prelude.")
+      fexpr.error("undeclared StrLit type, please import prelude.")
     fexpr.typ = opt.get
     return true
   of fexprList:
@@ -216,32 +217,39 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
 
 proc converterResolve*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
+
+  if fexpr.isFuncCall and fexpr.isConverted and fexpr[0].kind != fexprSymbol:
+    fexpr.error("undeclared $# function." % $fexpr[0])
+  
   if fexpr.isNormalFuncCall and fexpr[0].kind != fexprSymbol:
     let fnident = fexpr[0]
     checkArgsHastype(fexpr[1])
     let opt = scope.findMatchFn(fnident, fexpr[1], fexpr[1].mapIt(0))
     if opt.isNone:
       fexpr.error("undeclared $#($#) function." % [$fnident, fexpr[1].mapIt($it.typ).join(", ")])
-    fexpr = opt.get
+    fexpr = fexpr.span.quoteFExpr("`embed `embed", [fnident, opt.get])
+    fexpr.isConverted = true
     scope.rootPass(fexpr)
     return false
   elif fexpr.isGenericsFuncCall and fexpr[0].kind != fexprSymbol:
     let fnident = fexpr[0]
-    checkArgsHastype(fexpr[1])
+    checkArgsHastype(fexpr[2])
     let opt = scope.findMatchFn(fnident, fexpr[2], fexpr[2].mapIt(0))
     if opt.isNone:
       fexpr.error("undeclared $#($#) function." % [$fnident, fexpr[2].mapIt($it.typ).join(", ")])
-    fexpr = opt.get
+    fexpr = fexpr.span.quoteFExpr("`embed `embed `embed", [fnident, fexpr[1], opt.get])
+    fexpr.isConverted = true
     scope.rootPass(fexpr)
     return false
   elif fexpr.isInfixFuncCall and fexpr[0].kind != fexprSymbol:
     let fnident = fexpr[0]
-    checkArgsHastype(fexpr[1])
     let args = flist(fexpr.span, @[fexpr[1], fexpr[2]])
+    checkArgsHastype(args)
     let opt = scope.findMatchFn(fnident, args, args.mapIt(0))
     if opt.isNone:
       fexpr.error("undeclared $#($#, $#) function." % [$fnident, $fexpr[1].typ, $fexpr[2].typ])
-    fexpr = opt.get
+    fexpr = fexpr.span.quoteFExpr("`embed `embed `embed", [fnident, opt.get[0], opt.get[1]])
+    fexpr.isConverted = true
     scope.rootPass(fexpr)
     return false
   else:

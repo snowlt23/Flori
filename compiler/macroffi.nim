@@ -52,7 +52,7 @@ proc ffiToCS*(fexpr: FExpr): cstring {.cdecl.} =
 proc ffiStrval*(fexpr: FExpr): cstring {.cdecl.} =
   cstring($fexpr.strval)
 proc ffiGensym*(): FExpr {.cdecl.} =
-  return fident(internalSpan, gCtx.genTmpName())
+  return fident(ffiSpan(), gCtx.genTmpName())
   
 proc ffiDebugMarking*(fexpr: FExpr) =
   if fexpr.hasMarking:

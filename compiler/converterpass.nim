@@ -20,13 +20,14 @@ proc findMatchFn*(scope: Scope, fn: FExpr, args: FExpr, convindexes: seq[int]): 
     if arg.typ.fexpr.hasConverters and convindexes[i] < arg.typ.fexpr.converters.converters.len:
       let convname = arg.typ.fexpr.converters.converters[convindexes[i]].defn.name
       var conv = arg.span.quoteFExpr("`embed(`embed)", [convname, arg])
+      conv.isConverted = true
       scope.rootPass(conv)
       newargs.addSon(conv)
     else:
       newargs.addSon(args[i])
   let opt = scope.getFunc(procname(name(fn), newargs.mapIt(it.typ)))
   if opt.isSome:
-    return some(fn.span.quoteFExpr("`embed `embed", [fn, newargs]))
+    return some(newargs)
   for i in 0..<args.len:
     var newconvindexes = convindexes
     newconvindexes[i] += 1

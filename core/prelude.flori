@@ -1,6 +1,10 @@
 
 type Void $[importc "void", header nodeclc]
 type Bool $[importc "bool", header "stdbool.h"]
+type StrLit $[importc "char*", header nodeclc]
+type IntLit $[importc "int64_t", header "stdint.h"]
+type FloatLit $[importc "double", header nodeclc]
+
 type CString $[importc "char*", header nodeclc]
 type Char $[importc "char", header nodeclc]
 type CInt $[importc "int", header "stdint.h"]
@@ -8,11 +12,17 @@ type Int $[importc "int64_t", header "stdint.h"]
 type Int8 $[importc "int8_t", header "stdint.h"]
 type Int32 $[importc "int32_t", header "stdint.h"]
 type Int64 $[importc "int64_t", header "stdint.h"]
+type UInt $[importc "uint64_t", header "stdint.h"]
 type UInt8 $[importc "uint8_t", header "stdint.h"]
 type UInt32 $[importc "uint32_t", header "stdint.h"]
 type UInt64 $[importc "uint64_t", header "stdint.h"]
 type Float $[importc "float", header nodeclc]
 type Double $[importc "double", header nodeclc]
+
+fn to_int(x IntLit) Int $[converter, importc, patternc "$1"]
+fn to_float(x FloatLit) Float $[converter, importc, patternc "$1"]
+fn to_double(x FloatLit) Double $[converter, importc, patternc "$1"]
+fn to_cstring(x StrLit) CString $[converter, importc, patternc "$1"]
 
 fn `||(a Bool, b Bool) Bool $[importc "||", header nodeclc, patternc infixc, importjs "||", patternjs infixjs]
 fn `&&(a Bool, b Bool) Bool $[importc "&&", header nodeclc, patternc infixc, importjs "||", patternjs infixjs]
@@ -39,8 +49,8 @@ fn `!=(a UInt32, b UInt32) Bool $[importc "!=", header nodeclc, patternc infixc,
 
 fn cast[T, F](val F) T $[importc, header nodeclc, patternc "((#1)($1))", importjs, patternjs "$1"]
 
-fn `+=(a Float, b Float) $[importc "+=", header nodeclc, patternc infixc, importjs "+=", patternjs infixjs]
-fn `-=(a Float, b Float) $[importc "-=", header nodeclc, patternc infixc, importjs "-=", patternjs infixjs]
+fn `+=(a ref Float, b Float) $[importc "+=", header nodeclc, patternc infixc, importjs "+=", patternjs infixjs]
+fn `-=(a ref Float, b Float) $[importc "-=", header nodeclc, patternc infixc, importjs "-=", patternjs infixjs]
 fn `+(a Float, b Float) Float $[importc "+", header nodeclc, patternc infixc, importjs "+", patternjs infixjs]
 fn `-(a Float, b Float) Float $[importc "-", header nodeclc, patternc infixc, importjs "-", patternjs infixjs]
 fn `*(a Float, b Float) Float $[importc "*", header nodeclc, patternc infixc, importjs "*", patternjs infixjs]
