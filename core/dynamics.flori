@@ -2,15 +2,28 @@
 import "core/prelude"
 import "core/macros"
 import "core/syntax"
+import "core/pointer"
 
 type Dynamic[T] {
   value T
-  owned Bool
+  owned Ptr[Bool]
 }
 
 fn new_dynamic[T](value T) Dynamic[T] {
-  init(Dynamic[T]){
-    value
-    true
-  }
+  dyn := init(Dynamic[T]){value; alloc[Bool](1)}
+  unref(dyn.owned) = true
+  dyn
+}
+
+fn is_owned[T](dyn Dynamic[T]) Bool {
+  unref(dyn.owned)
+}
+
+fn borrow[T](dyn Dynamic[T]) T $[converter] {
+  dyn.value
+}
+
+fn move[T](dyn Dynamic[T]) T {
+  unref(dyn.owned) = false
+  dyn.value
 }

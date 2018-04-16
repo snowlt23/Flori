@@ -34,7 +34,8 @@ fn main() {
   println("start!")
   mt := new_mt()
   newmfx := init(MyFieldType){5; 6}
-  mt.mfx = newmfx # mt_update(mt, newmfx)
+  # mt.mfx = newmfx
+  mt_update(mt, newmfx)
   println("end!")
 }
 

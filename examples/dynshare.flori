@@ -8,6 +8,10 @@ fn open_myfile() MyFile {
   init(MyFile){}
 }
 
+fn borrowfile(mf MyFile) {
+  println("MyFile borrowed!")
+}
+
 destructor(mf MyFile) {
   println("MyFile destroyed!")
 }
@@ -20,7 +24,8 @@ fn dynvec_main() MyFile {
   v := dynvec[MyFile]()
   f := open_myfile()
   push(v, f)
-  get(v, 0) # v lifting into share type.
+  borrowfile(get(v, 0))
+  move(get(v, 0)) # v lifting into share type.
 }
 
 fn main() {

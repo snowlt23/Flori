@@ -167,11 +167,15 @@ type
     elifbranch*: seq[tuple[cond: FExpr, body: FExpr]]
     elsebranch*: FExpr
 
+type Converters* = object
+  converters*: seq[FExpr]
+
 defMetadata(typ, Symbol)
 defMetadata(marking, Marking)
 defMetadata(constvalue, FExpr)
 defMetadata(fneffect, FnEffect)
 defMetadata(markeffect, MarkingEffect)
+defMetadata(converters, Converters)
 
 defBoolMetadata(isEvaluated)
 defBoolMetadata(isToplevel)

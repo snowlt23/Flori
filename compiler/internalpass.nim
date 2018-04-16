@@ -312,6 +312,13 @@ proc semNoDestruct*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.parent.internalPragma.nodestruct = true
 proc semCompiletime*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.parent.internalPragma.compiletime = true
+proc semConverter*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.parent.defn.args.len != 1:
+    fexpr.error("converter fn should be 1 argument.")
+  let fromtype = fexpr.parent.defn.args[0][1].symbol
+  if not fromtype.fexpr.hasConverters:
+    fromtype.fexpr.converters = Converters(converters: @[])
+  fromtype.fexpr.converters.converters.add(fexpr.parent)
 
 proc semPragma*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, pragma: FExpr) =
   if pragma.kind != fexprArray:
@@ -328,7 +335,7 @@ proc semPragma*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, pragma: FExp
     if internalopt.isSome:
       internalopt.get.internalproc(rootPass, scope, key)
     else:
-      key[0].error("undeclared $# pragma. (internal only support in currently)" % $pragmaname)
+      key.error("undeclared $# pragma. (internal only support in currently)" % $pragmaname)
 
 #
 # Evaluater
@@ -849,6 +856,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("inline"), semInline)
   scope.addInternalEval(name("nodestruct"), semNoDestruct)
   scope.addInternalEval(name("compiletime"), semCompiletime)
+  scope.addInternalEval(name("converter"), semConverter)
 
 proc initInternalScope*(ctx: SemanticContext) =
   let scope = ctx.newScope(name("internal"), "internal")

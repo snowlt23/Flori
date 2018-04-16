@@ -1,6 +1,6 @@
 
 import fexpr_core, marking
-import newpassmacro, typepass, macropass, expandutils, expandpass, effectpass, scopeout
+import newpassmacro, typepass, macropass, expandutils, expandpass, effectpass, scopeout, converterpass
 
 import options
 import strutils, sequtils
@@ -183,10 +183,9 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
     checkArgsHastype(fexpr[1])
     let argtypes = fexpr[1].mapIt(it.typ)
     let opt = scope.getFunc(procname(name(fnident), argtypes))
-    if opt.isNone:
-      fexpr.error("undeclared $#($#) function." % [$fnident, argtypes.mapIt($it).join(", ")])
-    fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
-    fexpr.typ = opt.get.returntype
+    if opt.isSome:
+      fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
+      fexpr.typ = opt.get.returntype
 
     return true
   elif fexpr.isGenericsFuncCall:
@@ -197,10 +196,9 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
     for g in generics.mitems:
       g = fsymbol(g.span, scope.semTypeExpr(g))
     let opt = scope.getFunc(procname(name(fnident), argtypes))
-    if opt.isNone:
-      fexpr.error("undeclared $#[$#]($#) function." % [$fnident, generics.mapIt($it).join(", "), argtypes.mapIt($it).join(", ")])
-    fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
-    fexpr.typ = opt.get.returntype
+    if opt.isSome:
+      fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
+      fexpr.typ = opt.get.returntype
 
     return true
   elif fexpr.isInfixFuncCall:
@@ -208,12 +206,44 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
     checkArgsHastype(fseq(fexpr.span, @[fexpr[1], fexpr[2]]))
     let argtypes = @[fexpr[1].typ, fexpr[2].typ]
     let opt = scope.getFunc(procname(name(fnident), argtypes))
-    if opt.isNone:
-      fexpr.error("undeclared `$#($#) infix function." % [$fnident, argtypes.mapIt($it).join(", ")])
-    fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
-    fexpr.typ = opt.get.returntype
+    if opt.isSome:
+      fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
+      fexpr.typ = opt.get.returntype
       
     return true
+  else:
+    return true
+
+proc converterResolve*(scope: Scope, fexpr: var FExpr): bool =
+  thruInternal(fexpr)
+  if fexpr.isNormalFuncCall and fexpr[0].kind != fexprSymbol:
+    let fnident = fexpr[0]
+    checkArgsHastype(fexpr[1])
+    let opt = scope.findMatchFn(fnident, fexpr[1], fexpr[1].mapIt(0))
+    if opt.isNone:
+      fexpr.error("undeclared $#($#) function." % [$fnident, fexpr[1].mapIt($it.typ).join(", ")])
+    fexpr = opt.get
+    scope.rootPass(fexpr)
+    return false
+  elif fexpr.isGenericsFuncCall and fexpr[0].kind != fexprSymbol:
+    let fnident = fexpr[0]
+    checkArgsHastype(fexpr[1])
+    let opt = scope.findMatchFn(fnident, fexpr[2], fexpr[2].mapIt(0))
+    if opt.isNone:
+      fexpr.error("undeclared $#($#) function." % [$fnident, fexpr[2].mapIt($it.typ).join(", ")])
+    fexpr = opt.get
+    scope.rootPass(fexpr)
+    return false
+  elif fexpr.isInfixFuncCall and fexpr[0].kind != fexprSymbol:
+    let fnident = fexpr[0]
+    checkArgsHastype(fexpr[1])
+    let args = flist(fexpr.span, @[fexpr[1], fexpr[2]])
+    let opt = scope.findMatchFn(fnident, args, args.mapIt(0))
+    if opt.isNone:
+      fexpr.error("undeclared $#($#, $#) function." % [$fnident, $fexpr[1].typ, $fexpr[2].typ])
+    fexpr = opt.get
+    scope.rootPass(fexpr)
+    return false
   else:
     return true
 
@@ -265,6 +295,7 @@ definePass processSemPass, (Scope, var FExpr):
   symbolResolve
   typeInfer
   overloadResolve
+  converterResolve
   applyInstancePass
   expandInlinePass
   applyInstancePass
