@@ -55,6 +55,8 @@ proc codegenSymbol*(sym: Symbol): string =
     result &= codegenSymbol(sym.wrapped)
   elif sym.kind == symbolRef:
     result &= codegenSymbol(sym.wrapped)
+  elif sym.kind == symbolMove:
+    result &= codegenSymbol(sym.wrapped)
   elif sym.kind == symbolIntLit:
     result &= $sym.intval
   else:
@@ -571,7 +573,7 @@ proc codegenSingle*(ctx: CCodegenContext, sem: SemanticContext): string =
   var src = initSrcExpr()
   if ctx.macrogen:
     ctx.headers["floriffi.h"] = true
-    src &= "#include \"floriffi.h\""
+    src &= "#include \"floriffi.h\"\n"
     src &= "#define FLORI_COMPILETIME\n"
   for f in sem.globaltoplevels:
     ctx.codegenToplevel(src, f)

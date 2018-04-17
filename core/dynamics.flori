@@ -9,7 +9,7 @@ type Dynamic[T] {
   owned Ptr[Bool]
 }
 
-fn new_dynamic[T](value T) Dynamic[T] {
+fn new_dynamic[T](value move T) Dynamic[T] {
   dyn := init(Dynamic[T]){value; alloc[Bool](1)}
   unref(dyn.owned) = true
   dyn

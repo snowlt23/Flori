@@ -69,3 +69,5 @@ template expandBy*(scope: Scope, span: Span, body: untyped) =
 
 proc isDestructable*(scope: Scope, typ: Symbol): bool =
   scope.getFunc(procname(name("destruct"), @[typ])).isSome
+proc isMovable*(scope: Scope, typ: Symbol): bool =
+  scope.getFunc(procname(name("move"), @[typ])).isSome

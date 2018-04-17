@@ -395,7 +395,10 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: Defn, 
   if parsed.generics.isSpecTypes and not fexpr.internalPragma.inline:
     fnscope.rootPass(parsed.body)
     if parsed.body.len != 0:
-      if not parsed.body[^1].typ.match(rettype):
+      if not parsed.body[^1].typ.spec(rettype) and fnscope.isMovable(parsed.body[^1].typ):
+        parsed.body[^1] = parsed.body[^1].span.quoteFExpr("move(`embed)", [parsed.body[^1]])
+        fnscope.rootPass(parsed.body[^1])
+      if not parsed.body[^1].typ.spec(rettype):
         parsed.body[^1].error("function expect $# return type, actually $#" % [$rettype, $parsed.body[^1].typ])
 
   # symbol resolve
@@ -641,27 +644,15 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   scope.rootPass(parsed.dst)
   scope.rootPass(parsed.value)
 
+  if not parsed.dst.typ.spec(parsed.value.typ) and scope.isMovable(parsed.value.typ):
+    parsed.value = parsed.value.span.quoteFExpr("move(`embed)", [parsed.value])
+    scope.rootPass(parsed.value)
+
   if not parsed.dst.typ.match(parsed.value.typ):
     parsed.value.error("cannot set $# value to $#." % [$parsed.value.typ, $parsed.dst.typ])
 
-  # var body = fblock(fexpr.span)
-  # if not parsed.value.hasMarking:
-  #   parsed.value.marking = newMarking(scope, parsed.value.typ)
-  # if parsed.dst.hasMarking:
-  #   if parsed.dst.marking.owned and scope.isDestructable(parsed.dst.typ):
-  #     var destcall = fexpr.span.quoteFExpr("destruct(`embed)", [parsed.dst])
-  #     scope.rootPass(destcall)
-  #     body.addSon(destcall)
-  #     body.addSon(fexpr)
-  #     returnFrom(parsed.dst.marking)
-  #   parsed.dst.marking.moveFrom(parsed.value.marking)
-
   fexpr.internalMark = internalSet
   fexpr.setexpr = parsed
-  
-  # if body.len != 0:
-  #   fexpr = body
-  #   scope.rootPass(fexpr)
 
 proc semFieldAccess*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let fieldname = fexpr[2]

@@ -62,8 +62,6 @@ proc match*(a, b: Symbol): bool =
     return a.wrapped.match(b)
   elif a.kind == symbolVar:
     return a.wrapped.match(b)
-  # elif a.kind == symbolMove:
-  #   return a.wrapped.match(b.wrapped)
   elif b.kind == symbolMove:
     return a.match(b.wrapped)
   else:
@@ -118,6 +116,8 @@ proc spec*(a, b: Symbol): bool =
     return a.wrapped.spec(b)
   elif a.kind == symbolVar:
     return a.wrapped.spec(b)
+  elif b.kind == symbolMove:
+    return a.spec(b.wrapped)
   else:
     return false
 proc spec*(a: ProcName, b: ProcDecl): bool =
