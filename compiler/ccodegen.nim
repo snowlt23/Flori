@@ -16,6 +16,8 @@ type
     typesrc*: string
     fnsrc*: string
     headersrc*: string
+    cdeclsrc*: string
+    cheadsrc*: string
     tmpcount*: int
     macrogen*: bool
     
@@ -35,7 +37,7 @@ proc addPrev*(src: var SrcExpr, s: SrcExpr) =
   src.prev &= s.exp
 
 proc newCCodegenContext*(macrogen = false): CCodegenContext =
-  CCodegenContext(headers: initOrderedTable[string, bool](), typesrc: "", fnsrc: "", headersrc: "", tmpcount: 0, macrogen: macrogen)
+  CCodegenContext(headers: initOrderedTable[string, bool](), typesrc: "", fnsrc: "", headersrc: "", cdeclsrc: "", cheadsrc: "", tmpcount: 0, macrogen: macrogen)
 proc gentmpsym*(ctx: CCodegenContext): string =
   result = "__floritmp" & $ctx.tmpcount
   ctx.tmpcount.inc
@@ -316,8 +318,10 @@ proc codegenInit*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     ctx.codegenCallArg(src, arg, fexpr.typ.fexpr.deftype.body[i][1].symbol)
   src &= "}"
 
-proc codegenCEmit*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  src &= fexpr[1].strval
+proc codegenCodegenDecl*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  ctx.cdeclsrc &= fexpr[1].strval
+proc codegenCodegenHead*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  ctx.cheadsrc &= fexpr[1].strval
 
 proc codegenBlock*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "{\n"
@@ -377,11 +381,12 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
     discard
   of internalExport:
     discard
-  of internalCEmit:
-    if topcodegen and fexpr.isToplevel:
-      ctx.codegenCEmit(src, fexpr)
-    elif not topcodegen and not fexpr.isToplevel:
-      ctx.codegenCEmit(src, fexpr)
+  of internalCodegenDecl:
+    if topcodegen:
+      ctx.codegenCodegenDecl(src, fexpr)
+  of internalCodegenHead:
+    if topcodegen:
+      ctx.codegenCodegenHead(src, fexpr)
   of internalBlock:
     if not topcodegen:
       ctx.codegenBlock(src, fexpr)
@@ -575,4 +580,4 @@ proc codegenSingle*(ctx: CCodegenContext, sem: SemanticContext): string =
   ctx.codegenBody(src, sem.globaltoplevels)
   src &= "}\n"
   src &= "int main(int argc, char** argv) { flori_main(); }\n"
-  return ctx.headersrc & "\n" & ctx.typesrc & "\n" & src.exp
+  return ctx.cheadsrc & "\n" & ctx.headersrc & "\n" & ctx.cdeclsrc & "\n" & ctx.typesrc & "\n" & ctx.fnsrc & "\n" & "\n" & src.exp

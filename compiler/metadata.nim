@@ -140,7 +140,8 @@ type
     internalInit
     internalImport
     internalExport
-    internalCEmit
+    internalCodegenDecl
+    internalCodegenHead
     internalBlock
   InternalPragma* = object
     # c codegen

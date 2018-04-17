@@ -344,9 +344,6 @@ proc codegenInit*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     src &= "\"$#\": " % $fexpr.initexpr.typ.deftype.body[i][0].symbol.name
     ctx.codegenFExpr(src, b)
 
-proc codegenCEmit*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  discard
-
 proc codegenBlock*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "{\n"
   ctx.codegenFExpr(src, fexpr[1])
@@ -399,11 +396,10 @@ proc codegenInternal*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr, top
     discard
   of internalExport:
     discard
-  of internalCEmit:
-    if topcodegen and fexpr.isToplevel:
-      ctx.codegenCEmit(src, fexpr)
-    elif not topcodegen and not fexpr.isToplevel:
-      ctx.codegenCEmit(src, fexpr)
+  of internalCodegenDecl:
+    discard
+  of internalCodegenHead:
+    discard
   of internalBlock:
     if not topcodegen:
       ctx.codegenBlock(src, fexpr)

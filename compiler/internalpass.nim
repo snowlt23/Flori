@@ -789,12 +789,18 @@ proc semIsDestructable*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) 
     fexpr = fexpr.span.quoteFExpr("false", [])
   scope.rootPass(fexpr)
 
-proc semCEmit*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+proc semCodegenDecl*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.len != 2:
     fexpr.error("usage: cemit \"...\"")
   if fexpr[1].kind != fexprStrLit:
     fexpr.error("usage: cemit \"...\"")
-  fexpr.internalMark = internalCEmit
+  fexpr.internalMark = internalCodegenDecl
+proc semCodegenHead*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.len != 2:
+    fexpr.error("usage: cemit \"...\"")
+  if fexpr[1].kind != fexprStrLit:
+    fexpr.error("usage: cemit \"...\"")
+  fexpr.internalMark = internalCodegenHead
 
 proc semBlock*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.len != 2:
@@ -837,7 +843,8 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("import"), semImport)
   scope.addInternalEval(name("export"), semExport)
   scope.addInternalEval(name("quote"), semQuote)
-  scope.addInternalEval(name("cemit"), semCEmit)
+  scope.addInternalEval(name("codegen_decl"), semCodegenDecl)
+  scope.addInternalEval(name("codegen_head"), semCodegenHead)
   scope.addInternalEval(name("block"), semBlock)
 
   scope.addInternalEval(name("is_destructable"), semIsDestructable)
