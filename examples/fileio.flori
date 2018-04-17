@@ -1,8 +1,6 @@
 
-import core/prelude
-import core/string
-import core/io
-import core/fileio
+import "core"
+import "std/fileio"
 
 fn main() {
   f := open_file("voiceroids.txt", "w")
