@@ -89,7 +89,7 @@ printf("%d", nine)
     check fexprs[^2].internalMark == internalDef
     check $fexprs[^2].typ == "testmodule.Void"
     check $fexprs[^1][1][1] == "to_int(nine)"
-    check $fexprs[^1][1][1].typ == "testmodule.Int"
+    check $fexprs[^1][1][1].typ == "ref testmodule.Int"
   test "generics init":
     let ctx = newSemanticContext()
     var fexprs = parseToplevel("testmodule.flori", prelude & """

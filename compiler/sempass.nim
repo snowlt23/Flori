@@ -217,9 +217,6 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
 
 proc converterResolve*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
-
-  if fexpr.isFuncCall and fexpr.isConverted and fexpr[0].kind != fexprSymbol:
-    fexpr.error("undeclared $# function." % $fexpr[0])
   
   if fexpr.isNormalFuncCall and fexpr[0].kind != fexprSymbol:
     let fnident = fexpr[0]
@@ -228,7 +225,6 @@ proc converterResolve*(scope: Scope, fexpr: var FExpr): bool =
     if opt.isNone:
       fexpr.error("undeclared $#($#) function." % [$fnident, fexpr[1].mapIt($it.typ).join(", ")])
     fexpr = fexpr.span.quoteFExpr("`embed `embed", [fnident, opt.get])
-    fexpr.isConverted = true
     scope.rootPass(fexpr)
     return false
   elif fexpr.isGenericsFuncCall and fexpr[0].kind != fexprSymbol:
@@ -238,7 +234,6 @@ proc converterResolve*(scope: Scope, fexpr: var FExpr): bool =
     if opt.isNone:
       fexpr.error("undeclared $#($#) function." % [$fnident, fexpr[2].mapIt($it.typ).join(", ")])
     fexpr = fexpr.span.quoteFExpr("`embed `embed `embed", [fnident, fexpr[1], opt.get])
-    fexpr.isConverted = true
     scope.rootPass(fexpr)
     return false
   elif fexpr.isInfixFuncCall and fexpr[0].kind != fexprSymbol:
@@ -249,7 +244,6 @@ proc converterResolve*(scope: Scope, fexpr: var FExpr): bool =
     if opt.isNone:
       fexpr.error("undeclared $#($#, $#) function." % [$fnident, $fexpr[1].typ, $fexpr[2].typ])
     fexpr = fexpr.span.quoteFExpr("`embed `embed `embed", [fnident, opt.get[0], opt.get[1]])
-    fexpr.isConverted = true
     scope.rootPass(fexpr)
     return false
   else:

@@ -17,10 +17,9 @@ proc findMatchFn*(scope: Scope, fn: FExpr, args: FExpr, convindexes: seq[int]): 
   
   let newargs = flist(args.span)
   for i, arg in args:
-    if arg.typ.fexpr.hasConverters and convindexes[i] < arg.typ.fexpr.converters.converters.len:
+    if arg.typ.fexpr.hasConverters:
       let convname = arg.typ.fexpr.converters.converters[convindexes[i]].defn.name
       var conv = arg.span.quoteFExpr("`embed(`embed)", [convname, arg])
-      conv.isConverted = true
       scope.rootPass(conv)
       newargs.addSon(conv)
     else:
@@ -28,10 +27,11 @@ proc findMatchFn*(scope: Scope, fn: FExpr, args: FExpr, convindexes: seq[int]): 
   let opt = scope.getFunc(procname(name(fn), newargs.mapIt(it.typ)))
   if opt.isSome:
     return some(newargs)
-  for i in 0..<args.len:
-    var newconvindexes = convindexes
-    newconvindexes[i] += 1
-    let opt = findMatchFn(scope, fn, args, newconvindexes)
-    if opt.isSome:
-      return opt
+  for i in 0..<convindexes.len:
+    if args[i].typ.fexpr.hasConverters and convindexes[i] < args[i].typ.fexpr.converters.converters.len:
+      var newconvindexes = convindexes
+      newconvindexes[i] += 1
+      let opt = findMatchFn(scope, fn, args, newconvindexes)
+      if opt.isSome:
+        return opt
   return none(FExpr)

@@ -1,14 +1,14 @@
 
-import core/prelude
-import core/math
-import core/io
+import "core/prelude"
+import "core/math"
+import "core/io"
 
-x := 123456789
-y := 362436069
-z := 521288629
-w := 88675123
+x := uint32(123456789)
+y := uint32(362436069)
+z := uint32(521288629)
+w := uint32(88675123)
 
-fn xor128() Int {
+fn xor128() UInt32 {
   t := xor(x, x << 11)
   x = y
   y = z

@@ -183,7 +183,6 @@ defBoolMetadata(isGenerated)
 defBoolMetadata(isCStruct)
 defBoolMetadata(isElimEvaluated)
 defBoolMetadata(isEliminated)
-defBoolMetadata(isConverted)
 
 defMetadata(internalExpand, FExpr)
 
