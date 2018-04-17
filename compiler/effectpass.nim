@@ -80,38 +80,40 @@ proc inferEffect*(scope: Scope, fexpr: var FExpr) =
 proc inferFnEffectPass*(scope: Scope, fexpr: var FExpr): bool =
   if fexpr.hasInternalMark and fexpr.internalMark == internalDefn and not fexpr.internalPragma.inline:
     for argdef in fexpr.defn.args:
-      argdef[0].markeffect = newMarkingEffect()
+      argdef[0].symbol.fexpr.markeffect = newMarkingEffect()
     scope.inferEffect(fexpr.defn.body)
     fexpr.fneffect = FnEffect(argeffs: @[])
     for argdef in fexpr.defn.args:
-      fexpr.fneffect.argeffs.add(argdef[0].markeffect)
+      fexpr.fneffect.argeffs.add(argdef[0].symbol.fexpr.markeffect)
   return true
 
-proc applyEffect*(scope: Scope, marking: Marking, markeff: MarkingEffect) =
+proc applyEffect*(scope: Scope, marking: Marking, markeff: MarkingEffect): bool =
   if markeff.moved:
+    if not marking.owned:
+      return false
     marking.owned = false
   for key, value in markeff.fieldbody:
-    scope.applyEffect(marking.fieldbody[key], value)
+    if not scope.applyEffect(marking.fieldbody[key], value):
+      return false
+  return true
 
 proc earlySetDestruct*(scope: Scope, fexpr: var FExpr): bool =
   if fexpr.hasInternalMark and fexpr.internalMark == internalSet:
-    if fexpr.setexpr.dst.hasMarking:
-      var body = fblock(fexpr.span)
-      if fexpr.setexpr.dst.marking.owned and scope.isDestructable(fexpr.setexpr.dst.typ):
-        var destcall = fexpr.span.quoteFExpr("destruct(`embed)", [fexpr.setexpr.dst])
-        scope.rootPass(destcall)
-        body.addSon(destcall)
-        body.addSon(fexpr)
-        returnFrom(fexpr.setexpr.dst.marking)
+    var body = fblock(fexpr.span)
+    if scope.isDestructable(fexpr.setexpr.dst.typ):
+      var destcall = fexpr.span.quoteFExpr("destruct(`embed)", [fexpr.setexpr.dst])
+      scope.rootPass(destcall)
+      body.addSon(destcall)
+      body.addSon(fexpr)
         
-      if fexpr.setexpr.value.hasMarking:
-        fexpr.setexpr.dst.marking.moveFrom(fexpr.setexpr.value.marking)
-      else:
-        fexpr.setexpr.dst.marking = newMarking(scope, fexpr.setexpr.dst.typ)
+    if fexpr.setexpr.dst.hasMarking and fexpr.setexpr.value.hasMarking:
+      fexpr.setexpr.dst.marking.moveFrom(fexpr.setexpr.value.marking)
+    else:
+      fexpr.setexpr.dst.marking = newMarking(scope, fexpr.setexpr.dst.typ)
 
-      if body.len != 0:
-        fexpr = body
-        scope.rootPass(fexpr)
+    if body.len != 0:
+      fexpr = body
+      scope.rootPass(fexpr)
         
   return true
 
@@ -127,6 +129,7 @@ proc applyEffectPass*(scope: Scope, fexpr: var FExpr): bool =
     if fexpr[0].symbol.fexpr.hasFnEffect:
       for i, argeff in fexpr[0].symbol.fexpr.fneffect.argeffs:
         if args[i].hasMarking:
-          scope.applyEffect(args[i].marking, argeff)
+          if not scope.applyEffect(args[i].marking, argeff):
+            args[i].error("couldn't move value.")
       
   return true

@@ -52,9 +52,11 @@ suite "example":
     checkio "examples/floatlit.flori", "2.000000\n"
   test "field track":
     checkio "examples/field_track.flori", "start!\nMyFieldType(1, 2) destroyed!\nend!\nMyFieldType(3, 4) destroyed!\nMyFieldType(5, 6) destroyed!\nMyType destroyed!\n"
+  test "ref check":
+    checkio "examples/ref_check.flori", "start!\nMyFieldType(1, 2) destroyed!\nend!\nMyFieldType(3, 4) destroyed!\nMyFieldType(5, 6) destroyed!\nMyType destroyed!\n"
   test "template expand":
     checkio "examples/template.flori", "9\n"
   test "dynamic type: unique":
     checkio "examples/dynunique.flori", "start!\nend!\nMyFile destroyed!\nDynVec destroyed!\n"
   test "dynamic type: share":
-    checkio "examples/dynshare.flori", "start!\nDynVec destroyed!\nend!\nMyFile destroyed!\n"
+    checkio "examples/dynshare.flori", "start!\nMyFile borrowed!\nDynVec destroyed!\nend!\nMyFile destroyed!\n"
