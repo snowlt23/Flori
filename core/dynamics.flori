@@ -23,7 +23,7 @@ fn borrow[T](dyn Dynamic[T]) T $[converter] {
   dyn.value
 }
 
-fn move[T](dyn Dynamic[T]) T {
+fn move[T](dyn move Dynamic[T]) T {
   unref(dyn.owned) = false
   dyn.value
 }
