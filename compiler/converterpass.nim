@@ -24,6 +24,7 @@ proc findMatchFn*(scope: Scope, fn: FExpr, args: FExpr, convindexes: seq[int]): 
       newargs.addSon(conv)
     else:
       newargs.addSon(args[i])
+  checkArgsHastype(newargs)
   let opt = scope.getFunc(procname(name(fn), newargs.mapIt(it.typ)))
   if opt.isSome:
     return some(newargs)

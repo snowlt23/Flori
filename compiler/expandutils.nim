@@ -9,7 +9,11 @@ import tables
 proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr
 
 proc applyInstance*(sym: Symbol, instance: Symbol) =
-  if sym.kind in {symbolVar, symbolRef, symbolMove} and instance.kind in {symbolVar, symbolRef, symbolMove}:
+  if sym.kind in {symbolVar, symbolRef} and instance.kind in {symbolVar, symbolRef}:
+    sym.wrapped.applyInstance(instance.wrapped)
+    if instance.marking.isSome:
+      sym.instmarking = some(instance.marking.get)
+  elif sym.kind == symbolMove and instance.kind == symbolMove:
     sym.wrapped.applyInstance(instance.wrapped)
     if instance.marking.isSome:
       sym.instmarking = some(instance.marking.get)
@@ -19,9 +23,12 @@ proc applyInstance*(sym: Symbol, instance: Symbol) =
       sym.instmarking = some(instance.marking.get)
   elif sym.kind == symbolMove:
     sym.wrapped.applyInstance(instance)
+  elif instance.kind == symbolMove:
+    sym.applyInstance(instance.wrapped)
   elif sym.kind == symbolGenerics:
     sym.instance = some(instance)
   elif sym.kind == symbolTypeGenerics:
+    instance.fexpr.assert(instance.kind == symbolTypeGenerics)
     assert(sym.types.len == instance.types.len)
     sym.instance = some(instance)
     for i in 0..<sym.types.len:

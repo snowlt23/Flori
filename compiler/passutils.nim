@@ -71,3 +71,8 @@ proc isDestructable*(scope: Scope, typ: Symbol): bool =
   scope.getFunc(procname(name("destruct"), @[typ])).isSome
 proc isMovable*(scope: Scope, typ: Symbol): bool =
   scope.getFunc(procname(name("move"), @[typ])).isSome
+
+proc checkArgsHastype*(args: FExpr) =
+  for arg in args:
+    if not arg.hasTyp:
+      arg.error("$# hasn't type." % $arg)

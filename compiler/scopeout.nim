@@ -21,7 +21,7 @@ proc expandDestructor*(scope: Scope, body: var FExpr) =
     body[^1] = tmpvar
     
   for scopevalue in scope.scopevalues.reversed:
-    if scopevalue.marking.owned:
+    if scopevalue.marking.owned and not scopevalue.marking.typesym.fexpr.internalPragma.nodestruct:
       for fieldname, fieldmark in scopevalue.marking.fieldbody:
         var fieldaccess = scopevalue.span.quoteFExpr("`embed . `embed", [scopevalue, fident(scopevalue.span, fieldname)])
         scope.rootPass(fieldaccess)

@@ -14,7 +14,7 @@ type Vec[T] {
 
 fn vec[T](len Int, cap Int) Vec[T] $[importjs, patternjs "new Array($1)"] {
   v := init(Vec[T]) {
-    alloc[T](cap)
+    alloc[Dynamic[T]](cap)
     cap
     len
   }
@@ -38,19 +38,27 @@ macro v(t FArray, elems FList) FExpr $[syntax] {
         push(`tmp, `e)
       })
   }
+  push(ret, tmp)
   ret
 }
 
 fn extend[T](v ref Vec[T]) {
-  v.data = realloc(v.data, (v.cap)*2)
-  v.cap = (v.cap)*2
+  v.data = realloc(v.data, v.cap*2)
+  v.cap = v.cap*2
 }
 
-fn push[T](v ref Vec[T], value T) $[importjs, patternjs "$1.push($2)"] {
+fn push[T](v ref Vec[T], value Dynamic[T]) $[importjs, patternjs "$1.push($2)"] {
   if (v.cap < v.len+1) {
     extend(v)
   }
-  unref(v.data +! (v.len * sizeof[T]())) = value
+  unref(v.data +! (v.len * sizeof[Dynamic[T]]())) = value
+  v.len += 1
+}
+fn push[T](v ref Vec[T], value move T) $[importjs, patternjs "$1.push($2)"] {
+  if (v.cap < v.len+1) {
+    extend(v)
+  }
+  unref(v.data +! (v.len * sizeof[Dynamic[T]]())) = new_dynamic(value)
   v.len += 1
 }
 
@@ -58,20 +66,20 @@ fn length[T](v Vec[T]) Int $[importjs, patternjs "$1.length"] {
   v.len
 }
 
-fn get[T](v Vec[T], i Int) T $[importjs, patternjs "$1[$2]"] {
-  unref(v.data +! (i * sizeof[T]()))
+fn get[T](v Vec[T], i Int) Dynamic[T] $[importjs, patternjs "$1[$2]"] {
+  unref(v.data +! (i * sizeof[Dynamic[T]]()))
 }
 
-# fn set[T](v ref Vec[T], i Int, value T) {
-#   when (is_share(T)) {
-#     p := v.data +! (i * sizeof[T]())
-#     oldvalue := unref()
-#     if (unref(p).owned) {
-#       destruct(unref(p).data)
-#     }
-#     unref(p) = new_share(value)
-#   }
-# }
+fn set[T](v ref Vec[T], i Int, value move T) {
+  when (is_share(T)) {
+    p := v.data +! (i * sizeof[Dynamic[T]]())
+    oldvalue := unref()
+    if (unref(p).owned) {
+      destruct(unref(p).data)
+    }
+    unref(p) = new_dynamic(value)
+  }
+}
 
 iterator items[T](v TExpr[Vec[T]]) {
   i := gensym()
@@ -84,10 +92,8 @@ iterator items[T](v TExpr[Vec[T]]) {
 }
 
 destructor[T](v Vec[T]) {
-  when (is_unique(v)) {
-    for e in v {
-      destruct(e)
-    }
+  for e in v {
+    dyndestruct(e)
   }
   dealloc(v.data)
 }

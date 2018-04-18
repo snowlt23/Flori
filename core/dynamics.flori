@@ -3,8 +3,9 @@ import "core/prelude"
 import "core/macros"
 import "core/syntax"
 import "core/pointer"
+import "core/io"
 
-type Dynamic[T] {
+type Dynamic[T] $[nodestruct] {
   value T
   owned Ptr[Bool]
 }
@@ -29,6 +30,8 @@ fn move[T](dyn move Dynamic[T]) T {
 }
 
 fn dyndestruct[T](dyn move Dynamic[T]) {
-  destruct(dyn.value)
-  dealloc(dyn.owned)
+  if (is_owned(dyn)) {
+    destruct(dyn.value)
+    dealloc(dyn.owned)
+  }
 }

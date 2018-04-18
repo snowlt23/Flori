@@ -171,11 +171,6 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr): bool =
     return true
   else:
     return true
-
-proc checkArgsHastype*(args: FExpr) =
-  for arg in args:
-    if not arg.hasTyp:
-      arg.error("$# hasn't type." % $arg)
   
 proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
@@ -195,6 +190,8 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
     checkArgsHastype(fexpr[2])
     let argtypes = fexpr[2].mapIt(it.typ)
     for g in generics.mitems:
+      if g.kind == fexprSymbol and g.symbol.isSpecSymbol:
+        continue
       g = fsymbol(g.span, scope.semTypeExpr(g))
     let opt = scope.getFunc(procname(name(fnident), argtypes))
     if opt.isSome:
@@ -257,8 +254,9 @@ proc markingInfer*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
   if fexpr.kind == fexprSymbol and fexpr.symbol.fexpr.hasMarking:
     fexpr.marking = fexpr.symbol.fexpr.marking
-    # if fexpr.typ.kind in {symbolVar, symbolRef, symbolMove}:
-    #   fexpr.typ.marking = some(fexpr.symbol.fexpr.marking)
+  elif fexpr.kind == fexprBlock:
+    if fexpr.len != 0 and fexpr[^1].hasMarking:
+      fexpr.marking = fexpr[^1].marking
   return true
 
 proc moveEffectPass*(scope: Scope, fexpr: var FExpr): bool =

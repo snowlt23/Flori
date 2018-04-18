@@ -33,7 +33,7 @@ template bench*(name: string, body: untyped) =
 proc genGCCOptions*(options: CCOptions): string =
   "-o$# -O$# -I$# $#" % [options.output, $options.optlevel, getAppDir() / "../ffi", options.ccoptions]
 proc genTCCOptions*(options: CCOptions): string =
-  "-o$# -I$# $#" % [options.output, getAppDir() / "../ffi", options.ccoptions]
+  "-o$# -I$# $#" % [options.output.exe, getAppDir() / "../ffi", options.ccoptions]
 
 proc ccoptions*(args: Table[string, Value]): CCOptions =
   result.cc = if args["--cc"]:

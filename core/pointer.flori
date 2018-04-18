@@ -19,6 +19,9 @@ fn unsafe_null[T]() Ptr[T] {
 }
 
 fn `==(a Pointer, b Pointer) Bool $[importc "==", header nodeclc, patternc infixc]
+fn `!=(a Pointer, b Pointer) Bool $[importc "!=", header nodeclc, patternc infixc]
+fn `==[T](a Ptr[T], b Ptr[T]) Bool $[importc "==", header nodeclc, patternc infixc]
+fn `!=[T](a Ptr[T], b Ptr[T]) Bool $[importc "!=", header nodeclc, patternc infixc]
 
 fn alloc[T](len Int) Ptr[T] {
   cast[Ptr[T]](unsafe_malloc(sizeof[T]()*len))

@@ -1,26 +1,27 @@
 
-import "core/prelude"
-import "core/io"
-import "core/vec"
-import "core/syntax"
-import "core/macros"
+import "core"
 
 type MyInt {
   x Int
-  y Int
+}
+fn mi(x Int) MyInt {
+  init(MyInt){x}
+}
+fn print(mi MyInt) {
+  print("MyInt:")
+  print(mi.x)
+}
+destructor(mi MyInt) {
+  println("d:MyInt:", mi.x)
 }
 
 fn main() {
-  v := vec[MyInt]()
-  push(v, init(MyInt){1; 2})
-  push(v, init(MyInt){3; 4})
-  push(v, init(MyInt){5; 6})
-  
-  for e in v {
-    print(e.x)
-    print(e.y)
-    print("\n")
-  }
+  v := v[MyInt](mi(1), mi(2), mi(3))
+  # v := vec[MyInt]()
+  # push(v, mi(1))
+  # push(v, mi(2))
+  # push(v, mi(3))
+  println(v)
 }
 
 main()

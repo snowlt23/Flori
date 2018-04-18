@@ -36,7 +36,11 @@ proc extendScope*(scope: Scope): Scope =
   result.scopedepends = @[]
 
 proc match*(a, b: Symbol): bool =
-  if b.kind == symbolGenerics:
+  if b.kind == symbolMove:
+    return a.match(b.wrapped)
+  elif a.kind == symbolMove:
+    return a.wrapped.match(b)
+  elif b.kind == symbolGenerics:
     return true
   elif a.kind == symbolTypeGenerics and b.kind == symbolTypeGenerics:
     if a.name != b.name: return false
@@ -62,8 +66,6 @@ proc match*(a, b: Symbol): bool =
     return a.wrapped.match(b)
   elif a.kind == symbolVar:
     return a.wrapped.match(b)
-  elif b.kind == symbolMove:
-    return a.match(b.wrapped)
   else:
     return a == b
 

@@ -165,10 +165,7 @@ proc toString*(fexpr: FExpr, indent: int, desc: bool): string =
   of fexprQuote:
     "`" & fexpr.quoted.toString(indent, desc)
   of fexprSymbol:
-    if desc:
-      $fexpr.symbol
-    else:
-      $fexpr.symbol.name
+    toString(fexpr.symbol, desc)
   of fexprIntLit:
     $fexpr.intval
   of fexprFloatLit:

@@ -190,20 +190,27 @@ proc symbol*(scope: Scope, name: Name, kind: SymbolKind, fexpr: FExpr): Symbol =
     result.types = @[]
 proc `==`*(a, b: Symbol): bool =
   a.name == b.name and a.scope == b.scope
-proc `$`*(sym: Symbol): string =
+proc toString*(sym: Symbol, desc: bool): string =
   case sym.kind
   of symbolTypeGenerics:
-    $sym.scope.name & "." & $sym.name & "[" & sym.types.mapIt($it).join(",") & "]"
+    if desc:
+      $sym.scope.name & "." & $sym.name & "[" & sym.types.mapIt(toString(it, desc)).join(",") & "]"
+    else:
+      $sym.name & "[" & sym.types.mapIt(toString(it, desc)).join(",") & "]"
   of symbolVar:
-    $sym.wrapped
+    toString(sym.wrapped, desc)
   of symbolRef:
-    "ref " & $sym.wrapped
+    "ref " & toString(sym.wrapped, desc)
   of symbolMove:
-    "move " & $sym.wrapped
+    "move " & toString(sym.wrapped, desc)
   of symbolIntLit:
     $sym.intval
   else:
-    $sym.scope.name & "." & $sym.name
+    if desc:
+      $sym.scope.name & "." & $sym.name
+    else:
+      $sym.name
+proc `$`*(sym: Symbol): string = toString(sym, false)
 
 proc refsym*(scope: Scope, sym: Symbol): Symbol =
   result = scope.symbol(sym.name, symbolRef, sym.fexpr)

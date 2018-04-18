@@ -22,6 +22,11 @@ proc dll*(s: string): string =
     s & ".dll"
   else:
     s & ".so"
+proc exe*(s: string): string =
+  when defined(windows):
+    s & ".exe"
+  else:
+    s
 
 const macrolib* = cachedir / "flori_macrolib".dll
 

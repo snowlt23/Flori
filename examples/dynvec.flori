@@ -24,23 +24,23 @@ fn dynvec[T]() DynVec[T] {
 }
 
 fn extend[T](v ref DynVec[T]) {
-  v.data = realloc(v.data, (v.cap)*2)
-  v.cap = (v.cap)*2
+  v.data = realloc(v.data, v.cap*2)
+  v.cap = v.cap*2
 }
 
 fn push[T](v ref DynVec[T], value Dynamic[T]) {
-  if (v.cap < (v.len+1)) {
+  if (v.cap < v.len+1) {
     extend(v)
   }
-  unref(v.data +! ((v.len) * sizeof[T]())) := value
+  unref(v.data +! ((v.len) * sizeof[Dynamic[T]]())) = value
   v.len += 1
 }
 
 fn push[T](v ref DynVec[T], value move T) {
-  if (v.cap < (v.len+1)) {
+  if (v.cap < v.len+1) {
     extend(v)
   }
-  unref(v.data +! ((v.len) * sizeof[T]())) = new_dynamic(value)
+  unref(v.data +! ((v.len) * sizeof[Dynamic[T]]())) = new_dynamic(value)
   v.len += 1
 }
 
@@ -49,7 +49,7 @@ fn length[T](v DynVec[T]) Int {
 }
 
 fn get[T](v DynVec[T], i Int) Dynamic[T] {
-  unref((v.data) +! (i * sizeof[T]()))
+  unref(v.data +! (i * sizeof[Dynamic[T]]()))
 }
 
 iterator items[T](v TExpr[DynVec[T]]) {
@@ -61,21 +61,10 @@ iterator items[T](v TExpr[DynVec[T]]) {
     }
   }
 }
-# iterator ditems[T](v TExpr[DynVec[T]]) {
-#   i := gensym()
-#   quote {
-#     for `i in range(0, length(`v)-1) {
-#       `element := dget(`v, `i)
-#       `yield
-#     }
-#   }
-# }
 
 destructor[T](v DynVec[T]) {
   for e in v {
-    if (is_owned(e)) {
-      dyndestruct(e)
-    }
+    dyndestruct(e)
   }
   dealloc(v.data)
   println("DynVec destroyed!")

@@ -5,14 +5,8 @@ import unittest
 import strutils
 import terminal
 
-proc exe*(s: string): string =
-  when defined(windows):
-    s & ".exe"
-  else:
-    s
-
 proc checkio*(filename: string, expectoutput: string) =
-  let cout = execProcess("compiler/flori c -otests/bin/$# $#" % [filename.splitFile().name.exe, filename])
+  let cout = execProcess("compiler/flori c --cc=tcc -otests/bin/$# $#" % [filename.splitFile().name, filename])
   if cout != "":
     echo cout
   let name = splitFile(filename).name
@@ -60,3 +54,5 @@ suite "example":
     checkio "examples/dynunique.flori", "start!\nend!\nMyFile destroyed!\nDynVec destroyed!\n"
   test "dynamic type: share":
     checkio "examples/dynshare.flori", "start!\nMyFile borrowed!\nDynVec destroyed!\nend!\nMyFile destroyed!\n"
+  test "vec example":
+    checkio "examples/vec_example.flori", "vec[MyInt:1, MyInt:2, MyInt:3]\nd:MyInt:1\nd:MyInt:2\nd:MyInt:3\n"

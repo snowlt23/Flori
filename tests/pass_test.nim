@@ -31,9 +31,9 @@ printf("%d", 9)
 """)
     let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
     ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check $fexprs[^1][1][0].typ == "testmodule.CString"
-    check $fexprs[^1][1][1].typ == "testmodule.Int"
-    check $fexprs[^1].typ == "testmodule.Void"
+    check $fexprs[^1][1][0].typ == "CString"
+    check $fexprs[^1][1][1].typ == "Int"
+    check $fexprs[^1].typ == "Void"
   test "infix call":
     let ctx = newSemanticContext()
     var fexprs = parseToplevel("testmodule.flori", prelude & """
@@ -41,7 +41,7 @@ printf("%d", 9)
 """)
     let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
     ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check $fexprs[^1].typ == "testmodule.Int"
+    check $fexprs[^1].typ == "Int"
   test "fn":
     let ctx = newSemanticContext()
     var fexprs = parseToplevel("testmodule.flori", prelude & """
@@ -52,7 +52,7 @@ add5(4)
 """)
     let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
     ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check $fexprs[^1].typ == "testmodule.Int"
+    check $fexprs[^1].typ == "Int"
   test "if":
     let ctx = newSemanticContext()
     var fexprs = parseToplevel("testmodule.flori", prelude & """
@@ -64,7 +64,7 @@ if (1 == 1) {
 """)
     let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
     ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check $fexprs[^1].typ == "testmodule.IntLit"
+    check $fexprs[^1].typ == "IntLit"
     check fexprs[^1].internalMark == internalIf
   test "while":
     let ctx = newSemanticContext()
@@ -75,7 +75,7 @@ while (1 == 2) {
 """)
     let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
     ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check $fexprs[^1].typ == "testmodule.Void"
+    check $fexprs[^1].typ == "Void"
     check $fexprs[^1][0] == "while"
     check fexprs[^1].internalMark == internalWhile
   test "local def":
@@ -87,9 +87,9 @@ printf("%d", nine)
     let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
     ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
     check fexprs[^2].internalMark == internalDef
-    check $fexprs[^2].typ == "testmodule.Void"
+    check $fexprs[^2].typ == "Void"
     check $fexprs[^1][1][1] == "to_int(nine)"
-    check $fexprs[^1][1][1].typ == "ref testmodule.Int"
+    check $fexprs[^1][1][1].typ == "ref Int"
   test "generics init":
     let ctx = newSemanticContext()
     var fexprs = parseToplevel("testmodule.flori", prelude & """
@@ -101,7 +101,7 @@ init(Wrap[Int]){9}
     let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
     ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
     check fexprs[^1].internalMark == internalInit
-    check $fexprs[^1].typ == "testmodule.Wrap[testmodule.Int]"
+    check $fexprs[^1].typ == "Wrap[Int]"
   test "generics fn":
     let ctx = newSemanticContext()
     var fexprs = parseToplevel("testmodule.flori", prelude & """
@@ -115,7 +115,7 @@ wrap(9)
 """)
     let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
     ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check $fexprs[^1].typ == "testmodule.Wrap[testmodule.IntLit]"
+    check $fexprs[^1].typ == "Wrap[IntLit]"
   test "recursion call":
     let ctx = newSemanticContext()
     var fexprs = parseToplevel("testmodule.flori", prelude & """
@@ -131,7 +131,7 @@ printf("%d\n", fib(30))
 """)
     let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
     ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check $fexprs[^1][1][1].typ == "testmodule.Int"
+    check $fexprs[^1][1][1].typ == "Int"
   test "generics call fn":
     let ctx = newSemanticContext()
     var fexprs = parseToplevel("testmodule.flori", prelude & """
@@ -179,4 +179,4 @@ add5(a)
 """)
     let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
     ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check $fexprs[^1].typ == "testmodule.Void"
+    check $fexprs[^1].typ == "Void"
