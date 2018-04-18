@@ -6,7 +6,7 @@ import strutils, sequtils
 
 var rootPass*: proc (scope: Scope, fexpr: var FExpr) = nil
 
-macro definePass*(passname: untyped, argtypes: untyped, passes: untyped): untyped =
+macro definePass*(passname: untyped, rootname: untyped, argtypes: untyped, passes: untyped): untyped =
   var args = newSeq[string]()
   var callargs = newSeq[string]()
   for i, argtype in argtypes:
@@ -15,8 +15,8 @@ macro definePass*(passname: untyped, argtypes: untyped, passes: untyped): untype
   result = parseExpr("proc $#*($#) = discard" % [$passname, args.join(", ")])
   var procbody = newStmtList()
   procbody.add(quote do:
-    if rootPass.isNil:
-      rootPass = `passname`
+    if `rootname`.isNil:
+      `rootname` = `passname`
   )
   for pass in passes:
     pass.expectKind(nnkIdent)

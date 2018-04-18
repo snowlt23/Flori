@@ -96,18 +96,13 @@ proc symbolResolve*(scope: Scope, fexpr: var FExpr): bool =
     let opt = scope.getDecl(name(fexpr))
     if opt.isSome:
       fexpr = fsymbol(fexpr.span, opt.get)
-      # if fexpr.symbol.instance.isSome:
-      #   fexpr.symbol = fexpr.symbol.instance.get
-      return true
-    elif scope.procdecls.hasKey(name(fexpr)):
-      let fnopt = scope.procdecls[name(fexpr)].decls
-      if fnopt.len != 1:
-        fexpr.error("ambigous function ident.")
-      fexpr = fsymbol(fexpr.span, fnopt[0].sym)
       return true
     else:
-      echo fexpr
-      fexpr.error("undeclared $# ident." % $fexpr)
+      let fnopt = scope.getFnDecl(name(fexpr))
+      if fnopt.isNone:
+        fexpr.error("undeclared $# ident." % $fexpr)
+      fexpr = fsymbol(fexpr.span, fnopt.get)
+      return true
   else:
     return true
 
@@ -162,8 +157,6 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr): bool =
     return true
   of fexprBlock:
     if fexpr.len != 0:
-      if not fexpr[^1].hasTyp:
-        echo fexpr[^1]
       fexpr[^1].assert(fexpr[^1].hasTyp)
       fexpr.typ = fexpr[^1].typ
     else:
@@ -219,11 +212,12 @@ proc converterResolve*(scope: Scope, fexpr: var FExpr): bool =
     let fnident = fexpr[0]
     checkArgsHastype(fexpr[1])
     let opt = scope.findMatchFn(fnident, fexpr[1], fexpr[1].mapIt(0))
-    if opt.isNone:
-      fexpr.error("undeclared $#($#) function." % [$fnident, fexpr[1].mapIt($it.typ).join(", ")])
-    fexpr = fexpr.span.quoteFExpr("`embed `embed", [fnident, opt.get])
-    scope.rootPass(fexpr)
-    return false
+    if opt.isSome:
+      fexpr = fexpr.span.quoteFExpr("`embed `embed", [fnident, opt.get])
+      scope.rootPass(fexpr)
+      return false
+    else:
+      return true
   elif fexpr.isGenericsFuncCall and fexpr[0].kind != fexprSymbol:
     let fnident = fexpr[0]
     checkArgsHastype(fexpr[2])
@@ -246,6 +240,17 @@ proc converterResolve*(scope: Scope, fexpr: var FExpr): bool =
   else:
     return true
 
+proc varfnResolve*(scope: Scope, fexpr: var FExpr): bool =
+  thruInternal(fexpr)
+
+  if fexpr.kind == fexprSeq and fexpr.len == 2 and fexpr[0].kind != fexprSymbol and fexpr[1].kind == fexprList:
+    scope.rootPass(fexpr[0])
+    if fexpr[0].typ.kind != symbolFuncType:
+      fexpr[0].error("value is not callable.")
+    fexpr.typ = fexpr[0].typ.rettype
+
+  return true
+
 #
 # ownership pass
 #
@@ -262,6 +267,8 @@ proc markingInfer*(scope: Scope, fexpr: var FExpr): bool =
 proc moveEffectPass*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
   if fexpr.isFuncCall:
+    if not fexpr[0].symbol.fexpr.hasDefn:
+      return true
     let args = if fexpr.isNormalFuncCall:
                  fexpr[1]
                elif fexpr.isGenericsFuncCall:
@@ -288,7 +295,7 @@ proc finalPass*(scope: Scope, fexpr: var FExpr): bool =
   fexpr.isEvaluated = true
   return true
     
-definePass processSemPass, (Scope, var FExpr):
+definePass processSemPass, rootPass, (Scope, var FExpr):
   internalPass
   expandMacro
   toplevelPass
@@ -296,6 +303,7 @@ definePass processSemPass, (Scope, var FExpr):
   typeInfer
   overloadResolve
   converterResolve
+  varfnResolve
   applyInstancePass
   expandInlinePass
   applyInstancePass

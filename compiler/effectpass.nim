@@ -122,6 +122,8 @@ proc applyEffectPass*(scope: Scope, fexpr: var FExpr): bool =
   if fexpr.isInfixFuncCall:
     discard
   elif fexpr.isFuncCall:
+    if not fexpr[0].symbol.fexpr.hasDefn:
+      return true
     let args = if fexpr.isNormalFuncCall:
                  fexpr[1]
                else:

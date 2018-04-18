@@ -1,41 +1,45 @@
 
 import fexpr_core, marking
-import passmacro
+import newpassmacro
 
-definePass ElimPass
+var elimRoot*: proc(scope: Scope, fexpr: var FExpr) = nil
 
-proc elimToplevelPass*(scope: Scope, fexpr: var FExpr) {.pass: ElimPass.} =
+proc elimToplevelPass*(scope: Scope, fexpr: var FExpr): bool =
   if fexpr.isElimEvaluated:
-    return
+    return false
   fexpr.isElimEvaluated = true
   if fexpr.hasInternalMark and fexpr.internalMark in {internalDefn}:
     fexpr.isEliminated = true
-    return
+    return false
     
   case fexpr.kind
   of fexprArray, fexprList:
     for son in fexpr.mitems:
-      scope.rootPass(son)
-    scope.nextPass(fexpr)
+      scope.elimRoot(son)
+    return true
   of fexprBlock:
     for son in fexpr.mitems:
-      scope.rootPass(son)
-    scope.nextPass(fexpr)
+      scope.elimRoot(son)
+    return true
   of fexprSeq:
     for i in 1..<fexpr.len:
-      scope.rootPass(fexpr[i])
-    scope.nextPass(fexpr)
+      scope.elimRoot(fexpr[i])
+    return true
   else:
-    scope.nextPass(fexpr)
+    return true
 
-proc elimMarkingPass*(scope: Scope, fexpr: var FExpr) {.pass: ElimPass.} =
+proc elimMarkingPass*(scope: Scope, fexpr: var FExpr): bool =
   if fexpr.isFuncCall:
-    if fexpr[0].kind == fexprSymbol and not fexpr[0].symbol.fexpr.internalPragma.compiletime:
+    if fexpr[0].kind == fexprSymbol and fexpr[0].hasTyp and fexpr[0].typ.kind == symbolFuncType:
+      discard
+    elif fexpr[0].kind == fexprSymbol and not fexpr[0].symbol.fexpr.internalPragma.compiletime:
       fexpr[0].symbol.fexpr.isEliminated = false
-      scope.rootPass(fexpr[0].symbol.fexpr.defn.body)
+      scope.elimRoot(fexpr[0].symbol.fexpr.defn.body)
   elif fexpr.kind == fexprSymbol and fexpr.symbol.kind == symbolFunc:
     fexpr.symbol.fexpr.isEliminated = false
-    scope.rootPass(fexpr.symbol.fexpr.defn.body)
-  scope.nextPass(fexpr)
+    scope.elimRoot(fexpr.symbol.fexpr.defn.body)
+  return true
 
-instPass ElimPass, processElimPass
+definePass processElimPass, elimRoot, (Scope, var FExpr):
+  elimToplevelPass
+  elimMarkingPass

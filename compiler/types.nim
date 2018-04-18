@@ -203,6 +203,8 @@ proc toString*(sym: Symbol, desc: bool): string =
     "ref " & toString(sym.wrapped, desc)
   of symbolMove:
     "move " & toString(sym.wrapped, desc)
+  of symbolFuncType:
+    "Fn[$#] $#" % [sym.argtypes.mapIt(toString(it, desc)).join(", "), toString(sym.rettype, desc)]
   of symbolIntLit:
     $sym.intval
   else:
@@ -233,6 +235,9 @@ proc symcopy*(sym: Symbol): Symbol =
     result.types = sym.types
   elif sym.kind == symbolIntLit:
     result.intval = sym.intval
+  elif sym.kind == symbolFuncType:
+    result.argtypes = sym.argtypes
+    result.rettype = sym.rettype
   elif sym.kind in {symbolVar, symbolRef, symbolMove}:
     result.wrapped = sym.wrapped.symcopy
     result.marking = sym.marking

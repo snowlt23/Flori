@@ -43,6 +43,13 @@ fn `+![T](p Ptr[T], i Int) Ptr[T] {
 fn unref[T](p Ptr[T]) T $[importc, header nodeclc, patternc "(*($1))"]
 fn getptr[T](p T) Ptr[T] $[importc, header nodeclc, patternc "(&$1)"]
 
+fn get[T](p Ptr[T], i Int) T {
+  unref(p +! (i * sizeof[T]()))
+}
+fn set[T](p Ptr[T], i Int, value T) {
+  unref(p +! (i * sizeof[T]())) = value
+}
+
 fn print[T](p Ptr[T]) {
   printf("%p", p)
 }

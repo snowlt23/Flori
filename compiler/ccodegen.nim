@@ -47,6 +47,9 @@ proc replaceSpecialSymbols*(s: string): string =
 
 proc codegenSymbol*(sym: Symbol): string
 
+proc codegenVarfnSymbol*(sym: Symbol): string =
+  result = replaceSpecialSymbols($sym.scope.name & "_" & $sym.name)
+
 proc codegenSymbol*(sym: Symbol): string =
   result = ""
   if sym.kind == symbolTypeGenerics and sym.types.len != 0:
@@ -505,6 +508,14 @@ proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
       src &= ", "
       ctx.codegenFExpr(src, fexpr[2])
       src &= ")"
+    elif fexpr[0].hasTyp and fexpr[0].typ.kind == symbolFuncType:
+      src &= "(("
+      src &= codegenVarfnSymbol(fexpr[0].symbol)
+      src &= ")("
+      for i, arg in ctx.codegenArgsWithIndex(src, fexpr[1]):
+        let fnargtype = fexpr[0].typ.argtypes[i]
+        ctx.codegenCallArg(src, arg, fnargtype)
+      src &= "))"
     else:
       src &= codegenMangling(fexpr[0].symbol, fexpr.getCallGenerics(), fexpr.getCallTypes())
       src &= "("
@@ -518,8 +529,10 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   of fexprIdent:
     src &= $fexpr
   of fexprSymbol:
-    if fexpr.typ.kind == symbolFuncType:
+    if fexpr.symbol.kind == symbolFunc:
       src &= codegenMangling(fexpr.symbol, @[], fexpr.typ.argtypes) # FIXME:
+    elif fexpr.typ.kind == symbolFuncType:
+      src &= codegenVarfnSymbol(fexpr.symbol)
     elif fexpr.typ.kind == symbolIntLit:
       src &= $fexpr.typ.intval
     else:

@@ -8,7 +8,7 @@ import tables
       
 proc applyInstancePass*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
-  if fexpr.isNormalFuncCall:
+  if fexpr.isNormalFuncCall and fexpr[0].symbol.fexpr.hasDefn:
     for i, arg in fexpr[1]:
       fexpr[0].symbol.fexpr.defn.args[i][1].symbol.applyInstance(arg.typ)
   elif fexpr.isGenericsFuncCall:
@@ -25,6 +25,8 @@ proc applyInstancePass*(scope: Scope, fexpr: var FExpr): bool =
 proc expandInlinePass*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
   if fexpr.isFuncCall:
+    if not fexpr[0].symbol.fexpr.hasDefn:
+      return true
     scope.expandBy(fexpr.span):
       if fexpr[0].symbol.fexpr.hasInternalPragma and fexpr[0].symbol.fexpr.internalPragma.inline:
         let inlinescope = fexpr[0].symbol.fexpr.internalScope
@@ -37,7 +39,7 @@ proc expandInlinePass*(scope: Scope, fexpr: var FExpr): bool =
 
 proc expandDefnPass*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
-  if fexpr.isNormalFuncCall:
+  if fexpr.isNormalFuncCall and fexpr[0].symbol.fexpr.hasDefn:
     scope.expandBy(fexpr.span):
       let fnsym = fexpr[0]
       let argtypes = fexpr[1].mapIt(it.typ)
@@ -91,6 +93,8 @@ proc expandDeftypePass*(scope: Scope, fexpr: var FExpr): bool =
     return true
       
   if fexpr.isFuncCall:
+    if not fexpr[0].symbol.fexpr.hasDefn:
+      return true
     scope.expandBy(fexpr.span):
       let defn = fexpr[0].symbol.fexpr.defn
       for arg in defn.args.mitems:

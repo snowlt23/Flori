@@ -147,6 +147,21 @@ proc getDecl*(scope: Scope, n: Name, importscope = true): Option[Symbol] =
     else:
       return none(Symbol)
   return some scope.decls[n]
+proc getFnDecl*(scope: Scope, n: Name, importscope = true): Option[Symbol] =
+  if not scope.procdecls.hasKey(n):
+    if importscope:
+      for scopename, s in scope.importscopes:
+        let opt = s.getFnDecl(n, importscope = scopename.isCurrentScope())
+        if opt.isSome:
+          return opt
+      return none(Symbol)
+    else:
+      return none(Symbol)
+
+  let fnopt = scope.procdecls[n].decls
+  if fnopt.len != 1:
+    return none(Symbol)
+  return some(fnopt[0].sym)
 proc getSpecType*(scope: Scope, n: Name, types: seq[Symbol], importscope = true): Option[Symbol] =
   if scope.decls.hasKey(n):
     if scope.decls[n].types == types:

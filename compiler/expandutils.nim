@@ -17,6 +17,10 @@ proc applyInstance*(sym: Symbol, instance: Symbol) =
     sym.wrapped.applyInstance(instance.wrapped)
     if instance.marking.isSome:
       sym.instmarking = some(instance.marking.get)
+  elif sym.kind == symbolFuncType and instance.kind == symbolFuncType:
+    for i in 0..<sym.argtypes.len:
+      sym.argtypes[i].applyInstance(instance.argtypes[i])
+    sym.rettype.applyInstance(instance.rettype)
   elif instance.kind in {symbolVar, symbolRef}:
     sym.applyInstance(instance.wrapped)
     if instance.marking.isSome:
@@ -49,6 +53,12 @@ proc expandSymbol*(scope: Scope, sym: Symbol): Symbol =
     result = scope.movesym(scope.expandSymbol(sym.wrapped))
     if sym.instmarking.isSome:
       result.marking = some(sym.instmarking.get.copy)
+  elif sym.kind == symbolFuncType:
+    result = scope.symbol(name("Fn"), symbolFuncType, sym.fexpr)
+    result.argtypes = @[]
+    for t in sym.argtypes:
+      result.argtypes.add(scope.expandSymbol(t))
+    result.rettype = scope.expandSymbol(sym.rettype)
   elif sym.kind == symbolGenerics:
     if sym.instance.isNone:
       sym.fexpr.error("cannot instantiate $#." % $sym)

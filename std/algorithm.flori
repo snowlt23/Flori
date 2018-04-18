@@ -1,0 +1,61 @@
+
+import "core"
+import "core/pointer"
+
+fn break() $[importc, patternc "break", importjs, patternjs "break"]
+
+fn med3[T](cmp Fn[T, T] Bool, x T, y T, z T) T {
+  if (cmp(x, y)) {
+    if (cmp(y, z)) {
+      y
+    } elif (cmp(z, x)) {
+      x
+    } else {
+      z
+    }
+  } else {
+    if (cmp(z, y)) {
+      y
+    } elif (cmp(x, z)) {
+      x
+    } else {
+      z
+    }
+  }
+}
+
+fn cmp_int(x Int, y Int) Bool {
+  x < y
+}
+
+fn quicksort_impl[T](arr Ptr[T], left Int, right Int, cmp Fn[T, T] Bool) {
+  if (left < right) {
+    i := left
+    j := right
+    pivot := med3(cmp, get(arr, i), get(arr, cast[Int](cast[Double](i) + (j - i) / 2)), get(arr, j))
+    while (true) {
+      while (cmp(get(arr, i), pivot)) {
+        i += 1
+      }
+      while (cmp(pivot, get(arr, j))) {
+        j -= 1
+      }
+      if (i >= j) {
+        break()
+      }
+      tmp := get(arr, i)
+      set(arr, i, get(arr, j))
+      set(arr, j, tmp)
+      i += 1
+      j -= 1
+    }
+    quicksort_impl(arr, left, i-1, cmp)
+    quicksort_impl(arr, j+1, right, cmp)
+  }
+}
+fn quicksort[N, T](arr ref Array[N, T], cmp Fn[T, T] Bool) {
+  quicksort_impl(getref(arr), 0, N-1, cmp)
+}
+fn quicksort[T](v ref Vec[T], cmp Fn[T, T] Bool) {
+  quicksort_impl(getref(v), 0, length(v)-1, cmp)
+}

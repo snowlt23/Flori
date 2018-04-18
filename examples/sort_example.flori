@@ -1,0 +1,17 @@
+
+import "core"
+import "std/algorithm"
+
+fn main() {
+  arr := array[5, Int](5, 3, 2, 4, 1)
+  quicksort(arr, cmp_int)
+  for i in range(0, 5-1) {
+    println(get(arr, i))
+  }
+  # v := v[Int](5, 3, 2, 4, 1)
+  # println(v)
+  # quicksort(v, cmp_int)
+  # println(v)
+}
+
+main()
