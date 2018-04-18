@@ -27,3 +27,8 @@ fn move[T](dyn move Dynamic[T]) T {
   unref(dyn.owned) = false
   dyn.value
 }
+
+fn dyndestruct[T](dyn move Dynamic[T]) {
+  destruct(dyn.value)
+  dealloc(dyn.owned)
+}

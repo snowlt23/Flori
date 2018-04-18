@@ -4,6 +4,7 @@ import passutils, ccodegen, compileutils
 
 import options
 import strutils, sequtils
+import tables
 
 proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr
 
@@ -150,7 +151,10 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, argtypes: s
   )
   fexpr.internalScope.addSpecFunc(pd)
 
-  exscope.importScope(name("flori_current_scope"), scope.top)
+  if scope.importscopes.hasKey(name("flori_current_scope")):
+    exscope.importScope(name("flori_current_scope"), scope.importscopes[name("flori_current_scope")])
+  else:
+    exscope.importScope(name("flori_current_scope"), scope.top)
   exscope.rootPass(expanded.defn.body)
   if expanded.defn.body.len != 0:
     if not expanded.defn.body[^1].typ.spec(expanded.defn.ret.symbol) and exscope.isMovable(expanded.defn.body[^1].typ):
