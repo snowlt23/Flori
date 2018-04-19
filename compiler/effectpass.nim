@@ -110,7 +110,7 @@ proc inferEffectPass*(scope: Scope, fexpr: var FExpr): bool =
 proc inferFnEffectPass*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
   if fexpr.isFuncCall:
-    if fexpr[0].kind != fexprSymbol:
+    if fexpr[0].kind != fexprSymbol or not fexpr[0].symbol.fexpr.hasDefn:
       return true
     if not fexpr[0].symbol.fexpr.hasFnEffect:
       for argdef in fexpr[0].symbol.fexpr.defn.args:
