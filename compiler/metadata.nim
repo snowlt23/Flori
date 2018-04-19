@@ -162,6 +162,7 @@ type
     inline*: bool
     nodestruct*: bool
     compiletime*: bool
+    resource*: bool
 
 type
   IfExpr* = object
@@ -182,6 +183,7 @@ defBoolMetadata(isEvaluated)
 defBoolMetadata(isToplevel)
 defBoolMetadata(isGenerated)
 defBoolMetadata(isCStruct)
+defBoolMetadata(isExpanded)
 defBoolMetadata(isElimEvaluated)
 defBoolMetadata(isEliminated)
 

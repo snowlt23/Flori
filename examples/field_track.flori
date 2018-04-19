@@ -1,7 +1,7 @@
 
 import "core"
 
-type MyFieldType {
+type MyFieldType $[resource, nodestruct] {
   x Int
   y Int
 }
@@ -10,12 +10,14 @@ destructor(mt MyFieldType) {
   println("MyFieldType(", mt.x, ", ", mt.y, ") destroyed!")
 }
 
-type MyType {
+type MyType $[nodestruct] {
   mfx MyFieldType
   mfy MyFieldType
 }
 
 destructor(mt MyType) {
+  destruct(mt.mfx)
+  destruct(mt.mfy)
   println("MyType destroyed!")
 }
 

@@ -1,7 +1,7 @@
 
 import "core"
 
-type MyInt {
+type MyInt $[resource, nodestruct] {
   x Int
 }
 fn mi(x Int) MyInt {

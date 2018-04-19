@@ -15,6 +15,7 @@ type
     headers*: OrderedTable[string, bool]
     typesrc*: string
     fnsrc*: string
+    fndeclsrc*: string
     headersrc*: string
     cdeclsrc*: string
     cheadsrc*: string
@@ -37,7 +38,7 @@ proc addPrev*(src: var SrcExpr, s: SrcExpr) =
   src.prev &= s.exp
 
 proc newCCodegenContext*(macrogen = false): CCodegenContext =
-  CCodegenContext(headers: initOrderedTable[string, bool](), typesrc: "", fnsrc: "", headersrc: "", cdeclsrc: "", cheadsrc: "", tmpcount: 0, macrogen: macrogen)
+  CCodegenContext(headers: initOrderedTable[string, bool](), typesrc: "", fnsrc: "", fndeclsrc: "", headersrc: "", cdeclsrc: "", cheadsrc: "", tmpcount: 0, macrogen: macrogen)
 proc gentmpsym*(ctx: CCodegenContext): string =
   result = "__floritmp" & $ctx.tmpcount
   ctx.tmpcount.inc
@@ -59,9 +60,11 @@ proc codegenSymbol*(sym: Symbol): string =
   elif sym.kind == symbolRef:
     result &= codegenSymbol(sym.wrapped)
   elif sym.kind == symbolMove:
-    result &= codegenSymbol(sym.wrapped)
+    result &= "move_" & codegenSymbol(sym.wrapped)
   elif sym.kind == symbolIntLit:
     result &= $sym.intval
+  elif sym.kind == symbolFuncType:
+    result &= $sym.scope.name & "_fn_$#_$#" % [sym.argtypes.mapIt(codegenSymbol(it)).join("_"), codegenSymbol(sym.rettype)]
   else:
     result &= $sym.scope.name & "_" & $sym.name
   result = result.replaceSpecialSymbols()
@@ -88,6 +91,8 @@ proc codegenType*(sym: Symbol, share = false): string =
     return codegenType(sym.wrapped, share)
   elif sym.kind == symbolRef:
     return codegenType(sym.wrapped, share) & "*"
+  elif sym.kind == symbolMove:
+    return codegenType(sym.wrapped, share)
   elif sym.kind == symbolFuncType:
     return "$# (*)($#)" % [codegenType(sym.rettype, share), sym.argtypes.mapIt(codegenType(it, share)).join(", ")]
   
@@ -170,6 +175,8 @@ proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
       decl &= " "
       decl &= codegenSymbol(arg[0])
   decl &= ")"
+
+  ctx.fndeclsrc &= decl.exp & ";\n"
 
   src &= decl
   src &= " {\n"
@@ -583,11 +590,12 @@ proc codegenToplevel*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
       ctx.codegenToplevel(src, son)
   
 proc codegenSingle*(ctx: CCodegenContext, sem: SemanticContext): string =
+  result = ""
   var src = initSrcExpr()
   if ctx.macrogen:
     ctx.headers["floriffi.h"] = true
-    src &= "#include \"floriffi.h\"\n"
-    src &= "#define FLORI_COMPILETIME\n"
+    result &= "#include \"floriffi.h\"\n"
+    result &= "#define FLORI_COMPILETIME\n"
   for f in sem.globaltoplevels:
     ctx.codegenToplevel(src, f)
   src &= "\n"
@@ -595,4 +603,4 @@ proc codegenSingle*(ctx: CCodegenContext, sem: SemanticContext): string =
   ctx.codegenBody(src, sem.globaltoplevels)
   src &= "}\n"
   src &= "int main(int argc, char** argv) { flori_main(); }\n"
-  return ctx.cheadsrc & "\n" & ctx.headersrc & "\n" & ctx.cdeclsrc & "\n" & ctx.typesrc & "\n" & ctx.fnsrc & "\n" & "\n" & src.exp
+  result &= ctx.cheadsrc & "\n" & ctx.headersrc & "\n" & ctx.cdeclsrc & "\n" & ctx.typesrc & "\n" & ctx.fndeclsrc & "\n" & ctx.fnsrc & "\n" & src.exp

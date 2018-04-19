@@ -309,11 +309,9 @@ definePass processSemPass, rootPass, (Scope, var FExpr):
   applyInstancePass
   expandDefnPass
   expandDeftypePass
-  markingInfer
   inferFnEffectPass
-  applyEffectPass
   earlySetDestruct
-  moveEffectPass
+  # moveEffectPass
   expandDestructorPass
-  explicitDestruct
+  # explicitDestruct
   finalPass

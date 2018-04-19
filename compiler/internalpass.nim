@@ -312,6 +312,8 @@ proc semNoDestruct*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.parent.internalPragma.nodestruct = true
 proc semCompiletime*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.parent.internalPragma.compiletime = true
+proc semResource*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  fexpr.parent.internalPragma.resource = true
 proc semConverter*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.parent.defn.args.len != 1:
     fexpr.error("converter fn should be 1 argument.")
@@ -392,12 +394,11 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: Defn, 
   scope.resolveByVoid(fexpr)
 
   semPragma(rootPass, scope, fexpr, parsed.pragma)
+  if fexpr.internalPragma.nodestruct:
+    fnscope.nodestruct = true
   if parsed.generics.isSpecTypes and not fexpr.internalPragma.inline:
     fnscope.rootPass(parsed.body)
     if parsed.body.len != 0:
-      if not parsed.body[^1].typ.spec(rettype) and fnscope.isMovable(parsed.body[^1].typ):
-        parsed.body[^1] = parsed.body[^1].span.quoteFExpr("move(`embed)", [parsed.body[^1]])
-        fnscope.rootPass(parsed.body[^1])
       if not parsed.body[^1].typ.spec(rettype):
         parsed.body[^1].error("function expect $# return type, actually $#" % [$rettype, $parsed.body[^1].typ])
 
@@ -465,6 +466,17 @@ proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if not fexpr.isToplevel:
     scope.ctx.globaltoplevels.add(fexpr)
     fexpr.isGenerated = true
+
+proc generateDestructFn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  let body = fblock(fexpr.span)
+  for b in fexpr.deftype.body:
+    if scope.isDestructable(b[1].symbol):
+      body.addSon(fexpr.span.quoteFExpr("destruct(x . `embed)", [b[0].copy]))
+  let name = fident(fexpr.span, name($fexpr.deftype.name.symbol.name))
+  let generics = farray(fexpr.span, fexpr.deftype.generics.mapIt(fident(it.span, name($it))))
+  var dfn = fexpr.span.quoteFExpr("fn destruct `embed (x `embed `embed) `embed", [generics, name, generics, body])
+  scope.rootPass(dfn)
+  scope.ctx.globaltoplevels.add(dfn)
     
 proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var parsed = parseDeftype(fexpr)
@@ -497,6 +509,8 @@ proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.deftype = parsed
 
   if fexpr.internalPragma.importc.isNone:
+    if not fexpr.internalPragma.nodestruct:
+      generateDestructFn(rootPass, scope, fexpr)
     sym.fexpr.isCStruct = true
 
 proc semIf*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
@@ -613,15 +627,15 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     parsed.value.error("value is Void.")
   scope.resolveByVoid(fexpr)
 
-  let varsym = scope.symbol(name(name), symbolDef, name)
-  name.typ = parsed.value.typ.scope.varsym(parsed.value.typ)
+  let varsym = scope.symbol(name(name), symbolDef, parsed.name)
+  parsed.name.typ = parsed.value.typ.scope.varsym(parsed.value.typ)
   let status = scope.addDecl(name(name), varsym)
   if not status:
     fexpr.error("redefinition $# variable." % $name)
-  if parsed.value.hasMarking:
-    varsym.fexpr.marking = parsed.value.marking
-  else:
-    varsym.fexpr.marking = newMarking(scope, parsed.value.typ)
+  # if parsed.value.hasMarking:
+  #   varsym.fexpr.marking = parsed.value.marking
+  # else:
+  #   varsym.fexpr.marking = newMarking(scope, parsed.value.typ)
   scope.tracking(varsym.fexpr)
 
   let fsym = fsymbol(fexpr[1].span, varsym)
@@ -644,8 +658,8 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   scope.rootPass(parsed.dst)
   scope.rootPass(parsed.value)
 
-  if not parsed.dst.typ.spec(parsed.value.typ) and scope.isMovable(parsed.value.typ):
-    parsed.value = parsed.value.span.quoteFExpr("move(`embed)", [parsed.value])
+  if parsed.value.kind == fexprSymbol and scope.isCopyable(parsed.value.typ):
+    parsed.value = parsed.value.span.quoteFExpr("copy(`embed)", [parsed.value])
     scope.rootPass(parsed.value)
 
   if not parsed.dst.typ.match(parsed.value.typ):
@@ -700,10 +714,11 @@ proc semInit*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let argtypes = fexpr[2].mapIt(it.typ)
 
   fexpr.marking = newMarking(scope, typesym)
-  for i, b in fexpr[2]:
-    let typefield = typesym.fexpr.deftype.body[i]
-    if b.hasMarking:
-      fexpr.marking.fieldbody[name(typefield[0])].moveFrom(b.marking)
+  for b in fexpr[2].mitems:
+    if scope.isCopyable(b.typ):
+      b = b.span.quoteFExpr("copy(`embed)", [b])
+      scope.rootPass(b)
+      # b.marking.owned = false
       # returnFrom(b.marking)
       # fexpr.marking.fieldbody[name(typefield[0])] = b.marking
 
@@ -854,6 +869,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("inline"), semInline)
   scope.addInternalEval(name("nodestruct"), semNoDestruct)
   scope.addInternalEval(name("compiletime"), semCompiletime)
+  scope.addInternalEval(name("resource"), semResource)
   scope.addInternalEval(name("converter"), semConverter)
 
 proc initInternalScope*(ctx: SemanticContext) =

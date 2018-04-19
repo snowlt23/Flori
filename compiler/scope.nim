@@ -12,6 +12,7 @@ proc newScope*(ctx: SemanticContext, name: Name, path: string): Scope =
   result.name = name
   result.top = result
   result.level = 0
+  result.nodestruct = false
   result.decls = initTable[Name, Symbol]()
   result.procdecls = initTable[Name, ProcDeclGroup]()
   result.importscopes = initOrderedTable[Name, Scope]()
@@ -27,6 +28,7 @@ proc extendScope*(scope: Scope): Scope =
   result.name = scope.name
   result.top = scope.top
   result.level = scope.level + 1
+  result.nodestruct = scope.nodestruct
   result.decls = scope.decls
   result.procdecls = scope.procdecls
   result.importscopes = scope.importscopes
@@ -82,7 +84,11 @@ proc match*(a: ProcName, b: ProcDecl): bool =
   return true
 
 proc spec*(a, b: Symbol): bool =
-  if a.kind == symbolType and b.kind == symbolType:
+  if b.kind == symbolMove:
+    return a.spec(b.wrapped)
+  elif a.kind == symbolMove:
+    return a.wrapped.spec(b)
+  elif a.kind == symbolType and b.kind == symbolType:
     return a == b
   elif a.kind == symbolTypeGenerics and b.kind == symbolTypeGenerics:
     if a.name != b.name: return false
@@ -118,8 +124,6 @@ proc spec*(a, b: Symbol): bool =
     return a.wrapped.spec(b)
   elif a.kind == symbolVar:
     return a.wrapped.spec(b)
-  elif b.kind == symbolMove:
-    return a.spec(b.wrapped)
   else:
     return false
 proc spec*(a: ProcName, b: ProcDecl): bool =

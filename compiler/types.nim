@@ -138,6 +138,7 @@ type
     name*: Name
     top*: Scope
     level*: int
+    nodestruct*: bool
     decls*: Table[Name, Symbol]
     procdecls*: Table[Name, ProcDeclGroup]
     importscopes*: OrderedTable[Name, Scope]

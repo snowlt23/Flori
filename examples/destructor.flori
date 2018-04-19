@@ -4,7 +4,7 @@ import "core/io"
 import "core/syntax"
 import "core/macros"
 
-type MyInt {
+type MyInt $[resource, nodestruct] {
   x Int
   y Int
 }

@@ -2,7 +2,7 @@
 import "core"
 import "examples/dynvec"
 
-type MyFile {}
+type MyFile $[resource, nodestruct] {}
 
 fn open_myfile() MyFile {
   init(MyFile){}

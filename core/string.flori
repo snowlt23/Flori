@@ -23,7 +23,7 @@ macro c(s FStrLit) FExpr $[syntax] {
   }
 }
 
-type String {
+type String $[nodestruct] {
   p Ptr[Char]
   len Int
 }

@@ -2,30 +2,25 @@
 import "core"
 import "examples/dynvec"
 
-type MyFile {}
+type MyData $[nodestruct] {}
 
-fn open_myfile() MyFile {
-  init(MyFile){}
+fn new_mydata() MyData {
+  init(MyData){}
 }
 
-fn borrowfile(mf MyFile) {
-  println("MyFile borrowed!")
-}
-
-destructor(mf MyFile) {
-  println("MyFile destroyed!")
+destructor(md MyData) {
+  println("MyData destroyed!")
 }
 
 #
 # main
 #
 
-fn dynvec_main() MyFile {
-  v := dynvec[MyFile]()
-  f := open_myfile()
+fn dynvec_main() MyData {
+  v := dynvec[MyData]()
+  f := new_mydata()
   push(v, f)
-  borrowfile(get(v, 0))
-  move(get(v, 0)) # v lifting into share type.
+  get(v, 0)
 }
 
 fn main() {

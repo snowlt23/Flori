@@ -174,9 +174,6 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, argtypes: s
     exscope.importScope(name("flori_current_scope"), scope.top)
   exscope.rootPass(expanded.defn.body)
   if expanded.defn.body.len != 0:
-    if not expanded.defn.body[^1].typ.spec(expanded.defn.ret.symbol) and exscope.isMovable(expanded.defn.body[^1].typ):
-      expanded.defn.body[^1] = expanded.defn.body[^1].span.quoteFExpr("move(`embed)", [expanded.defn.body[^1]])
-      exscope.rootPass(expanded.defn.body[^1])
     if not expanded.defn.body[^1].typ.spec(expanded.defn.ret.symbol):
       expanded.defn.body[^1].error("function expect $# return type, actually $#" % [$expanded.defn.ret.symbol, $expanded.defn.body[^1].typ])
   scope.ctx.globaltoplevels.add(expanded)

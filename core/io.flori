@@ -11,6 +11,9 @@ fn print(x Char) $[inline] {
 fn print(cs CString) $[inline] {
   printf("%s", cs)
 }
+fn print(x IntLit) $[inline] {
+  printf("%lld", x)
+}
 fn print(x Int) $[inline] {
   printf("%lld", x)
 }

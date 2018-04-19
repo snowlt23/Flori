@@ -67,6 +67,16 @@ template expandBy*(scope: Scope, span: Span, body: untyped) =
   finally:
     scope.expandEnd()
 
+proc isCopyable*(scope: Scope, typ: Symbol): bool =
+  scope.getFunc(procname(name("copy"), @[typ])).isSome
+proc isResource*(scope: Scope, typ: Symbol): bool =
+  if typ.fexpr.internalPragma.resource:
+    return true
+  if typ.fexpr.hasDefn:
+    for b in typ.fexpr.defn.body:
+      if scope.isResource(b[1].symbol):
+        return true
+  return false
 proc isDestructable*(scope: Scope, typ: Symbol): bool =
   scope.getFunc(procname(name("destruct"), @[typ])).isSome
 proc isMovable*(scope: Scope, typ: Symbol): bool =

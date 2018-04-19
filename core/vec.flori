@@ -4,19 +4,23 @@ import "core/pointer"
 import "core/io"
 import "core/syntax"
 import "core/macros"
-import "core/dynamics"
 
-type Vec[T] {
-  data Ptr[Dynamic[T]]
+type Vec[T] $[nodestruct] {
+  data Ptr[T]
+  isinit Ptr[Bool]
   cap Int
   len Int
 }
 
 fn vec[T](len Int, cap Int) Vec[T] $[importjs, patternjs "new Array($1)"] {
   v := init(Vec[T]) {
-    alloc[Dynamic[T]](cap)
+    alloc[T](cap)
+    alloc[Bool](cap)
     cap
     len
+  }
+  for i in range(0, cap-1) {
+    unref(v.isinit +! i*sizeof[Bool]()) = false
   }
   v
 }
@@ -44,21 +48,22 @@ macro v(t FArray, elems FList) FExpr $[syntax] {
 
 fn extend[T](v ref Vec[T]) {
   v.data = realloc(v.data, v.cap*2)
+  v.isinit = realloc(v.isinit, v.cap*2)
+  for i in range(v.cap, v.cap*2-1) {
+    unref(v.isinit +! i*sizeof[Bool]()) = false
+  }
   v.cap = v.cap*2
 }
 
-fn push[T](v ref Vec[T], value Dynamic[T]) $[importjs, patternjs "$1.push($2)"] {
+fn push[T](v ref Vec[T], value T) $[nodestruct, importjs, patternjs "$1.push($2)"] {
   if (v.cap < v.len+1) {
     extend(v)
   }
-  unref(v.data +! (v.len * sizeof[Dynamic[T]]())) = value
-  v.len += 1
-}
-fn push[T](v ref Vec[T], value move T) $[importjs, patternjs "$1.push($2)"] {
-  if (v.cap < v.len+1) {
-    extend(v)
+  if (unref(v.isinit +! (v.len * sizeof[Bool]()))) {
+    destruct(unref(v.data +! (v.len * sizeof[T]())))
   }
-  unref(v.data +! (v.len * sizeof[Dynamic[T]]())) = new_dynamic(value)
+  unref(v.data +! (v.len * sizeof[T]())) = value
+  unref(v.isinit +! (v.len * sizeof[Bool]())) = true
   v.len += 1
 }
 
@@ -66,19 +71,16 @@ fn length[T](v Vec[T]) Int $[importjs, patternjs "$1.length"] {
   v.len
 }
 
-fn get[T](v Vec[T], i Int) Dynamic[T] $[importjs, patternjs "$1[$2]"] {
-  unref(v.data +! (i * sizeof[Dynamic[T]]()))
+fn get[T](v Vec[T], i Int) T $[importjs, patternjs "$1[$2]"] {
+  unref(v.data +! (i * sizeof[T]()))
 }
 
-fn set[T](v ref Vec[T], i Int, value move T) {
-  when (is_share(T)) {
-    p := v.data +! (i * sizeof[Dynamic[T]]())
-    oldvalue := unref()
-    if (unref(p).owned) {
-      destruct(unref(p).data)
-    }
-    unref(p) = new_dynamic(value)
+fn set[T](v ref Vec[T], i Int, value T) {
+  if (unref(v.isinit +! (i * sizeof[Bool]()))) {
+    destruct(unref(v.data +! (i * sizeof[T]())))
   }
+  unref(v.isinit +! (i * sizeof[Bool]())) = true
+  unref(v.data +! (i * sizeof[T]())) = value
 }
 
 iterator items[T](v TExpr[Vec[T]]) {
@@ -92,8 +94,10 @@ iterator items[T](v TExpr[Vec[T]]) {
 }
 
 destructor[T](v Vec[T]) {
-  for e in v {
-    dyndestruct(e)
+  for i in range(0, length(v)-1) {
+    if (unref(v.isinit +! i*sizeof[Bool]())) {
+      destruct(get(v, i))
+    }
   }
   dealloc(v.data)
 }

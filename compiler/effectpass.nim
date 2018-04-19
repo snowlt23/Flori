@@ -3,6 +3,7 @@ import fexpr_core, marking
 import newpassmacro
 
 import tables
+import strutils, sequtils
 
 proc newMarkingEffect*(): MarkingEffect =
   new result
@@ -23,7 +24,15 @@ proc inferInternalEffect*(scope: Scope, fexpr: var FExpr) =
   of internalSet:
     scope.inferEffect(fexpr.setexpr.dst)
     scope.inferEffect(fexpr.setexpr.value)
-    fexpr.setexpr.value.markeffect.moved = true
+    # echo fexpr, ":", scope.isResource(fexpr.setexpr.value.typ)
+    if scope.isResource(fexpr.setexpr.value.typ):
+      fexpr.setexpr.value.markeffect.moved = true
+    fexpr.markeffect = newMarkingEffect()
+  of internalInit:
+    for e in fexpr[2].mitems:
+      scope.inferEffect(e)
+      if scope.isResource(e.typ):
+        e.markeffect.moved = true
     fexpr.markeffect = newMarkingEffect()
   of internalFieldAccess:
     scope.inferEffect(fexpr[1])
@@ -34,11 +43,21 @@ proc inferInternalEffect*(scope: Scope, fexpr: var FExpr) =
     fexpr.markeffect = newMarkingEffect()
 
 proc applyMarkingEffect*(scope: Scope, dst: MarkingEffect, src: MarkingEffect) =
-  dst.moved = src.moved
-  for key, value in src.fieldbody:
-    if not dst.fieldbody.hasKey(key):
-      dst.fieldbody[key] = newMarkingEffect()
-    scope.applyMarkingEffect(dst.fieldbody[key], value)
+  if src.moved:
+    dst.moved = true
+  # for key, value in src.fieldbody:
+  #   if not dst.fieldbody.hasKey(key):
+  #     dst.fieldbody[key] = newMarkingEffect()
+  #   scope.applyMarkingEffect(dst.fieldbody[key], value)
+
+proc inferFnEffect*(scope: Scope, fexpr: var FExpr) =
+  # if fexpr.hasInternalMark and fexpr.internalMark == internalDefn and not fexpr.internalPragma.inline:
+  for argdef in fexpr.defn.args:
+    argdef[0].symbol.fexpr.markeffect = newMarkingEffect()
+  scope.inferEffect(fexpr.defn.body)
+  fexpr.fneffect = FnEffect(argeffs: @[])
+  for argdef in fexpr.defn.args:
+    fexpr.fneffect.argeffs.add(argdef[0].symbol.fexpr.markeffect)
     
 proc inferEffect*(scope: Scope, fexpr: var FExpr) =
   if fexpr.hasInternalMark:
@@ -53,7 +72,7 @@ proc inferEffect*(scope: Scope, fexpr: var FExpr) =
   elif fexpr.kind == fexprBlock:
     for son in fexpr.mitems:
       scope.inferEffect(son)
-    if fexpr.len != 0:
+    if fexpr.len != 0 and fexpr[^1].hasMarkEffect:
       fexpr.markeffect = fexpr[^1].markeffect
     else:
       fexpr.markeffect = newMarkingEffect()
@@ -62,29 +81,44 @@ proc inferEffect*(scope: Scope, fexpr: var FExpr) =
       fexpr.markeffect = fexpr.symbol.fexpr.markeffect
     else:
       fexpr.markeffect = newMarkingEffect()
-  elif fexpr.isNormalFuncCall and fexpr[0].kind == fexprSymbol:
+  elif fexpr.isNormalFuncCall and fexpr[0].kind == fexprSymbol and not fexpr[0].symbol.fexpr.defn.isGenerics:
+    scope.inferFnEffect(fexpr[0].symbol.fexpr)
     scope.inferEffect(fexpr[1])
     for i, argeff in fexpr[0].symbol.fexpr.fneffect.argeffs:
       scope.applymarkingEffect(fexpr[1][i].markeffect, argeff)
     fexpr.markeffect = newMarkingEffect()
-  elif fexpr.isGenericsFuncCall and fexpr[0].kind == fexprSymbol:
+  elif fexpr.isGenericsFuncCall and fexpr[0].kind == fexprSymbol and not fexpr[0].symbol.fexpr.defn.isGenerics:
+    scope.inferFnEffect(fexpr[0].symbol.fexpr)
     scope.inferEffect(fexpr[2])
     for i, argeff in fexpr[0].symbol.fexpr.fneffect.argeffs:
       scope.applymarkingEffect(fexpr[2][i].markeffect, argeff)
-  # elif fexpr.isInfixFuncCall:
-  #   discard # TODO:
+    fexpr.markeffect = newMarkingEffect()
+  elif fexpr.isInfixFuncCall and fexpr[0].kind == fexprSymbol and not fexpr[0].symbol.fexpr.defn.isGenerics:
+    scope.inferFnEffect(fexpr[0].symbol.fexpr)
+    scope.inferEffect(fexpr[1])
+    scope.inferEffect(fexpr[2])
+    scope.applyMarkingEffect(fexpr[1].markeffect, fexpr[0].symbol.fexpr.fneffect.argeffs[0])
+    scope.applyMarkingEffect(fexpr[2].markeffect, fexpr[0].symbol.fexpr.fneffect.argeffs[1])
     fexpr.markeffect = newMarkingEffect()
   else:
     fexpr.markeffect = newMarkingEffect()
 
+proc inferEffectPass*(scope: Scope, fexpr: var FExpr): bool =
+  scope.inferEffect(fexpr)
+  return true
+
 proc inferFnEffectPass*(scope: Scope, fexpr: var FExpr): bool =
-  if fexpr.hasInternalMark and fexpr.internalMark == internalDefn and not fexpr.internalPragma.inline:
-    for argdef in fexpr.defn.args:
-      argdef[0].symbol.fexpr.markeffect = newMarkingEffect()
-    scope.inferEffect(fexpr.defn.body)
-    fexpr.fneffect = FnEffect(argeffs: @[])
-    for argdef in fexpr.defn.args:
-      fexpr.fneffect.argeffs.add(argdef[0].symbol.fexpr.markeffect)
+  thruInternal(fexpr)
+  if fexpr.isFuncCall:
+    if fexpr[0].kind != fexprSymbol:
+      return true
+    if not fexpr[0].symbol.fexpr.hasFnEffect:
+      for argdef in fexpr[0].symbol.fexpr.defn.args:
+        argdef[0].symbol.fexpr.markeffect = newMarkingEffect()
+      scope.inferEffect(fexpr[0].symbol.fexpr.defn.body)
+      fexpr[0].symbol.fexpr.fneffect = FnEffect(argeffs: @[])
+      for argdef in fexpr[0].symbol.fexpr.defn.args:
+        fexpr[0].symbol.fexpr.fneffect.argeffs.add(argdef[0].symbol.fexpr.markeffect)
   return true
 
 proc applyEffect*(scope: Scope, marking: Marking, markeff: MarkingEffect): bool =
@@ -100,38 +134,14 @@ proc applyEffect*(scope: Scope, marking: Marking, markeff: MarkingEffect): bool 
 proc earlySetDestruct*(scope: Scope, fexpr: var FExpr): bool =
   if fexpr.hasInternalMark and fexpr.internalMark == internalSet:
     var body = fblock(fexpr.span)
-    if scope.isDestructable(fexpr.setexpr.dst.typ):
+    if scope.isDestructable(fexpr.setexpr.dst.typ) and not scope.nodestruct:
       var destcall = fexpr.span.quoteFExpr("destruct(`embed)", [fexpr.setexpr.dst])
       scope.rootPass(destcall)
       body.addSon(destcall)
       body.addSon(fexpr)
-        
-    if fexpr.setexpr.dst.hasMarking and fexpr.setexpr.value.hasMarking:
-      fexpr.setexpr.dst.marking.moveFrom(fexpr.setexpr.value.marking)
-    else:
-      fexpr.setexpr.dst.marking = newMarking(scope, fexpr.setexpr.dst.typ)
 
     if body.len != 0:
       fexpr = body
       scope.rootPass(fexpr)
         
-  return true
-
-proc applyEffectPass*(scope: Scope, fexpr: var FExpr): bool =
-  thruInternal(fexpr)
-  if fexpr.isInfixFuncCall:
-    discard
-  elif fexpr.isFuncCall:
-    if not fexpr[0].symbol.fexpr.hasDefn:
-      return true
-    let args = if fexpr.isNormalFuncCall:
-                 fexpr[1]
-               else:
-                 fexpr[2]
-    if fexpr[0].symbol.fexpr.hasFnEffect:
-      for i, argeff in fexpr[0].symbol.fexpr.fneffect.argeffs:
-        if args[i].hasMarking:
-          if not scope.applyEffect(args[i].marking, argeff):
-            args[i].error("couldn't move value.")
-      
   return true

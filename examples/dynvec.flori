@@ -2,17 +2,22 @@
 import "core"
 import "core/pointer"
 
-type DynVec[T] {
-  data Ptr[Dynamic[T]]
+type DynVec[T] $[nodestruct] {
+  data Ptr[T]
+  isinit Ptr[Bool]
   cap Int
   len Int
 }
 
 fn dynvec[T](len Int, cap Int) DynVec[T] {
   v := init(DynVec[T]) {
-    alloc[Dynamic[T]](cap)
+    alloc[T](cap)
+    alloc[Bool](cap)
     cap
     len
+  }
+  for i in range(0, cap-1) {
+    unref(v.isinit +! i*sizeof[Bool]()) = false
   }
   v
 }
@@ -25,22 +30,22 @@ fn dynvec[T]() DynVec[T] {
 
 fn extend[T](v ref DynVec[T]) {
   v.data = realloc(v.data, v.cap*2)
+  v.isinit = realloc(v.isinit, v.cap*2)
+  for i in range(v.cap, v.cap*2-1) {
+    unref(v.isinit +! i*sizeof[Bool]()) = false
+  }
   v.cap = v.cap*2
 }
 
-fn push[T](v ref DynVec[T], value Dynamic[T]) {
+fn push[T](v ref DynVec[T], value T) $[nodestruct] {
   if (v.cap < v.len+1) {
     extend(v)
   }
-  unref(v.data +! ((v.len) * sizeof[Dynamic[T]]())) = value
-  v.len += 1
-}
-
-fn push[T](v ref DynVec[T], value move T) {
-  if (v.cap < v.len+1) {
-    extend(v)
+  if (unref(v.isinit +! (v.len * sizeof[Bool]()))) {
+    destruct(unref(v.data +! (v.len * sizeof[T]())))
   }
-  unref(v.data +! ((v.len) * sizeof[Dynamic[T]]())) = new_dynamic(value)
+  unref(v.data +! (v.len * sizeof[T]())) = value
+  unref(v.isinit +! (v.len * sizeof[Bool]())) = true
   v.len += 1
 }
 
@@ -48,8 +53,8 @@ fn length[T](v DynVec[T]) Int {
   v.len
 }
 
-fn get[T](v DynVec[T], i Int) Dynamic[T] {
-  unref(v.data +! (i * sizeof[Dynamic[T]]()))
+fn get[T](v DynVec[T], i Int) T {
+  unref(v.data +! (i * sizeof[T]()))
 }
 
 iterator items[T](v TExpr[DynVec[T]]) {
@@ -63,8 +68,10 @@ iterator items[T](v TExpr[DynVec[T]]) {
 }
 
 destructor[T](v DynVec[T]) {
-  for e in v {
-    dyndestruct(e)
+  for i in range(0, length(v)-1) {
+    if (unref(v.isinit +! i*sizeof[Bool]())) {
+      destruct(get(v, i))
+    }
   }
   dealloc(v.data)
   println("DynVec destroyed!")

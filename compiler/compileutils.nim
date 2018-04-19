@@ -1,6 +1,6 @@
 
-import parser, types, fexpr, scope
-import ccodegen
+import parser, types, fexpr, scope, metadata
+import ccodegen, effectpass
 import macroffi
 
 import os
