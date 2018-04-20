@@ -52,8 +52,6 @@ proc expandDestructor*(scope: Scope, fexpr: var FExpr) =
     for son in fexpr.mitems:
       scope.expandDestructor(son)
   elif fexpr.isFuncCall and fexpr[0].kind == fexprSymbol and not fexpr[0].symbol.fexpr.isExpanded:
-    if fexpr.kind != fexprSymbol or not fexpr[0].symbol.fexpr.hasDefn:
-      return
     if not fexpr[0].symbol.fexpr.internalPragma.nodestruct and fexpr[0].symbol.fexpr.defn.body.len != 0 and fexpr[0].symbol.fexpr.defn.body[^1].hasTyp:
       fexpr[0].symbol.fexpr.isExpanded = true
       scope.expandDestructor(fexpr[0].symbol.fexpr.defn.body)
