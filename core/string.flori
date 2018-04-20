@@ -5,6 +5,7 @@ import "core/io"
 import "core/syntax"
 import "core/math"
 import "core/macros"
+import "core/vec"
 
 fn get(cs CString, i Int) Char $[importjs, patternjs "$1[$2]"] {
   unref(cast[Ptr[Char]](cs) +! i)
@@ -45,6 +46,10 @@ fn string(len Int) String $[importjs, patternjs "'\0'.repeat($1)"] {
   s
 }
 
+fn copy(s String) String {
+  string(cast[CString](s.p))
+}
+
 fn get(s String, i Int) Char $[importjs, patternjs "$1[$2]"] {
   unref(s.p +! i)
 }
@@ -55,7 +60,7 @@ macro s(s FStrLit) FExpr $[syntax] {
   }
 }
 
-fn to_cs(s String) CString $[importjs, patternjs "$1"] {
+fn to_cs(s String) CString $[converter, importjs, patternjs "$1"] {
   cast[CString](s.p)
 }
 
@@ -134,4 +139,19 @@ fn replace(s CString, dst Char, src CString) String {
     }
   }
   newstr
+}
+
+fn split(s String, c Char) Vec[String] {
+  ret := vec[String]()
+  news := s""
+  for i in range(0, length(s)-1) {
+    if (get(s, i) == c) {
+      push(ret, news)
+      news = s""
+    } else {
+      push(news, get(s, i))
+    }
+  }
+  push(ret, news)
+  ret
 }

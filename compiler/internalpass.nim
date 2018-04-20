@@ -673,6 +673,8 @@ proc semFieldAccess*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fieldname.kind != fexprIdent:
     fieldname.error("field name should be FIdent.")
   scope.rootPass(fexpr[1])
+  if not fexpr[1].hasTyp:
+    fexpr[1].error("value hasn't type.")
   let fieldopt = fexpr[1].typ.fexpr.getFieldType($fieldname)
   if fieldopt.isNone:
     fieldname.error("$# hasn't $# field." % [$fexpr[1].typ, $fieldname])

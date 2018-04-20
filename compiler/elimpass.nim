@@ -29,7 +29,26 @@ proc elimToplevelPass*(scope: Scope, fexpr: var FExpr): bool =
     return true
 
 proc elimMarkingPass*(scope: Scope, fexpr: var FExpr): bool =
-  if fexpr.isFuncCall:
+  if fexpr.hasInternalMark and fexpr.internalMark == internalWhile:
+    scope.elimRoot(fexpr[1])
+    scope.elimRoot(fexpr[2])
+  elif fexpr.hasInternalMark and fexpr.internalMark == internalIf:
+    for b in fexpr.internalIfexpr.elifbranch.mitems:
+      scope.elimRoot(b.cond)
+      scope.elimRoot(b.body)
+      scope.elimRoot(fexpr.internalIfexpr.elsebranch)
+  elif fexpr.hasInternalMark and fexpr.internalMark == internalDef:
+    scope.elimRoot(fexpr[2])
+  elif fexpr.hasInternalMark and fexpr.internalMark == internalSet:
+    scope.elimRoot(fexpr[1])
+    scope.elimRoot(fexpr[2])
+  elif fexpr.hasInternalMark and fexpr.internalMark == internalFieldAccess:
+    scope.elimRoot(fexpr[1])
+  elif fexpr.hasInternalMark and fexpr.internalMark == internalInit:
+    scope.elimRoot(fexpr[2])
+  elif fexpr.hasInternalMark and fexpr.internalMark == internalBlock:
+    scope.elimRoot(fexpr[1])
+  elif fexpr.isFuncCall:
     if fexpr[0].kind == fexprSymbol and fexpr[0].hasTyp and fexpr[0].typ.kind == symbolFuncType:
       discard
     elif fexpr[0].kind == fexprSymbol and not fexpr[0].symbol.fexpr.internalPragma.compiletime:

@@ -12,6 +12,12 @@ fn sleep(msec Int) {
   }
 }
 
+fn get_commandline() String {
+  when (is_windows) {
+    string(win_getcommandline())
+  }
+}
+
 fn rand() Int  $[importc "rand", header "stdlib.h"]
 
 fn get_rand_max() Int $[importc, header "stdlib.h", patternc "RAND_MAX"]
