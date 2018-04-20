@@ -11,6 +11,11 @@ fn sleep(msec Int) {
     win_sleep(msec)
   }
 }
+fn get_commandline() String {
+  when (is_windows) {
+    string(win_getcommandline())
+  }
+}
 
 fn rand() Int  $[importc "rand", header "stdlib.h"]
 

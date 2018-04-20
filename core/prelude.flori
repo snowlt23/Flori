@@ -101,8 +101,7 @@ true := true_fn()
 false := false_fn()
 fn not(b Bool) Bool $[importc "!", importjs "!"]
 
-# fn returnset[T](dst ref T, src T) $[importc, header nodeclc, patternc "*($1) = $2"]
-# fn get_inline_ref[T](x ref T) ref T $[importc, header nodeclc, patternc "(&$1)"]
+fn break() $[importc, patternc "break"]
 
 # string.h
 fn strcmp(a CString, b CString) Int $[importc "strcmp", header "string.h", importjs "===", patternjs infixjs]
