@@ -27,6 +27,8 @@ proc inferInternalEffect*(scope: Scope, fexpr: var FExpr) =
     scope.inferEffect(fexpr.setexpr.dst)
     scope.inferEffect(fexpr.setexpr.value)
     if scope.isResource(fexpr.setexpr.value.typ) or fexpr.setexpr.value.markeffect.canMove:
+      if fexpr.setexpr.value.markeffect.moved:
+        fexpr.setexpr.value.error("value has been moved.")
       fexpr.setexpr.value.markeffect.moved = true
     fexpr.markeffect = newMarkingEffect()
   of internalInit:
@@ -43,9 +45,11 @@ proc inferInternalEffect*(scope: Scope, fexpr: var FExpr) =
   else:
     fexpr.markeffect = newMarkingEffect()
 
-proc applyMarkingEffect*(scope: Scope, dst: MarkingEffect, src: MarkingEffect) =
+proc applyMarkingEffect*(scope: Scope, value: FExpr, src: MarkingEffect) =
   if src.moved:
-    dst.moved = true
+    if value.markeffect.moved:
+      value.error("value has been moved.")
+    value.markeffect.moved = true
   # for key, value in src.fieldbody:
   #   if not dst.fieldbody.hasKey(key):
   #     dst.fieldbody[key] = newMarkingEffect()
@@ -89,21 +93,25 @@ proc inferEffect*(scope: Scope, fexpr: var FExpr) =
   elif fexpr.isNormalFuncCall and fexpr[0].kind == fexprSymbol and not fexpr[0].symbol.fexpr.defn.isGenerics:
     scope.inferFnEffect(fexpr[0].symbol.fexpr)
     scope.inferEffect(fexpr[1])
+    if fexpr[0].symbol.fexpr.fneffect.argeffs.len != fexpr[1].len:
+      fexpr.error("illegal effect inference, not matching argument length.")
     for i, argeff in fexpr[0].symbol.fexpr.fneffect.argeffs:
-      scope.applymarkingEffect(fexpr[1][i].markeffect, argeff)
+      scope.applymarkingEffect(fexpr[1][i], argeff)
     fexpr.markeffect = newMarkingEffect()
   elif fexpr.isGenericsFuncCall and fexpr[0].kind == fexprSymbol and not fexpr[0].symbol.fexpr.defn.isGenerics:
     scope.inferFnEffect(fexpr[0].symbol.fexpr)
     scope.inferEffect(fexpr[2])
+    if fexpr[0].symbol.fexpr.fneffect.argeffs.len != fexpr[2].len:
+      fexpr.error("illegal effect inference, not matching argument length.")
     for i, argeff in fexpr[0].symbol.fexpr.fneffect.argeffs:
-      scope.applymarkingEffect(fexpr[2][i].markeffect, argeff)
+      scope.applymarkingEffect(fexpr[2][i], argeff)
     fexpr.markeffect = newMarkingEffect()
   elif fexpr.isInfixFuncCall and fexpr[0].kind == fexprSymbol and not fexpr[0].symbol.fexpr.defn.isGenerics:
     scope.inferFnEffect(fexpr[0].symbol.fexpr)
     scope.inferEffect(fexpr[1])
     scope.inferEffect(fexpr[2])
-    scope.applyMarkingEffect(fexpr[1].markeffect, fexpr[0].symbol.fexpr.fneffect.argeffs[0])
-    scope.applyMarkingEffect(fexpr[2].markeffect, fexpr[0].symbol.fexpr.fneffect.argeffs[1])
+    scope.applyMarkingEffect(fexpr[1], fexpr[0].symbol.fexpr.fneffect.argeffs[0])
+    scope.applyMarkingEffect(fexpr[2], fexpr[0].symbol.fexpr.fneffect.argeffs[1])
     fexpr.markeffect = newMarkingEffect()
   else:
     fexpr.markeffect = newMarkingEffect()
