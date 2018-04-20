@@ -1,30 +1,8 @@
 
-import "core"
+import "core/prelude"
 import "core/pointer"
 
-fn FILE_ATTRIBUTE_DIRECTORY() Int $[importc, patternc "FILE_ATTRIBUTE_DIRECTORY"]
-FILE_ATTRIBUTE_DIRECTORY := FILE_ATTRIBUTE_DIRECTORY()
-
-fn INVALID_HANDLE_VALUE() Pointer $[importc, patternc "INVALID_HANDLE_VALUE"]
-INVALID_HANDLE_VALUE := INVALID_HANDLE_VALUE()
-
-type Win32FindData $[importc "WIN32_FIND_DATA", header "windows.h"] {
-  dwFileAttributes Int
-  cFileName CString
-}
-
 fn win_copyfile(filename CString, newfilename CString, failif Bool) Bool $[importc "CopyFileA", header "windows.h"]
-fn win_deletefile(filename CString) Bool $[importc "DeleteFile", header "windows.h"]
-fn win_createdir(dirname CString, secattr Pointer) Bool $[importc "CreateDirectory", header "windows.h"]
-fn win_findfirstfile(dirname CString, pdata Ptr[Win32FindData]) Pointer $[importc "FindFirstFile", header "windows.h"]
-fn win_findnextfile(handle Pointer, pdata Ptr[Win32FindData]) Bool $[importc "FindNextFile", header "windows.h"]
-fn win_findclose(handle Pointer) $[importc "FindClose", header "windows.h"]
-
-fn win_isdir(data Win32FindData) Bool {
-  and(data.dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY
-}
-
-fn win_getcommandline() CString $[importc "GetCommandLine", header "windows.h"]
 fn win_sleep(msec Int) $[importc "Sleep", header "windows.h"]
 fn load_librarya(name CString) Pointer $[importc "LoadLibraryA", header "windows.h"]
 fn get_proc_address(mod Pointer, name CString) Pointer $[importc "GetProcAddress", header "windows.h"]

@@ -515,7 +515,7 @@ proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
       src &= ", "
       ctx.codegenFExpr(src, fexpr[2])
       src &= ")"
-    elif fexpr[0].kind != fexprSymbol and fexpr[0].hasTyp and fexpr[0].typ.kind == symbolFuncType:
+    elif fexpr[0].hasTyp and fexpr[0].typ.kind == symbolFuncType:
       src &= "(("
       src &= codegenVarfnSymbol(fexpr[0].symbol)
       src &= ")("
