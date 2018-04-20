@@ -129,6 +129,7 @@ type
     internalDefn
     internalMacro
     internalDeftype
+    internalTypedef
     internalIf
     internalWhile
     internalVar

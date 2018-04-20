@@ -513,6 +513,14 @@ proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
       generateDestructFn(rootPass, scope, fexpr)
     sym.fexpr.isCStruct = true
 
+proc semTypedef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  var pos = 2
+  let parsed = parseTypeExpr(fexpr, pos)
+  let typesym = scope.semType(parsed)
+  if not scope.addDecl(name(fexpr[1]), typesym):
+    fexpr.error("redefinition $# type." % $fexpr[1])
+  fexpr.internalMark = internalTypedef
+
 proc semIf*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   var parsed = parseIf(fexpr)
   var branchtypes = newSeq[Symbol]()
@@ -841,6 +849,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("syntax"), semSyntax)
   scope.addInternalEval(name("macro"), semMacro)
   scope.addInternalEval(name("type"), semDeftype)
+  scope.addInternalEval(name("typedef"), semTypedef)
   scope.addInternalEval(name("if"), semIf)
   scope.addInternalEval(name("while"), semWhile)
   scope.addInternalEval(name("var"), semVar)

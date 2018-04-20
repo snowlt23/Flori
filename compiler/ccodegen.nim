@@ -356,6 +356,8 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
   of internalDeftype:
     if topcodegen:
       ctx.codegenDeftype(src, fexpr)
+  of internalTypedef:
+    discard
   of internalIf:
     if not topcodegen:
       ctx.codegenIf(src, fexpr)

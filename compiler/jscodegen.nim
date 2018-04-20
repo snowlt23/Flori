@@ -359,6 +359,8 @@ proc codegenInternal*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr, top
   of internalDeftype:
     if topcodegen:
       ctx.codegenDeftype(src, fexpr)
+  of internalTypedef:
+    discard
   of internalIf:
     if not topcodegen:
       ctx.codegenIf(src, fexpr)
