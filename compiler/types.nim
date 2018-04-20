@@ -76,6 +76,7 @@ type
 
   MarkingEffect* = ref object
     moved*: bool
+    canMove*: bool
     fieldbody*: Table[Name, MarkingEffect]
   FnEffect* = ref object
     argeffs*: seq[MarkingEffect]

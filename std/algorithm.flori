@@ -2,8 +2,6 @@
 import "core"
 import "core/pointer"
 
-fn break() $[importc, patternc "break", importjs, patternjs "break"]
-
 fn med3[T](cmp Fn[T, T] Bool, x T, y T, z T) T {
   if (cmp(x, y)) {
     if (cmp(y, z)) {

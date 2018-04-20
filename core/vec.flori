@@ -31,6 +31,14 @@ fn vec[T]() Vec[T] {
   vec[T](0, 8)
 }
 
+fn copy[T](v Vec[T]) Vec[T] {
+  ret := vec[T](v.len, v.cap)
+  for i in range(0, length(v)-1) {
+    set(ret, i, get(v, i))
+  }
+  ret
+}
+
 macro v(t FArray, elems FList) FExpr $[syntax] {
   ret := new_fblock()
   tmp := gensym()

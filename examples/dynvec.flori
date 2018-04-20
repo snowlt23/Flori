@@ -28,6 +28,14 @@ fn dynvec[T]() DynVec[T] {
   dynvec[T](0, 8)
 }
 
+fn copy[T](v DynVec[T]) DynVec[T] {
+  ret := dynvec[T](v.len, v.cap)
+  for i in range(0, length(v)-1) {
+    set(ret, i, get(v, i))
+  }
+  ret
+}
+
 fn extend[T](v ref DynVec[T]) {
   v.data = realloc(v.data, v.cap*2)
   v.isinit = realloc(v.isinit, v.cap*2)

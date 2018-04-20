@@ -16,6 +16,8 @@ proc inferInternalEffect*(scope: Scope, fexpr: var FExpr) =
   case fexpr.internalMark
   of internalDef:
     scope.inferEffect(fexpr.defexpr.value)
+    if scope.isResource(fexpr.defexpr.value.typ) or fexpr.defexpr.value.markeffect.canMove:
+      fexpr.defexpr.value.markeffect.moved = true
     fexpr.defexpr.name.symbol.fexpr.markeffect = newMarkingEffect()
     fexpr.markeffect = newMarkingEffect()
   of internalVar:
@@ -24,8 +26,7 @@ proc inferInternalEffect*(scope: Scope, fexpr: var FExpr) =
   of internalSet:
     scope.inferEffect(fexpr.setexpr.dst)
     scope.inferEffect(fexpr.setexpr.value)
-    # echo fexpr, ":", scope.isResource(fexpr.setexpr.value.typ)
-    if scope.isResource(fexpr.setexpr.value.typ):
+    if scope.isResource(fexpr.setexpr.value.typ) or fexpr.setexpr.value.markeffect.canMove:
       fexpr.setexpr.value.markeffect.moved = true
     fexpr.markeffect = newMarkingEffect()
   of internalInit:
@@ -74,6 +75,10 @@ proc inferEffect*(scope: Scope, fexpr: var FExpr) =
       scope.inferEffect(son)
     if fexpr.len != 0 and fexpr[^1].hasMarkEffect:
       fexpr.markeffect = fexpr[^1].markeffect
+      if fexpr[^1].markeffect.canMove or fexpr[^1].kind == fexprSymbol:
+        fexpr.markeffect.canMove = true
+      else:
+        fexpr.markeffect = fexpr[^1].markeffect
     else:
       fexpr.markeffect = newMarkingEffect()
   elif fexpr.kind == fexprSymbol:
@@ -112,7 +117,7 @@ proc inferFnEffectPass*(scope: Scope, fexpr: var FExpr): bool =
   if fexpr.isFuncCall:
     if fexpr[0].kind != fexprSymbol:
       return true
-    if not fexpr[0].symbol.fexpr.hasFnEffect:
+    if not fexpr[0].symbol.fexpr.hasFnEffect and fexpr[0].symbol.fexpr.hasDefn:
       for argdef in fexpr[0].symbol.fexpr.defn.args:
         argdef[0].symbol.fexpr.markeffect = newMarkingEffect()
       scope.inferEffect(fexpr[0].symbol.fexpr.defn.body)
