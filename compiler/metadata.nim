@@ -95,7 +95,7 @@ defParsedType Defn:
   name
   generics
   args
-  isretref = bool
+  retprefix
   ret
   retgenerics
   pragma
@@ -140,7 +140,8 @@ type
     internalInit
     internalImport
     internalExport
-    internalCEmit
+    internalCodegenDecl
+    internalCodegenHead
     internalBlock
   InternalPragma* = object
     # c codegen
@@ -149,31 +150,42 @@ type
     exportc*: Option[string]
     patternc*: Option[string]
     declc*: Option[string]
+    infixc*: bool
     # js codegen
     importjs*: Option[string]
     exportjs*: Option[string]
     patternjs*: Option[string]
-    # general
-    infixc*: bool
     infixjs*: bool
+    # general
     internal*: bool
     isSyntax*: bool
     inline*: bool
+    nodestruct*: bool
+    compiletime*: bool
+    resource*: bool
 
 type
   IfExpr* = object
     elifbranch*: seq[tuple[cond: FExpr, body: FExpr]]
     elsebranch*: FExpr
 
+type Converters* = object
+  converters*: seq[FExpr]
+
 defMetadata(typ, Symbol)
-defMetadata(ctrc, CTRC)
-defMetadata(effect, Effect)
+defMetadata(marking, Marking)
 defMetadata(constvalue, FExpr)
+defMetadata(fneffect, FnEffect)
+defMetadata(markeffect, MarkingEffect)
+defMetadata(converters, Converters)
 
 defBoolMetadata(isEvaluated)
 defBoolMetadata(isToplevel)
 defBoolMetadata(isGenerated)
 defBoolMetadata(isCStruct)
+defBoolMetadata(isExpanded)
+defBoolMetadata(isElimEvaluated)
+defBoolMetadata(isEliminated)
 
 defMetadata(internalExpand, FExpr)
 
@@ -184,6 +196,7 @@ defMetadata(internalPragma, InternalPragma)
 
 defMetadata(internalIfExpr, IfExpr)
 defMetadata(parent, FExpr)
+defMetadata(globalindex, int)
 
 proc copy*(fexpr: FExpr): FExpr
 

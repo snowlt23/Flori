@@ -5,14 +5,8 @@ import unittest
 import strutils
 import terminal
 
-proc exe*(s: string): string =
-  when defined(windows):
-    s & ".exe"
-  else:
-    s
-
 proc checkio*(filename: string, expectoutput: string) =
-  let cout = execProcess("compiler/flori c --cc=tcc -otests/bin/$# $#" % [filename.splitFile().name.exe, filename])
+  let cout = execProcess("compiler/flori c -otests/bin/$# $#" % [filename.splitFile().name, filename])
   if cout != "":
     echo cout
   let name = splitFile(filename).name
@@ -42,8 +36,6 @@ suite "example":
     checkio "examples/destructor.flori", "MyInt(1, 2) destroyed!\n3\n4\nMyInt(3, 4) destroyed!\n"
   test "string":
     checkio "examples/string.flori", "Hello Yukari! and Maki!\nHello Yukari! and Maki! and Akari!\n9\n9\n"
-  test "vec eff":
-    checkio "examples/vec_eff.flori", "start!\nend!\nVec destroyed!\nFile destroyed!\n"
   test "array":
     checkio "examples/array.flori", ""
   test "const":
@@ -53,4 +45,14 @@ suite "example":
   test "float literal":
     checkio "examples/floatlit.flori", "2.000000\n"
   test "field track":
-    checkio "examples/field_track.flori", "start!\nMyFieldType(1, 2) destroyed!\nend!\nMyFieldType(5, 6) destroyed!\nMyType destroyed!\nMyFieldType(3, 4) destroyed!\n"
+    checkio "examples/field_track.flori", "start!\nMyFieldType(1, 2) destroyed!\nend!\nMyFieldType(5, 6) destroyed!\nMyFieldType(3, 4) destroyed!\nMyType destroyed!\n"
+  test "ref check":
+    checkio "examples/ref_check.flori", "start!\nMyFieldType(1, 2) destroyed!\nend!\nMyFieldType(5, 6) destroyed!\nMyFieldType(3, 4) destroyed!\nMyType destroyed!\n"
+  test "template expand":
+    checkio "examples/template.flori", "9\n"
+  test "dynamic type: unique":
+    checkio "examples/dynunique.flori", "start!\nend!\nMyFile destroyed!\nDynVec destroyed!\n"
+  test "dynamic type: share":
+    checkio "examples/dynshare.flori", "start!\nMyData destroyed!\nMyData destroyed!\nDynVec destroyed!\nend!\nMyData destroyed!\n"
+  test "vec example":
+    checkio "examples/vec_example.flori", "vec[MyInt:1, MyInt:2, MyInt:3]\nd:MyInt:1\nd:MyInt:2\nd:MyInt:3\n"

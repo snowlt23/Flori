@@ -1,0 +1,9 @@
+
+type Region $[nodestruct] {
+  
+  next Ptr[Region]
+}
+
+fn new_region() {
+  
+}

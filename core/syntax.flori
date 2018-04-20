@@ -62,7 +62,9 @@ syntax iterator(fexpr FExpr) FExpr {
   }
 }
 
-iterator range(start TExpr[Int], end TExpr[Int]) {
+# FIXME: converter for macro
+# iterator range(start TExpr[Int], end TExpr[Int]) {
+iterator range(start FExpr, end FExpr) {
   quote {
     block {
       `element := `start
@@ -103,7 +105,7 @@ syntax destructor(fexpr FExpr) FExpr {
     body := get(fexpr, 2)
     
     quote {
-      fn destruct `args `body
+      fn destruct `args $[nodestruct] `body
     }
   } else {
     generics := get(fexpr, 1)
@@ -111,7 +113,7 @@ syntax destructor(fexpr FExpr) FExpr {
     body := get(fexpr, 3)
     
     quote {
-      fn destruct `generics `args `body
+      fn destruct `generics `args $[nodestruct] `body
     }
   }
 }
@@ -165,6 +167,17 @@ iterator items(fexpr TExpr[FBlock]) {
       `element := get(`fexpr, `tmp)
       `yield
     }
+  }
+}
+
+# FIXME: converter for macro
+macro const_eval(x TExpr[IntLit]) FExpr {
+  tmp := gensym()
+  quote {
+    syntax `tmp(fexpr FExpr) FExpr {
+      new_fintlit(`x)
+    }
+    `tmp()
   }
 }
 

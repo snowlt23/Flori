@@ -69,7 +69,7 @@ proc matchMacro*(rootPass: PassProcType, scope: Scope, curscope: Scope, n: FExpr
 
 proc isFExprName*(name: Name): bool =
   case $name
-  of "FSeq", "FArray", "FList", "FBlock", "FStrLit", "FIntLit", "FIdent", "FSymbol":
+  of "FExpr", "FSeq", "FArray", "FList", "FBlock", "FStrLit", "FIntLit", "FIdent", "FSymbol":
     true
   else:
     false

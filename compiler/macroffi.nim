@@ -1,8 +1,8 @@
 
-import types, fexpr, parser, metadata, scope
+import types, fexpr, parser, metadata, scope, marking
 import passutils
 
-import strutils
+import strutils, sequtils
 import options
 import tables
 
@@ -52,7 +52,11 @@ proc ffiToCS*(fexpr: FExpr): cstring {.cdecl.} =
 proc ffiStrval*(fexpr: FExpr): cstring {.cdecl.} =
   cstring($fexpr.strval)
 proc ffiGensym*(): FExpr {.cdecl.} =
-  return fident(internalSpan, gCtx.genTmpName())
-
-proc ffiDebugCTRC*(fexpr: FExpr) =
-  echo "debug_ctrc is deprecated"
+  return fident(ffiSpan(), gCtx.genTmpName())
+  
+proc ffiDebugMarking*(fexpr: FExpr) =
+  if fexpr.hasMarking:
+    stdout.write($fexpr, ":")
+    echo debugMarking(fexpr.marking, 0)
+  else:
+    echo fexpr, ":hasntMarking"

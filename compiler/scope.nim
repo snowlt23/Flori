@@ -3,16 +3,7 @@ import tables
 import options
 import strutils
 
-import types
-export types.SymbolKind
-export types.Symbol
-export types.Name
-export types.ProcDecl
-export types.ProcName
-export types.ProcDeclGroup
-export types.Scope
-
-import fexpr
+import types, fexpr
 
 proc newScope*(ctx: SemanticContext, name: Name, path: string): Scope =
   new result
@@ -21,6 +12,7 @@ proc newScope*(ctx: SemanticContext, name: Name, path: string): Scope =
   result.name = name
   result.top = result
   result.level = 0
+  result.nodestruct = false
   result.decls = initTable[Name, Symbol]()
   result.procdecls = initTable[Name, ProcDeclGroup]()
   result.importscopes = initOrderedTable[Name, Scope]()
@@ -36,6 +28,7 @@ proc extendScope*(scope: Scope): Scope =
   result.name = scope.name
   result.top = scope.top
   result.level = scope.level + 1
+  result.nodestruct = scope.nodestruct
   result.decls = scope.decls
   result.procdecls = scope.procdecls
   result.importscopes = scope.importscopes
@@ -45,7 +38,11 @@ proc extendScope*(scope: Scope): Scope =
   result.scopedepends = @[]
 
 proc match*(a, b: Symbol): bool =
-  if b.kind == symbolGenerics:
+  if b.kind == symbolMove:
+    return a.match(b.wrapped)
+  elif a.kind == symbolMove:
+    return a.wrapped.match(b)
+  elif b.kind == symbolGenerics:
     return true
   elif a.kind == symbolTypeGenerics and b.kind == symbolTypeGenerics:
     if a.name != b.name: return false
@@ -65,9 +62,7 @@ proc match*(a, b: Symbol): bool =
     return a.wrapped.match(b.wrapped)
   elif a.kind == symbolVar and b.kind == symbolRef:
     return a.wrapped.match(b.wrapped)
-  elif a.kind == symbolOnce and b.kind == symbolOnce:
-    return a.wrapped.match(b.wrapped)
-  elif b.kind == symbolOnce:
+  elif b.kind == symbolVar:
     return a.match(b.wrapped)
   elif a.kind == symbolRef:
     return a.wrapped.match(b)
@@ -89,7 +84,11 @@ proc match*(a: ProcName, b: ProcDecl): bool =
   return true
 
 proc spec*(a, b: Symbol): bool =
-  if a.kind == symbolType and b.kind == symbolType:
+  if b.kind == symbolMove:
+    return a.spec(b.wrapped)
+  elif a.kind == symbolMove:
+    return a.wrapped.spec(b)
+  elif a.kind == symbolType and b.kind == symbolType:
     return a == b
   elif a.kind == symbolTypeGenerics and b.kind == symbolTypeGenerics:
     if a.name != b.name: return false
@@ -108,23 +107,32 @@ proc spec*(a, b: Symbol): bool =
   elif a.kind == symbolIntLit and b.kind == symbolIntLit:
     return a.intval == b.intval
   elif a.kind == symbolRef and b.kind == symbolRef:
-    return a.wrapped.match(b.wrapped)
+    if a.marking.isSome and b.marking.isSome:
+      if a.marking != b.marking:
+        return false
+    elif a.marking.isSome or b.marking.isSome:
+      return false
+    return a.wrapped.spec(b.wrapped)
   elif a.kind == symbolVar and b.kind == symbolRef:
-    return a.wrapped.match(b.wrapped)
-  elif a.kind == symbolOnce and b.kind == symbolOnce:
-    return a.wrapped.match(b.wrapped)
-  elif b.kind == symbolOnce:
-    return a.match(b.wrapped)
+    if a.marking.isSome and b.marking.isSome:
+      if a.marking != b.marking:
+        return false
+    elif a.marking.isSome or b.marking.isSome:
+      return false
+    return a.wrapped.spec(b.wrapped)
   elif a.kind == symbolRef:
-    return a.wrapped.match(b)
+    return a.wrapped.spec(b)
   elif a.kind == symbolVar:
-    return a.wrapped.match(b)
+    return a.wrapped.spec(b)
   else:
     return false
 proc spec*(a: ProcName, b: ProcDecl): bool =
   if a.generics.len != b.generics.len: return false
+  if a.argtypes.len != b.argtypes.len: return false
   for i in 0..<a.generics.len:
     if not a.generics[i].spec(b.generics[i]): return false
+  for i in 0..<a.argtypes.len:
+    if not a.argtypes[i].spec(b.argtypes[i]): return false
   return true
 
 proc initProcIdentGroup*(): ProcDeclGroup =
@@ -143,6 +151,21 @@ proc getDecl*(scope: Scope, n: Name, importscope = true): Option[Symbol] =
     else:
       return none(Symbol)
   return some scope.decls[n]
+proc getFnDecl*(scope: Scope, n: Name, importscope = true): Option[Symbol] =
+  if not scope.procdecls.hasKey(n):
+    if importscope:
+      for scopename, s in scope.importscopes:
+        let opt = s.getFnDecl(n, importscope = scopename.isCurrentScope())
+        if opt.isSome:
+          return opt
+      return none(Symbol)
+    else:
+      return none(Symbol)
+
+  let fnopt = scope.procdecls[n].decls
+  if fnopt.len != 1:
+    return none(Symbol)
+  return some(fnopt[0].sym)
 proc getSpecType*(scope: Scope, n: Name, types: seq[Symbol], importscope = true): Option[Symbol] =
   if scope.decls.hasKey(n):
     if scope.decls[n].types == types:

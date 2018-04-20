@@ -7,13 +7,13 @@ Flori is statically typed programming language without GC for system/application
 
 # Features
 
-- Native compile via C. (It's so fast and portable!)
 - Statically typed.
-- Flexible meta syntax. It's F Expression.
-- Automatic resource management by **Compile Time Reference Counting**. (I call it CTRC)
+- Automatic resource management by **Owned Marking**.
+- Flexible meta syntax, It's **F Expression**.
+- Native compile via C. (It's so fast and portable!)
 - Blazing fast memory management by **Memory Lifting**.
 - Ultimate power for Metaprogramming.
-- Interactive development environment. (Common Lisp like)
+- Interactive development environment. (Common Lisp SLIME like)
 
 # Inspired languages
 
@@ -27,16 +27,14 @@ Flori is statically typed programming language without GC for system/application
 
 ### Hello World
 ```
-import "core/prelude"
-import "core/io"
+import "core"
 
 println("Hello World!")
 ```
 
 ### Fibonacci
 ```
-import "core/prelude"
-import "core/io"
+import "core"
 
 fn fib(n Int) Int {
   if (n < 2) {
@@ -51,8 +49,8 @@ println(fib(38))
 
 ### File I/O
 ```
-import "core/prelude"
-import "core/fileio"
+import "core"
+import "std/fileio"
 
 fn main() {
   f := openFile("voiceroids.txt", "w")
@@ -72,7 +70,7 @@ main()
 $ flori c <filename>
 ```
 
-# Build
+# Compiler Instructions
 
 **Requirements**
 
@@ -96,15 +94,14 @@ $ nake test
 
 # TODO
 
-- Loop Lifting
 - Condition System
 - Memory Lifting
 - Type level macro
+- Concurrency
 - Standard Library
 - Reduction Build Times
 - LiveReload
 - Disassembler, Debugger, Profiler
 - Build System & Package Manager
 - IDE tool (Rabbit)
-- Concurrency
 - Self Hosting

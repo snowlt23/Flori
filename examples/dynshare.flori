@@ -1,0 +1,32 @@
+
+import "core"
+import "examples/dynvec"
+
+type MyData $[nodestruct] {}
+
+fn new_mydata() MyData {
+  init(MyData){}
+}
+
+destructor(md MyData) {
+  println("MyData destroyed!")
+}
+
+#
+# main
+#
+
+fn dynvec_main() MyData {
+  v := dynvec[MyData]()
+  f := new_mydata()
+  push(v, f)
+  get(v, 0)
+}
+
+fn main() {
+  println("start!")
+  f := dynvec_main()
+  println("end!")
+}
+
+main()

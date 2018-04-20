@@ -1,5 +1,6 @@
 
 import "core"
+import "core/pointer"
 import "std/env"
 
 when (is_windows) {
@@ -24,7 +25,6 @@ fn stdin() File $[importc, header "stdio.h", patternc "stdin"]
 fn stdout() File $[importc, header "stdio.h", patternc "stdout"]
 
 destructor(f File) {
-  println("File destroyed!")
   fclose(f)
 }
 
@@ -56,6 +56,43 @@ fn read_file(filename CString) String {
 fn copy_file(src CString, dest CString) Bool {
   when (is_windows) {
     win_copyfile(src, dest, false)
+  }
+}
+
+fn create_dir(path CString) Bool {
+  when (is_windows) {
+    win_createdir(path, null)
+  }
+}
+
+fn delete_file(path CString) Bool {
+  when (is_windows) {
+    win_deletefile(path)
+  }
+}
+
+fn is_exists_dir(path CString) Bool {
+  var pdata Win32FindData
+  handler := win_findfirstfile(path, getptr(pdata))
+  if (handler == INVALID_HANDLE_VALUE) {
+    false
+  } else {
+    true
+  }
+}
+
+fn get_filelist(path CString) Vec[String] {
+  when (is_windows) {
+    ret := vec[String]()
+    var pdata Win32FindData
+    handle := win_findfirstfile(path, getptr(pdata))
+    while (win_findnextfile(handle, getptr(pdata))) {
+      if (not(win_isdir(pdata))) {
+        push(ret, string(pdata.cFileName))
+      }
+    }
+    win_findclose(handle)
+    ret
   }
 }
 

@@ -1,7 +1,7 @@
 
 import "core"
 
-type MyFieldType {
+type MyFieldType $[resource, nodestruct] {
   x Int
   y Int
 }
@@ -10,12 +10,14 @@ destructor(mt MyFieldType) {
   println("MyFieldType(", mt.x, ", ", mt.y, ") destroyed!")
 }
 
-type MyType {
+type MyType $[nodestruct] {
   mfx MyFieldType
   mfy MyFieldType
 }
 
 destructor(mt MyType) {
+  destruct(mt.mfx)
+  destruct(mt.mfy)
   println("MyType destroyed!")
 }
 
@@ -24,6 +26,10 @@ fn new_mt() MyType {
   mfy := init(MyFieldType){3; 4}
   mt := init(MyType){mfx; mfy}
   mt
+}
+
+fn mt_update(mt ref MyType, newmfx MyFieldType) {
+  mt.mfx = newmfx
 }
 
 fn main() {

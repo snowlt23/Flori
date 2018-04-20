@@ -5,6 +5,24 @@ import options
 import strutils, sequtils
 import tables
 
+proc isIncludeRef*(argtypes: seq[Symbol]): bool =
+  for argt in argtypes:
+    if argt.kind == symbolRef:
+      return true
+  return false
+proc isIncludeRef*(fexpr: seq[FExpr]): bool =
+  for son in fexpr:
+    if son.kind != fexprSymbol: return false
+    if son.symbol.kind == symbolRef:
+      return true
+  return false
+proc isResolveRef*(fexpr: seq[FExpr]): bool =
+  for son in fexpr:
+    if son.kind != fexprSymbol: return false
+    if son.symbol.kind == symbolRef and son.symbol.marking.isNone:
+      return false
+  return true
+
 proc isGenerics*(defn: Defn): bool = not defn.generics.isSpecTypes
 proc isGenerics*(deftype: Deftype): bool = not deftype.generics.isSpecTypes
 
@@ -48,3 +66,23 @@ template expandBy*(scope: Scope, span: Span, body: untyped) =
     body
   finally:
     scope.expandEnd()
+
+proc isCopyable*(scope: Scope, typ: Symbol): bool =
+  scope.getFunc(procname(name("copy"), @[typ])).isSome
+proc isResource*(scope: Scope, typ: Symbol): bool =
+  if typ.fexpr.internalPragma.resource:
+    return true
+  if typ.fexpr.hasDefn:
+    for b in typ.fexpr.defn.body:
+      if scope.isResource(b[1].symbol):
+        return true
+  return false
+proc isDestructable*(scope: Scope, typ: Symbol): bool =
+  scope.getFunc(procname(name("destruct"), @[typ])).isSome
+proc isMovable*(scope: Scope, typ: Symbol): bool =
+  scope.getFunc(procname(name("move"), @[typ])).isSome
+
+proc checkArgsHastype*(args: FExpr) =
+  for arg in args:
+    if not arg.hasTyp:
+      arg.error("$# hasn't type." % $arg)

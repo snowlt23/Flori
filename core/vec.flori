@@ -5,8 +5,9 @@ import "core/io"
 import "core/syntax"
 import "core/macros"
 
-type Vec[T] {
+type Vec[T] $[nodestruct] {
   data Ptr[T]
+  isinit Ptr[Bool]
   cap Int
   len Int
 }
@@ -14,16 +15,28 @@ type Vec[T] {
 fn vec[T](len Int, cap Int) Vec[T] $[importjs, patternjs "new Array($1)"] {
   v := init(Vec[T]) {
     alloc[T](cap)
+    alloc[Bool](cap)
     cap
     len
   }
+  for i in range(0, cap-1) {
+    unref(v.isinit +! i*sizeof[Bool]()) = false
+  }
   v
 }
-fn vec[T](len Int) Vec[T] $[inline] {
+fn vec[T](len Int) Vec[T] {
   vec[T](len, len * 2)
 }
-fn vec[T]() Vec[T] $[inline] {
+fn vec[T]() Vec[T] {
   vec[T](0, 8)
+}
+
+fn copy[T](v Vec[T]) Vec[T] {
+  ret := vec[T](v.len, v.cap)
+  for i in range(0, length(v)-1) {
+    set(ret, i, get(v, i))
+  }
+  ret
 }
 
 macro v(t FArray, elems FList) FExpr $[syntax] {
@@ -37,21 +50,29 @@ macro v(t FArray, elems FList) FExpr $[syntax] {
         push(`tmp, `e)
       })
   }
+  push(ret, tmp)
   ret
 }
 
 fn extend[T](v ref Vec[T]) {
-  (v.data) = realloc(v.data, (v.cap)*2)
-  (v.cap) = (v.cap)*2
+  v.data = realloc(v.data, v.cap*2)
+  v.isinit = realloc(v.isinit, v.cap*2)
+  for i in range(v.cap, v.cap*2-1) {
+    unref(v.isinit +! i*sizeof[Bool]()) = false
+  }
+  v.cap = v.cap*2
 }
 
-fn push[T](v ref Vec[T], value T) $[importjs, patternjs "$1.push($2)"] {
-  track(v -> value)
-  if ((v.cap) < ((v.len)+1)) {
+fn push[T](v ref Vec[T], value T) $[nodestruct, importjs, patternjs "$1.push($2)"] {
+  if (v.cap < v.len+1) {
     extend(v)
   }
-  unref((v.data) +! ((v.len) * sizeof[T]())) = value
-  (v.len) += 1
+  if (unref(v.isinit +! (v.len * sizeof[Bool]()))) {
+    destruct(unref(v.data +! (v.len * sizeof[T]())))
+  }
+  unref(v.data +! (v.len * sizeof[T]())) = value
+  unref(v.isinit +! (v.len * sizeof[Bool]())) = true
+  v.len += 1
 }
 
 fn length[T](v Vec[T]) Int $[importjs, patternjs "$1.length"] {
@@ -59,12 +80,15 @@ fn length[T](v Vec[T]) Int $[importjs, patternjs "$1.length"] {
 }
 
 fn get[T](v Vec[T], i Int) T $[importjs, patternjs "$1[$2]"] {
-  unref((v.data) +! (i * sizeof[T]()))
+  unref(v.data +! (i * sizeof[T]()))
 }
 
-destructor[T](v Vec[T]) {
-  println("Vec destroyed!")
-  dealloc(v.data)
+fn set[T](v ref Vec[T], i Int, value T) {
+  if (unref(v.isinit +! (i * sizeof[Bool]()))) {
+    destruct(unref(v.data +! (i * sizeof[T]())))
+  }
+  unref(v.isinit +! (i * sizeof[Bool]())) = true
+  unref(v.data +! (i * sizeof[T]())) = value
 }
 
 iterator items[T](v TExpr[Vec[T]]) {
@@ -75,6 +99,15 @@ iterator items[T](v TExpr[Vec[T]]) {
       `yield
     }
   }
+}
+
+destructor[T](v Vec[T]) {
+  for i in range(0, length(v)-1) {
+    if (unref(v.isinit +! i*sizeof[Bool]())) {
+      destruct(get(v, i))
+    }
+  }
+  dealloc(v.data)
 }
 
 fn print[T](v Vec[T]) {
@@ -89,6 +122,6 @@ fn print[T](v Vec[T]) {
   print("]")
 }
 
-fn getref[T](v ref Vec[T]) Ptr[T] $[inline] {
+fn getref[T](v ref Vec[T]) Ptr[T] {
   v.data
 }

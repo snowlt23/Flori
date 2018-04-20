@@ -7,9 +7,6 @@ import deques
 import algorithm
 
 import types
-export types.Span
-export types.FExprKind
-export types.FExpr
 
 const fexprAtoms* = {fexprIdent..fexprStrLit}
 const fexprNames* = {fexprIdent, fexprPrefix, fexprInfix}
@@ -168,10 +165,7 @@ proc toString*(fexpr: FExpr, indent: int, desc: bool): string =
   of fexprQuote:
     "`" & fexpr.quoted.toString(indent, desc)
   of fexprSymbol:
-    if desc:
-      $fexpr.symbol
-    else:
-      $fexpr.symbol.name
+    toString(fexpr.symbol, desc)
   of fexprIntLit:
     $fexpr.intval
   of fexprFloatLit:
