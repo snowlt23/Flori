@@ -380,8 +380,6 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
       ctx.codegenDefValue(src, fexpr)
     else:
       ctx.codegenDef(src, fexpr)
-  of internalTrack:
-    discard
   of internalSet:
     if not topcodegen:
       ctx.codegenSet(src, fexpr)

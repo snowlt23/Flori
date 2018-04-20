@@ -383,8 +383,6 @@ proc codegenInternal*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr, top
       ctx.codegenDefValue(src, fexpr)
     else:
       ctx.codegenDef(src, fexpr)
-  of internalTrack:
-    discard
   of internalSet:
     if not topcodegen:
       ctx.codegenSet(src, fexpr)
