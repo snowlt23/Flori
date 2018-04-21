@@ -510,10 +510,11 @@ proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.internalScope = typescope
   fexpr.internalMark = internalDeftype
   fexpr.deftype = parsed
+  
+  if not fexpr.internalPragma.nodestruct:
+    generateDestructFn(rootPass, scope, fexpr)
 
   if fexpr.internalPragma.importc.isNone:
-    if not fexpr.internalPragma.nodestruct:
-      generateDestructFn(rootPass, scope, fexpr)
     sym.fexpr.isCStruct = true
 
 proc semTypedef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
@@ -807,6 +808,16 @@ proc semIsDestructable*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) 
   else:
     fexpr = fexpr.span.quoteFExpr("false", [])
   scope.rootPass(fexpr)
+proc semIsCopyable*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.len != 2 or fexpr[1].kind != fexprList and fexpr[1].len != 0:
+    fexpr.error("usage: is_copyable(type)")
+  
+  let typesym = scope.semTypeExpr(fexpr[1][0])
+  if fexpr.internalScope.getFunc(procname(name("copy"), @[typesym])).isSome:
+    fexpr = fexpr.span.quoteFExpr("true", [])
+  else:
+    fexpr = fexpr.span.quoteFExpr("false", [])
+  scope.rootPass(fexpr)
 
 proc semCodegenDecl*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.len != 2:
@@ -868,6 +879,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("block"), semBlock)
 
   scope.addInternalEval(name("is_destructable"), semIsDestructable)
+  scope.addInternalEval(name("is_copyable"), semIsCopyable)
 
   # c pragmas
   scope.addInternalEval(name("importc"), semImportc)

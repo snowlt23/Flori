@@ -1,0 +1,25 @@
+
+import "core"
+import "std/fileio"
+
+fn load_csv(csvpath CString) Vec[Vec[String]] {
+  ret := vec[Vec[String]]()
+  curv := vec[String]()
+  curs := s""
+  csvdata := read_file(csvpath)
+  
+  for i in range(0, length(csvdata)-1) {
+    if (get(csvdata, i) == c",") {
+      push(curv, curs)
+      curs = s""
+    } elif (get(csvdata, i) == lf) {
+      push(curv, curs)
+      curs = s""
+      push(ret, curv)
+      curv = vec[String]()
+    } else {
+      push(curs, get(csvdata, i))
+    }
+  }
+  ret
+}

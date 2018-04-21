@@ -1,0 +1,8 @@
+
+import "core"
+
+fn main() {
+  v := v[String](s"yukari", s"maki", s"akari")
+}
+
+main()

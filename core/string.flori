@@ -60,7 +60,7 @@ macro s(s FStrLit) FExpr $[syntax] {
   }
 }
 
-fn to_cs(s String) CString $[converter, importjs, patternjs "$1"] {
+fn to_cs(s String) CString $[importjs, patternjs "$1"] {
   cast[CString](s.p)
 }
 
@@ -154,4 +154,9 @@ fn split(s String, c Char) Vec[String] {
   }
   push(ret, news)
   ret
+}
+
+fn parse_int(cs CString) Int $[importc "atoi", header "string.h"]
+fn parse_int(s String) Int {
+  parse_int(to_cs(s))
 }

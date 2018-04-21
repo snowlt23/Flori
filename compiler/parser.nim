@@ -254,6 +254,8 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
     context.error("couldn't parse F expression: $#" % $context.curchar)
 
 proc polandToCall*(stack: seq[FExpr], pos: var int): FExpr =
+  if stack.len <= pos:
+    stack[pos-1].error("infix index out of bounds.")
   if stack[pos].kind == fexprInfix:
     let infix = stack[pos]
     pos += 1

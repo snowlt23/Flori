@@ -34,7 +34,12 @@ fn vec[T]() Vec[T] {
 fn copy[T](v Vec[T]) Vec[T] {
   ret := vec[T](v.len, v.cap)
   for i in range(0, length(v)-1) {
-    set(ret, i, get(v, i))
+    when (is_copyable(T)) {
+      set(ret, i, copy(get(v, i)))
+    }
+    when (not(is_copyable(T))) {
+      set(ret, i, get(v, i))
+    }
   }
   ret
 }
@@ -83,7 +88,7 @@ fn get[T](v Vec[T], i Int) T $[importjs, patternjs "$1[$2]"] {
   unref(v.data +! (i * sizeof[T]()))
 }
 
-fn set[T](v ref Vec[T], i Int, value T) {
+fn set[T](v ref Vec[T], i Int, value T) $[nodestruct] {
   if (unref(v.isinit +! (i * sizeof[Bool]()))) {
     destruct(unref(v.data +! (i * sizeof[T]())))
   }
@@ -102,9 +107,11 @@ iterator items[T](v TExpr[Vec[T]]) {
 }
 
 destructor[T](v Vec[T]) {
-  for i in range(0, length(v)-1) {
-    if (unref(v.isinit +! i*sizeof[Bool]())) {
-      destruct(get(v, i))
+  when (is_destructable(T)) {
+    for i in range(0, length(v)-1) {
+      if (unref(v.isinit +! i*sizeof[Bool]())) {
+        destruct(get(v, i))
+      }
     }
   }
   dealloc(v.data)
