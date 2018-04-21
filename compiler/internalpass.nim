@@ -312,6 +312,8 @@ proc semNoDestruct*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.parent.internalPragma.nodestruct = true
 proc semCompiletime*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.parent.internalPragma.compiletime = true
+proc semNoCompiletime*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  fexpr.parent.internalPragma.nocompiletime = true
 proc semResource*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.parent.internalPragma.resource = true
 proc semConverter*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
@@ -470,6 +472,7 @@ proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
 proc generateDestructFn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let body = fblock(fexpr.span)
   for b in fexpr.deftype.body:
+    scope.importScope(name($b[1].symbol.fexpr.internalScope.name & "_internal_scope"), b[1].symbol.fexpr.internalScope.top)
     if scope.isDestructable(b[1].symbol):
       body.addSon(fexpr.span.quoteFExpr("destruct(x . `embed)", [b[0].copy]))
   let name = fident(fexpr.span, name($fexpr.deftype.name.symbol.name))
@@ -880,6 +883,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("inline"), semInline)
   scope.addInternalEval(name("nodestruct"), semNoDestruct)
   scope.addInternalEval(name("compiletime"), semCompiletime)
+  scope.addInternalEval(name("nocompiletime"), semNoCompiletime)
   scope.addInternalEval(name("resource"), semResource)
   scope.addInternalEval(name("converter"), semConverter)
 
@@ -891,7 +895,7 @@ proc initInternalScope*(ctx: SemanticContext) =
 proc internalScope*(ctx: SemanticContext): Scope =
   ctx.modules[name("internal")]
 
-proc newSemanticContext*(ccoptions = ""): SemanticContext =
+proc newSemanticContext*(moptions = ""): SemanticContext =
   new result
   result.modules = initOrderedTable[Name, Scope]()
   result.macrolib = nil
@@ -899,7 +903,7 @@ proc newSemanticContext*(ccoptions = ""): SemanticContext =
   result.tmpcount = 0
   result.initInternalScope()
   result.importpaths = @[getAppDir() / "..", ".", getHomeDir() / ".rabbit"]
-  result.ccoptions = ccoptions
+  result.moptions = moptions
   result.globaltoplevels = @[]
   result.expands = @[]
   gCtx = result

@@ -20,6 +20,7 @@ type
     optlevel*: int
     bench*: bool
     ccoptions*: string
+    moptions*: string
     srccomment*: bool
 
 template bench*(name: string, body: untyped) =
@@ -61,15 +62,21 @@ proc ccoptions*(args: Table[string, Value]): CCOptions =
                        $args["--ccoptions"]
                      else:
                        ""
+  result.moptions = if args["--moptions"]:
+                       $args["--moptions"]
+                     else:
+                       ""
   result.srccomment = bool(args["--src-comment"])
 
 proc compileFloriC*(options: CCOptions) =
-  let semctx = newSemanticContext(options.ccoptions)
+  let semctx = newSemanticContext(options.moptions)
   let genctx = newCCodegenContext()
   bench "eval":
     if not existsFile(options.filepath):
       quit "flori: Please exists flori file."
     discard semctx.semFile(processFPass, options.filepath)
+    for top in semctx.globaltoplevels.mitems:
+      top.internalScope.resetElim(top)
     for top in semctx.globaltoplevels.mitems:
       top.internalScope.processElimPass(top)
   bench "codegen":
@@ -89,10 +96,11 @@ proc compileFloriC*(options: CCOptions) =
       genctx.compileWithTCC(cachedir, genTCCOptions(options))
       
 proc compileFloriJS*(options: CCOptions, sourcemap: bool) =
-  let semctx = newSemanticContext(options.ccoptions)
+  let semctx = newSemanticContext(options.moptions)
   bench "eval":
     discard semctx.semFile(processFPass, options.filepath)
     for top in semctx.globaltoplevels.mitems:
+      top.internalScope.resetElim(top)
       top.internalScope.processElimPass(top)
   let genctx = newJSCodegenContext(semctx)
   bench "codegen":

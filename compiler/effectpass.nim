@@ -50,17 +50,15 @@ proc applyMarkingEffect*(scope: Scope, value: FExpr, src: MarkingEffect) =
     if value.markeffect.moved:
       value.error("value has been moved.")
     value.markeffect.moved = true
-  # for key, value in src.fieldbody:
-  #   if not dst.fieldbody.hasKey(key):
-  #     dst.fieldbody[key] = newMarkingEffect()
-  #   scope.applyMarkingEffect(dst.fieldbody[key], value)
 
 proc inferFnEffect*(scope: Scope, fexpr: var FExpr) =
   # if fexpr.hasInternalMark and fexpr.internalMark == internalDefn and not fexpr.internalPragma.inline:
+  if fexpr.hasFnEffect:
+    return
   for argdef in fexpr.defn.args:
     argdef[0].symbol.fexpr.markeffect = newMarkingEffect()
-  scope.inferEffect(fexpr.defn.body)
   fexpr.fneffect = FnEffect(argeffs: @[])
+  scope.inferEffect(fexpr.defn.body)
   for argdef in fexpr.defn.args:
     fexpr.fneffect.argeffs.add(argdef[0].symbol.fexpr.markeffect)
     

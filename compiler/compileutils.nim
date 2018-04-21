@@ -1,6 +1,6 @@
 
 import parser, types, fexpr, scope, metadata
-import ccodegen, effectpass
+import ccodegen, effectpass, elimpass
 import macroffi
 
 import os
@@ -31,15 +31,16 @@ proc exe*(s: string): string =
 const macrolib* = cachedir / "flori_macrolib".dll
 
 proc compileMacroLibrary*(semctx: SemanticContext, scope: Scope) =
+  # for top in semctx.globaltoplevels.mitems:
+  #   top.internalScope.resetElim(top)
+  for top in semctx.globaltoplevels.mitems:
+    top.internalScope.processElimPass(top)
   let genctx = newCCodegenContext(macrogen = true)
   if not existsDir(cachedir):
     createDir(cachedir)
   let src = genctx.codegenSingle(semctx)
   writeFile(cachedir / "flori_compiled.c", src)
-  genctx.compileWithTCC(cachedir, "-shared -rdynamic -o$# -I$# $#" % [macrolib, getAppDir() / ".." / "ffi", semctx.ccoptions])
-  # genctx.codegen(semctx)
-  # genctx.writeModules(cachedir)
-  # genctx.compileWithTCC(cachedir, "-shared -rdynamic -o$# -I$# $#" % [macrolib, getAppDir() / ".." / "ffi", semctx.ccoptions])
+  genctx.compileWithTCC(cachedir, "-shared -rdynamic -o$# -I$# $#" % [macrolib, getAppDir() / ".." / "ffi", semctx.moptions])
 
 proc setupFFI*(handle: LibHandle) =
   template ffi(name, prc) =

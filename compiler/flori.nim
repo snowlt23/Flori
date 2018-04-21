@@ -8,8 +8,8 @@ let doc = """
 Flori programming language.
 
 Usage:
-  flori c <name> [-o=<outname>] [--opt=<level>] [--cc=<cc>] [--bench] [--ccoptions=<options>] [--src-comment]
-  flori js <name> [-o=<outname>] [--bench] [--ccoptions=<options>] [--sourcemap]
+  flori c <name> [-o=<outname>] [--opt=<level>] [--cc=<cc>] [--bench] [--ccoptions=<options>] [--moptions=<options>] [--src-comment]
+  flori js <name> [-o=<outname>] [--bench] [--sourcemap]
 
 Options:
   -h --help      Show this screen.
@@ -21,6 +21,7 @@ Options:
     tcc  Tiny C Compiler
   --bench        Show benchmark information.
   --ccoptions=<options>  CC Options.
+  --moptions=<options>  CC Options for macro evaluate.
   --sourcemap    Generate sourcemap in JS backend.
   --src-comment  Add src comment to generated file.
 """

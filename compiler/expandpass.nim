@@ -83,6 +83,13 @@ proc expandDeftypePass*(scope: Scope, fexpr: var FExpr): bool =
       let exsym = expandDeftype(scope, fexpr[2].symbol.fexpr, fexpr[2].symbol.types)
       fexpr[2] = exsym
     return true
+  elif fexpr.hasInternalMark and fexpr.internalMark == internalDeftype and not fexpr.deftype.isGenerics:
+    scope.expandBy(fexpr.span):
+      for field in fexpr.deftype.body:
+        if field[1].symbol.kind == symbolTypeGenerics:
+          let exsym = expandDeftype(scope, field[1].symbol.fexpr, field[1].symbol.types)
+          field[1] = exsym
+    return true
 
   thruInternal(fexpr)
       

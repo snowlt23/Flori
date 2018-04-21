@@ -162,6 +162,7 @@ type
     inline*: bool
     nodestruct*: bool
     compiletime*: bool
+    nocompiletime*: bool
     resource*: bool
 
 type
