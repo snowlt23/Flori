@@ -1,5 +1,5 @@
 
-import fexpr_core, marking
+import fexpr_core
 import newpassmacro
 
 import tables
@@ -130,16 +130,6 @@ proc inferFnEffectPass*(scope: Scope, fexpr: var FExpr): bool =
       fexpr[0].symbol.fexpr.fneffect = FnEffect(argeffs: @[])
       for argdef in fexpr[0].symbol.fexpr.defn.args:
         fexpr[0].symbol.fexpr.fneffect.argeffs.add(argdef[0].symbol.fexpr.markeffect)
-  return true
-
-proc applyEffect*(scope: Scope, marking: Marking, markeff: MarkingEffect): bool =
-  if markeff.moved:
-    if not marking.owned:
-      return false
-    marking.owned = false
-  for key, value in markeff.fieldbody:
-    if not scope.applyEffect(marking.fieldbody[key], value):
-      return false
   return true
 
 proc earlySetDestruct*(scope: Scope, fexpr: var FExpr): bool =

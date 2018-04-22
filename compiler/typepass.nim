@@ -1,5 +1,5 @@
 
-import fexpr_core, marking
+import fexpr_core
 
 import options
 import strutils, sequtils
@@ -84,7 +84,6 @@ proc semType*(scope: Scope, parsed: ParsedType): Symbol =
       result = scope.refsym(result)
     elif $parsed.prefix.get == "move":
       result = scope.movesym(result)
-      result.marking = some(scope.newMarking(result.wrapped))
 
 proc semTypeExpr*(scope: Scope, typ: FExpr): Symbol =
   var pos = 0

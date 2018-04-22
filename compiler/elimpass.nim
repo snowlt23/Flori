@@ -1,5 +1,5 @@
 
-import fexpr_core, marking
+import fexpr_core
 import newpassmacro
 
 var elimRoot*: proc(scope: Scope, fexpr: var FExpr) = nil

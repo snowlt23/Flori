@@ -1,5 +1,5 @@
 
-import fexpr_core, scopeout, marking
+import fexpr_core, scopeout
 import passutils, typepass
 import compileutils, macroffi
 
@@ -472,7 +472,8 @@ proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
 proc generateDestructFn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let body = fblock(fexpr.span)
   for b in fexpr.deftype.body:
-    scope.importScope(name($b[1].symbol.fexpr.internalScope.name & "_internal_scope"), b[1].symbol.fexpr.internalScope.top)
+    if b[1].symbol.fexpr.hasInternalScope:
+      scope.importScope(name($b[1].symbol.fexpr.internalScope.name & "_internal_scope"), b[1].symbol.fexpr.internalScope.top)
     if scope.isDestructable(b[1].symbol):
       body.addSon(fexpr.span.quoteFExpr("destruct(x . `embed)", [b[0].copy]))
   let name = fident(fexpr.span, name($fexpr.deftype.name.symbol.name))
@@ -585,7 +586,6 @@ proc semVar*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let status = scope.addDecl(name(n), varsym)
   if not status:
     fexpr.error("redefinition $# variable." % $n)
-  varsym.fexpr.marking = newMarking(scope, typsym)
   scope.tracking(varsym.fexpr)
   
   let fsym = fsymbol(fexpr[1].span, varsym)
@@ -644,10 +644,6 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let status = scope.addDecl(name(name), varsym)
   if not status:
     fexpr.error("redefinition $# variable." % $name)
-  # if parsed.value.hasMarking:
-  #   varsym.fexpr.marking = parsed.value.marking
-  # else:
-  #   varsym.fexpr.marking = newMarking(scope, parsed.value.typ)
   scope.tracking(varsym.fexpr)
 
   let fsym = fsymbol(fexpr[1].span, varsym)
@@ -697,12 +693,6 @@ proc semFieldAccess*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   else:
     fexpr.typ = fieldopt.get
 
-  if fexpr[1].hasMarking:
-    if fexpr[1].marking.fieldbody.hasKey(name(fexpr[2])):
-      fexpr.marking = fexpr[1].marking.fieldbody[name(fexpr[2])]
-    else:
-      fexpr.marking = scope.newMarking(fieldopt.get)
-
   fexpr.internalMark = internalFieldAccess
   fexpr.fieldaccessexpr = FieldAccessExpr(fexpr: fexpr)
   fexpr.fieldaccessexpr.valuepos = 1
@@ -727,14 +717,10 @@ proc semInit*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
 
   let argtypes = fexpr[2].mapIt(it.typ)
 
-  fexpr.marking = newMarking(scope, typesym)
   for b in fexpr[2].mitems:
     if scope.isCopyable(b.typ):
       b = b.span.quoteFExpr("copy(`embed)", [b])
       scope.rootPass(b)
-      # b.marking.owned = false
-      # returnFrom(b.marking)
-      # fexpr.marking.fieldbody[name(typefield[0])] = b.marking
 
   fexpr.initexpr = InitExpr(fexpr: fexpr)
   fexpr.initexpr.typpos = 1

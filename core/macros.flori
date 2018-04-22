@@ -11,6 +11,14 @@ type FSymbol $[importc "flori_fexpr", header "floriffi.h"]
 type FStrLit $[importc "flori_fexpr", header "floriffi.h"]
 type FIntLit $[importc "flori_fexpr", header "floriffi.h"]
 type TExpr[T] $[importc "flori_fexpr", header "floriffi.h"]
+type TSeq $[importc "flori_fexpr", header "floriffi.h"]
+type TArray $[importc "flori_fexpr", header "floriffi.h"]
+type TList $[importc "flori_fexpr", header "floriffi.h"]
+type TBlock $[importc "flori_fexpr", header "floriffi.h"]
+type TIdent $[importc "flori_fexpr", header "floriffi.h"]
+type TSymbol $[importc "flori_fexpr", header "floriffi.h"]
+type TStrLit $[importc "flori_fexpr", header "floriffi.h"]
+type TIntLit $[importc "flori_fexpr", header "floriffi.h"]
 type FExprKind $[importc "int", header "floriffi.h"]
 
 FEXPR_IDENT $[compiletime] := cast[FExprKind](0)
@@ -26,12 +34,18 @@ FEXPR_ARRAY $[compiletime] := cast[FExprKind](9)
 FEXPR_LIST $[compiletime] := cast[FExprKind](10)
 FEXPR_BLOCK $[compiletime] := cast[FExprKind](11)
 
+fn to_fexpr[T](texpr TExpr[T]) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+fn to_fexpr(texpr TSeq) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+fn to_fexpr(texpr TArray) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+fn to_fexpr(texpr TList) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+fn to_fexpr(texpr TBlock) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+fn to_fexpr(texpr TIdent) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+fn to_fexpr(texpr TSymbol) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+fn to_fexpr(texpr TStrLit) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+fn to_fexpr(texpr TIntLit) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+
 fn `==(a FExprKind, b FExprKind) Bool $[importc "==", header nodeclc, patternc infixc, importjs]
 fn `!=(a FExprKind, b FExprKind) Bool $[importc "!=", header nodeclc, patternc infixc, importjs]
-
-fn to_fexpr[T](t TExpr[T]) FExpr $[inline] {
-  cast[FExpr](t)
-}
 
 fn new_fident(ident CString) FExpr $[importc "flori_new_fident", header "floriffi.h", importjs]
 fn new_fseq() FExpr $[importc "flori_new_fseq", header "floriffi.h", importjs]
@@ -92,6 +106,7 @@ fn to_cs(fexpr FIntLit) CString $[importc "flori_to_cs", header "floriffi.h", im
 
 fn strval(fexpr FStrLit) CString $[importc "flori_strval", header "floriffi.h", importjs]
 fn gensym() FExpr $[importc "flori_gensym", header "floriffi.h", importjs]
+fn get_type(fexpr FExpr) FExpr $[importc "flori_get_type", header "floriffi.h", importjs]
 fn debug_marking_impl(fexpr FExpr) $[importc "flori_debug_marking", header "floriffi.h", importjs]
 
 fn quote_expand_inside(fexpr FExpr, args FExpr, count Int) Int $[compiletime, importjs] {

@@ -44,11 +44,15 @@ fn copy[T](v Vec[T]) Vec[T] {
   ret
 }
 
-macro v(t FArray, elems FList) FExpr $[syntax] {
+macro vec(elems TArray) FExpr $[syntax] {
+  if (length(elems) == 0) {
+    error(elems, "vec syntax require arguments.")
+  }
   ret := new_fblock()
   tmp := gensym()
+  t := get_type(get(elems, 0))
   push(ret, quote {
-      `tmp := vec `t ()
+      `tmp := vec[`t]()
     })
   for e in elems {
     push(ret, quote {

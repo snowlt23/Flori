@@ -19,8 +19,6 @@ proc isIncludeRef*(fexpr: seq[FExpr]): bool =
 proc isResolveRef*(fexpr: seq[FExpr]): bool =
   for son in fexpr:
     if son.kind != fexprSymbol: return false
-    if son.symbol.kind == symbolRef and son.symbol.marking.isNone:
-      return false
   return true
 
 proc isGenerics*(defn: Defn): bool = not defn.generics.isSpecTypes

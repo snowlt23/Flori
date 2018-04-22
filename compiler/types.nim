@@ -37,8 +37,6 @@ type
     name*: Name
     fexpr*: FExpr
     instance*: Option[Symbol]
-    marking*: Option[Marking]
-    instmarking*: Option[Marking]
     case kind*: SymbolKind
     of symbolArg:
       argpos*: int
@@ -80,12 +78,6 @@ type
     fieldbody*: Table[Name, MarkingEffect]
   FnEffect* = ref object
     argeffs*: seq[MarkingEffect]
-  Marking* = ref object
-    scope*: Scope
-    typesym*: Symbol
-    owned*: bool
-    origin*: Marking
-    fieldbody*: Table[Name, Marking]
 
   FExpr* = ref object
     span*: Span
@@ -219,15 +211,12 @@ proc `$`*(sym: Symbol): string = toString(sym, false)
 proc refsym*(scope: Scope, sym: Symbol): Symbol =
   result = scope.symbol(sym.name, symbolRef, sym.fexpr)
   result.wrapped = sym
-  result.marking = none(Marking)
 proc varsym*(scope: Scope, sym: Symbol): Symbol =
   result = scope.symbol(sym.name, symbolVar, sym.fexpr)
   result.wrapped = sym
-  result.marking = none(Marking)
 proc movesym*(scope: Scope, sym: Symbol): Symbol =
   result = scope.symbol(sym.name, symbolMove, sym.fexpr)
   result.wrapped = sym
-  result.marking = none(Marking)
 proc symcopy*(sym: Symbol): Symbol =
   result = sym.scope.symbol(sym.name, sym.kind, sym.fexpr)
   result.instance = sym.instance
@@ -242,7 +231,6 @@ proc symcopy*(sym: Symbol): Symbol =
     result.rettype = sym.rettype
   elif sym.kind in {symbolVar, symbolRef, symbolMove}:
     result.wrapped = sym.wrapped.symcopy
-    result.marking = sym.marking
 proc intsym*(scope: Scope, fexpr: FExpr): Symbol =
   result = scope.symbol(name("IntLit"), symbolIntLit, fexpr)
   result.intval = fexpr.intval
@@ -283,16 +271,4 @@ proc isSpecTypes*(types: FExpr): bool =
   for t in types.sons:
     if t.kind != fexprSymbol: return false
     if not t.symbol.isSpecSymbol: return false
-  return true
-
-#
-# Marking
-#
-
-proc `==`*(a, b: Marking): bool =
-  if a.owned != b.owned:
-    return false
-  for key, value in a.fieldbody:
-    if value != b.fieldbody[key]:
-      return false
   return true

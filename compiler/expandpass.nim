@@ -5,20 +5,34 @@ import newpassmacro, expandutils, inlinepass
 import options
 import strutils, sequtils
 import tables
+
+proc releaseInstance*(scope: Scope, fexpr: var FExpr) =
+  for g in fexpr[0].symbol.fexpr.defn.generics:
+    g.symbol.instance = none(Symbol)
+  for arg in fexpr[0].symbol.fexpr.defn.args:
+    arg[1].symbol.instance = none(Symbol)
       
 proc applyInstancePass*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
   if fexpr.isNormalFuncCall and fexpr[0].symbol.fexpr.hasDefn:
+    scope.releaseInstance(fexpr)
     for i, arg in fexpr[1]:
-      fexpr[0].symbol.fexpr.defn.args[i][1].symbol.applyInstance(arg.typ)
+      if not fexpr[0].symbol.fexpr.defn.args[i][1].symbol.applyInstance(arg.typ):
+        arg.error("argtype not match: $#, $#" % [$fexpr[0].symbol.fexpr.defn.args[i][1].symbol.instance.get, $arg.typ])
   elif fexpr.isGenericsFuncCall:
+    scope.releaseInstance(fexpr)
     for i, ginst in fexpr[1]:
-      fexpr[0].symbol.fexpr.defn.generics[i].symbol.applyInstance(ginst.symbol)
+      if not fexpr[0].symbol.fexpr.defn.generics[i].symbol.applyInstance(ginst.symbol):
+        ginst.error("generics type not match: $#, $#" % [$fexpr[0].symbol.fexpr.defn.generics[i].symbol.instance.get, $ginst.symbol])
     for i, arg in fexpr[2]:
-      fexpr[0].symbol.fexpr.defn.args[i][1].symbol.applyInstance(arg.typ)
+      if not fexpr[0].symbol.fexpr.defn.args[i][1].symbol.applyInstance(arg.typ):
+        arg.error("argtype not match: $#, $#" % [$fexpr[0].symbol.fexpr.defn.args[i][1].symbol.instance.get, $arg.typ])
   elif fexpr.isInfixFuncCall:
-    fexpr[0].symbol.fexpr.defn.args[0][1].symbol.applyInstance(fexpr[1].typ)
-    fexpr[0].symbol.fexpr.defn.args[1][1].symbol.applyInstance(fexpr[2].typ)
+    scope.releaseInstance(fexpr)
+    if not fexpr[0].symbol.fexpr.defn.args[0][1].symbol.applyInstance(fexpr[1].typ):
+      fexpr[1].error("argtype not match: $#, $#" % [$fexpr[0].symbol.fexpr.defn.args[0][1].symbol.instance.get, $fexpr[1].typ])
+    if not fexpr[0].symbol.fexpr.defn.args[1][1].symbol.applyInstance(fexpr[2].typ):
+      fexpr[2].error("argtype not match: $#, $#" % [$fexpr[0].symbol.fexpr.defn.args[1][1].symbol.instance.get, $fexpr[2].typ])
 
   return true
 

@@ -1,5 +1,5 @@
 
-import types, fexpr, parser, metadata, scope, marking
+import types, fexpr, parser, metadata, scope
 import passutils
 
 import strutils, sequtils
@@ -53,10 +53,10 @@ proc ffiStrval*(fexpr: FExpr): cstring {.cdecl.} =
   cstring($fexpr.strval)
 proc ffiGensym*(): FExpr {.cdecl.} =
   return fident(ffiSpan(), gCtx.genTmpName())
+proc ffiGetType*(fexpr: FExpr): FExpr {.cdecl.} =
+  if not fexpr.hasTyp:
+    fexpr.error("fexpr hasn't type.")
+  return fsymbol(ffiSpan(), fexpr.typ)
   
 proc ffiDebugMarking*(fexpr: FExpr) =
-  if fexpr.hasMarking:
-    stdout.write($fexpr, ":")
-    echo debugMarking(fexpr.marking, 0)
-  else:
-    echo fexpr, ":hasntMarking"
+  echo "deprecated: debug_marking"

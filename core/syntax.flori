@@ -169,6 +169,33 @@ iterator items(fexpr TExpr[FBlock]) {
     }
   }
 }
+iterator items(fexpr TExpr[TArray]) {
+  tmp := gensym()
+  quote {
+    for `tmp in range(0, length(`fexpr)-1) {
+      `element := get(`fexpr, `tmp)
+      `yield
+    }
+  }
+}
+iterator items(fexpr TExpr[TList]) {
+  tmp := gensym()
+  quote {
+    for `tmp in range(0, length(`fexpr)-1) {
+      `element := get(`fexpr, `tmp)
+      `yield
+    }
+  }
+}
+iterator items(fexpr TExpr[TBlock]) {
+  tmp := gensym()
+  quote {
+    for `tmp in range(0, length(`fexpr)-1) {
+      `element := get(`fexpr, `tmp)
+      `yield
+    }
+  }
+}
 
 # FIXME: converter for macro
 macro const_eval(x TExpr[IntLit]) FExpr {

@@ -22,10 +22,6 @@ fn med3[T](cmp Fn[T, T] Bool, x T, y T, z T) T {
   }
 }
 
-fn cmp_int(x Int, y Int) Bool {
-  x < y
-}
-
 fn quicksort_impl[T](arr Ptr[T], left Int, right Int, cmp Fn[T, T] Bool) {
   if (left < right) {
     i := left
@@ -51,9 +47,23 @@ fn quicksort_impl[T](arr Ptr[T], left Int, right Int, cmp Fn[T, T] Bool) {
     quicksort_impl(arr, j+1, right, cmp)
   }
 }
+
+fn quicksort[N, T](arr ref Array[N, T], start Int, end Int, cmp Fn[T, T] Bool) {
+  quicksort_impl(getref(arr), start, end, cmp)
+}
+fn quicksort[N, T](arr ref Array[N, T], end Int, cmp Fn[T, T] Bool) {
+  quicksort_impl(getref(arr), 0, end, cmp)
+}
 fn quicksort[N, T](arr ref Array[N, T], cmp Fn[T, T] Bool) {
   quicksort_impl(getref(arr), 0, N-1, cmp)
 }
 fn quicksort[T](v ref Vec[T], cmp Fn[T, T] Bool) {
   quicksort_impl(getref(v), 0, length(v)-1, cmp)
+}
+
+fn cmp_int(x Int, y Int) Bool {
+  x < y
+}
+fn cmp_float(x Float, y Float) Bool {
+  x < y
 }

@@ -38,6 +38,42 @@ proc isMatchMacro*(rootPass: PassProcType, scope: Scope, args: FExpr, pd: ProcDe
       scope.rootPass(args[i])
       if not args[i].typ.match(pd.argtypes[i].types[0]):
         return false
+    elif $pd.argtypes[i].name == "TArray":
+      scope.rootPass(args[i])
+      if args[i].kind != fexprArray:
+        return false
+    elif $pd.argtypes[i].name == "TSeq":
+      scope.rootPass(args[i])
+      if args[i].kind != fexprSeq:
+        return false
+    elif $pd.argtypes[i].name == "TArray":
+      scope.rootPass(args[i])
+      if args[i].kind != fexprArray:
+        return false
+    elif $pd.argtypes[i].name == "TList":
+      scope.rootPass(args[i])
+      if args[i].kind != fexprList:
+        return false
+    elif $pd.argtypes[i].name == "TBlock":
+      scope.rootPass(args[i])
+      if args[i].kind != fexprBlock:
+        return false
+    elif $pd.argtypes[i].name == "TIdent":
+      scope.rootPass(args[i])
+      if args[i].kind != fexprIdent:
+        return false
+    elif $pd.argtypes[i].name == "TSymbol":
+      scope.rootPass(args[i])
+      if args[i].kind != fexprSymbol:
+        return false
+    elif $pd.argtypes[i].name == "TIntLit":
+      scope.rootPass(args[i])
+      if args[i].kind != fexprIntLit:
+        return false
+    elif $pd.argtypes[i].name == "TStrLit":
+      scope.rootPass(args[i])
+      if args[i].kind != fexprStrLit:
+        return false
     else:
       args[i].error("macro argument type should be FExpr or TExpr[T]")
   return true
@@ -73,6 +109,12 @@ proc isFExprName*(name: Name): bool =
     true
   else:
     false
+proc isTExprName*(name: Name): bool =
+  case $name
+  of "TExpr", "TSeq", "TArray", "TList", "TBlock", "TStrLit", "TIntLit", "TIdent", "TSymbol":
+    true
+  else:
+    false
     
 proc getMacroArgs*(scope: Scope, pd: ProcDecl, args: FExpr): seq[Symbol] =
   result = @[]
@@ -89,3 +131,8 @@ proc getMacroArgs*(scope: Scope, pd: ProcDecl, args: FExpr): seq[Symbol] =
       let sym = symcopy(opt.get)
       sym.types.add(args[i].typ)
       result.add(sym)
+    elif pd.argtypes[i].name.isTExprName:
+      let opt = scope.getDecl(pd.argtypes[i].name)
+      if opt.isNone:
+        args[i].error("undeclared $# type." % $pd.argtypes[i].name)
+      result.add(opt.get)

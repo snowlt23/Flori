@@ -107,18 +107,8 @@ proc spec*(a, b: Symbol): bool =
   elif a.kind == symbolIntLit and b.kind == symbolIntLit:
     return a.intval == b.intval
   elif a.kind == symbolRef and b.kind == symbolRef:
-    if a.marking.isSome and b.marking.isSome:
-      if a.marking != b.marking:
-        return false
-    elif a.marking.isSome or b.marking.isSome:
-      return false
     return a.wrapped.spec(b.wrapped)
   elif a.kind == symbolVar and b.kind == symbolRef:
-    if a.marking.isSome and b.marking.isSome:
-      if a.marking != b.marking:
-        return false
-    elif a.marking.isSome or b.marking.isSome:
-      return false
     return a.wrapped.spec(b.wrapped)
   elif a.kind == symbolRef:
     return a.wrapped.spec(b)

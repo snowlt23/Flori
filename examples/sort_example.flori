@@ -22,7 +22,7 @@ fn main() {
   for i in range(0, 5-1) {
     println(get(arr, i))
   }
-  v := v[MyInt](mi(5), mi(3), mi(2), mi(4), mi(1))
+  v := vec[mi(5), mi(3), mi(2), mi(4), mi(1)]
   println(v)
   quicksort(v, cmp_myint)
   println(v)

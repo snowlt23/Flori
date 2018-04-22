@@ -1,5 +1,5 @@
 
-import fexpr_core, marking
+import fexpr_core
 import newpassmacro, typepass, macropass, expandutils, expandpass, effectpass, scopeout, converterpass
 
 import options
@@ -254,41 +254,15 @@ proc varfnResolve*(scope: Scope, fexpr: var FExpr): bool =
 #
 # ownership pass
 #
-  
-proc markingInfer*(scope: Scope, fexpr: var FExpr): bool =
-  thruInternal(fexpr)
-  if fexpr.kind == fexprSymbol and fexpr.symbol.fexpr.hasMarking:
-    fexpr.marking = fexpr.symbol.fexpr.marking
-  elif fexpr.kind == fexprBlock:
-    if fexpr.len != 0 and fexpr[^1].hasMarking:
-      fexpr.marking = fexpr[^1].marking
-  return true
 
 proc moveEffectPass*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
-  if fexpr.isFuncCall:
-    if not fexpr[0].symbol.fexpr.hasDefn:
-      return true
-    let args = if fexpr.isNormalFuncCall:
-                 fexpr[1]
-               elif fexpr.isGenericsFuncCall:
-                 fexpr[2]
-               else:
-                 fseq(fexpr.span, @[fexpr[1], fexpr[2]])
-    for i, argdef in fexpr[0].symbol.fexpr.defn.args:
-      if argdef[1].symbol.kind == symbolMove:
-        if args[i].hasMarking:
-          if not args[i].marking.owned:
-            args[i].error("$# can't move, it's borrow value.")
-          args[i].marking.owned = false
-
+  echo "unimplemented: moveEffectPass"
   return true
 
 proc explicitDestruct*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
-  if fexpr.isNormalFuncCall and $fexpr[0] == "destruct" and fexpr[1].len == 1:
-    if fexpr[1][0].hasMarking:
-      returnFrom(fexpr[1][0].marking)
+  echo "unimplemented: explicitDestruct"
   return true
 
 proc finalPass*(scope: Scope, fexpr: var FExpr): bool =
