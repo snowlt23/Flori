@@ -404,7 +404,8 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
 
 proc codegenCallArg*(ctx: CCodegenContext, src: var SrcExpr, arg: FExpr, fnargtype: Symbol) =
   if arg.typ.kind == symbolVar and arg.typ.wrapped.kind == symbolRef and fnargtype.kind == symbolRef:
-    src &= "*"
+    ctx.codegenFExpr(src, arg)
+  elif arg.typ.kind == symbolRef and fnargtype.kind == symbolRef:
     ctx.codegenFExpr(src, arg)
   elif arg.typ.kind == symbolVar and fnargtype.kind == symbolRef:
     src &= "&"

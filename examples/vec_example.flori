@@ -16,7 +16,7 @@ destructor(mi MyInt) {
 }
 
 fn main() {
-  v := v[MyInt](mi(1), mi(2), mi(3))
+  v := vec[mi(1), mi(2), mi(3)]
   # v := vec[MyInt]()
   # push(v, mi(1))
   # push(v, mi(2))

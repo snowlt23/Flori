@@ -12,8 +12,8 @@ type StrLit $[importc "char*", header nodeclc]
 type Int $[importc "int64_t", header "stdint.h"]
 type CString $[importc "char*", header nodeclc]
 
-fn to_int(x ref IntLit) ref Int $[converter, importc, patternc "$1"]
-fn to_int(x IntLit) Int $[converter, importc, patternc "$1"]
+fn int(x ref IntLit) ref Int $[converter, importc, patternc "$1"]
+fn int(x IntLit) Int $[converter, importc, patternc "$1"]
 fn to_cstring(x StrLit) CString $[converter, importc, patternc "$1"]
 
 fn `+(a Int, b Int) Int $[importc "+", header nodeclc, patternc infixc]
@@ -88,8 +88,8 @@ printf("%d", nine)
     ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
     check fexprs[^2].internalMark == internalDef
     check $fexprs[^2].typ == "Void"
-    check $fexprs[^1][1][1] == "to_int(nine)"
-    check $fexprs[^1][1][1].typ == "ref Int"
+    check $fexprs[^1][1][1] == "nine"
+    check $fexprs[^1][1][1].typ == "Int"
   test "generics init":
     let ctx = newSemanticContext()
     var fexprs = parseToplevel("testmodule.flori", prelude & """

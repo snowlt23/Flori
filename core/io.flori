@@ -29,6 +29,9 @@ fn print(x Int32) $[inline] {
 fn print(x Float) $[inline] {
   printf("%f", x)
 }
+fn print(x Double) $[inline] {
+  printf("%lf", x)
+}
 fn print(x Bool) {
   if (x) {
     print("true")

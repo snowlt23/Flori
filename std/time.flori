@@ -1,7 +1,13 @@
 
 import "core"
+import "core/pointer"
+when (is_windows) {
+  import "std/windows"
+}
 
 type Clock $[importc "clock_t", header "time.h"]
+type Time $[importc "time_t", header "time.h"]
+
 fn get_clock() Clock $[importc "clock", header "time.h"]
 fn `+(a Clock, b Clock) Clock $[importc "+", header nodeclc, patternc infixc]
 fn `-(a Clock, b Clock) Clock $[importc "-", header nodeclc, patternc infixc]
@@ -11,4 +17,25 @@ fn `/(a Clock, b Int) Float {
 
 fn print(x Clock) {
   printf("%lld", x)
+}
+
+when (is_windows) {
+  var freq WinTime
+  win_query_performance_frequency(getptr(freq))
+}
+fn get_current_milliseconds() Double {
+  when (is_windows) {
+    var counter WinTime
+    win_query_performance_counter(getptr(counter))
+    (cast[Double](counter.QuadPart) * 1000.0) / double(freq.QuadPart)
+  }
+}
+
+macro bench(body FBlock) FExpr $[syntax] {
+  tmp := gensym()
+  quote {
+    `tmp := get_current_milliseconds()
+    `body
+    println("Elapsed: ", get_current_milliseconds() - `tmp)
+  }
 }

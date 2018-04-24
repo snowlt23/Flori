@@ -637,6 +637,16 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   scope.rootPass(parsed.value)
   if parsed.value.typ.isVoidType:
     parsed.value.error("value is Void.")
+  elif $parsed.value.typ.name == "IntLit":
+    parsed.value = parsed.value.span.quoteFExpr("int(`embed)", [parsed.value])
+    scope.rootPass(parsed.value)
+  elif $parsed.value.typ.name == "FloatLit":
+    parsed.value = parsed.value.span.quoteFExpr("double(`embed)", [parsed.value])
+    scope.rootPass(parsed.value)
+  elif $parsed.value.typ.name == "StrLit":
+    parsed.value = parsed.value.span.quoteFExpr("cstring(`embed)", [parsed.value])
+    scope.rootPass(parsed.value)
+    
   scope.resolveByVoid(fexpr)
 
   let varsym = scope.symbol(name(name), symbolDef, parsed.name)
@@ -654,6 +664,15 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.internalMark = internalDef
   fexpr.defexpr = parsed
 
+proc findMatchSet*(rootPass: PassProcType, scope: Scope, parsed: SetExpr): Option[FExpr] =
+  for conv in parsed.value.typ.fexpr.converters.converters:
+    let convname = conv.defn.name
+    var conv = parsed.value.span.quoteFExpr("`embed(`embed)", [convname, parsed.value])
+    scope.rootPass(conv)
+    if conv.typ.match(parsed.value.typ):
+      return some(conv)
+  return none(FExpr)
+  
 proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.len != 3:
     fexpr.error("expected set syntax: left = value")
@@ -671,7 +690,14 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     scope.rootPass(parsed.value)
 
   if not parsed.dst.typ.match(parsed.value.typ):
-    parsed.value.error("cannot set $# value to $#." % [$parsed.value.typ, $parsed.dst.typ])
+    if parsed.value.typ.fexpr.hasConverters:
+      let convvalue = findMatchSet(rootPass, scope, parsed)
+      if convvalue.isSome:
+        parsed.value = convvalue.get
+      else:
+        parsed.value.error("cannot set $# value to $#." % [$parsed.value.typ, $parsed.dst.typ])
+    else:
+      parsed.value.error("cannot set $# value to $#." % [$parsed.value.typ, $parsed.dst.typ])
 
   fexpr.internalMark = internalSet
   fexpr.setexpr = parsed

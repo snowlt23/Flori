@@ -27,8 +27,6 @@ proc applyInstance*(sym: Symbol, instance: Symbol): bool =
   elif sym.kind == symbolGenerics:
     if sym.instance.isSome:
       if not sym.instance.get.spec(instance):
-        echo sym.instance.get.name.names[0], ":", instance.name.names[0]
-        echo sym.instance.get.kind, ":", instance.kind
         return false
     else:
       sym.instance = some(instance)
@@ -108,6 +106,12 @@ proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExp
     let extype = scope.expandType(b[1])
     b[1] = extype
     # b = fseq(b.span, @[b[0], extype])
+
+  for argtype in argtypes:
+    if argtype.kind == symbolTypeGenerics:
+      for g in fexpr.deftype.generics:
+        g.symbol.instance = none(Symbol)
+      discard scope.expandDeftype(argtype.fexpr, argtype.types)
 
   let tsym = fexpr.internalScope.symbol(typename, symbolTypeGenerics, expanded)
   tsym.types = expanded.deftype.generics.mapIt(it.symbol)

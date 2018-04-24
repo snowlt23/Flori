@@ -7,9 +7,9 @@ import options
 
 proc isConvEnd(args: FExpr, convindexes: seq[int]): bool =
   for i, arg in args:
-    if arg.typ.fexpr.hasConverters and convindexes[i] < arg.typ.fexpr.converters.converters.len:
-      return false
-  return true
+    if arg.typ.fexpr.hasConverters and convindexes[i] >= arg.typ.fexpr.converters.converters.len:
+      return true
+  return false
 
 proc findMatchFn*(scope: Scope, fn: FExpr, args: FExpr, convindexes: seq[int]): Option[FExpr] =
   if isConvEnd(args, convindexes):

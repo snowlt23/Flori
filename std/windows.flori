@@ -12,6 +12,9 @@ type Win32FindData $[importc "WIN32_FIND_DATA", header "windows.h"] {
   dwFileAttributes Int
   cFileName CString
 }
+type WinTime $[importc "LARGE_INTEGER", header "windows.h"] {
+  QuadPart Int
+}
 
 fn win_copyfile(filename CString, newfilename CString, failif Bool) Bool $[importc "CopyFileA", header "windows.h"]
 fn win_deletefile(filename CString) Bool $[importc "DeleteFile", header "windows.h"]
@@ -25,6 +28,8 @@ fn win_isdir(data Win32FindData) Bool {
 }
 
 fn win_getcommandline() CString $[importc "GetCommandLine", header "windows.h"]
+fn win_query_performance_frequency(freq Ptr[WinTime]) $[importc "QueryPerformanceFrequency", header "windows.h"]
+fn win_query_performance_counter(counter Ptr[WinTime]) $[importc "QueryPerformanceCounter", header "windows.h"]
 fn win_sleep(msec Int) $[importc "Sleep", header "windows.h"]
 fn load_librarya(name CString) Pointer $[importc "LoadLibraryA", header "windows.h"]
 fn get_proc_address(mod Pointer, name CString) Pointer $[importc "GetProcAddress", header "windows.h"]
