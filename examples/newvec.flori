@@ -1,0 +1,139 @@
+
+import "core"
+import "core/pointer"
+
+#
+# dynamic
+#
+
+type Dynamic[T] $[nodestruct] {
+  owned Bool
+  value T
+}
+
+fn own_dynamic[T](value T) Dynamic[T] {
+  init(Dynamic[T]){true; value}
+}
+fn borrow_dynamic[T](value T) Dynamic[T] {
+  init(Dynamic[T]){false; value}
+}
+
+fn is_owned[T](dyn Dynamic[T]) Bool {
+  dyn.owned
+}
+fn move[T](dyn ref Dynamic[T]) Dynamic[T] {
+  dyn.owned = false
+  ret := dyn
+  ret.owned = true
+  ret
+}
+fn borrow[T](dyn Dynamic[T]) T $[converter] {
+  dyn.value
+}
+
+#
+# vec
+#
+
+type NewVec[T] $[nodestruct] {
+  data Ptr[Dynamic[T]]
+  cap Int
+  len Int
+}
+
+fn newvec[T](len Int, cap Int) NewVec[T] {
+  v := init(NewVec[T]) {
+    alloc[Dynamic[T]](cap)
+    cap
+    len
+  }
+  v
+}
+fn newvec[T](len Int) NewVec[T] {
+  newvec[T](len, len * 2)
+}
+fn newvec[T]() NewVec[T] {
+  newvec[T](0, 8)
+}
+
+fn extend[T](v ref NewVec[T]) {
+  v.data = realloc(v.data, v.cap*2)
+  v.cap = v.cap*2
+}
+
+fn push_impl[T](v ref NewVec[T], value Dynamic[T]) $[nodestruct] {
+  if (v.cap < v.len+1) {
+    extend(v)
+  }
+  unref(v.data +! (v.len * sizeof[Dynamic[T]]())) = value
+  v.len += 1
+}
+macro push[T](v TExpr[NewVec[T]], value TExpr[T]) FExpr {
+  if (scopelevel(v) <= scopelevel(value)) {
+    quote {
+      push_impl(`v, own_dynamic(`value))
+    }
+  } else {
+    quote {
+      push_impl(`v, borrow_dynamic(`value))
+    }
+  }
+}
+
+fn length[T](v NewVec[T]) Int {
+  v.len
+}
+
+fn get[T](v NewVec[T], i Int) Dynamic[T] {
+  unref(v.data +! (i * sizeof[Dynamic[T]]()))
+}
+
+iterator items[T](v TExpr[NewVec[T]]) {
+  i := gensym()
+  quote {
+    println(get(`v, 0).owned)
+    for `i in range(0, length(`v)-1) {
+      `element := get(`v, `i)
+      `yield
+    }
+  }
+}
+
+destructor[T](v NewVec[T]) {
+  for e in v {
+    if (is_owned(e)) {
+      destruct(e)
+    }
+  }
+  dealloc(v.data)
+  println("NewVec destroyed!")
+}
+
+#
+# main
+#
+
+type MyFile $[resource, nodestruct] {}
+
+fn open_myfile() MyFile {
+  init(MyFile){}
+}
+
+destructor(mf MyFile) {
+  println("MyFile destroyed!")
+}
+
+fn newvec_main() NewVec[MyFile] {
+  v := newvec[MyFile]()
+  f := open_myfile()
+  push(v, f)
+  v
+}
+
+fn main() {
+  println("start!")
+  v := newvec_main()
+  println("end!")
+}
+
+main()

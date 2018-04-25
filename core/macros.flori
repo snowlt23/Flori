@@ -107,6 +107,7 @@ fn to_cs(fexpr FIntLit) CString $[importc "flori_to_cs", header "floriffi.h", im
 fn strval(fexpr FStrLit) CString $[importc "flori_strval", header "floriffi.h", importjs]
 fn gensym() FExpr $[importc "flori_gensym", header "floriffi.h", importjs]
 fn get_type(fexpr FExpr) FExpr $[importc "flori_get_type", header "floriffi.h", importjs]
+fn scopelevel(fexpr FExpr) Int $[importc "flori_scopelevel", header "floriffi.h", importjs]
 fn debug_marking_impl(fexpr FExpr) $[importc "flori_debug_marking", header "floriffi.h", importjs]
 
 fn quote_expand_inside(fexpr FExpr, args FExpr, count Int) Int $[compiletime, importjs] {

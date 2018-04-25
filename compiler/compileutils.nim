@@ -66,6 +66,7 @@ proc setupFFI*(handle: LibHandle) =
   ffi "flori_strval", ffiStrval
   ffi "flori_gensym", ffiGensym
   ffi "flori_get_type", ffiGetType
+  ffi "flori_scopelevel", ffiScopeLevel
   ffi "flori_debug_marking", ffiDebugMarking
 
 proc reloadMacroLibrary*(semctx: SemanticContext, scope: Scope) =

@@ -60,6 +60,8 @@ proc symbolResolve*(scope: Scope, fexpr: var FExpr): bool =
     let opt = scope.getDecl(name(fexpr))
     if opt.isSome:
       fexpr = fsymbol(fexpr.span, opt.get)
+      if opt.get.fexpr.hasInternalScope:
+        fexpr.internalScope = opt.get.fexpr.internalScope
       return true
     else:
       let fnopt = scope.getFnDecl(name(fexpr))
@@ -218,7 +220,7 @@ definePass processSemPass, rootPass, (Scope, var FExpr):
   expandDeftypePass
   inferFnEffectPass
   earlySetDestruct
-  # moveEffectPass
   expandDestructorPass
+  # moveEffectPass
   # explicitDestruct
   finalPass

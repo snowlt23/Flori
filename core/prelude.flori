@@ -111,7 +111,9 @@ false := false_fn()
 fn not(b Bool) Bool $[importc "!", importjs "!"]
 
 fn break() $[importc, patternc "break"]
+fn continue() $[importc, patternc "continue"]
 fn return[T](x T) T $[importc, patternc "return $1"]
+fn return() $[importc, patternc "return"]
 
 # string.h
 fn strcmp(a CString, b CString) Int $[importc "strcmp", header "string.h", importjs "===", patternjs infixjs]

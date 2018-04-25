@@ -352,7 +352,7 @@ proc declGenerics*(scope: Scope, fexpr: FExpr): seq[Symbol] =
     g = fsymbol(g.span, sym)
     result.add(sym)
 
-proc declArgtypes*(scope: Scope, fexpr: FExpr, isGenerics: bool): seq[Symbol] =
+proc declArgtypes*(scope: Scope, originscope: Scope, fexpr: FExpr, isGenerics: bool): seq[Symbol] =
   result = @[]
   for i, arg in fexpr.mpairs:
     if arg.len < 2:
@@ -362,6 +362,7 @@ proc declArgtypes*(scope: Scope, fexpr: FExpr, isGenerics: bool): seq[Symbol] =
     let argsym = scope.symbol(name(arg[0]), symbolArg, arg[0])
     argsym.argpos = i
     arg[0].typ = typesym
+    arg[0].internalScope = originscope
     arg[0].replaceByTypesym(argsym)
     arg[1].replaceByTypesym(typesym)
     result.add(typesym)
@@ -379,7 +380,7 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: Defn, 
                    fnscope.declGenerics(parsed.generics)
                  else:
                    @[]
-  let argtypes = fnscope.declArgtypes(parsed.args, parsed.isGenerics)
+  let argtypes = fnscope.declArgtypes(scope, parsed.args, parsed.isGenerics)
   let rettype = fnscope.semType(parsed.ret)
   parsed.ret.replaceByTypesym(rettype)
   
@@ -571,7 +572,9 @@ proc semVar*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if n.kind != fexprIdent:
     n.error("variable name should be FIdent.")
 
-  fexpr = fseq(fexpr.span, @[fexpr[0], fexpr[1], fexpr[2..^1]])
+  let newfexpr = fseq(fexpr.span, @[fexpr[0], fexpr[1], fexpr[2..^1]])
+  newfexpr.metadata = fexpr.metadata
+  fexpr = newfexpr
 
   let typsym = if fexpr[2].kind == fexprSymbol:
                  fexpr[2].symbol
@@ -648,6 +651,7 @@ proc semDef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
 
   let varsym = scope.symbol(name(name), symbolDef, parsed.name)
   parsed.name.typ = parsed.value.typ.scope.varsym(parsed.value.typ)
+  parsed.name.internalScope = scope
   let status = scope.addDecl(name(name), varsym)
   if not status:
     fexpr.error("redefinition $# variable." % $name)

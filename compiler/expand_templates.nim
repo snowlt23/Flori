@@ -179,9 +179,13 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, argtypes: s
   return fsym
 
 proc expandMacrofn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr =
-  # for i, arg in fexpr.defn.args:
-  #   arg[1].assert(arg[1].kind == fexprSymbol)
-  #   arg[1].symbol.applyInstance(argtypes[i])
+  for i, arg in fexpr.defn.args:
+    arg[1].assert(arg[1].kind == fexprSymbol)
+    if not arg[1].symbol.applyInstance(argtypes[i]):
+      arg.error("argtype not mat5ch: $#, $#" % [$arg[1].symbol.instance.get, $argtypes[i]])
+  defer:
+    for g in fexpr.defn.generics:
+      g.symbol.instance = none(Symbol)
   result = expandDefn(rootPass, scope, fexpr, argtypes)
   let mp = MacroProc(importname: codegenMangling(result.symbol, result.symbol.fexpr.defn.generics.mapIt(it.symbol), result.symbol.fexpr.defn.args.mapIt(it[1].symbol)) & "_macro")
   result.symbol.macroproc = mp

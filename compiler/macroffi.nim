@@ -57,6 +57,10 @@ proc ffiGetType*(fexpr: FExpr): FExpr {.cdecl.} =
   if not fexpr.hasTyp:
     fexpr.error("fexpr hasn't type.")
   return fsymbol(ffiSpan(), fexpr.typ)
+proc ffiScopeLevel*(fexpr: FExpr): int {.cdecl.} =
+  if not fexpr.hasInternalScope:
+    fexpr.error("fexpr hasn't scope.")
+  return fexpr.internalScope.level
   
 proc ffiDebugMarking*(fexpr: FExpr) =
   echo "deprecated: debug_marking"

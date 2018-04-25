@@ -62,3 +62,12 @@ macro is_defined(d FIdent) FExpr {
     `mtmp()
   }
 }
+
+fn is_release_fn() Bool {
+  is_defined(RELEASE)
+}
+fn is_debug_fn() Bool {
+  not(is_defined(RELEASE))
+}
+is_release := is_release_fn()
+is_debug := is_debug_fn()
