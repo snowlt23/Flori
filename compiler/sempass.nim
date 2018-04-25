@@ -1,6 +1,6 @@
 
 import fexpr_core
-import newpassmacro, typepass, macropass, expandutils, expandpass, effectpass, scopeout, converterpass
+import newpassmacro, typepass, macropass, expandpass, effectpass, scopeout, converterpass
 
 import options
 import strutils, sequtils
@@ -34,42 +34,6 @@ proc internalPass*(scope: Scope, fexpr: var FExpr): bool =
       return true
   else:
     return true
-
-proc expandMacro*(scope: Scope, fexpr: var FExpr): bool =
-  thruInternal(fexpr)
-  if fexpr.isNormalFuncCall:
-    scope.expandBy(fexpr.span):
-      let args = fexpr[1]
-      let pd = matchMacro(rootPass, scope, scope, fexpr[0], args, false)
-      if pd.isSome:
-        if not pd.get.sym.fexpr.defn.generics.isSpecTypes:
-          fexpr[0] = expandMacrofn(rootPass, scope, pd.get.sym.fexpr, scope.getMacroArgs(pd.get, args))
-          var expanded = fexpr[0].symbol.macroproc.call(args)
-          scope.rootPass(expanded)
-          fexpr = expanded
-        else:
-          var expanded = pd.get.macroproc.call(args)
-          scope.rootPass(expanded)
-          fexpr = expanded
-        return false
-      
-  if fexpr.kind == fexprSeq:
-    scope.expandBy(fexpr.span):
-      let args = fexpr[1..^1]
-      let pd = matchMacro(rootPass, scope, scope, fexpr[0], args, false)
-      if pd.isSome:
-        if not pd.get.sym.fexpr.defn.generics.isSpecTypes:
-          fexpr[0] = expandMacrofn(rootPass, scope, pd.get.sym.fexpr, scope.getMacroArgs(pd.get, args))
-          var expanded = fexpr[0].symbol.macroproc.call(args)
-          scope.rootPass(expanded)
-          fexpr = expanded
-        else:
-          var expanded = pd.get.macroproc.call(args)
-          scope.rootPass(expanded)
-          fexpr = expanded
-        return false
-    
-  return true
 
 proc toplevelPass*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
@@ -185,7 +149,7 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
     for g in generics.mitems:
       if g.kind == fexprSymbol and g.symbol.isSpecSymbol:
         continue
-      g = fsymbol(g.span, scope.semTypeExpr(g))
+      g = fsymbol(g.span, scope.semType(g))
     let opt = scope.getFunc(procname(name(fnident), argtypes))
     if opt.isSome:
       fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
@@ -205,48 +169,17 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
   else:
     return true
 
-proc converterResolve*(scope: Scope, fexpr: var FExpr): bool =
-  thruInternal(fexpr)
-  
-  if fexpr.isNormalFuncCall and fexpr[0].kind != fexprSymbol:
-    let fnident = fexpr[0]
-    checkArgsHastype(fexpr[1])
-    let opt = scope.findMatchFn(fnident, fexpr[1], fexpr[1].mapIt(0))
-    if opt.isSome:
-      fexpr = fexpr.span.quoteFExpr("`embed `embed", [fnident, opt.get])
-      scope.rootPass(fexpr)
-      return false
-    else:
-      return true
-  elif fexpr.isGenericsFuncCall and fexpr[0].kind != fexprSymbol:
-    let fnident = fexpr[0]
-    checkArgsHastype(fexpr[2])
-    let opt = scope.findMatchFn(fnident, fexpr[2], fexpr[2].mapIt(0))
-    if opt.isNone:
-      fexpr.error("undeclared $#($#) function." % [$fnident, fexpr[2].mapIt($it.typ).join(", ")])
-    fexpr = fexpr.span.quoteFExpr("`embed `embed `embed", [fnident, fexpr[1], opt.get])
-    scope.rootPass(fexpr)
-    return false
-  elif fexpr.isInfixFuncCall and fexpr[0].kind != fexprSymbol:
-    let fnident = fexpr[0]
-    let args = flist(fexpr.span, @[fexpr[1], fexpr[2]])
-    checkArgsHastype(args)
-    let opt = scope.findMatchFn(fnident, args, args.mapIt(0))
-    if opt.isNone:
-      fexpr.error("undeclared $#($#, $#) function." % [$fnident, $fexpr[1].typ, $fexpr[2].typ])
-    fexpr = fexpr.span.quoteFExpr("`embed `embed `embed", [fnident, opt.get[0], opt.get[1]])
-    scope.rootPass(fexpr)
-    return false
-  else:
-    return true
-
 proc varfnResolve*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
 
   if fexpr.kind == fexprSeq and fexpr.len == 2 and fexpr[0].kind != fexprSymbol and fexpr[1].kind == fexprList:
+    if fexpr[0].kind == fexprIdent:
+      let opt = scope.getDecl(name(fexpr[0]))
+      if opt.isNone:
+        fexpr.error("undeclared $#($#) function." % [$fexpr[0], fexpr[1].mapIt($it.typ).join(", ")])
     scope.rootPass(fexpr[0])
     if fexpr[0].typ.kind != symbolFuncType:
-      fexpr[0].error("value is not callable.")
+      fexpr[0].error("$# is not callable." % $fexpr[0])
     fexpr.typ = fexpr[0].typ.rettype
 
   return true
@@ -276,7 +209,7 @@ definePass processSemPass, rootPass, (Scope, var FExpr):
   symbolResolve
   typeInfer
   overloadResolve
-  converterResolve
+  converterPass
   varfnResolve
   applyInstancePass
   expandInlinePass

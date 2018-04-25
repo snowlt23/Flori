@@ -8,7 +8,7 @@ let doc = """
 Flori programming language.
 
 Usage:
-  flori c <name> [-o=<outname>] [--opt=<level>] [--cc=<cc>] [--bench] [--ccoptions=<options>] [--moptions=<options>] [--src-comment]
+  flori c <name> [-o=<outname>] [--opt=<level>] [--cc=<cc>] [--bench] [--ccoptions=<options>] [--moptions=<options>] [--src-comment] [-d=<defines>...]
   flori js <name> [-o=<outname>] [--bench] [--sourcemap]
 
 Options:
@@ -16,6 +16,7 @@ Options:
   --version      Show version.
   -o=<outname>   Specialize output filename.
   --opt=<level>  Optimize level.
+  -d=<defines>   Define for compiletime switch.
   --cc=<cc>      Select C Compiler.
     gcc  GNU C Compiler (default)
     tcc  Tiny C Compiler

@@ -1,0 +1,9 @@
+
+import "core"
+
+fn main() {
+  println(is_defined(FLORI_COMPILETIME))
+  println(is_defined(NOTFOUND))
+}
+
+main()

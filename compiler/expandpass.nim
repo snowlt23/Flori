@@ -1,6 +1,6 @@
 
 import fexpr_core
-import newpassmacro, expandutils, inlinepass
+import newpassmacro, expand_templates, inlinepass
 
 import options
 import strutils, sequtils

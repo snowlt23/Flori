@@ -147,6 +147,7 @@ type
     tmpcount*: int
     importpaths*: seq[string]
     moptions*: string
+    defines*: seq[string]
     expands*: seq[Span]
 
 # globals

@@ -1,5 +1,6 @@
 
-import fexpr_core
+import fexpr_core, expand_templates
+import newpassmacro
 
 import options
 import strutils
@@ -136,3 +137,39 @@ proc getMacroArgs*(scope: Scope, pd: ProcDecl, args: FExpr): seq[Symbol] =
       if opt.isNone:
         args[i].error("undeclared $# type." % $pd.argtypes[i].name)
       result.add(opt.get)
+
+proc expandMacro*(scope: Scope, fexpr: var FExpr): bool =
+  thruInternal(fexpr)
+  if fexpr.isNormalFuncCall:
+    scope.expandBy(fexpr.span):
+      let args = fexpr[1]
+      let pd = matchMacro(rootPass, scope, scope, fexpr[0], args, false)
+      if pd.isSome:
+        if not pd.get.sym.fexpr.defn.generics.isSpecTypes:
+          fexpr[0] = expandMacrofn(rootPass, scope, pd.get.sym.fexpr, scope.getMacroArgs(pd.get, args))
+          var expanded = fexpr[0].symbol.macroproc.call(args)
+          scope.rootPass(expanded)
+          fexpr = expanded
+        else:
+          var expanded = pd.get.macroproc.call(args)
+          scope.rootPass(expanded)
+          fexpr = expanded
+        return false
+      
+  if fexpr.kind == fexprSeq:
+    scope.expandBy(fexpr.span):
+      let args = fexpr[1..^1]
+      let pd = matchMacro(rootPass, scope, scope, fexpr[0], args, false)
+      if pd.isSome:
+        if not pd.get.sym.fexpr.defn.generics.isSpecTypes:
+          fexpr[0] = expandMacrofn(rootPass, scope, pd.get.sym.fexpr, scope.getMacroArgs(pd.get, args))
+          var expanded = fexpr[0].symbol.macroproc.call(args)
+          scope.rootPass(expanded)
+          fexpr = expanded
+        else:
+          var expanded = pd.get.macroproc.call(args)
+          scope.rootPass(expanded)
+          fexpr = expanded
+        return false
+    
+  return true

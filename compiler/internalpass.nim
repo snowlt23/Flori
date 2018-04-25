@@ -51,31 +51,28 @@ proc parseDefn*(fexpr: var FExpr): Defn =
   newfexpr.addSon(fexpr[pos])
   pos.inc
 
+  let ret = fseq(fexpr.span)
   # ret ref
   if pos < fexpr.len and ($fexpr[pos] == "ref" or $fexpr[pos] == "dynamic"):
-    result.retprefixpos = newfexpr.len
-    newfexpr.addSon(fexpr[pos])
+    ret.addSon(fexpr[pos])
     pos.inc
-  else:
-    result.retprefixpos = -1
 
   # ret
   if pos < fexpr.len and fexpr[pos].kind in {fexprIdent, fexprSymbol}:
-    result.retpos = newfexpr.len
-    newfexpr.addSon(fexpr[pos])
+    ret.addSon(fexpr[pos])
     pos.inc
   else:
-    result.retpos = newfexpr.len
-    newfexpr.addSon(fident(fexpr.span, name("Void")))
+    ret.addSon(fident(fexpr.span, name("Void")))
 
   # ret generics
   if pos < fexpr.len and fexpr[pos].kind == fexprArray:
-    result.retgenericspos = newfexpr.len
-    newfexpr.addSon(fexpr[pos])
+    result.retpos = newfexpr.len
+    ret.addSon(fexpr[pos])
+    newfexpr.addSon(ret)
     pos.inc
   else:
-    result.retgenericspos = newfexpr.len
-    newfexpr.addSon(farray(fexpr.span))
+    result.retpos = newfexpr.len
+    newfexpr.addSon(ret)
 
   # pragma
   if pos < fexpr.len and $fexpr[pos] == "$":
@@ -357,11 +354,11 @@ proc declGenerics*(scope: Scope, fexpr: FExpr): seq[Symbol] =
 
 proc declArgtypes*(scope: Scope, fexpr: FExpr, isGenerics: bool): seq[Symbol] =
   result = @[]
-  for i, arg in fexpr:
-    var pos = 1
-    let argtyp = arg.parseTypeExpr(pos)
-    let typesym = scope.semType(argtyp)
-
+  for i, arg in fexpr.mpairs:
+    if arg.len < 2:
+      arg.error("$# isn't argument declaration." % $arg)
+    arg = fseq(arg.span, @[arg[0], arg[1..^1]])
+    let typesym = scope.semType(arg[1])
     let argsym = scope.symbol(name(arg[0]), symbolArg, arg[0])
     argsym.argpos = i
     arg[0].typ = typesym
@@ -383,7 +380,7 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: Defn, 
                  else:
                    @[]
   let argtypes = fnscope.declArgtypes(parsed.args, parsed.isGenerics)
-  let rettype = fnscope.semType(ParsedType(typ: parsed.ret, generics: parsed.retgenerics, prefix: if parsed.hasRetprefix: some(parsed.retprefix) else: none(FExpr)))
+  let rettype = fnscope.semType(parsed.ret)
   parsed.ret.replaceByTypesym(rettype)
   
   let symkind = if parsed.name.kind == fexprQuote: symbolInfix else: defsym
@@ -496,10 +493,11 @@ proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if parsed.isGenerics:
     discard typescope.declGenerics(parsed.generics)
 
-  for field in parsed.body:
-    var pos = 1
-    let fieldtyp = field.parseTypeExpr(pos)
-    let s = typescope.semType(fieldtyp)
+  for field in parsed.body.mitems:
+    if field.len < 2:
+      field.error("$# isn't field declaration." % $field)
+    field = fseq(field.span, @[field[0], field[1..^1]])
+    let s = typescope.semType(field[1])
     field[1].replaceByTypesym(s)
   
   # symbol resolve
@@ -511,19 +509,18 @@ proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.internalScope = typescope
   fexpr.internalMark = internalDeftype
   fexpr.deftype = parsed
-  
-  if not fexpr.internalPragma.nodestruct:
-    generateDestructFn(rootPass, scope, fexpr)
 
-  if fexpr.internalPragma.importc.isNone:
+  if fexpr.internalPragma.importc.isNone:    
+    if not fexpr.internalPragma.nodestruct:
+      generateDestructFn(rootPass, scope, fexpr)
     sym.fexpr.isCStruct = true
 
 proc semTypedef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
-  var pos = 2
-  let parsed = parseTypeExpr(fexpr, pos)
-  let typesym = scope.semType(parsed)
+  fexpr = fseq(fexpr.span, @[fexpr[0], fexpr[1], fexpr[2..^1]])
+  let typesym = scope.semType(fexpr[2])
   if not scope.addDecl(name(fexpr[1]), typesym):
     fexpr.error("redefinition $# type." % $fexpr[1])
+  fexpr[2] = fsymbol(fexpr[2].span, typesym)
   fexpr.internalMark = internalTypedef
 
 proc semIf*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
@@ -574,12 +571,12 @@ proc semVar*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if n.kind != fexprIdent:
     n.error("variable name should be FIdent.")
 
-  var pos = 2
-  let parsedtype = parseTypeExpr(fexpr, pos)
+  fexpr = fseq(fexpr.span, @[fexpr[0], fexpr[1], fexpr[2..^1]])
+
   let typsym = if fexpr[2].kind == fexprSymbol:
                  fexpr[2].symbol
                else:
-                 scope.semType(parsedtype)
+                 scope.semType(fexpr[2])
   
   let varsym = scope.symbol(name(n), symbolDef, n)
   n.typ = typsym.scope.varsym(typsym)
@@ -734,9 +731,7 @@ proc semInit*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr[2].kind != fexprBlock:
     fexpr.error("init body should be FBlock.")
     
-  var pos = 0
-  let inittype = fexpr[1][0].parseTypeExpr(pos)
-  let typesym = scope.semType(inittype)
+  let typesym = scope.semType(fexpr[1][0])
   fexpr[1][0].replaceByTypesym(typesym)
   fexpr.typ = typesym
   scope.rootPass(fexpr[2])
@@ -751,7 +746,7 @@ proc semInit*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.initexpr = InitExpr(fexpr: fexpr)
   fexpr.initexpr.typpos = 1
   fexpr.initexpr.bodypos = 2
-  fexpr.initexpr.typ = fsymbol(inittype.typ.span, typesym)
+  fexpr.initexpr.typ = fsymbol(fexpr[1][0].span, typesym)
   fexpr.internalMark = internalInit
 
 proc semImport*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
@@ -814,7 +809,7 @@ proc semIsDestructable*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) 
   if fexpr.len != 2 or fexpr[1].kind != fexprList and fexpr[1].len != 0:
     fexpr.error("usage: is_destructable(type)")
   
-  let typesym = scope.semTypeExpr(fexpr[1][0])
+  let typesym = scope.semType(fexpr[1][0])
   if fexpr.internalScope.getFunc(procname(name("destruct"), @[typesym])).isSome:
     fexpr = fexpr.span.quoteFExpr("true", [])
   else:
@@ -824,7 +819,7 @@ proc semIsCopyable*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.len != 2 or fexpr[1].kind != fexprList and fexpr[1].len != 0:
     fexpr.error("usage: is_copyable(type)")
   
-  let typesym = scope.semTypeExpr(fexpr[1][0])
+  let typesym = scope.semType(fexpr[1][0])
   if fexpr.internalScope.getFunc(procname(name("copy"), @[typesym])).isSome:
     fexpr = fexpr.span.quoteFExpr("true", [])
   else:
@@ -919,7 +914,7 @@ proc initInternalScope*(ctx: SemanticContext) =
 proc internalScope*(ctx: SemanticContext): Scope =
   ctx.modules[name("internal")]
 
-proc newSemanticContext*(moptions = ""): SemanticContext =
+proc newSemanticContext*(moptions = "", defines = newSeq[string]()): SemanticContext =
   new result
   result.modules = initOrderedTable[Name, Scope]()
   result.macrolib = nil
@@ -928,6 +923,7 @@ proc newSemanticContext*(moptions = ""): SemanticContext =
   result.initInternalScope()
   result.importpaths = @[getAppDir() / "..", ".", getHomeDir() / ".rabbit"]
   result.moptions = moptions
+  result.defines = defines
   result.globaltoplevels = @[]
   result.expands = @[]
   gCtx = result

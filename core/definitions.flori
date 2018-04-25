@@ -1,5 +1,7 @@
 
 import "core/prelude"
+import "core/macros"
+import "core/string"
 
 fn is_windows_fn() Bool $[importc, header nodeclc, declc "
 #ifdef _WIN32
@@ -30,3 +32,33 @@ fn is_jscodegen_fn() Bool $[importc, header nodeclc, declc "
 #endif
   ", patternc "is_jscodegen"]
 is_jscodegen := is_jscodegen_fn()
+
+macro is_defined(d FIdent) FExpr {
+  tmp := gensym()
+  mtmp := gensym()
+  sdecl := s""
+  push(sdecl, "\n#ifdef ")
+  push(sdecl, to_cs(d))
+  push(sdecl, "\n")
+  push(sdecl, "#define ")
+  push(sdecl, to_cs(tmp))
+  push(sdecl, " true \n")
+  push(sdecl, "#else\n")
+  push(sdecl, "#define ")
+  push(sdecl, to_cs(tmp))
+  push(sdecl, " false \n")
+  push(sdecl, "#endif\n")
+  fdecl := new_fstrlit(to_cs(sdecl))
+  fpat := new_fstrlit(to_cs(tmp))
+  quote {
+    fn `tmp() Bool $[importc, declc `fdecl, patternc `fpat]
+    macro `mtmp() FExpr {
+      if (`tmp()) {
+        quote {true}
+      } else {
+        quote {false}
+      }
+    }
+    `mtmp()
+  }
+}

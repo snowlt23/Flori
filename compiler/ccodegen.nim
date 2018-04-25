@@ -600,6 +600,8 @@ proc codegenSingle*(ctx: CCodegenContext, sem: SemanticContext): string =
     ctx.headers["floriffi.h"] = true
     result &= "#include \"floriffi.h\"\n"
     result &= "#define FLORI_COMPILETIME\n"
+  for d in sem.defines:
+    result &= "#define $#\n" % d
   for f in sem.globaltoplevels:
     ctx.codegenToplevel(src, f)
   src &= "\n"

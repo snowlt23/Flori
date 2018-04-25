@@ -1,6 +1,6 @@
 
 import parser, types, fexpr, scope, metadata
-import passmacro, passdef, internalpass, elimpass
+import passdef, internalpass, elimpass
 import ccodegen, jscodegen
 import compileutils
 
@@ -22,6 +22,7 @@ type
     ccoptions*: string
     moptions*: string
     srccomment*: bool
+    defines*: seq[string]
 
 template bench*(name: string, body: untyped) =
   if options.bench:
@@ -67,9 +68,10 @@ proc ccoptions*(args: Table[string, Value]): CCOptions =
                      else:
                        ""
   result.srccomment = bool(args["--src-comment"])
+  result.defines = @(args["-d"])
 
 proc compileFloriC*(options: CCOptions) =
-  let semctx = newSemanticContext(options.moptions)
+  let semctx = newSemanticContext(options.moptions, options.defines)
   let genctx = newCCodegenContext()
   bench "eval":
     if not existsFile(options.filepath):

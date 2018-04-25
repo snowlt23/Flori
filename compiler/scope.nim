@@ -141,21 +141,18 @@ proc getDecl*(scope: Scope, n: Name, importscope = true): Option[Symbol] =
     else:
       return none(Symbol)
   return some scope.decls[n]
-proc getFnDecl*(scope: Scope, n: Name, importscope = true): Option[Symbol] =
-  if not scope.procdecls.hasKey(n):
-    if importscope:
-      for scopename, s in scope.importscopes:
-        let opt = s.getFnDecl(n, importscope = scopename.isCurrentScope())
-        if opt.isSome:
-          return opt
-      return none(Symbol)
-    else:
-      return none(Symbol)
+proc getFnDecl*(scope: Scope, n: Name): Option[Symbol] =
+  var fns = newSeq[ProcDecl]()
+  if scope.procdecls.hasKey(n):
+    fns &= scope.procdecls[n].decls
+  for scopename, s in scope.importscopes:
+    if s.procdecls.hasKey(n):
+      fns &= s.procdecls[n].decls
 
-  let fnopt = scope.procdecls[n].decls
-  if fnopt.len != 1:
+  if fns.len == 1:
+    return some(fns[0].sym)
+  else:
     return none(Symbol)
-  return some(fnopt[0].sym)
 proc getSpecType*(scope: Scope, n: Name, types: seq[Symbol], importscope = true): Option[Symbol] =
   if scope.decls.hasKey(n):
     if scope.decls[n].types == types:

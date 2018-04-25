@@ -10,7 +10,7 @@ type
     prefix*: Option[FExpr]
     typ*: FExpr
     generics*: FExpr
-    ret*: ParsedType
+    ret*: FExpr
 
 proc parseTypeExpr*(fexpr: FExpr, pos: var int): ParsedType =
   if fexpr.kind in {fexprIdent, fexprSymbol, fexprQuote}:
@@ -36,13 +36,16 @@ proc parseTypeExpr*(fexpr: FExpr, pos: var int): ParsedType =
 
     if $result.typ == "Fn":
       if pos < fexpr.len:
-        result.ret = fexpr.parseTypeExpr(pos)
+        result.ret = fexpr[pos]
       else:
-        result.ret = ParsedType(typ: fident(fexpr.span, name("Void")), generics: farray(fexpr.span), prefix: none(FExpr))
+        result.ret = fseq(fexpr.span, @[fident(fexpr.span, name("Void"))])
   else:
     fexpr[pos].error("$# isn't type expression." % $fexpr[pos])
 
-proc semType*(scope: Scope, parsed: ParsedType): Symbol =
+proc semType*(scope: Scope, fexpr: FExpr): Symbol =
+  var pos = 0
+  let parsed = parseTypeExpr(fexpr, pos)
+  
   if parsed.typ.kind == fexprIntLit:
     return scope.intsym(parsed.typ)
 
@@ -51,8 +54,7 @@ proc semType*(scope: Scope, parsed: ParsedType): Symbol =
     sym.argtypes = @[]
     for arg in parsed.generics.mitems:
       var pos = 1
-      let argtyp = arg.parseTypeExpr(pos)
-      sym.argtypes.add(scope.semType(argtyp))
+      sym.argtypes.add(scope.semType(arg))
     sym.rettype = scope.semType(parsed.ret)
     return sym
   
@@ -60,23 +62,16 @@ proc semType*(scope: Scope, parsed: ParsedType): Symbol =
   if opt.isNone:
     parsed.typ.error("undeclared $# type." % $parsed.typ)
   if opt.get.fexpr.hasInternalMark and opt.get.fexpr.internalMark == internalConst:
-    var pos = 0
-    let parsed = parseTypeExpr(opt.get.fexpr.constvalue, pos)
-    return scope.semType(parsed)
+    return scope.semType(opt.get.fexpr.constvalue)
   elif parsed.generics.len == 0:
     if opt.get.instance.isSome:
       result = opt.get.instance.get
     else:
       result = opt.get
   else:
-    # if opt.get.instance.isSome:
-    #   result = opt.get.instance.get
-
     var sym = opt.get.scope.symbol(opt.get.name, symbolTypeGenerics, opt.get.fexpr)
     for arg in parsed.generics.mitems:
-      var pos = 0
-      let argtyp = arg.parseTypeExpr(pos)
-      sym.types.add(scope.semType(argtyp))
+      sym.types.add(scope.semType(arg))
     result = sym
 
   if parsed.prefix.isSome:
@@ -84,8 +79,3 @@ proc semType*(scope: Scope, parsed: ParsedType): Symbol =
       result = scope.refsym(result)
     elif $parsed.prefix.get == "move":
       result = scope.movesym(result)
-
-proc semTypeExpr*(scope: Scope, typ: FExpr): Symbol =
-  var pos = 0
-  let t = parseTypeExpr(typ, pos)
-  return scope.semType(t)
