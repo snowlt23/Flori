@@ -502,7 +502,9 @@ proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr[0].kind != fexprSymbol:
     fexpr[0].error("$# isn't symbol." % $fexpr[0])
   let fn = fexpr[0].symbol.fexpr
-  if fn.hasinternalPragma and fn.internalPragma.importc.isSome:
+  if fn.hasinternalPragma and not ctx.macrogen and fn.internalPragma.compiletime:
+    return
+  elif fn.hasinternalPragma and fn.internalPragma.importc.isSome:
     ctx.codegenCCall(src, fexpr)
   else: # normal call
     if fexpr.isGenericsFuncCall:

@@ -219,8 +219,8 @@ definePass processSemPass, rootPass, (Scope, var FExpr):
   expandDefnPass
   expandDeftypePass
   inferFnEffectPass
-  earlySetDestruct
-  expandDestructorPass
+  # earlySetDestruct
+  # expandDestructorPass
   # moveEffectPass
   # explicitDestruct
   finalPass

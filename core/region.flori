@@ -1,0 +1,199 @@
+
+import "core/prelude"
+import "core/pointer"
+import "core/io"
+import "core/macros"
+import "core/syntax"
+
+type HeapRegion {
+  data Ptr[UInt8]
+  current Int
+  size Int
+}
+
+type Region {
+  data Ptr[UInt8]
+  current Int
+  size Int
+  next Ptr[Region]
+}
+
+when (is_windows) {
+  fn MEM_COMMIT() Int $[importc, header "windows.h", patternc "MEM_COMMIT"]
+  fn PAGE_READWRITE() Int $[importc, header "windows.h", patternc "PAGE_READWRITE"]
+  fn virtual_alloc(lpaddr Pointer, size Int, alloctyp Int, protect Int) Pointer $[importc "VirtualAlloc", header "windows.h"]
+}
+
+fn sys_alloc(size Int) Ptr[UInt8] {
+  when (is_windows) {
+    cast[Ptr[UInt8]](virtual_alloc(null, size, MEM_COMMIT(), PAGE_READWRITE()))
+  }
+}
+
+fn new_heap_region(size Int) HeapRegion {
+  init(HeapRegion){
+    sys_alloc(size)
+    0
+    size
+  }
+}
+
+fn alloc_from_heap_region[T](r ref HeapRegion, len Int) Ptr[T] {
+  sz := sizeof[T]() * len
+  ret := cast[Ptr[T]](r.data +! r.current)
+  r.current += sz
+  ret
+}
+
+fn new_region(r ref HeapRegion, size Int) Region {
+  init(Region){
+    alloc_from_heap_region[UInt8](r, size)
+    0
+    size
+    unsafe_null[Region]()
+  }
+}
+fn dealloc_region(hr ref HeapRegion, r Region) {
+  hr.current -= r.size
+}
+
+fn extend(r ref Region, allocsize Int) {
+  if (r.current + allocsize >= r.size) {
+    println("region fault!")
+    # newsize := r.size
+    # while (allocsize < newsize) {
+    #   newsize = newsize*2
+    # }
+    # r.next = sys_alloc[Region](1)
+    # unref(r.next) = new_region(newsize)
+  }
+}
+
+fn alloc[T](r ref Region, len Int) Ptr[T] {
+  sz := sizeof[T]() * len
+  extend(r, sz)
+  ret := cast[Ptr[T]](r.data +! r.current)
+  r.current += sz
+  ret
+  # if (r.next != unsafe_null[Region]()) {
+  #   alloc[T](unref(r.next), len)
+  # } else {
+  #   sz := sizeof[T]() * len
+  #   extend(r, sz)
+  #   ret := cast[Ptr[T]](r.data +! r.current)
+  #   r.current += sz
+  #   ret
+  # }
+}
+fn alloc[T](r ref Region) {
+  alloc[T](r, 1)
+}
+
+fn realloc[T](r ref Region, p Ptr[T], plen Int, newlen Int) Ptr[T] {
+  ret := alloc[T](r, newlen)
+  memcpy(ret, p, plen)
+  ret
+}
+
+#
+# context
+#
+
+var g_heap_region HeapRegion
+var g_current_region Region
+
+fn region_settings(heapsize Int, regsize Int) {
+  g_heap_region = new_heap_region(heapsize)
+  g_current_region = new_region(g_heap_region, regsize)
+}
+fn default_region_settings() {
+  region_settings(2147483647, 1048576)
+}
+
+fn ct_default_region_settings() $[compiletime] {
+  default_region_settings()
+}
+
+ct_default_region_settings()
+
+fn alloc[T](len Int) Ptr[T] {
+  alloc[T](g_current_region, len)
+}
+fn alloc[T]() Ptr[T] {
+  alloc[T](1)
+}
+fn realloc[T](p Ptr[T], plen Int, newlen Int) Ptr[T] {
+  realloc(g_current_region, p, plen, newlen)
+}
+
+#
+# macros
+#
+
+fn convert_to_copy(prevr FExpr, f FExpr) FExpr $[compiletime] {
+  if (kind(f) == FEXPR_BLOCK) {
+    newf := new_fblock()
+    for e in f {
+      push(newf, convert_to_copy(prevr, e))
+    }
+    newf
+  } elif (kind(f) == FEXPR_SEQ && to_cs(get(f, 0)) == "=") {
+    dst := get(f, 1)
+    value := get(f, 2)
+    quote {
+      `dst = copy(`prevr, `value)
+    }
+  } else {
+    f
+  }
+}
+
+macro in_region(size FExpr, body TBlock) FExpr $[syntax] {
+  prevr := gensym()
+  ret := gensym()
+  retcopy := gensym()
+  newbody := convert_to_copy(prevr, body)
+  if (to_cs(get_type(body)) == "Void") {
+    quote {
+      `prevr := g_current_region
+      g_current_region = new_region(g_heap_region, `size)
+      `newbody
+      dealloc_region(g_heap_region, g_current_region)
+      g_current_region = `prevr
+    }
+  } else {
+    quote {
+      `prevr := g_current_region
+      g_current_region = new_region(g_heap_region, `size)
+      `ret := `newbody
+      when (is_copyable(`ret)) {
+        `retcopy := copy(`prevr, `ret)
+      }
+      when (not(is_copyable(`ret))) {
+        `retcopy := `ret
+      }
+      dealloc_region(g_heap_region, g_current_region)
+      g_current_region = `prevr
+      `retcopy
+    }
+  }
+}
+
+macro in_region(body TBlock) FExpr $[syntax] {
+  quote {
+    in_region(1024) `body
+  }
+}
+
+macro region(size FExpr, fndef FExpr) FExpr $[syntax] {
+  fnbody := get(fndef, length(fndef)-1)
+  set(fndef, length(fndef)-1, quote {
+      in_region `size `fnbody
+    })
+  quote {}
+}
+macro region(fndef FExpr) FExpr $[syntax] {
+  quote {
+    region(1024) `fndef
+  }
+}

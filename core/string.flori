@@ -6,6 +6,7 @@ import "core/syntax"
 import "core/math"
 import "core/macros"
 import "core/vec"
+import "core/region"
 
 fn get(cs CString, i Int) Char $[importjs, patternjs "$1[$2]"] {
   unref(cast[Ptr[Char]](cs) +! i)
@@ -70,21 +71,21 @@ fn length(s String) Int $[importjs, patternjs "$1.length"] {
 
 fn push(dest ref String, src CString) $[importjs "+=", patternjs infixjs] {
   l := length(dest) + strlen(src)
-  dest.p = realloc[Char](dest.p, l + 1)
+  dest.p = realloc[Char](dest.p, length(dest), l + 1)
   memcpy(dest.p +! length(dest), cast[Ptr[Char]](src), strlen(src))
   unref(dest.p +! l) = char(0)
   dest.len = l
 }
 fn push(dest ref String, src String) $[importjs "+=", patternjs infixjs] {
   l := length(dest) + length(src)
-  dest.p = realloc[Char](dest.p, l + 1)
+  dest.p = realloc[Char](dest.p, length(dest), l + 1)
   memcpy(dest.p +! length(dest), src.p, length(src))
   unref(dest.p +! l) = char(0)
   dest.len = l
 }
 fn push(dest ref String, c Char) $[importjs "+=", patternjs infixjs] {
   l := length(dest) + 1
-  (dest.p) = realloc[Char](dest.p, l + 1)
+  (dest.p) = realloc[Char](dest.p, length(dest), l + 1)
   unref(dest.p +! length(dest)) = c
   unref(dest.p +! l) = char(0)
   dest.len = l
@@ -92,10 +93,6 @@ fn push(dest ref String, c Char) $[importjs "+=", patternjs infixjs] {
 
 fn print(s String) $[importjs "console.log"] {
   print(cast[CString](s.p))
-}
-
-destructor(s String) {
-  dealloc(s.p)
 }
 
 fn `&(a String, b String) String $[importjs "+", patternjs infixjs] {

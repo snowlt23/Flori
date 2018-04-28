@@ -107,8 +107,6 @@ fn to_cs(fexpr FIntLit) CString $[importc "flori_to_cs", header "floriffi.h", im
 fn strval(fexpr FStrLit) CString $[importc "flori_strval", header "floriffi.h", importjs]
 fn gensym() FExpr $[importc "flori_gensym", header "floriffi.h", importjs]
 fn get_type(fexpr FExpr) FExpr $[importc "flori_get_type", header "floriffi.h", importjs]
-fn scopelevel(fexpr FExpr) Int $[importc "flori_scopelevel", header "floriffi.h", importjs]
-fn debug_marking_impl(fexpr FExpr) $[importc "flori_debug_marking", header "floriffi.h", importjs]
 
 fn quote_expand_inside(fexpr FExpr, args FExpr, count Int) Int $[compiletime, importjs] {
   i := 0
@@ -132,7 +130,23 @@ fn quote_expand(fexpr FExpr, args FExpr) FExpr $[compiletime, importjs] {
   fexpr
 }
 
-macro debug_marking[T](fexpr TExpr[T]) FExpr {
-  debug_marking_impl(cast[FExpr](fexpr))
-  quote {}
-}
+fn is_compiletime_fn() Bool $[importc, header nodeclc, declc "
+#ifdef FLORI_COMPILETIME
+#define is_compiletime true
+#else
+#define is_compiletime false
+#endif
+  ", patternc "is_compiletime"]
+is_compiletime $[compiletime] := is_compiletime_fn()
+is_runtime $[compiletime] := not(is_compiletime)
+
+fn is_windows_fn() Bool $[importc, header nodeclc, declc "
+#ifdef _WIN32
+#define is_windows true
+#elif _WIN64
+#define is_windows true
+#else
+#define is_windows false
+#endif
+  ", patternc "is_windows"]
+is_windows $[compiletime] := is_windows_fn()

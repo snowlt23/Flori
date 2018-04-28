@@ -17,4 +17,5 @@ tests/tester
 tests/bin/
 
 /*.exe
+/*.pdb
 voiceroids.txt

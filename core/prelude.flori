@@ -20,6 +20,7 @@ type Float $[importc "float", header nodeclc]
 type Double $[importc "double", header nodeclc]
 
 fn int(x IntLit) Int $[converter, importc, patternc "$1"]
+fn int32(x IntLit) Int32 $[converter, importc, patternc "$1"]
 fn uint32(x IntLit) UInt32 $[converter, importc, patternc "$1"]
 fn float(x FloatLit) Float $[converter, importc, patternc "$1"]
 fn double(x FloatLit) Double $[converter, importc, patternc "$1"]
@@ -52,6 +53,10 @@ fn `==(a UInt32, b UInt32) Bool $[importc "==", header nodeclc, patternc infixc,
 fn `!=(a UInt32, b UInt32) Bool $[importc "!=", header nodeclc, patternc infixc, importjs "!=", patternjs infixjs]
 
 fn cast[T, F](val F) T $[importc, header nodeclc, patternc "((#1)($1))", importjs, patternjs "$1"]
+
+fn double(x Int) Double {
+  cast[Double](x)
+}
 
 fn `+=(a Float, b Float) $[importc "+=", header nodeclc, patternc infixc, importjs "+=", patternjs infixjs]
 fn `-=(a Float, b Float) $[importc "-=", header nodeclc, patternc infixc, importjs "-=", patternjs infixjs]

@@ -1,0 +1,18 @@
+
+import "core"
+
+fn reg() String $[region] {
+  s := s"Hello Yukari!"
+  push(s, s" and Maki!")
+  push(s, s" and Akari!")
+  println(s)
+  s
+}
+
+fn main() {
+  println("start!")
+  println(reg())
+  println("end!")
+}
+
+main()

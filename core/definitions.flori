@@ -3,27 +3,6 @@ import "core/prelude"
 import "core/macros"
 import "core/string"
 
-fn is_windows_fn() Bool $[importc, header nodeclc, declc "
-#ifdef _WIN32
-#define is_windows true
-#elif _WIN64
-#define is_windows true
-#else
-#define is_windows false
-#endif
-  ", patternc "is_windows"]
-is_windows := is_windows_fn()
-
-fn is_compiletime_fn() Bool $[importc, header nodeclc, declc "
-#ifdef FLORI_COMPILETIME
-#define is_compiletime true
-#else
-#define is_compiletime false
-#endif
-  ", patternc "is_compiletime"]
-is_compiletime := is_compiletime_fn()
-is_runtime := not(is_compiletime)
-
 fn is_jscodegen_fn() Bool $[importc, header nodeclc, declc "
 #ifdef FLORI_JSCODEGEN
 #define is_jscodegen true
@@ -31,7 +10,7 @@ fn is_jscodegen_fn() Bool $[importc, header nodeclc, declc "
 #define is_jscodegen false
 #endif
   ", patternc "is_jscodegen"]
-is_jscodegen := is_jscodegen_fn()
+is_jscodegen $[compiletime] := is_jscodegen_fn()
 
 macro is_defined(d FIdent) FExpr {
   tmp := gensym()
@@ -69,5 +48,5 @@ fn is_release_fn() Bool {
 fn is_debug_fn() Bool {
   not(is_defined(RELEASE))
 }
-is_release := is_release_fn()
-is_debug := is_debug_fn()
+is_release $[compiletime] := is_release_fn()
+is_debug $[compiletime] := is_debug_fn()
