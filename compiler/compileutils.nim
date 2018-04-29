@@ -71,6 +71,9 @@ proc setupFFI*(handle: LibHandle) =
 
 proc reloadMacroLibrary*(semctx: SemanticContext, scope: Scope) =
   if semctx.macrolib != nil:
+    let floridest = cast[proc () {.cdecl.}](semctx.macrolib.symAddr("ct_flori_destruct"))
+    if not floridest.isNil:
+      floridest()
     unloadLib(semctx.macrolib)
   semctx.compileMacroLibrary(scope)
   semctx.macrolib = loadLib(macrolib)

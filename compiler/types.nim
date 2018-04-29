@@ -213,8 +213,11 @@ proc refsym*(scope: Scope, sym: Symbol): Symbol =
   result = scope.symbol(sym.name, symbolRef, sym.fexpr)
   result.wrapped = sym
 proc varsym*(scope: Scope, sym: Symbol): Symbol =
-  result = scope.symbol(sym.name, symbolVar, sym.fexpr)
-  result.wrapped = sym
+  if sym.kind == symbolVar:
+    result = sym
+  else:
+    result = scope.symbol(sym.name, symbolVar, sym.fexpr)
+    result.wrapped = sym
 proc movesym*(scope: Scope, sym: Symbol): Symbol =
   result = scope.symbol(sym.name, symbolMove, sym.fexpr)
   result.wrapped = sym
@@ -235,6 +238,14 @@ proc symcopy*(sym: Symbol): Symbol =
 proc intsym*(scope: Scope, fexpr: FExpr): Symbol =
   result = scope.symbol(name("IntLit"), symbolIntLit, fexpr)
   result.intval = fexpr.intval
+
+proc isRef*(sym: Symbol): bool =
+  if sym.kind == symbolRef:
+    true
+  elif sym.kind == symbolVar and sym.wrapped.kind == symbolRef:
+    true
+  else:
+    false
 
 #
 # is spec

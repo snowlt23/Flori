@@ -28,6 +28,7 @@ macro c(s FStrLit) FExpr $[syntax] {
 type String $[nodestruct] {
   p Ptr[Char]
   len Int
+  cap Int
 }
 
 fn char(c Int) Char $[importjs "String.fromCharCode"] {
@@ -36,19 +37,26 @@ fn char(c Int) Char $[importjs "String.fromCharCode"] {
 
 fn string(cs CString) String $[importjs, patternjs "$1"] {
   len := strlen(cs)
-  s := init(String){alloc[Char](len + 1); len}
-  memcpy(s.p, cast[Ptr[Char]](cs), len)
+  cap := strlen(cs) * 2
+  if (cap < 1024) {
+    cap = int(1024)
+  }
+  s := init(String){alloc[Char](cap + 1); len; cap}
+  copy_memory(s.p, cast[Ptr[Char]](cs), len)
+  unref(s.p +! len) = char(0)
+  s
+}
+fn string(len Int, cap Int) String $[importjs, patternjs "'\0'.repeat($1)"] {
+  s := init(String){alloc[Char](cap + 1); len; cap}
   unref(s.p +! len) = char(0)
   s
 }
 fn string(len Int) String $[importjs, patternjs "'\0'.repeat($1)"] {
-  s := init(String){alloc[Char](len + 1); len}
-  unref(s.p +! len) = char(0)
-  s
-}
-
-fn copy(s String) String {
-  string(cast[CString](s.p))
+  cap := len*2
+  if (cap < 1024) {
+    cap = int(1024)
+  }
+  string(len, cap)
 }
 
 fn get(s String, i Int) Char $[importjs, patternjs "$1[$2]"] {
@@ -69,23 +77,34 @@ fn length(s String) Int $[importjs, patternjs "$1.length"] {
   s.len
 }
 
+fn extend(s ref String, size Int) {
+  if (s.len + size >= s.cap) {
+    newcap := s.cap * 2
+    while (s.len + size >= newcap) {
+      newcap = newcap * 2
+    }
+    realloc[Char](s.p, s.len, newcap + 1)
+    s.cap = newcap
+  }
+}
+
 fn push(dest ref String, src CString) $[importjs "+=", patternjs infixjs] {
+  extend(dest, strlen(src))
   l := length(dest) + strlen(src)
-  dest.p = realloc[Char](dest.p, length(dest), l + 1)
-  memcpy(dest.p +! length(dest), cast[Ptr[Char]](src), strlen(src))
+  copy_memory(dest.p +! length(dest), cast[Ptr[Char]](src), strlen(src))
   unref(dest.p +! l) = char(0)
   dest.len = l
 }
 fn push(dest ref String, src String) $[importjs "+=", patternjs infixjs] {
+  extend(dest, length(src))
   l := length(dest) + length(src)
-  dest.p = realloc[Char](dest.p, length(dest), l + 1)
-  memcpy(dest.p +! length(dest), src.p, length(src))
+  copy_memory(dest.p +! length(dest), src.p, length(src))
   unref(dest.p +! l) = char(0)
   dest.len = l
 }
 fn push(dest ref String, c Char) $[importjs "+=", patternjs infixjs] {
+  extend(dest, 1)
   l := length(dest) + 1
-  (dest.p) = realloc[Char](dest.p, length(dest), l + 1)
   unref(dest.p +! length(dest)) = c
   unref(dest.p +! l) = char(0)
   dest.len = l
@@ -96,14 +115,14 @@ fn print(s String) $[importjs "console.log"] {
 }
 
 fn `&(a String, b String) String $[importjs "+", patternjs infixjs] {
-  ret := string("")
+  ret := s""
   push(ret, a)
   push(ret, b)
   ret
 }
 
 fn reverse(a String) String {
-  ret := string("")
+  ret := s""
   for i in range(0, length(a)-1) {
     push(ret, get(a, (length(a) - i) - 1))
   }
@@ -112,7 +131,7 @@ fn reverse(a String) String {
 
 fn to_s(val Int) String $[importjs, patternjs "($1).toString()"] {
   x := val
-  str := string("")
+  str := s""
   if (x == 0) {
     push(str, char(48))
   }
@@ -127,7 +146,7 @@ cr := char(13)
 lf := char(10)
 
 fn replace(s CString, dst Char, src CString) String {
-  newstr := string("")
+  newstr := s""
   for i in range(0, strlen(s)-1) {
     if (get(s, i) == dst) {
       push(newstr, src)

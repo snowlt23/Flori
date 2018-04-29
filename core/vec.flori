@@ -29,7 +29,7 @@ fn vec[T]() Vec[T] {
 
 fn copy[T](r ref Region, v Vec[T]) Vec[T] {
   newv := vec[T](v.len, v.cap)
-  memcpy(newv.data, v.data, sizeof[T]() * v.len)
+  copy_memory(newv.data, v.data, sizeof[T]() * v.len)
   newv
 }
 

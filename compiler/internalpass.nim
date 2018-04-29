@@ -515,7 +515,9 @@ proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr.deftype = parsed
 
 proc semTypedef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
-  fexpr = fseq(fexpr.span, @[fexpr[0], fexpr[1], fexpr[2..^1]])
+  let newfexpr = fseq(fexpr.span, @[fexpr[0], fexpr[1], fexpr[2..^1]])
+  newfexpr.metadata = fexpr.metadata
+  fexpr = newfexpr
   let typesym = scope.semType(fexpr[2])
   if not scope.addDecl(name(fexpr[1]), typesym):
     fexpr.error("redefinition $# type." % $fexpr[1])

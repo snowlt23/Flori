@@ -32,7 +32,7 @@ fn c_realloc[T](ptr Ptr[T], len Int) Ptr[T] {
 fn c_dealloc[T](ptr Ptr[T]) {
   unsafe_free(cast[Pointer](ptr))
 }
-fn memcpy[T](dest Ptr[T], src Ptr[T], len Int) {
+fn copy_memory[T](dest Ptr[T], src Ptr[T], len Int) {
   unsafe_memcpy(cast[Pointer](dest), cast[Pointer](src), sizeof[T]() * len)
 }
 

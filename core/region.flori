@@ -15,18 +15,25 @@ type Region {
   data Ptr[UInt8]
   current Int
   size Int
-  next Ptr[Region]
+  prev Ptr[Region]
 }
 
 when (is_windows) {
   fn MEM_COMMIT() Int $[importc, header "windows.h", patternc "MEM_COMMIT"]
+  fn MEM_DECOMMIT() Int $[importc, header "windows.h", patternc "MEM_DECOMMIT"]
   fn PAGE_READWRITE() Int $[importc, header "windows.h", patternc "PAGE_READWRITE"]
   fn virtual_alloc(lpaddr Pointer, size Int, alloctyp Int, protect Int) Pointer $[importc "VirtualAlloc", header "windows.h"]
+  fn virtual_free(lpaddr Pointer, size Int, alloctyp Int) $[importc "VirtualFree", header "windows.h"]
 }
 
 fn sys_alloc(size Int) Ptr[UInt8] {
   when (is_windows) {
     cast[Ptr[UInt8]](virtual_alloc(null, size, MEM_COMMIT(), PAGE_READWRITE()))
+  }
+}
+fn sys_free(p Ptr[UInt8], size Int) {
+  when (is_windows) {
+    virtual_free(cast[Pointer](p), size, MEM_DECOMMIT())
   }
 }
 
@@ -36,6 +43,10 @@ fn new_heap_region(size Int) HeapRegion {
     0
     size
   }
+}
+
+fn free_heap_region(hr HeapRegion) {
+  sys_free(hr.data, hr.size)
 }
 
 fn alloc_from_heap_region[T](r ref HeapRegion, len Int) Ptr[T] {
@@ -54,44 +65,35 @@ fn new_region(r ref HeapRegion, size Int) Region {
   }
 }
 fn dealloc_region(hr ref HeapRegion, r Region) {
+  if (r.prev != unsafe_null[Region]()) {
+    dealloc_region(hr, unref(r.prev))
+  }
   hr.current -= r.size
 }
 
-fn extend(r ref Region, allocsize Int) {
-  if (r.current + allocsize >= r.size) {
-    println("region fault!")
-    # newsize := r.size
-    # while (allocsize < newsize) {
-    #   newsize = newsize*2
-    # }
-    # r.next = sys_alloc[Region](1)
-    # unref(r.next) = new_region(newsize)
+fn extend(hr ref HeapRegion, r ref Region, allocsize Int) {
+  if (r.current + allocsize >= r.size - sizeof[Ptr[Region]]()) {
+    prevr := r
+    r = new_region(hr, r.size*2)
+    r.prev = cast[Ptr[Region]](prevr.data)
+    unref(r.prev) = prevr
   }
 }
 
-fn alloc[T](r ref Region, len Int) Ptr[T] {
+fn alloc[T](hr ref HeapRegion, r ref Region, len Int) Ptr[T] {
   sz := sizeof[T]() * len
-  extend(r, sz)
+  extend(hr, r, sz)
   ret := cast[Ptr[T]](r.data +! r.current)
   r.current += sz
   ret
-  # if (r.next != unsafe_null[Region]()) {
-  #   alloc[T](unref(r.next), len)
-  # } else {
-  #   sz := sizeof[T]() * len
-  #   extend(r, sz)
-  #   ret := cast[Ptr[T]](r.data +! r.current)
-  #   r.current += sz
-  #   ret
-  # }
 }
-fn alloc[T](r ref Region) {
-  alloc[T](r, 1)
+fn alloc[T](hr ref HeapRegion, r ref Region) {
+  alloc[T](hr, r, 1)
 }
 
-fn realloc[T](r ref Region, p Ptr[T], plen Int, newlen Int) Ptr[T] {
-  ret := alloc[T](r, newlen)
-  memcpy(ret, p, plen)
+fn realloc[T](hr ref HeapRegion, r ref Region, p Ptr[T], plen Int, newlen Int) Ptr[T] {
+  ret := alloc[T](hr, r, newlen)
+  copy_memory(ret, p, plen)
   ret
 }
 
@@ -110,54 +112,63 @@ fn default_region_settings() {
   region_settings(2147483647, 1048576)
 }
 
+# for compile time memory allocations.
 fn ct_default_region_settings() $[compiletime] {
   default_region_settings()
 }
-
 ct_default_region_settings()
 
+# for compile time free heap region.
+fn ct_flori_destruct() $[exportc "ct_flori_destruct"] {
+  free_heap_region(g_heap_region)
+}
+macro elimregist() FExpr {
+  ct_flori_destruct()
+  quote {}
+}
+
 fn alloc[T](len Int) Ptr[T] {
-  alloc[T](g_current_region, len)
+  alloc[T](g_heap_region, g_current_region, len)
 }
 fn alloc[T]() Ptr[T] {
   alloc[T](1)
 }
 fn realloc[T](p Ptr[T], plen Int, newlen Int) Ptr[T] {
-  realloc(g_current_region, p, plen, newlen)
+  realloc(g_heap_region, g_current_region, p, plen, newlen)
 }
 
 #
 # macros
 #
 
-fn convert_to_copy(prevr FExpr, f FExpr) FExpr $[compiletime] {
-  if (kind(f) == FEXPR_BLOCK) {
-    newf := new_fblock()
-    for e in f {
-      push(newf, convert_to_copy(prevr, e))
-    }
-    newf
-  } elif (kind(f) == FEXPR_SEQ && to_cs(get(f, 0)) == "=") {
-    dst := get(f, 1)
-    value := get(f, 2)
-    quote {
-      `dst = copy(`prevr, `value)
-    }
-  } else {
-    f
-  }
-}
+# fn convert_to_copy(prevr FExpr, f FExpr) FExpr $[compiletime] {
+#   if (kind(f) == FEXPR_BLOCK) {
+#     newf := new_fblock()
+#     for e in f {
+#       push(newf, convert_to_copy(prevr, e))
+#     }
+#     newf
+#   } elif (kind(f) == FEXPR_SEQ && to_cs(get(f, 0)) == "=") {
+#     dst := get(f, 1)
+#     value := get(f, 2)
+#     quote {
+#       `dst = copy(`prevr, `value)
+#     }
+#   } else {
+#     f
+#   }
+# }
 
 macro in_region(size FExpr, body TBlock) FExpr $[syntax] {
   prevr := gensym()
   ret := gensym()
   retcopy := gensym()
-  newbody := convert_to_copy(prevr, body)
+  # newbody := convert_to_copy(prevr, body)
   if (to_cs(get_type(body)) == "Void") {
     quote {
       `prevr := g_current_region
       g_current_region = new_region(g_heap_region, `size)
-      `newbody
+      `body
       dealloc_region(g_heap_region, g_current_region)
       g_current_region = `prevr
     }
@@ -165,7 +176,7 @@ macro in_region(size FExpr, body TBlock) FExpr $[syntax] {
     quote {
       `prevr := g_current_region
       g_current_region = new_region(g_heap_region, `size)
-      `ret := `newbody
+      `ret := `body
       when (is_copyable(`ret)) {
         `retcopy := copy(`prevr, `ret)
       }

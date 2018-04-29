@@ -113,6 +113,8 @@ proc codegenType*(ctx: CCodegenContext, fexpr: FExpr): string =
 proc codegenMangling*(sym: Symbol, generics: seq[Symbol], types: seq[Symbol], internal = false): string =
   if internal:
     result = $sym.name & "G" & generics.mapIt(codegenSymbol(it)).join("_") & "G" & "_" & types.mapIt(codegenSymbol(it)).join("_")
+  elif sym.fexpr.hasInternalPragma and sym.fexpr.internalPragma.exportc.isSome:
+    result = sym.fexpr.internalPragma.exportc.get
   else:
     result = codegenSymbol(sym) & "G" & generics.mapIt(codegenSymbol(it)).join("_") & "G" & "_" & types.mapIt(codegenSymbol(it)).join("_")
 
@@ -307,7 +309,7 @@ proc codegenDefValue*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 
 proc codegenSet*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   let dsttyp = fexpr.setexpr.dst.typ
-  if dsttyp.kind == symbolRef:
+  if dsttyp.isRef and not fexpr.setexpr.value.typ.isRef:
     src &= "*"
   ctx.codegenFExpr(src, fexpr.setexpr.dst)
   src &= " = "
@@ -316,6 +318,8 @@ proc codegenSet*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 proc codegenFieldAccess*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   ctx.codegenFExpr(src, fexpr.fieldaccessexpr.value)
   if fexpr.fieldaccessexpr.value.typ.kind == symbolRef:
+    src &= "->"
+  elif fexpr.fieldaccessexpr.value.typ.kind == symbolVar and fexpr.fieldaccessexpr.value.typ.wrapped.kind == symbolRef:
     src &= "->"
   else:
     src &= "."
@@ -403,14 +407,12 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
       ctx.codegenBlock(src, fexpr)
 
 proc codegenCallArg*(ctx: CCodegenContext, src: var SrcExpr, arg: FExpr, fnargtype: Symbol) =
-  if arg.typ.kind == symbolVar and arg.typ.wrapped.kind == symbolRef and fnargtype.kind == symbolRef:
+  if arg.typ.isRef and fnargtype.isRef:
     ctx.codegenFExpr(src, arg)
-  elif arg.typ.kind == symbolRef and fnargtype.kind == symbolRef:
-    ctx.codegenFExpr(src, arg)
-  elif arg.typ.kind == symbolVar and fnargtype.kind == symbolRef:
+  elif arg.typ.kind == symbolVar and fnargtype.isRef:
     src &= "&"
     ctx.codegenFExpr(src, arg)
-  elif arg.typ.kind == symbolRef and fnargtype.kind != symbolRef:
+  elif arg.typ.isRef and not fnargtype.isRef:
     src &= "*"
     ctx.codegenFExpr(src, arg)
   else:
