@@ -8,7 +8,7 @@ import "core/macros"
 import "core/vec"
 import "core/region"
 
-fn get(cs CString, i Int) Char $[importjs, patternjs "$1[$2]"] {
+fn `!(cs CString, i Int) Char $[importjs, patternjs "$1[$2]"] {
   unref(cast[Ptr[Char]](cs) +! i)
 }
 
@@ -19,7 +19,7 @@ macro c(s FStrLit) FExpr $[syntax] {
   if (len != 1) {
     error(s, "char literal should be 1 length string.")
   }
-  i := new_fintlit(cast[Int](get(strval(s), 0)))
+  i := new_fintlit(cast[Int](strval(s)!0))
   quote {
     char(`i)
   }
@@ -59,7 +59,7 @@ fn string(len Int) String $[importjs, patternjs "'\0'.repeat($1)"] {
   string(len, cap)
 }
 
-fn get(s String, i Int) Char $[importjs, patternjs "$1[$2]"] {
+fn `!(s String, i Int) Char $[importjs, patternjs "$1[$2]"] {
   unref(s.p +! i)
 }
 
@@ -123,8 +123,8 @@ fn `&(a String, b String) String $[importjs "+", patternjs infixjs] {
 
 fn reverse(a String) String {
   ret := s""
-  for i in range(0, length(a)-1) {
-    push(ret, get(a, (length(a) - i) - 1))
+  for (i : range(0, length(a)-1)) {
+    push(ret, a!(length(a) - i - 1))
   }
   ret
 }
@@ -147,11 +147,11 @@ lf := char(10)
 
 fn replace(s CString, dst Char, src CString) String {
   newstr := s""
-  for i in range(0, strlen(s)-1) {
-    if (get(s, i) == dst) {
+  for (i : range(0, strlen(s)-1)) {
+    if (s!i == dst) {
       push(newstr, src)
     } else {
-      push(newstr, get(s, i))
+      push(newstr, s!i)
     }
   }
   newstr
@@ -160,12 +160,12 @@ fn replace(s CString, dst Char, src CString) String {
 fn split(s String, c Char) Vec[String] {
   ret := vec[String]()
   news := s""
-  for i in range(0, length(s)-1) {
-    if (get(s, i) == c) {
+  for (i : range(0, length(s)-1)) {
+    if (s!i == c) {
       push(ret, news)
       news = s""
     } else {
-      push(news, get(s, i))
+      push(news, s!i)
     }
   }
   push(ret, news)

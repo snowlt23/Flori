@@ -34,6 +34,15 @@ FEXPR_ARRAY $[compiletime] := cast[FExprKind](9)
 FEXPR_LIST $[compiletime] := cast[FExprKind](10)
 FEXPR_BLOCK $[compiletime] := cast[FExprKind](11)
 
+fn to_fexpr(texpr FSeq) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+fn to_fexpr(texpr FArray) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+fn to_fexpr(texpr FList) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+fn to_fexpr(texpr FBlock) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+fn to_fexpr(texpr FIdent) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+fn to_fexpr(texpr FSymbol) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+fn to_fexpr(texpr FStrLit) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+fn to_fexpr(texpr FIntLit) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+
 fn to_fexpr[T](texpr TExpr[T]) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
 fn to_fexpr(texpr TSeq) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
 fn to_fexpr(texpr TArray) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
@@ -54,74 +63,38 @@ fn new_flist() FExpr $[importc "flori_new_flist", header "floriffi.h", importjs]
 fn new_fblock() FExpr $[importc "flori_new_fblock", header "floriffi.h", importjs]
 fn new_fintlit(x Int) FExpr $[importc "flori_new_fintlit", header "floriffi.h", importjs]
 fn new_fstrlit(cs CString) FExpr $[importc "flori_new_fstrlit", header "floriffi.h", importjs]
+
 fn parse(filename CString, line Int, linepos Int, cstr CString) FExpr $[importc "flori_parse_fexpr", header "floriffi.h", importjs]
+
 fn print(fexpr FExpr) $[importc "flori_print_fexpr", header "floriffi.h", importjs]
-
 fn push(fexpr FExpr, son FExpr) $[importc "flori_push", header "floriffi.h", importjs]
-fn push(fexpr FExpr, son FSeq) $[importc "flori_push", header "floriffi.h", importjs]
-fn push(fexpr FExpr, son FArray) $[importc "flori_push", header "floriffi.h", importjs]
-fn push(fexpr FExpr, son FList) $[importc "flori_push", header "floriffi.h", importjs]
-fn push(fexpr FExpr, son FBlock) $[importc "flori_push", header "floriffi.h", importjs]
-fn push(fexpr FExpr, son FIdent) $[importc "flori_push", header "floriffi.h", importjs]
-fn push(fexpr FExpr, son FSymbol) $[importc "flori_push", header "floriffi.h", importjs]
-fn push(fexpr FExpr, son FStrLit) $[importc "flori_push", header "floriffi.h", importjs]
-fn push(fexpr FExpr, son FIntLit) $[importc "flori_push", header "floriffi.h", importjs]
-fn push[T](fexpr FExpr, son TExpr[T]) $[importc "flori_push", header "floriffi.h", importjs]
-
 fn length(fexpr FExpr) Int $[importc "flori_length", header "floriffi.h", importjs]
-fn length(fexpr FSeq) Int $[importc "flori_length", header "floriffi.h", importjs]
-fn length(fexpr FList) Int $[importc "flori_length", header "floriffi.h", importjs]
-fn length(fexpr FArray) Int $[importc "flori_length", header "floriffi.h", importjs]
-fn length(fexpr FBlock) Int $[importc "flori_length", header "floriffi.h", importjs]
-
 fn error(fexpr FExpr, msg CString) $[importc "flori_error", header "floriffi.h", importjs]
-fn error(fexpr FStrLit, msg CString) $[importc "flori_error", header "floriffi.h", importjs]
-fn error(fexpr FIntLit, msg CString) $[importc "flori_error", header "floriffi.h", importjs]
-
 fn quoted(fexpr FExpr) FExpr $[importc "flori_quoted", header "floriffi.h", importjs]
 fn kind(fexpr FExpr) FExprKind $[importc "flori_kind", header "floriffi.h", importjs]
 fn expect(fexpr FExpr, kind FExprKind) $[importc "flori_expect", header "floriffi.h", importjs]
 
-fn get(fexpr FExpr, i Int) FExpr $[importc "flori_access", header "floriffi.h", importjs]
-fn get(fexpr FSeq, i Int) FExpr $[importc "flori_access", header "floriffi.h", importjs]
-fn get(fexpr FArray, i Int) FExpr $[importc "flori_access", header "floriffi.h", importjs]
-fn get(fexpr FList, i Int) FExpr $[importc "flori_access", header "floriffi.h", importjs]
-fn get(fexpr FBlock, i Int) FExpr $[importc "flori_access", header "floriffi.h", importjs]
-
-fn set(fexpr FExpr, i Int, value FExpr) $[importc "flori_set", header "floriffi.h", importjs]
-fn set(fexpr FSeq, i Int, value FExpr) $[importc "flori_set", header "floriffi.h", importjs]
-fn set(fexpr FArray, i Int, value FExpr) $[importc "flori_set", header "floriffi.h", importjs]
-fn set(fexpr FList, i Int, value FExpr) $[importc "flori_set", header "floriffi.h", importjs]
-fn set(fexpr FBlock, i Int, value FExpr) $[importc "flori_set", header "floriffi.h", importjs]
+fn `!(fexpr FExpr, i Int) FExpr $[importc "flori_access", header "floriffi.h", importjs]
+fn `!!(fexpr FExpr, i Int, value FExpr) $[importc "flori_set", header "floriffi.h", importjs]
 
 fn to_cs(fexpr FExpr) CString $[importc "flori_to_cs", header "floriffi.h", importjs]
-fn to_cs(fexpr FSeq) CString $[importc "flori_to_cs", header "floriffi.h", importjs]
-fn to_cs(fexpr FArray) CString $[importc "flori_to_cs", header "floriffi.h", importjs]
-fn to_cs(fexpr FList) CString $[importc "flori_to_cs", header "floriffi.h", importjs]
-fn to_cs(fexpr FBlock) CString $[importc "flori_to_cs", header "floriffi.h", importjs]
-fn to_cs(fexpr FIdent) CString $[importc "flori_to_cs", header "floriffi.h", importjs]
-fn to_cs(fexpr FSymbol) CString $[importc "flori_to_cs", header "floriffi.h", importjs]
-fn to_cs(fexpr FStrLit) CString $[importc "flori_to_cs", header "floriffi.h", importjs]
-fn to_cs(fexpr FIntLit) CString $[importc "flori_to_cs", header "floriffi.h", importjs]
-
 fn strval(fexpr FStrLit) CString $[importc "flori_strval", header "floriffi.h", importjs]
 fn gensym() FExpr $[importc "flori_gensym", header "floriffi.h", importjs]
 fn get_type(fexpr FExpr) FExpr $[importc "flori_get_type", header "floriffi.h", importjs]
 
-fn quote_expand_inside(fexpr FExpr, args FExpr, count Int) Int $[compiletime, importjs] {
+fn quote_expand_inside(fexpr FExpr, args FExpr, count ref Int) $[compiletime, importjs] {
   i := 0
   while (i < length(fexpr)) {
-    k := kind(get(fexpr, i))
-    if (k == FEXPR_QUOTE && kind(quoted(get(fexpr, i))) != FEXPR_INFIX) {
-      set(fexpr, i, get(args, count))
+    k := kind(fexpr!i)
+    if (k == FEXPR_QUOTE && kind(quoted(fexpr!i)) != FEXPR_INFIX) {
+      fexpr!i = args!count
       count += 1
     }
     if (k == FEXPR_SEQ || k == FEXPR_ARRAY || k == FEXPR_LIST || k == FEXPR_BLOCK) {
-      count = quote_expand_inside(get(fexpr, i), args, count)
+      quote_expand_inside(fexpr!i, args, count)
     }
     i += 1
   }
-  count
 }
 
 fn quote_expand(fexpr FExpr, args FExpr) FExpr $[compiletime, importjs] {

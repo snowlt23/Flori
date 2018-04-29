@@ -52,11 +52,11 @@ macro vec(elems TArray) FExpr $[syntax] {
   }
   ret := new_fblock()
   tmp := gensym()
-  t := get_type(get(elems, 0))
+  t := get_type(elems!0)
   push(ret, quote {
       `tmp := vec[`t]()
     })
-  for e in elems {
+  for (e : elems) {
     push(ret, quote {
         push(`tmp, `e)
       })
@@ -82,19 +82,19 @@ fn length[T](v Vec[T]) Int $[importjs, patternjs "$1.length"] {
   v.len
 }
 
-fn get[T](v Vec[T], i Int) T $[importjs, patternjs "$1[$2]"] {
+fn `![T](v Vec[T], i Int) T $[importjs, patternjs "$1[$2]"] {
   unref(v.data +! (i * sizeof[T]()))
 }
 
-fn set[T](v ref Vec[T], i Int, value T) $[nodestruct] {
+fn `!![T](v ref Vec[T], i Int, value T) {
   unref(v.data +! (i * sizeof[T]())) = value
 }
 
 iterator items[T](v TExpr[Vec[T]]) {
   i := gensym()
   quote {
-    for `i in range(0, length(`v)-1) {
-      `element := get(`v, `i)
+    for (`i : range(int(0), length(`v)-1)) {
+      `element := `v!`i
       `yield
     }
   }
@@ -103,11 +103,11 @@ iterator items[T](v TExpr[Vec[T]]) {
 fn print[T](v Vec[T]) {
   print("vec[")
   if (length(v) > 0) {
-    print(get(v, 0))
+    print(v!0)
   }
-  for i in range(1, length(v)-1) {
+  for (i : range(1, length(v)-1)) {
     print(", ")
-    print(get(v, i))
+    print(v!i)
   }
   print("]")
 }

@@ -11,7 +11,7 @@ fn pint(x Int32) Ptr[Int32] {
 }
 
 fn main() {
-  for i in range(1, 1000000) {
+  for (i : range(1, 1000000)) {
     in_region {
       v := vec[Ptr[Int32]]()
       push(v, pint(1))

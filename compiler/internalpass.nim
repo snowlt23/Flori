@@ -685,10 +685,14 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   scope.resolveByVoid(fexpr)
   scope.rootPass(parsed.dst)
   scope.rootPass(parsed.value)
+  
+  if parsed.dst.isInfixFuncCall and $parsed.dst[0] == "!" and scope.isSetter(parsed.dst[1].typ, parsed.dst[2].typ, parsed.value.typ):
+    fexpr = fexpr.span.quoteFExpr("`!!(`embed, `embed, `embed)", [parsed.dst[1], parsed.dst[2], parsed.value])
+    scope.rootPass(fexpr)
+    return
 
-  # if parsed.value.kind == fexprSymbol and scope.isCopyable(parsed.value.typ):
-  #   parsed.value = parsed.value.span.quoteFExpr("copy(`embed)", [parsed.value])
-  #   scope.rootPass(parsed.value)
+  if parsed.dst.typ.kind != symbolVar and parsed.dst.typ.kind != symbolRef:
+    parsed.dst.error("ref value expected.")
 
   if not parsed.dst.typ.match(parsed.value.typ):
     if parsed.value.typ.fexpr.hasConverters:

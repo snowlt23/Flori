@@ -485,6 +485,13 @@ proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
       fexpr.error("$# is not infix expression." % $fexpr)
   elif fn.internalPragma.patternc.isSome:
     ctx.codegenPatternCCall(src, fexpr, fn.internalPragma.patternc.get, fn)
+  elif fexpr.isInfixFuncCall:
+    src &= fname
+    src &= "("
+    ctx.codegenCallArg(src, fexpr[1], fexpr[0].symbol.fexpr.defn.args[0][1].symbol)
+    src &= ", "
+    ctx.codegenCallArg(src, fexpr[2], fexpr[0].symbol.fexpr.defn.args[1][1].symbol)
+    src &= ")"
   else:
     src &= fname
     src &= "("
@@ -519,9 +526,9 @@ proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     elif fexpr.len == 3 and fexpr[0].symbol.kind == symbolInfix: # infix call
       src &= codegenMangling(fexpr[0].symbol, fexpr.getCallGenerics(), fexpr.getCallTypes()) # FIXME: support generics
       src &= "("
-      ctx.codegenFExpr(src, fexpr[1])
+      ctx.codegenCallArg(src, fexpr[1], fexpr[0].symbol.fexpr.defn.args[0][1].symbol)
       src &= ", "
-      ctx.codegenFExpr(src, fexpr[2])
+      ctx.codegenCallArg(src, fexpr[2], fexpr[0].symbol.fexpr.defn.args[1][1].symbol)
       src &= ")"
     elif fexpr[0].hasTyp and fexpr[0].typ.kind == symbolFuncType:
       src &= "(("

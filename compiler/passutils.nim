@@ -77,8 +77,8 @@ proc isResource*(scope: Scope, typ: Symbol): bool =
   return false
 proc isDestructable*(scope: Scope, typ: Symbol): bool =
   scope.getFunc(procname(name("destruct"), @[typ])).isSome
-proc isMovable*(scope: Scope, typ: Symbol): bool =
-  scope.getFunc(procname(name("move"), @[typ])).isSome
+proc isSetter*(scope: Scope, dstvalue: Symbol, dstindex: Symbol, value: Symbol): bool =
+  scope.getFunc(procname(name("!!"), @[dstvalue, dstindex, value])).isSome
 
 proc checkArgsHastype*(args: FExpr) =
   for arg in args:

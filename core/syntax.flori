@@ -3,55 +3,39 @@ import "core/prelude"
 import "core/macros"
 
 syntax for(fexpr FExpr) FExpr {
-  if ((length(fexpr) != 5) && (length(fexpr) != 6)) {
-    error(fexpr, "expect syntax: for e in iter() {...}")
-  }
-  
-  elem := get(fexpr, 1)
-  in := get(fexpr, 2)
-  if (to_cs(in) != "in") {
-    error(fexpr, "for-macro expect `in keyword.")
+  if (kind(fexpr) != FEXPR_SEQ || length(fexpr) != 3 || kind(fexpr!1) != FEXPR_LIST || length(fexpr!1) != 1 || length(fexpr!1!0) != 3 || to_cs(fexpr!1!0!0) != ":") {
+    error(fexpr, "expect syntax: for (e : v) {...}")
   }
 
-  if (length(fexpr) == 6) {
-    itername := get(fexpr, 3)
-    iterargs := get(fexpr, 4)
-    body := get(fexpr, 5)
-    push(iterargs, elem)
-    push(iterargs, body)
-    quote {
-      `itername `iterargs
-    }
-  } else {
-    itername := new_fident("items")
-    value := get(fexpr, 3)
-    body := get(fexpr, 4)
-    quote {
-      `itername(`value, `elem, `body)
-    }
+  elem := fexpr!1!0!1
+  value := fexpr!1!0!2
+  body := fexpr!2
+
+  quote {
+    items(`value, `elem, `body)
   }
 }
 
 syntax iterator(fexpr FExpr) FExpr {
   if (length(fexpr) == 4) {
-    mname := get(fexpr, 1)
-    args := get(fexpr, 2)
-    body := get(fexpr, 3)
+    mname := fexpr!1
+    args := fexpr!2
+    body := fexpr!3
 
-    push(args, get(quote { element FExpr; }, 0))
-    push(args, get(quote { yield FExpr; }, 0))
+    push(args, quote {element FExpr} ! 0)
+    push(args, quote {yield FExpr} ! 0)
     
     quote {
       macro `mname `args FExpr `body
     }
   } elif (length(fexpr) == 5) {
-    mname := get(fexpr, 1)
-    generics := get(fexpr, 2)
-    args := get(fexpr, 3)
-    body := get(fexpr, 4)
+    mname := fexpr!1
+    generics := fexpr!2
+    args := fexpr!3
+    body := fexpr!4
 
-    push(args, get(quote { element FExpr; }, 0))
-    push(args, get(quote { yield FExpr; }, 0))
+    push(args, quote {element FExpr} ! 0)
+    push(args, quote {yield FExpr} ! 0)
 
     quote {
       macro `mname `generics `args FExpr `body
@@ -62,16 +46,21 @@ syntax iterator(fexpr FExpr) FExpr {
   }
 }
 
-# FIXME: converter for macro
-# iterator range(start TExpr[Int], end TExpr[Int]) {
-iterator range(start FExpr, end FExpr) {
+type Range {
+  s Int
+  e Int
+}
+
+fn range(s Int, e Int) Range {
+  init(Range){s; e}
+}
+iterator items(range TExpr[Range]) {
+  rng := cast[FExpr](range)
   quote {
-    block {
-      `element := `start
-      while (`element <= `end) {
-        `yield
-        `element += 1
-      }
+    `element := `rng.s
+    while (`element <= `rng.e) {
+      `yield
+      `element += 1
     }
   }
 }
@@ -81,8 +70,8 @@ syntax when(fexpr FExpr) FExpr {
     error(fexpr, "when syntax expect: when (cond) {...}")
   }
   tmpsym := gensym()
-  cond := get(fexpr, 1)
-  body := get(fexpr, 2)
+  cond := fexpr!1
+  body := fexpr!2
   quote {
     syntax `tmpsym(fexpr FExpr) FExpr {
       if `cond {
@@ -101,16 +90,16 @@ syntax destructor(fexpr FExpr) FExpr {
     error(fexpr, "usage: destructor(arg1 T) {...}")
   }
   if (length(fexpr) == 3) {
-    args := get(fexpr, 1)
-    body := get(fexpr, 2)
+    args := fexpr!1
+    body := fexpr!2
     
     quote {
       fn destruct `args $[nodestruct] `body
     }
   } else {
-    generics := get(fexpr, 1)
-    args := get(fexpr, 2)
-    body := get(fexpr, 3)
+    generics := fexpr!1
+    args := fexpr!2
+    body := fexpr!3
     
     quote {
       fn destruct `generics `args $[nodestruct] `body
@@ -123,7 +112,7 @@ syntax static(fexpr FExpr) FExpr {
     error(fexpr, "usage: static {...}")
   }
   mname := gensym()
-  body := get(fexpr, 1)
+  body := fexpr!1
   quote {
     syntax `mname (fexpr FExpr) FExpr {
       `body
@@ -136,17 +125,17 @@ syntax static(fexpr FExpr) FExpr {
 iterator items(fexpr TExpr[FExpr]) {
   tmp := gensym()
   quote {
-    for `tmp in range(0, length(`fexpr)-1) {
-      `element := get(`fexpr, `tmp)
+    for (`tmp : range(0, length(`fexpr)-1)) {
+      `element := `fexpr!`tmp
       `yield
     }
   }
 }
-iterator items(fexpr TExpr[FArray]) {
+iterator items(fexpr TExpr[FSeq]) {
   tmp := gensym()
   quote {
-    for `tmp in range(0, length(`fexpr)-1) {
-      `element := get(`fexpr, `tmp)
+    for (`tmp : range(0, length(`fexpr)-1)) {
+      `element := `fexpr!`tmp
       `yield
     }
   }
@@ -154,8 +143,17 @@ iterator items(fexpr TExpr[FArray]) {
 iterator items(fexpr TExpr[FList]) {
   tmp := gensym()
   quote {
-    for `tmp in range(0, length(`fexpr)-1) {
-      `element := get(`fexpr, `tmp)
+    for (`tmp : range(0, length(`fexpr)-1)) {
+      `element := `fexpr!`tmp
+      `yield
+    }
+  }
+}
+iterator items(fexpr TExpr[FArray]) {
+  tmp := gensym()
+  quote {
+    for (`tmp : range(0, length(`fexpr)-1)) {
+      `element := `fexpr!`tmp
       `yield
     }
   }
@@ -163,17 +161,17 @@ iterator items(fexpr TExpr[FList]) {
 iterator items(fexpr TExpr[FBlock]) {
   tmp := gensym()
   quote {
-    for `tmp in range(0, length(`fexpr)-1) {
-      `element := get(`fexpr, `tmp)
+    for (`tmp : range(0, length(`fexpr)-1)) {
+      `element := `fexpr!`tmp
       `yield
     }
   }
 }
-iterator items(fexpr TExpr[TArray]) {
+iterator items(fexpr TExpr[TSeq]) {
   tmp := gensym()
   quote {
-    for `tmp in range(0, length(`fexpr)-1) {
-      `element := get(`fexpr, `tmp)
+    for (`tmp : range(0, length(`fexpr)-1)) {
+      `element := `fexpr!`tmp
       `yield
     }
   }
@@ -181,8 +179,17 @@ iterator items(fexpr TExpr[TArray]) {
 iterator items(fexpr TExpr[TList]) {
   tmp := gensym()
   quote {
-    for `tmp in range(0, length(`fexpr)-1) {
-      `element := get(`fexpr, `tmp)
+    for (`tmp : range(0, length(`fexpr)-1)) {
+      `element := `fexpr!`tmp
+      `yield
+    }
+  }
+}
+iterator items(fexpr TExpr[TArray]) {
+  tmp := gensym()
+  quote {
+    for (`tmp : range(0, length(`fexpr)-1)) {
+      `element := `fexpr!`tmp
       `yield
     }
   }
@@ -190,8 +197,8 @@ iterator items(fexpr TExpr[TList]) {
 iterator items(fexpr TExpr[TBlock]) {
   tmp := gensym()
   quote {
-    for `tmp in range(0, length(`fexpr)-1) {
-      `element := get(`fexpr, `tmp)
+    for (`tmp : range(0, length(`fexpr)-1)) {
+      `element := `fexpr!`tmp
       `yield
     }
   }

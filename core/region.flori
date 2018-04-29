@@ -197,10 +197,10 @@ macro in_region(body TBlock) FExpr $[syntax] {
 }
 
 macro region(size FExpr, fndef FExpr) FExpr $[syntax] {
-  fnbody := get(fndef, length(fndef)-1)
-  set(fndef, length(fndef)-1, quote {
-      in_region `size `fnbody
-    })
+  fnbody := fndef!(length(fndef)-1)
+  fndef!(length(fndef)-1) = quote {
+    in_region `size `fnbody
+  }
   quote {}
 }
 macro region(fndef FExpr) FExpr $[syntax] {

@@ -42,7 +42,7 @@ fn print(x Bool) {
 
 macro println(args FList) FExpr $[syntax] {
   ret := new_fblock()
-  for son in args {
+  for (son : args) {
     push(ret, quote {
         print(`son)
       })
