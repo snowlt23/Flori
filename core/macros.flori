@@ -67,7 +67,10 @@ fn new_fstrlit(cs CString) FExpr $[importc "flori_new_fstrlit", header "floriffi
 fn parse(filename CString, line Int, linepos Int, cstr CString) FExpr $[importc "flori_parse_fexpr", header "floriffi.h", importjs]
 
 fn print(fexpr FExpr) $[importc "flori_print_fexpr", header "floriffi.h", importjs]
+
 fn push(fexpr FExpr, son FExpr) $[importc "flori_push", header "floriffi.h", importjs]
+fn push[T](fexpr FExpr, son TExpr[T]) $[importc "flori_push", header "floriffi.h", importjs]
+
 fn length(fexpr FExpr) Int $[importc "flori_length", header "floriffi.h", importjs]
 fn error(fexpr FExpr, msg CString) $[importc "flori_error", header "floriffi.h", importjs]
 fn quoted(fexpr FExpr) FExpr $[importc "flori_quoted", header "floriffi.h", importjs]

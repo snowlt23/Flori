@@ -7,13 +7,13 @@ import strutils, sequtils
 import tables
 
 proc replaceIdent*(fexpr: FExpr, ident: FExpr, by: FExpr): FExpr =
-  if fexpr.isInfixFuncCall and $fexpr[0] == ".":
-    let cont = fcontainer(fexpr.span, fexpr.kind)
-    cont.metadata = fexpr.metadata
-    cont.addSon(fexpr[0])
-    cont.addSon(replaceIdent(fexpr[1], ident, by))
-    cont.addSon(fexpr[2])
-    return cont
+  # if fexpr.isInfixFuncCall and $fexpr[0] == ".":
+  #   let cont = fcontainer(fexpr.span, fexpr.kind)
+  #   cont.metadata = fexpr.metadata
+  #   cont.addSon(fexpr[0])
+  #   cont.addSon(replaceIdent(fexpr[1], ident, by))
+  #   cont.addSon(fexpr[2])
+  #   return cont
   
   case fexpr.kind
   of fexprContainer:

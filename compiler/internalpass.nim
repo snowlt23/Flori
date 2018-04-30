@@ -342,80 +342,87 @@ proc semPragma*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, pragma: FExp
 # Evaluater
 #
 
-proc declGenerics*(scope: Scope, fexpr: FExpr): seq[Symbol] =
+proc declGenerics*(scope: Scope, fexpr: FExpr, decl: bool): seq[Symbol] =
   result = @[]
   for g in fexpr.mitems:
-    let sym = scope.symbol(name(g), symbolGenerics, g)
-    let status = scope.addDecl(name(g), sym)
-    if not status:
-      g.error("redefinition $# generics." % $g)
-    g = fsymbol(g.span, sym)
-    result.add(sym)
+    if g.kind == fexprSymbol:
+      result.add(g.symbol)
+    else:
+      let sym = scope.symbol(name(g), symbolGenerics, g)
+      let status = scope.addDecl(name(g), sym)
+      if not status:
+        g.error("redefinition $# generics." % $g)
+      g = fsymbol(g.span, sym)
+      result.add(sym)
 
-proc declArgtypes*(scope: Scope, originscope: Scope, fexpr: FExpr, isGenerics: bool): seq[Symbol] =
+proc declArgtypes*(scope: Scope, originscope: Scope, fexpr: FExpr): seq[Symbol] =
   result = @[]
   for i, arg in fexpr.mpairs:
     if arg.len < 2:
       arg.error("$# isn't argument declaration." % $arg)
-    arg = fseq(arg.span, @[arg[0], arg[1..^1]])
-    let typesym = scope.semType(arg[1])
-    let argsym = scope.symbol(name(arg[0]), symbolArg, arg[0])
-    argsym.argpos = i
-    arg[0].typ = typesym
-    arg[0].internalScope = originscope
-    arg[0].replaceByTypesym(argsym)
-    arg[1].replaceByTypesym(typesym)
-    result.add(typesym)
-
-  if not isGenerics:
-    for i, arg in fexpr:
-      if not isGenerics:
-        let status = scope.addDecl(name(arg[0]), arg[0].symbol)
-        if not status:
-          arg[0].error("redefinition $# variable." % $arg[0])
+    if arg[1].kind == fexprSymbol:
+      result.add(arg[1].symbol)
+    else:
+      if arg.len != 2:
+        arg = fseq(arg.span, @[arg[0], arg[1..^1]])
+      let typesym = scope.semType(arg[1])
+      arg[1] = fsymbol(arg[1].span, typesym)
+      result.add(typesym)
         
-proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, parsed: Defn, defsym: SymbolKind): (Scope, seq[Symbol], seq[Symbol], Symbol, Symbol) =
+proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, parsed: Defn, defsym: SymbolKind, decl: bool): (Scope, seq[Symbol], seq[Symbol], Symbol, Symbol) =
+  fexpr.defn = parsed
   let fnscope = scope.extendScope()
-  let generics = if parsed.isGenerics:
-                   fnscope.declGenerics(parsed.generics)
-                 else:
-                   @[]
-  let argtypes = fnscope.declArgtypes(scope, parsed.args, parsed.isGenerics)
+  let generics = fnscope.declGenerics(parsed.generics, not fexpr.isParsed)
+  let argtypes = fnscope.declArgtypes(scope, parsed.args)
   let rettype = fnscope.semType(parsed.ret)
-  parsed.ret.replaceByTypesym(rettype)
+  parsed.ret = fsymbol(parsed.ret.span, rettype)
   
   let symkind = if parsed.name.kind == fexprQuote: symbolInfix else: defsym
   let sym = scope.symbol(name(parsed.name), symkind, fexpr)
-  let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym, fexpr: fexpr)
-  discard fnscope.addFunc(pd)
 
+  if decl:
+    let pd = ProcDecl(name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym, fexpr: fexpr)
+    if fexpr.isParsed: # expanded
+      scope.top.addSpecFunc(pd)
+      fnscope.addSpecFunc(pd)
+    else:
+      discard scope.addFunc(pd)
+      discard fnscope.addFunc(pd)
+
+  if parsed.isGenerics:
+    return (fnscope, generics, argtypes, rettype, sym)
+  let fsym = fsymbol(fexpr[0].span, sym)
+  parsed.name = fsym
+
+  for i, arg in parsed.args:
+    let argtsym = scope.symbol(name(arg[0]), symbolArg, arg[0])
+    if not fnscope.addDecl(name(arg[0]), argtsym):
+      arg[0].error("redefinition $# argument." % $arg[0])
+    arg[0] = fsymbol(arg[0].span, argtsym)
+    arg[0].symbol.fexpr.typ = argtypes[i]
+    arg[1] = fsymbol(arg[0].span, argtypes[i])
   fexpr.internalScope = fnscope
-  fexpr.defn = parsed
-  scope.resolveByVoid(fexpr)
+  # scope.resolveByVoid(fexpr)
 
   semPragma(rootPass, scope, fexpr, parsed.pragma)
-  if fexpr.internalPragma.nodestruct:
-    fnscope.nodestruct = true
   if parsed.generics.isSpecTypes and not fexpr.internalPragma.inline:
     fnscope.rootPass(parsed.body)
     if parsed.body.len != 0:
-      if not parsed.body[^1].typ.spec(rettype):
-        parsed.body[^1].error("function expect $# return type, actually $#" % [$rettype, $parsed.body[^1].typ])
-
-  # symbol resolve
-  let fsym = fsymbol(fexpr[0].span, sym)
-  parsed.name = fsym
+      if not parsed.body.typ.spec(rettype):
+        parsed.body.error("function expect $# return type, actually $#" % [$rettype, $parsed.body.typ])
   
   return (fnscope, generics, argtypes, rettype, sym)
 
 proc semDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
-  var parsed = parseDefn(fexpr)
-  let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed, symbolFunc)
+  var parsed = if fexpr.isParsed:
+                 fexpr.defn
+               else:
+                 parseDefn(fexpr)
+  let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed, symbolFunc, true)
 
-  let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym, fexpr: fexpr)
-  let status = scope.addFunc(pd)
-  if not status:
-    fexpr.error("redefinition $# function." % $parsed.name)
+  # let pd = ProcDecl(isInternal: false, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym, fexpr: fexpr)
+  # if not scope.addFunc(pd):
+  #   fexpr.error("redefinition $# function." % $parsed.name)
   fexpr.internalMark = internalDefn
 
 proc semSyntax*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
@@ -423,13 +430,15 @@ proc semSyntax*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     fexpr[1].internalPragma.isSyntax = true
     return
   
-  var parsed = parseDefn(fexpr)
-  let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed, symbolSyntax)
+  var parsed = if fexpr.isParsed:
+                 fexpr.defn
+               else:
+                 parseDefn(fexpr)
+  let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed, symbolSyntax, false)
 
   let mp = MacroProc(importname: codegenMangling(sym, @[], argtypes)) # FIXME: support generics
   let pd = ProcDecl(isInternal: false, isSyntax: true, macroproc: mp, name: name(parsed.name), argtypes: argtypes, generics: generics, returntype: rettype, sym: sym, fexpr: fexpr)
-  let status = scope.addFunc(pd)
-  if not status:
+  if not scope.addFunc(pd):
     fexpr.error("redefinition $# macro." % $parsed.name)
   fexpr.internalMark = internalMacro
 
@@ -443,8 +452,11 @@ proc semSyntax*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     fexpr.isGenerated = true
 
 proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
-  var parsed = parseDefn(fexpr)
-  let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed, symbolMacro)
+  var parsed = if fexpr.isParsed:
+                 fexpr.defn
+               else:
+                 parseDefn(fexpr)
+  let (fnscope, generics, argtypes, rettype, sym) = semFunc(rootPass, scope, fexpr, parsed, symbolMacro, false)
 
   let mp = MacroProc(importname: codegenMangling(sym, @[], argtypes) & "_macro") # FIXME: support generics
   sym.macroproc = mp
@@ -464,55 +476,41 @@ proc semMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if not fexpr.isToplevel:
     scope.ctx.globaltoplevels.add(fexpr)
     fexpr.isGenerated = true
-
-proc generateDestructFn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
-  let body = fblock(fexpr.span)
-  for b in fexpr.deftype.body:
-    if b[1].symbol.fexpr.hasInternalScope:
-      scope.importScope(name($b[1].symbol.fexpr.internalScope.name & "_internal_scope"), b[1].symbol.fexpr.internalScope.top)
-    if scope.isDestructable(b[1].symbol):
-      body.addSon(fexpr.span.quoteFExpr("destruct(x . `embed)", [b[0].copy]))
-  let name = fident(fexpr.span, name($fexpr.deftype.name.symbol.name))
-  let generics = farray(fexpr.span, fexpr.deftype.generics.mapIt(fident(it.span, name($it))))
-  var dfn = fexpr.span.quoteFExpr("fn destruct `embed (x `embed `embed) `embed", [generics, name, generics, body])
-  scope.rootPass(dfn)
-  scope.ctx.globaltoplevels.add(dfn)
     
 proc semDeftype*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
-  var parsed = parseDeftype(fexpr)
+  let parsed = if fexpr.isParsed:
+                 fexpr.deftype
+               else:
+                 parseDeftype(fexpr)
 
   let typename = name(parsed.name)
-  let sym = scope.symbol(typename, if parsed.isGenerics: symbolTypeGenerics else: symbolType, fexpr)
-  let status = scope.addDecl(typename, sym)
-  if not status:
-    fexpr.error("redefinition $# type." % $typename)
-  
-  # symbol resolve
+  let sym = scope.symbol(typename, if parsed.generics.len != 0: symbolTypeGenerics else: symbolType, fexpr)
+  if parsed.generics.len != 0 and parsed.generics.isSpecTypes:
+    sym.types = parsed.generics.mapIt(it.symbol)
+  if not fexpr.isParsed:
+    if not scope.addDecl(typename, sym):
+      fexpr.error("redefinition $# type." % $typename)
+    
+  fexpr.internalMark = internalDeftype
+  fexpr.deftype = parsed
   let fsym = fsymbol(fexpr[0].span, sym)
-  fexpr[1] = fsym
   parsed.name = fsym
-  # internal metadata for postprocess phase
-  semPragma(rootPass, scope, fexpr, parsed.pragma)
 
-  let typescope = scope.extendScope()
   if parsed.isGenerics:
-    discard typescope.declGenerics(parsed.generics)
-
+    return
+  
+  semPragma(rootPass, scope, fexpr, parsed.pragma)
+  let typescope = scope.extendScope()
   for field in parsed.body.mitems:
     if field.len < 2:
       field.error("$# isn't field declaration." % $field)
     field = fseq(field.span, @[field[0], field[1..^1]])
     let s = typescope.semType(field[1])
     field[1].replaceByTypesym(s)
+  fexpr.internalScope = typescope
 
   if fexpr.internalPragma.importc.isNone:    
     sym.fexpr.isCStruct = true
-  #   if not fexpr.internalPragma.nodestruct:
-  #     generateDestructFn(rootPass, scope, fexpr)
-    
-  fexpr.internalScope = typescope
-  fexpr.internalMark = internalDeftype
-  fexpr.deftype = parsed
 
 proc semTypedef*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   let newfexpr = fseq(fexpr.span, @[fexpr[0], fexpr[1], fexpr[2..^1]])

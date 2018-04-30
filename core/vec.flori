@@ -82,7 +82,7 @@ fn length[T](v Vec[T]) Int $[importjs, patternjs "$1.length"] {
   v.len
 }
 
-fn `![T](v Vec[T], i Int) T $[importjs, patternjs "$1[$2]"] {
+fn `![T](v Vec[T], i Int) ref T $[importjs, patternjs "$1[$2]"] {
   unref(v.data +! (i * sizeof[T]()))
 }
 

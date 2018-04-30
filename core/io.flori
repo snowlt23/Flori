@@ -5,31 +5,31 @@ import "core/syntax"
 
 fn printf[T](fmt CString, x T) $[importc "printf", header "stdio.h", importjs, patternjs "console.log($2)"]
 
-fn print(x Char) $[inline] {
+fn print(x Char) {
   printf("%c", x)
 }
-fn print(cs CString) $[inline] {
+fn print(cs CString) {
   printf("%s", cs)
 }
-fn print(x IntLit) $[inline] {
+fn print(x IntLit) {
   printf("%lld", x)
 }
-fn print(x Int) $[inline] {
+fn print(x Int) {
   printf("%lld", x)
 }
-fn print(x UInt8) $[inline] {
+fn print(x UInt8) {
   printf("%d", x)
 }
-fn print(x UInt32) $[inline] {
+fn print(x UInt32) {
   printf("%d", x)
 }
-fn print(x Int32) $[inline] {
+fn print(x Int32) {
   printf("%d", x)
 }
-fn print(x Float) $[inline] {
+fn print(x Float) {
   printf("%f", x)
 }
-fn print(x Double) $[inline] {
+fn print(x Double) {
   printf("%lf", x)
 }
 fn print(x Bool) {

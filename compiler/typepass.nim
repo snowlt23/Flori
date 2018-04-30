@@ -1,5 +1,6 @@
 
 import fexpr_core
+import expand_templates
 
 import options
 import strutils, sequtils
@@ -45,7 +46,7 @@ proc parseTypeExpr*(fexpr: FExpr, pos: var int): ParsedType =
 proc semType*(scope: Scope, fexpr: FExpr): Symbol =
   var pos = 0
   let parsed = parseTypeExpr(fexpr, pos)
-  
+
   if parsed.typ.kind == fexprIntLit:
     return scope.intsym(parsed.typ)
 
@@ -63,16 +64,22 @@ proc semType*(scope: Scope, fexpr: FExpr): Symbol =
     parsed.typ.error("undeclared $# type." % $parsed.typ)
   if opt.get.fexpr.hasInternalMark and opt.get.fexpr.internalMark == internalConst:
     return scope.semType(opt.get.fexpr.constvalue)
+  elif fexpr.kind == fexprSeq and fexpr[0].kind == fexprSymbol:
+    result = fexpr[0].symbol
+  elif fexpr.kind == fexprSymbol:
+    result = fexpr.symbol
   elif parsed.generics.len == 0:
-    if opt.get.instance.isSome:
-      result = opt.get.instance.get
-    else:
-      result = opt.get
+    # if opt.get.instance.isSome:
+    #   result = opt.get.instance.get
+    # else:
+    #   result = opt.get
+    result = opt.get
   else:
     var sym = opt.get.scope.symbol(opt.get.name, symbolTypeGenerics, opt.get.fexpr)
     for arg in parsed.generics.mitems:
       sym.types.add(scope.semType(arg))
-    result = sym
+    result = scope.expandDeftype(sym.fexpr, sym.types).symbol.symcopy
+    result.types = sym.types
 
   if parsed.prefix.isSome:
     if $parsed.prefix.get == "ref":

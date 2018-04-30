@@ -87,8 +87,8 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr): bool =
       fexpr.typ = sym
     elif fexpr.symbol.fexpr.hasTyp:
       fexpr.typ = fexpr.symbol.fexpr.typ
-      if fexpr.typ.instance.isSome:
-        fexpr.typ = fexpr.typ.instance.get
+      # if fexpr.typ.instance.isSome:
+      #   fexpr.typ = fexpr.typ.instance.get
     elif fexpr.symbol.instance.isSome and fexpr.symbol.instance.get.kind == symbolIntLit:
       fexpr.symbol = fexpr.symbol.instance.get
       let opt = scope.getDecl(name("IntLit"))
@@ -178,6 +178,7 @@ proc varfnResolve*(scope: Scope, fexpr: var FExpr): bool =
     if fexpr[0].kind == fexprIdent:
       let opt = scope.getDecl(name(fexpr[0]))
       if opt.isNone:
+        echo fexpr[1].mapIt(it.typ)
         fexpr.error("undeclared $#($#) function." % [$fexpr[0], fexpr[1].mapIt($it.typ).join(", ")])
     scope.rootPass(fexpr[0])
     if fexpr[0].typ.kind != symbolFuncType:
@@ -213,14 +214,6 @@ definePass processSemPass, rootPass, (Scope, var FExpr):
   overloadResolve
   converterPass
   varfnResolve
-  applyInstancePass
   expandInlinePass
-  applyInstancePass
   expandDefnPass
-  expandDeftypePass
-  inferFnEffectPass
-  # earlySetDestruct
-  # expandDestructorPass
-  # moveEffectPass
-  # explicitDestruct
   finalPass

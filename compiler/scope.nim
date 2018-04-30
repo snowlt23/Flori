@@ -3,7 +3,7 @@ import tables
 import options
 import strutils
 
-import types, fexpr
+import types, fexpr, metadata
 
 proc newScope*(ctx: SemanticContext, name: Name, path: string): Scope =
   new result
@@ -181,7 +181,7 @@ proc getFunc*(scope: Scope, pd: ProcName, importscope = true): Option[ProcDecl] 
 
   let group = scope.procdecls[pd.name]
   for decl in group.decls:
-    if pd.match(decl):
+    if pd.match(decl) and not decl.sym.fexpr.isParsed:
       return some(decl)
 
   if importscope:

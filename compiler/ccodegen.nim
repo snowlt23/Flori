@@ -81,7 +81,7 @@ proc codegenTypePattern*(ctx: CCodegenContext, pattern: string, types: seq[Symbo
     result = result.replace("##" & $(i+1), codegenSymbol(typ))
     result = result.replace("#" & $(i+1), ctx.codegenType(typ))
 proc codegenTypeImportc*(ctx: CCodegenContext, sym: Symbol): string =
-  if sym.fexpr.hasInternalPragma and sym.fexpr.internalPragma.header.isSome and not ctx.headers.hasKey(sym.fexpr.internalPragma.header.get):
+  if sym.fexpr.internalPragma.header.isSome and not ctx.headers.hasKey(sym.fexpr.internalPragma.header.get):
     ctx.headers[sym.fexpr.internalPragma.header.get] = true
     ctx.headersrc &= "#include \"$#\"\n" % sym.fexpr.internalPragma.header.get
   if sym.fexpr.internalPragma.patternc.isSome:
@@ -98,7 +98,7 @@ proc codegenType*(ctx: CCodegenContext, sym: Symbol, share = false): string =
     return ctx.codegenType(sym.wrapped, share)
   elif sym.kind == symbolFuncType:
     return "$# (*)($#)" % [ctx.codegenType(sym.rettype, share), sym.argtypes.mapIt(ctx.codegenType(it, share)).join(", ")]
-  
+
   if sym.fexpr.hasInternalPragma and sym.fexpr.internalPragma.importc.isSome:
     return ctx.codegenTypeImportc(sym)
   result = ""
@@ -202,7 +202,7 @@ proc codegenMacroWrapper*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
   src &= "}\n"
 
 proc codegenDefn*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  if fexpr.internalPragma.importc.isNone:
+  if fexpr.hasInternalPragma and fexpr.internalPragma.importc.isNone:
     if fexpr.defn.generics.isSpecTypes:
       ctx.codegenDefnInstance(src, fexpr)
       if $fexpr[0] == "macro":
@@ -223,12 +223,13 @@ proc codegenDeftypePattern*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr
     ctx.typesrc &= "\n"
   
 proc codegenDeftype*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  if fexpr.deftype.isGenerics:
+    return
+  
   if fexpr.internalPragma.importc.isSome:
-    if not fexpr.deftype.isGenerics:
-      ctx.codegenDeftypePattern(src, fexpr)
+    ctx.codegenDeftypePattern(src, fexpr)
   else:
-    if not fexpr.deftype.isGenerics:
-      ctx.codegenDeftypeStruct(src, fexpr)
+    ctx.codegenDeftypeStruct(src, fexpr)
 
 proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   let tmpret = ctx.gentmpsym()

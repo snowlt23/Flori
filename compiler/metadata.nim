@@ -181,6 +181,7 @@ defMetadata(converters, Converters)
 
 defBoolMetadata(isEvaluated)
 defBoolMetadata(isToplevel)
+defBoolMetadata(isParsed)
 defBoolMetadata(isGenerated)
 defBoolMetadata(isCStruct)
 defBoolMetadata(isExpanded)

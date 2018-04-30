@@ -1,12 +1,24 @@
 
 import fexpr_core
 import passutils, ccodegen, compileutils
+import newpassmacro
 
 import options
 import strutils, sequtils
 import tables
 
 proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr
+
+proc replaceIdent*(fexpr: var FExpr, ident: FExpr, by: FExpr) =
+  case fexpr.kind
+  of fexprContainer:
+    for son in fexpr.mitems:
+      replaceIdent(son, ident, by)
+  of fexprIdent, fexprSymbol:
+    if $fexpr == $ident:
+      fexpr = by
+  else:
+    discard
 
 proc applyInstance*(sym: Symbol, instance: Symbol): bool =
   if sym.kind in {symbolVar, symbolRef} and instance.kind in {symbolVar, symbolRef}:
@@ -68,125 +80,99 @@ proc expandSymbol*(scope: Scope, sym: Symbol): Symbol =
   else:
     result = sym
 
-proc expandType*(scope: Scope, fexpr: FExpr): FExpr =
-  fexpr.assert(fexpr.kind == fexprSymbol)
-  return fsymbol(fexpr.span, scope.expandSymbol(fexpr.symbol))
+proc checkInstantiate*(generics: FExpr) =
+  for g in generics:
+    if g.kind != fexprSymbol:
+      g.error("cannot instantiate $#." % $g)
 
 proc expandGenerics*(generics: FExpr) =
   for g in generics.mitems:
-    g.assert(g.kind == fexprSymbol)
-    if g.symbol.kind != symbolGenerics:
-      continue
-    if g.symbol.instance.isNone:
+    if g.kind != fexprSymbol:
       g.error("cannot instantiate $#." % $g)
-    g.symbol = g.symbol.instance.get
+    if g.symbol.kind == symbolGenerics:
+      if g.symbol.instance.isNone:
+        g.error("cannot instantiate $#." % $g)
+      g.symbol = g.symbol.instance.get
+proc expandArgtypes*(scope: Scope, argdecls: FExpr) =
+  for argdecl in argdecls:
+    argdecl[1] = fsymbol(argdecl[1].span, scope.expandSymbol(argdecl[1].symbol))
+
+proc expandTemplate*(scope: Scope, fexpr: FExpr, generics: FExpr, genericstypes: seq[Symbol]): FExpr =
+  result = fexpr.copy
+  for i, g in generics:
+    replaceIdent(result, g, fsymbol(g.span, genericstypes[i]))
       
 proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr =
   fexpr.assert(fexpr.hasDeftype)
-
-  let expanded = fexpr.copy
-
-  for i, arg in argtypes:
-    if not expanded.deftype.generics[i].symbol.applyInstance(arg):
-      expanded.deftype.generics[i].error("generics type not match: $#, $#" % $[$expanded.deftype.generics[i].symbol.instance.get, $arg])
-  defer:
-    for g in fexpr.deftype.generics:
-      g.symbol.instance = none(Symbol)
-  expanded.deftype.generics.expandGenerics()
-
-  let typename = expanded.deftype.name.symbol.name
-  let manglingname = name(codegenMangling(expanded.deftype.name.symbol, argtypes, @[], internal = true))
-
-  let specopt = fexpr.internalScope.getDecl(manglingname)
+  
+  let manglingname = name(codegenMangling(fexpr.deftype.name.symbol, argtypes, @[], internal = true))
+  let specopt = fexpr.internalScope.top.getDecl(manglingname)
   if specopt.isSome:
     let fsym = fsymbol(fexpr.span, specopt.get)
     return fsym
-  
-  for b in expanded.deftype.body.mitems:
-    let extype = scope.expandType(b[1])
-    b[1] = extype
-    # b = fseq(b.span, @[b[0], extype])
 
-  for argtype in argtypes:
-    if argtype.kind == symbolTypeGenerics:
-      for g in fexpr.deftype.generics:
-        g.symbol.instance = none(Symbol)
-      discard scope.expandDeftype(argtype.fexpr, argtype.types)
-
-  let tsym = fexpr.internalScope.symbol(typename, symbolTypeGenerics, expanded)
-  tsym.types = expanded.deftype.generics.mapIt(it.symbol)
-  let fsym = fsymbol(fexpr.span, tsym)
+  var expanded = fexpr.internalScope.expandTemplate(fexpr, fexpr.deftype.generics, argtypes)
+  expanded.isParsed = true
+  expanded.isEvaluated = false
+  let tsym = expanded.internalScope.symbol(expanded.deftype.name.symbol.name, symbolTypeGenerics, expanded)
+  tsym.types = argtypes
+  let fsym = fsymbol(expanded.span, tsym)
   expanded.deftype.name = fsym
 
-  discard fexpr.internalScope.addDecl(manglingname, tsym)
-  scope.ctx.globaltoplevels.add(expanded)
+  discard expanded.internalScope.top.addDecl(manglingname, tsym)
 
-  return fsym
-    
-proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: FExpr, argtypes: seq[Symbol]): FExpr =
-  fexpr.assert(fexpr.hasDefn)
-  fexpr.assert(fexpr.defn.args.len == argtypes.len)
-
-  let expanded = fexpr.copy
-
-  expanded.defn.generics.expandGenerics()
-
-  let funcname = fexpr.defn.name.symbol.name
-  let genericstypes = expanded.defn.generics.mapIt(it.symbol)
-
-  let specopt = fexpr.internalScope.getSpecFunc(procname(funcname, argtypes, genericstypes))
-  if specopt.isSome:
-    let fsym = fsymbol(fexpr.span, specopt.get.sym)
-    return fsym
-
-  let exscope = fexpr.internalScope.extendScope()
-  for arg in expanded.defn.args:
-    let extype = scope.expandType(arg[1])
-    let argcopy = arg[0].copy
-    argcopy.symbol = argcopy.symbol.symcopy
-    argcopy.symbol.fexpr.typ = extype.symbol
-    arg[0] = argcopy
-    arg[1].symbol = extype.symbol.symcopy
-    let status = exscope.addDecl(name(argcopy), argcopy.symbol)
-    if not status:
-      argcopy.error("redefinition $# variable." % $arg[0])
-  expanded.defn.ret = scope.expandType(expanded.defn.ret)
-
-  let sym = fexpr.internalScope.symbol(funcname, expanded.defn.name.symbol.kind, expanded)
-  let fsym = fsymbol(fexpr.span, sym)
-  fexpr.defn.name = fsym
-  let pd = ProcDecl(
-    isInternal: false,
-    name: funcname,
-    argtypes: expanded.defn.args.mapIt(it[1].symbol),
-    generics: genericstypes,
-    returntype: expanded.defn.ret.symbol,
-    sym: sym,
-    fexpr: expanded
-  )
-  fexpr.internalScope.addSpecFunc(pd)
-
+  let exscope = expanded.internalScope.extendScope()
   if scope.importscopes.hasKey(name("flori_current_scope")):
     exscope.importScope(name("flori_current_scope"), scope.importscopes[name("flori_current_scope")])
   else:
     exscope.importScope(name("flori_current_scope"), scope.top)
-  exscope.rootPass(expanded.defn.body)
-  if expanded.defn.body.len != 0:
-    if not expanded.defn.body[^1].typ.spec(expanded.defn.ret.symbol):
-      expanded.defn.body[^1].error("function expect $# return type, actually $#" % [$expanded.defn.ret.symbol, $expanded.defn.body[^1].typ])
+  exscope.rootPass(expanded)
   scope.ctx.globaltoplevels.add(expanded)
-
+  
   return fsym
+    
+proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, genericstypes: seq[Symbol], argtypes: seq[Symbol]): FExpr =
+  fexpr.assert(fexpr.hasDefn)
+  fexpr.assert(fexpr.defn.args.len == argtypes.len)
+
+  let generics = fexpr.defn.generics.copy
+  for i, gtype in genericstypes:
+    if not applyInstance(generics[i].symbol, gtype):
+      generics[i].error("generics not match: $#, $#" % [$generics[i].symbol.instance.get, $gtype])
+  for i, argtype in argtypes:
+    if not applyInstance(fexpr.defn.args[i][1].symbol, argtype):
+      fexpr.defn.args[i][1].error("argtype not match: $#, $#" % [$fexpr.defn.args[i][1].symbol.instance.get, $argtype])
+  generics.expandGenerics()
+  
+  var expanded = scope.expandTemplate(fexpr, fexpr.defn.generics, generics.mapIt(it.symbol))
+  expanded.isParsed = true
+  expanded.isEvaluated = false
+  scope.expandArgtypes(expanded.defn.args)
+  expanded.defn.ret.symbol = scope.expandSymbol(expanded.defn.ret.symbol)
+  for g in fexpr.defn.generics:
+    g.symbol.instance = none(Symbol)
+    
+  let genericstypes = generics.mapIt(it.symbol)
+  let specopt = expanded.internalScope.getSpecFunc(procname(name(expanded.defn.name), argtypes, genericstypes))
+  if specopt.isSome:
+    let fsym = fsymbol(expanded.span, specopt.get.sym)
+    return fsym
+  
+  let exscope = expanded.internalScope.extendScope()
+  if scope.importscopes.hasKey(name("flori_current_scope")):
+    exscope.importScope(name("flori_current_scope"), scope.importscopes[name("flori_current_scope")])
+  else:
+    exscope.importScope(name("flori_current_scope"), scope.top)
+  exscope.rootPass(expanded)
+  exscope.importscopes.del(name("flori_current_scope"))
+  expanded.assert(expanded.defn.name.kind == fexprSymbol)
+
+  scope.ctx.globaltoplevels.add(expanded)
+  
+  return expanded.defn.name
 
 proc expandMacrofn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr =
-  for i, arg in fexpr.defn.args:
-    arg[1].assert(arg[1].kind == fexprSymbol)
-    if not arg[1].symbol.applyInstance(argtypes[i]):
-      arg.error("argtype not mat5ch: $#, $#" % [$arg[1].symbol.instance.get, $argtypes[i]])
-  defer:
-    for g in fexpr.defn.generics:
-      g.symbol.instance = none(Symbol)
-  result = expandDefn(rootPass, scope, fexpr, argtypes)
+  result = expandDefn(rootPass, scope, fexpr, @[], argtypes)
   let mp = MacroProc(importname: codegenMangling(result.symbol, result.symbol.fexpr.defn.generics.mapIt(it.symbol), result.symbol.fexpr.defn.args.mapIt(it[1].symbol)) & "_macro")
   result.symbol.macroproc = mp
   result.symbol.kind = symbolMacro
