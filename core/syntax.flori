@@ -12,7 +12,9 @@ syntax for(fexpr FExpr) FExpr {
   body := fexpr!2
 
   quote {
-    items(`value, `elem, `body)
+    block {
+      items(`value, `elem, `body)
+    }
   }
 }
 

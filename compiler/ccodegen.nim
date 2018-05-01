@@ -446,10 +446,12 @@ proc codegenPatternCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, 
       pattern = pattern.replace("#" & $(i+1), ctx.codegenType(g))
     ctx.codegenPatternArgs(src, fexpr[2], argtypes, fexpr.typ, pattern)
   else:
-    if fexpr[0].symbol.kind == symbolInfix:
+    if fexpr.isNormalFuncCall:
+      ctx.codegenPatternArgs(src, fexpr[1], argtypes, fexpr.typ, pattern)
+    elif fexpr.isInfixFuncCall:
       ctx.codegenPatternArgs(src, fexpr[1..^1], argtypes, fexpr.typ, pattern)
     else:
-      ctx.codegenPatternArgs(src, fexpr[1], argtypes, fexpr.typ, pattern)
+      fexpr.error("unsupported c function call syntax.")
   src &= pattern
 
 proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =  
@@ -517,14 +519,21 @@ proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   elif fn.hasinternalPragma and fn.internalPragma.importc.isSome:
     ctx.codegenCCall(src, fexpr)
   else: # normal call
-    if fexpr.isGenericsFuncCall:
+    if fexpr.isNormalFuncCall:
+      src &= codegenMangling(fexpr[0].symbol, fexpr.getCallGenerics(), fexpr.getCallTypes())
+      src &= "("
+      for i, arg in ctx.codegenArgsWithIndex(src, fexpr[1]):
+        let fnargtype = fexpr[0].symbol.fexpr.defn.args[i][1].symbol
+        ctx.codegenCallArg(src, arg, fnargtype)
+      src &= ")"
+    elif fexpr.isGenericsFuncCall:
       src &= codegenMangling(fexpr[0].symbol, fexpr.getCallGenerics(), fexpr.getCallTypes())
       src &= "("
       for i, arg in ctx.codegenArgsWithIndex(src, fexpr[2]):
         let fnargtype = fexpr[0].symbol.fexpr.defn.args[i][1].symbol
         ctx.codegenCallArg(src, arg, fnargtype)
       src &= ")"
-    elif fexpr.len == 3 and fexpr[0].symbol.kind == symbolInfix: # infix call
+    elif fexpr.isInfixFuncCall: # infix call
       src &= codegenMangling(fexpr[0].symbol, fexpr.getCallGenerics(), fexpr.getCallTypes()) # FIXME: support generics
       src &= "("
       ctx.codegenCallArg(src, fexpr[1], fexpr[0].symbol.fexpr.defn.args[0][1].symbol)
@@ -540,12 +549,7 @@ proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
         ctx.codegenCallArg(src, arg, fnargtype)
       src &= "))"
     else:
-      src &= codegenMangling(fexpr[0].symbol, fexpr.getCallGenerics(), fexpr.getCallTypes())
-      src &= "("
-      for i, arg in ctx.codegenArgsWithIndex(src, fexpr[1]):
-        let fnargtype = fexpr[0].symbol.fexpr.defn.args[i][1].symbol
-        ctx.codegenCallArg(src, arg, fnargtype)
-      src &= ")"
+      fexpr.error("unsupported function call syntax.")
 
 proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   case fexpr.kind
