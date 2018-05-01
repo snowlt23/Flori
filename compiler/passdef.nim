@@ -1,6 +1,6 @@
 
 import fexpr_core
-import newpassmacro, sempass, effectpass
+import passmacro, sempass
 
 proc processFPass*(scope: Scope, fexpr: var FExpr) =
   processSemPass(scope, fexpr)

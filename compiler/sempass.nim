@@ -1,6 +1,6 @@
 
 import fexpr_core
-import newpassmacro, typepass, macropass, expandpass, effectpass, scopeout, converterpass
+import passmacro, typepass, macropass, expandpass, converterpass
 
 import options
 import strutils, sequtils

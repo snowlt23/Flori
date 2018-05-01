@@ -1,6 +1,6 @@
 
 import parser, types, fexpr, scope, metadata
-import ccodegen, effectpass, elimpass
+import ccodegen, elimpass
 import macroffi
 
 import os
@@ -66,8 +66,6 @@ proc setupFFI*(handle: LibHandle) =
   ffi "flori_strval", ffiStrval
   ffi "flori_gensym", ffiGensym
   ffi "flori_get_type", ffiGetType
-  ffi "flori_scopelevel", ffiScopeLevel
-  ffi "flori_debug_marking", ffiDebugMarking
 
 proc reloadMacroLibrary*(semctx: SemanticContext, scope: Scope) =
   if semctx.macrolib != nil:

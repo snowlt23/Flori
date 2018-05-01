@@ -1,7 +1,7 @@
 
 import fexpr_core
 import passutils, ccodegen, compileutils
-import newpassmacro
+import passmacro
 
 import options
 import strutils, sequtils

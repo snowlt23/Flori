@@ -1,6 +1,6 @@
 
 import fexpr_core
-import newpassmacro
+import passmacro
 
 import strutils, sequtils
 import options

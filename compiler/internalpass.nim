@@ -1,5 +1,5 @@
 
-import fexpr_core, scopeout
+import fexpr_core
 import passutils, typepass
 import compileutils, macroffi
 
@@ -301,14 +301,10 @@ proc semPatternjs*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     
 proc semInline*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr[1].internalPragma.inline = true
-proc semNoDestruct*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
-  fexpr[1].internalPragma.nodestruct = true
 proc semCompiletime*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr[1].internalPragma.compiletime = true
 proc semNoCompiletime*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr[1].internalPragma.nocompiletime = true
-proc semResource*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
-  fexpr[1].internalPragma.resource = true
 proc semConverter*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr[1].defn.args.len != 1:
     fexpr.error("converter fn should be 1 argument.")
@@ -811,27 +807,6 @@ proc semQuote*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   fexpr = ret
   scope.rootPass(fexpr)
 
-proc semIsDestructable*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
-  if fexpr.len != 2 or fexpr[1].kind != fexprList and fexpr[1].len != 0:
-    fexpr.error("usage: is_destructable(type)")
-  
-  let typesym = scope.semType(fexpr[1][0])
-  if fexpr.internalScope.getFunc(procname(name("destruct"), @[typesym])).isSome:
-    fexpr = fexpr.span.quoteFExpr("true", [])
-  else:
-    fexpr = fexpr.span.quoteFExpr("false", [])
-  scope.rootPass(fexpr)
-proc semIsCopyable*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
-  if fexpr.len != 2 or fexpr[1].kind != fexprList and fexpr[1].len != 0:
-    fexpr.error("usage: is_copyable(type)")
-  
-  let typesym = scope.semType(fexpr[1][0])
-  if fexpr.internalScope.getFunc(procname(name("copy"), @[typesym])).isSome:
-    fexpr = fexpr.span.quoteFExpr("true", [])
-  else:
-    fexpr = fexpr.span.quoteFExpr("false", [])
-  scope.rootPass(fexpr)
-
 proc semCodegenDecl*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   if fexpr.len != 2:
     fexpr.error("usage: cemit \"...\"")
@@ -891,9 +866,6 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("codegen_head"), semCodegenHead)
   scope.addInternalEval(name("block"), semBlock)
 
-  scope.addInternalEval(name("is_destructable"), semIsDestructable)
-  scope.addInternalEval(name("is_copyable"), semIsCopyable)
-
   # c pragmas
   scope.addInternalEval(name("importc"), semImportc)
   scope.addInternalEval(name("header"), semHeader)
@@ -906,10 +878,8 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("patternjs"), semPatternjs)
   # general pragmas
   scope.addInternalEval(name("inline"), semInline)
-  scope.addInternalEval(name("nodestruct"), semNoDestruct)
   scope.addInternalEval(name("compiletime"), semCompiletime)
   scope.addInternalEval(name("nocompiletime"), semNoCompiletime)
-  scope.addInternalEval(name("resource"), semResource)
   scope.addInternalEval(name("converter"), semConverter)
 
 proc initInternalScope*(ctx: SemanticContext) =

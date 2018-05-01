@@ -1,6 +1,6 @@
 
 import fexpr_core
-import newpassmacro
+import passmacro
 
 var elimRoot*: proc(scope: Scope, fexpr: var FExpr) = nil
 
