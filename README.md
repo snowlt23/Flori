@@ -8,19 +8,19 @@ Flori is statically typed programming language without GC for system/application
 # Features
 
 - Statically typed.
-- Automatic resource management by **Owned Marking**.
+- Blazing fast and easy memory management by **Explicit Region**.
 - Flexible meta syntax, It's **F Expression**.
 - Native compile via C. (It's so fast and portable!)
-- Blazing fast memory management by **Memory Lifting**.
 - Ultimate power for Metaprogramming.
 - Interactive development environment. (Common Lisp SLIME like)
 
 # Inspired languages
 
 - Nim
+- bone-lisp
+- xtlang
 - REBOL
 - Clojure
-- Rust
 - Common Lisp
 
 # Examples
@@ -53,12 +53,13 @@ import "core"
 import "std/fileio"
 
 fn main() {
-  f := openFile("voiceroids.txt", "w")
-  write(f, "Yukari")
-  write(f, "Maki")
-  write(f, "Akane")
-  write(f, "Aoi")
-  # automatic release file of `f variable here!
+  in_resource {
+    f := openFile("voiceroids.txt", "w")
+    write(f, "Yukari")
+    write(f, "Maki")
+    write(f, "Akane")
+    write(f, "Aoi")
+  }
 }
 
 main()
@@ -94,14 +95,13 @@ $ nake test
 
 # TODO
 
-- Condition System
-- Memory Lifting
-- Type level macro
+- Error Handling System
+- LiveReload
 - Concurrency
 - Standard Library
 - Reduction Build Times
-- LiveReload
 - Disassembler, Debugger, Profiler
-- Build System & Package Manager
+- Region Profiler
+- Package Manager
 - IDE tool (Rabbit)
 - Self Hosting
