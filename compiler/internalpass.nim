@@ -685,6 +685,10 @@ proc semSet*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
     scope.rootPass(fexpr)
     return
 
+  if not parsed.dst.hasTyp:
+    parsed.dst.error("value hasn't type.")
+  if not parsed.value.hasTyp:
+    parsed.value.error("value hasn't type.")
   if parsed.dst.typ.kind != symbolVar and parsed.dst.typ.kind != symbolRef:
     parsed.dst.error("ref value expected.")
 

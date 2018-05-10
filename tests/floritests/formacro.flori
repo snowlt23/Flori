@@ -1,0 +1,11 @@
+
+import "core/prelude"
+import "core/io"
+import "core/syntax"
+import "tests/testutils"
+
+expect("12345678910\n")
+
+for (i : range(1, 10)) {
+  print(i)
+}

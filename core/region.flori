@@ -74,7 +74,11 @@ fn dealloc_region(hr ref HeapRegion, r Region) {
 fn extend(hr ref HeapRegion, r ref Region, allocsize Int) {
   if (r.current + allocsize >= r.size - sizeof[Ptr[Region]]()) {
     prevr := r
-    r = new_region(hr, r.size*2)
+    newrsize := r.size*2
+    while (allocsize >= newrsize) {
+      newrsize = newrsize*2
+    }
+    r = new_region(hr, newrsize*2)
     r.prev = cast[Ptr[Region]](prevr.data)
     unref(r.prev) = prevr
   }
@@ -177,15 +181,9 @@ macro in_region(size FExpr, body TBlock) FExpr $[syntax] {
       `prevr := g_current_region
       g_current_region = new_region(g_heap_region, `size)
       `ret := `body
-      when (is_copyable(`ret)) {
-        `retcopy := copy(`prevr, `ret)
-      }
-      when (not(is_copyable(`ret))) {
-        `retcopy := `ret
-      }
       dealloc_region(g_heap_region, g_current_region)
       g_current_region = `prevr
-      `retcopy
+      `ret
     }
   }
 }

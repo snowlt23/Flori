@@ -1,0 +1,17 @@
+
+import "core/prelude"
+import "core/array"
+import "tests/testutils"
+
+expect("")
+
+fn new_vec_array() Array[3, Int] {
+  var a Array[3, Int]
+  a
+}
+
+fn main() {
+  a := new_vec_array()
+}
+
+main()

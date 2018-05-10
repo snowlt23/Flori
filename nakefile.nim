@@ -30,4 +30,4 @@ task "build", "build compiler":
   runTask "build32"
   
 task "test", "":
-  discard execShellCmd("nim c -r tests/tester.nim")
+  discard execShellCmd("nim c -r tests/floritester.nim")

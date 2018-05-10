@@ -8,12 +8,10 @@ jsdist/
 flori.exe
 flori
 
-tests/parser_test.exe
-tests/parser_test
-tests/step_test.exe
-tests/step_test
-tests/tester.exe
-tests/tester
+tests/basictester.exe
+tests/basictester
+tests/floritester.exe
+tests/floritester
 tests/bin/
 
 /*.exe

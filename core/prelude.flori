@@ -54,6 +54,12 @@ fn `!=(a UInt32, b UInt32) Bool $[importc "!=", header nodeclc, patternc infixc,
 
 fn cast[T, F](val F) T $[importc, header nodeclc, patternc "((#1)($1))", importjs, patternjs "$1"]
 
+fn int(x Float) Int {
+  cast[Int](x)
+}
+fn float(x Int) Float {
+  cast[Float](x)
+}
 fn double(x Int) Double {
   cast[Double](x)
 }
