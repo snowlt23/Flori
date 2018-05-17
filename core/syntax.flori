@@ -68,21 +68,41 @@ iterator items(range TExpr[Range]) {
 }
 
 syntax when(fexpr FExpr) FExpr {
-  if (length(fexpr) != 3) {
-    error(fexpr, "when syntax expect: when (cond) {...}")
-  }
-  tmpsym := gensym()
-  cond := fexpr!1
-  body := fexpr!2
-  quote {
-    syntax `tmpsym(fexpr FExpr) FExpr {
-      if `cond {
-        quote `body
-      } else {
-        quote {}
+  if (length(fexpr) == 3) {
+    tmpsym := gensym()
+    cond := fexpr!1
+    body := fexpr!2
+    quote {
+      syntax `tmpsym(fexpr FExpr) FExpr {
+        if `cond {
+          quote `body
+        } else {
+          quote {}
+        }
       }
+      `tmpsym()
     }
-    `tmpsym()
+  } elif (length(fexpr) == 5) {
+    if (to_cs(fexpr!3) != "else") {
+      error(fexpr!3, "when expect `else branch.")
+    }
+    tmpsym := gensym()
+    cond := fexpr!1
+    tbody := fexpr!2
+    fbody := fexpr!4
+    quote {
+      syntax `tmpsym(fexpr FExpr) FExpr {
+        if `cond {
+          quote `tbody
+        } else {
+          quote `fbody
+        }
+      }
+      `tmpsym()
+    }
+  } else {
+    error(fexpr, "when syntax expect: when (cond) {...}")
+    quote {}
   }
 }
 

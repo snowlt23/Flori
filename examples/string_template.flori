@@ -1,0 +1,11 @@
+
+import "core"
+
+default_region_settings()
+
+fn main() {
+  s := s"1.$# 2.$# 3.$#" % [s"Yukari", s"Maki", s"Akari"]
+  println(s)
+}
+
+main()

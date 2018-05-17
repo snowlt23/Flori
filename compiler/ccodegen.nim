@@ -44,7 +44,7 @@ proc gentmpsym*(ctx: CCodegenContext): string =
   ctx.tmpcount.inc
 
 proc replaceSpecialSymbols*(s: string): string =
-  s.replace(".", "_").replace("+", "plus").replace("-", "minus").replace("*", "asterisk").replace("/", "slash").replace("!", "excl").replace("=", "eq").replace("%", "per").replace("&", "and")
+  s.replace(".", "_").replace("+", "plus").replace("-", "minus").replace("*", "asterisk").replace("/", "slash").replace("\\", "slash").replace("!", "excl").replace("=", "eq").replace("%", "per").replace("&", "and")
 
 proc codegenSymbol*(sym: Symbol): string
 
@@ -552,6 +552,10 @@ proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
       fexpr.error("unsupported function call syntax.")
 
 proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  if fexpr.hasRuntime:
+    ctx.codegenFExpr(src, fexpr.runtime)
+    return
+  
   case fexpr.kind
   of fexprIdent:
     src &= $fexpr

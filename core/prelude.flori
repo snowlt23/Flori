@@ -57,10 +57,19 @@ fn cast[T, F](val F) T $[importc, header nodeclc, patternc "((#1)($1))", importj
 fn int(x Float) Int {
   cast[Int](x)
 }
+fn int(x Double) Int {
+  cast[Int](x)
+}
 fn float(x Int) Float {
   cast[Float](x)
 }
+fn float(x Double) Float {
+  cast[Float](x)
+}
 fn double(x Int) Double {
+  cast[Double](x)
+}
+fn double(x Float) Double {
   cast[Double](x)
 }
 
@@ -90,6 +99,7 @@ fn `/(a Int, b Int) Double $[inline] {
 
 fn `<<(a UInt32, b UInt32) UInt32 $[importc "<<", header nodeclc, patternc infixc, importjs "<<", patternjs infixjs]
 fn `>>(a UInt32, b UInt32) UInt32 $[importc ">>", header nodeclc, patternc infixc, importjs ">>", patternjs infixjs]
+fn `*(a UInt32, b UInt32) UInt32 $[importc "*", header nodeclc, patternc infixc, importjs "*", patternjs infixjs]
 
 fn uint32(x Int) UInt32 $[inline] {
   cast[UInt32](x)

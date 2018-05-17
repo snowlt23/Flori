@@ -175,9 +175,8 @@ type Converters* = object
 
 defMetadata(typ, Symbol)
 defMetadata(constvalue, FExpr)
-defMetadata(fneffect, FnEffect)
-defMetadata(markeffect, MarkingEffect)
 defMetadata(converters, Converters)
+defMetadata(runtime, FExpr)
 
 defBoolMetadata(isEvaluated)
 defBoolMetadata(isToplevel)
@@ -191,7 +190,6 @@ defBoolMetadata(isEliminated)
 defMetadata(internalExpand, FExpr)
 
 defMetadata(internalScope, Scope)
-# defMetadata(internalCtx, SemanticContext)
 defMetadata(internalMark, InternalMarkKind)
 defMetadata(internalPragma, InternalPragma)
 

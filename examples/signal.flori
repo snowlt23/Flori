@@ -1,0 +1,26 @@
+
+import "core"
+
+signal Error {
+  msg String
+}
+signal IOError [Error]
+
+fn open_file(filename CString, mode CString) {
+  f := fopen(filename, mode)
+  if (is_null(f)) {
+    notice IOError
+  }
+  f
+}
+# infer =>
+fn open_file(filename CString, mode CString) $[signals [IOError]] ...
+
+fn main() {
+  f := open_file(filename)
+  accept[IOError](f) {
+    e
+  }
+}
+
+main()

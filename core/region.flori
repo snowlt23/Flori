@@ -108,6 +108,10 @@ fn realloc[T](hr ref HeapRegion, r ref Region, p Ptr[T], plen Int, newlen Int) P
 var g_heap_region HeapRegion
 var g_current_region Region
 
+fn new_region(size Int) Region {
+  new_region(g_heap_region, size)
+}
+
 fn region_settings(heapsize Int, regsize Int) {
   g_heap_region = new_heap_region(heapsize)
   g_current_region = new_region(g_heap_region, regsize)

@@ -106,16 +106,6 @@ fn quote_expand(fexpr FExpr, args FExpr) FExpr $[compiletime, importjs] {
   fexpr
 }
 
-fn is_compiletime_fn() Bool $[importc, header nodeclc, declc "
-#ifdef FLORI_COMPILETIME
-#define is_compiletime true
-#else
-#define is_compiletime false
-#endif
-  ", patternc "is_compiletime"]
-is_compiletime $[compiletime] := is_compiletime_fn()
-is_runtime $[compiletime] := not(is_compiletime)
-
 fn is_windows_fn() Bool $[importc, header nodeclc, declc "
 #ifdef _WIN32
 #define is_windows true

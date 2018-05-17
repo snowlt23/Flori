@@ -36,6 +36,6 @@ macro bench(body FBlock) FExpr $[syntax] {
   quote {
     `tmp := get_current_milliseconds()
     `body
-    println("Elapsed: ", get_current_milliseconds() - `tmp)
+    println("Elapsed: ", get_current_milliseconds() - `tmp, "ms")
   }
 }

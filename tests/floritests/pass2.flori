@@ -1,0 +1,31 @@
+
+import "core"
+import "core/pointer"
+import "tests/testutils"
+
+expect("get\nget\nget\n")
+
+fn check_range(len Int, index Int) {
+  if (len <= index) {
+    println("index out of bounds")
+  }
+}
+
+fn get[T](v Vec[T], i Int) {
+  when_macro {
+    check_range(length(v), i)
+  } else {
+    println("get")
+  }
+}
+
+default_region_settings()
+
+fn main() {
+  v := vec[1, 2]
+  get(v, 0)
+  get(v, 2)
+  get(v, 5)
+}
+
+main()

@@ -373,7 +373,12 @@ proc semFunc*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, parsed: De
   let rettype = fnscope.semType(parsed.ret)
   parsed.ret = fsymbol(parsed.ret.span, rettype)
   
-  let symkind = if parsed.name.kind == fexprQuote: symbolInfix else: defsym
+  let symkind = if defsym == symbolMacro:
+                  defsym
+                elif parsed.name.kind == fexprQuote:
+                  symbolInfix
+                else:
+                  defsym
   let sym = scope.symbol(name(parsed.name), symkind, fexpr)
 
   if decl:
@@ -833,6 +838,30 @@ proc semBlock*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
   blockscope.rootPass(fexpr[1])
   fexpr.internalScope = blockscope
   fexpr.internalMark = internalBlock
+
+proc semWhenMacro*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr) =
+  if fexpr.len == 2:
+    var tbody = fexpr[1]
+    var fbody = fblock(fexpr.span)
+    let tscope = scope.extendScope()
+    let fscope = scope.extendScope()
+    tscope.rootPass(tbody)
+    fscope.rootPass(fbody)
+    tbody.runtime = fbody
+    fexpr = tbody
+  elif fexpr.len == 4:
+    if $fexpr[2] != "else":
+      fexpr[2].error("when_macro expect `else branch.")
+    var tbody = fexpr[1]
+    var fbody = fexpr[3]
+    let tscope = scope.extendScope()
+    let fscope = scope.extendScope()
+    tscope.rootPass(tbody)
+    fscope.rootPass(fbody)
+    tbody.runtime = fbody
+    fexpr = tbody
+  else:
+    fexpr.error("usage: when_macro {...} else {...}")
     
 #
 # Internal
@@ -869,6 +898,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("codegen_decl"), semCodegenDecl)
   scope.addInternalEval(name("codegen_head"), semCodegenHead)
   scope.addInternalEval(name("block"), semBlock)
+  scope.addInternalEval(name("when_macro"), semWhenMacro)
 
   # c pragmas
   scope.addInternalEval(name("importc"), semImportc)

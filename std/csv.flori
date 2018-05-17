@@ -1,5 +1,6 @@
 
 import "core"
+import "core/pointer"
 import "std/fileio"
 
 fn load_csv(csvpath CString) Vec[Vec[String]] {
@@ -8,17 +9,17 @@ fn load_csv(csvpath CString) Vec[Vec[String]] {
   curs := s""
   csvdata := read_file(csvpath)
   
-  for i in range(0, length(csvdata)-1) {
-    if (get(csvdata, i) == c",") {
+  for (i : range(0, length(csvdata)-1)) {
+    if (csvdata!i == c",") {
       push(curv, curs)
       curs = s""
-    } elif (get(csvdata, i) == lf) {
+    } elif (csvdata!i == lf) {
       push(curv, curs)
       curs = s""
       push(ret, curv)
       curv = vec[String]()
     } else {
-      push(curs, get(csvdata, i))
+      push(curs, csvdata!i)
     }
   }
   ret

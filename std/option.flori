@@ -1,0 +1,26 @@
+
+import "core"
+
+type Option[T] {
+  exist Bool
+  value T
+}
+
+fn some[T](value T) Option[T] {
+  init(Option[T]){
+    true
+    value
+  }
+}
+fn none[T]() Option[T] {
+  var opt Option[T]
+  opt.exist = false
+  opt
+}
+
+fn is_some[T](opt Option[T]) Bool {
+  opt.exist
+}
+fn get[T](opt Option[T]) T {
+  opt.value
+}
