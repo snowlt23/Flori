@@ -41,7 +41,7 @@ proc setupFloriCompiler*() =
     removeDir("tests/bin")
   createDir("tests/bin")
   stdout.write("building flori compiler...")
-  discard execProcess("nim c compiler/flori.nim")
+  discard execProcess("nim c -d:release compiler/flori.nim")
   echo " [done]"
 
 proc main() =

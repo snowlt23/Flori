@@ -1,0 +1,19 @@
+
+import "core"
+import "tests/testutils"
+
+expect("0\n1\n2\n3\n11\n")
+
+enum Voiceroid {
+  YUKARI
+  MAKI
+  AKANE
+  AOI
+  AKARI = 11
+}
+
+println(int(YUKARI))
+println(int(MAKI))
+println(int(AKANE))
+println(int(AOI))
+println(int(AKARI))

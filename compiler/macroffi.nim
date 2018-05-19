@@ -49,6 +49,8 @@ proc ffiSet*(fexpr: FExpr, i: int, value: FExpr) {.cdecl.} =
   fexpr[i] = value
 proc ffiToCS*(fexpr: FExpr): cstring {.cdecl.} =
   cstring($fexpr)
+proc ffiIntval*(fexpr: FExpr): int64 {.cdecl.} =
+  fexpr.intval
 proc ffiStrval*(fexpr: FExpr): cstring {.cdecl.} =
   cstring($fexpr.strval)
 proc ffiGensym*(): FExpr {.cdecl.} =

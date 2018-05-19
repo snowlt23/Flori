@@ -552,7 +552,7 @@ proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
       fexpr.error("unsupported function call syntax.")
 
 proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  if fexpr.hasRuntime:
+  if fexpr.hasRuntime and not ctx.macrogen:
     ctx.codegenFExpr(src, fexpr.runtime)
     return
   

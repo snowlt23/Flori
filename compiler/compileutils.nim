@@ -63,6 +63,7 @@ proc setupFFI*(handle: LibHandle) =
   ffi "flori_access", ffiAccess
   ffi "flori_set", ffiSet
   ffi "flori_to_cs", ffiToCS
+  ffi "flori_intval", ffiIntval
   ffi "flori_strval", ffiStrval
   ffi "flori_gensym", ffiGensym
   ffi "flori_get_type", ffiGetType

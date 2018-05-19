@@ -42,6 +42,9 @@ fn copy_memory[T](dest Ptr[T], src Ptr[T], len Int) {
 fn `+![T](p Ptr[T], i Int) Ptr[T] {
   cast[Ptr[T]](cast[Int](p) + i)
 }
+fn `+![T](p Ptr[T], i Int32) Ptr[T] {
+  cast[Ptr[T]](cast[Int32](p) + i)
+}
 
 fn unref[T](p Ptr[T]) ref T $[importc, header nodeclc, patternc "($1)"]
 fn getptr[T](p T) Ptr[T] $[importc, header nodeclc, patternc "(&$1)"]
@@ -49,8 +52,14 @@ fn getptr[T](p T) Ptr[T] $[importc, header nodeclc, patternc "(&$1)"]
 fn `![T](p Ptr[T], i Int) T {
   unref(p +! (i * sizeof[T]()))
 }
+fn `![T](p Ptr[T], i Int32) T {
+  unref(p +! (i * cast[Int32](sizeof[T]())))
+}
 fn `!![T](p Ptr[T], i Int, value T) {
   unref(p +! (i * sizeof[T]())) = value
+}
+fn `!![T](p Ptr[T], i Int32, value T) {
+  unref(p +! (i * cast[Int32](sizeof[T]()))) = value
 }
 
 fn print[T](p Ptr[T]) {

@@ -256,3 +256,38 @@ macro const_eval(s TExpr[CString]) FExpr {
     `tmp()
   }
 }
+
+macro enum(typename FIdent, body FBlock) FExpr $[syntax] {
+  ret := new_fblock()
+  push(ret, quote {
+      type `typename $[importc "int64_t", header "stdint.h"]
+      fn int(e `typename) Int {
+        cast[Int](e)
+      }
+    })
+  
+  curr := 0
+  for (i : range(0, length(body)-1)) {
+    if (kind(body!i) == FEXPR_IDENT) {
+      fieldname := body!i
+      fieldvalue := new_fintlit(curr)
+      push(ret, quote {
+          `fieldname := cast[`typename](`fieldvalue)
+        })
+    } elif (kind(body!i) == FEXPR_SEQ && to_cs(body!i!0) == "=") {
+      fieldname := body!i!1
+      fieldvalue := body!i!2
+      if (kind(fieldvalue) != FEXPR_INTLIT) {
+        error(fieldvalue, "unsupported enum field value.")
+      }
+      curr = intval(cast[FIntLit](fieldvalue))
+      push(ret, quote {
+          `fieldname := cast[`typename](`fieldvalue)
+        })
+    } else {
+      error(body!i, "unknown enum field.")
+    }
+    curr += 1
+  }
+  ret
+}

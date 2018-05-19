@@ -1,0 +1,22 @@
+
+import "core/prelude"
+import "core/pointer"
+import "core/macros"
+import "core/syntax"
+
+fn strlen(cs CString) Int $[importc "strlen", header "string.h", importjs, patternjs "$1.length"]
+
+fn char(c Int) Char $[importjs "String.fromCharCode"] {
+  cast[Char](c)
+}
+
+macro c(s FStrLit) FExpr $[syntax] {
+  len := strlen(strval(s))
+  if (len != 1) {
+    error(s, "char literal should be 1 length string.")
+  }
+  i := new_fintlit(cast[Int](strval(s)!0))
+  quote {
+    char(`i)
+  }
+}

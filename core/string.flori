@@ -1,6 +1,7 @@
 
 import "core/prelude"
 import "core/pointer"
+import "core/cstring"
 import "core/io"
 import "core/syntax"
 import "core/math"
@@ -9,32 +10,13 @@ import "core/vec"
 import "core/region"
 import "core/array"
 
-fn `!(cs CString, i Int) Char $[importjs, patternjs "$1[$2]"] {
-  unref(cast[Ptr[Char]](cs) +! i)
-}
-
-fn strlen(cs CString) Int $[importc "strlen", header "string.h", importjs, patternjs "$1.length"]
-
-macro c(s FStrLit) FExpr $[syntax] {
-  len := strlen(strval(s))
-  if (len != 1) {
-    error(s, "char literal should be 1 length string.")
-  }
-  i := new_fintlit(cast[Int](strval(s)!0))
-  quote {
-    char(`i)
-  }
-}
-
 type String $[nodestruct] {
   p Ptr[Char]
   len Int
   cap Int
 }
 
-fn char(c Int) Char $[importjs "String.fromCharCode"] {
-  cast[Char](c)
-}
+fn strlen(cs CString) Int $[importc "strlen", header "string.h", importjs, patternjs "$1.length"]
 
 fn string(cs CString) String $[importjs, patternjs "$1"] {
   len := strlen(cs)

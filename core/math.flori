@@ -1,14 +1,6 @@
 
 import "core/prelude"
 
-fn or(a Int, b Int) Int $[importc "|", header nodeclc, patternc infixc, importjs "|", patternjs infixjs]
-fn and(a Int, b Int) Int $[importc "&", header nodeclc, patternc infixc, importjs "&", patternjs infixjs]
-
-fn xor(a Int, b Int) Int $[importc "^", header nodeclc, patternc infixc, importjs "^", patternjs infixjs]
-fn xor(a UInt32, b UInt32) UInt32 $[importc "^", header nodeclc, patternc infixc, importjs "^", patternjs infixjs]
-
-fn `%(a Int, b Int) Int $[importc "%", header nodeclc, patternc infixc, importjs "%", patternjs infixjs]
-
 fn M_PI() Float $[importc, header "math.h", patternc "M_PI", importjs, patternjs "Math.PI"]
 M_PI := M_PI()
 
