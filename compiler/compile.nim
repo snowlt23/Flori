@@ -76,7 +76,7 @@ proc compileFloriC*(options: CCOptions) =
   bench "eval":
     if not existsFile(options.filepath):
       quit "flori: Please exists flori file."
-    discard semctx.semFile(processFPass, options.filepath)
+    discard semctx.semFile(options.filepath)
     for top in semctx.globaltoplevels.mitems:
       top.internalScope.resetElim(top)
     for top in semctx.globaltoplevels.mitems:
@@ -100,7 +100,7 @@ proc compileFloriC*(options: CCOptions) =
 proc compileFloriJS*(options: CCOptions, sourcemap: bool) =
   let semctx = newSemanticContext(options.moptions)
   bench "eval":
-    discard semctx.semFile(processFPass, options.filepath)
+    discard semctx.semFile(options.filepath)
     for top in semctx.globaltoplevels.mitems:
       top.internalScope.resetElim(top)
       top.internalScope.processElimPass(top)

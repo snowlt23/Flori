@@ -6,7 +6,7 @@ import options
 import strutils
 import tables
 
-proc isMatchMacro*(rootPass: PassProcType, scope: Scope, args: FExpr, pd: ProcDecl): bool =
+proc isMatchMacro*(scope: Scope, args: FExpr, pd: ProcDecl): bool =
   if args.len != pd.argtypes.len: return false
   for i in 0..<args.len:
     if $pd.argtypes[i].name == "FExpr":
@@ -78,11 +78,11 @@ proc isMatchMacro*(rootPass: PassProcType, scope: Scope, args: FExpr, pd: ProcDe
     else:
       args[i].error("macro argument type should be FExpr or TExpr[T]")
   return true
-proc matchMacro*(rootPass: PassProcType, scope: Scope, curscope: Scope, n: FExpr, args: FExpr, issyntax: bool, importscope = true): Option[ProcDecl] =
+proc matchMacro*(scope: Scope, curscope: Scope, n: FExpr, args: FExpr, issyntax: bool, importscope = true): Option[ProcDecl] =
   if not scope.procdecls.hasKey(name(n)):
     if importscope:
       for scopename, s in scope.importscopes:
-        let match = matchMacro(rootPass, s, curscope, n, args, issyntax, importscope = false)
+        let match = matchMacro(s, curscope, n, args, issyntax, importscope = false)
         if match.isSome:
           return match
       return none(ProcDecl)
@@ -90,14 +90,14 @@ proc matchMacro*(rootPass: PassProcType, scope: Scope, curscope: Scope, n: FExpr
       return none(ProcDecl)
 
   for pd in scope.procdecls[name(n)].decls:
-    if (not issyntax) and pd.isMacro and isMatchMacro(rootPass, curscope, args, pd):
+    if (not issyntax) and pd.isMacro and isMatchMacro(curscope, args, pd):
       return some(pd)
-    elif issyntax and pd.fexpr.internalPragma.isSyntax and isMatchMacro(rootPass, curscope, args, pd):
+    elif issyntax and pd.fexpr.internalPragma.isSyntax and isMatchMacro(curscope, args, pd):
       return some(pd)
 
   if importscope:
     for scopename, s in scope.importscopes:
-      let match = matchMacro(rootPass, s, curscope, n, args, issyntax, importscope = false)
+      let match = matchMacro(s, curscope, n, args, issyntax, importscope = false)
       if match.isSome:
         return match
     return none(ProcDecl)
@@ -143,10 +143,10 @@ proc expandMacro*(scope: Scope, fexpr: var FExpr): bool =
   if fexpr.isNormalFuncCall:
     scope.expandBy(fexpr.span):
       let args = fexpr[1]
-      let pd = matchMacro(rootPass, scope, scope, fexpr[0], args, false)
+      let pd = matchMacro(scope, scope, fexpr[0], args, false)
       if pd.isSome:
         if not pd.get.sym.fexpr.defn.generics.isSpecTypes:
-          fexpr[0] = expandMacrofn(rootPass, scope, pd.get.sym.fexpr, scope.getMacroArgs(pd.get, args))
+          fexpr[0] = expandMacrofn(scope, pd.get.sym.fexpr, scope.getMacroArgs(pd.get, args))
           var expanded = fexpr[0].symbol.macroproc.call(args)
           scope.rootPass(expanded)
           fexpr = expanded
@@ -159,10 +159,10 @@ proc expandMacro*(scope: Scope, fexpr: var FExpr): bool =
   if fexpr.kind == fexprSeq:
     scope.expandBy(fexpr.span):
       let args = fexpr[1..^1]
-      let pd = matchMacro(rootPass, scope, scope, fexpr[0], args, false)
+      let pd = matchMacro(scope, scope, fexpr[0], args, false)
       if pd.isSome:
         if not pd.get.sym.fexpr.defn.generics.isSpecTypes:
-          fexpr[0] = expandMacrofn(rootPass, scope, pd.get.sym.fexpr, scope.getMacroArgs(pd.get, args))
+          fexpr[0] = expandMacrofn(scope, pd.get.sym.fexpr, scope.getMacroArgs(pd.get, args))
           var expanded = fexpr[0].symbol.macroproc.call(args)
           scope.rootPass(expanded)
           fexpr = expanded

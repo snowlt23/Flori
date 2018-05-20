@@ -29,7 +29,7 @@ proc expandDefnPass*(scope: Scope, fexpr: var FExpr): bool =
       let fnsym = fexpr[0]
       let argtypes = fexpr[1].mapIt(it.typ)
       if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.isGenerics:
-        let exsym = expandDefn(rootPass, scope, fnsym.symbol.fexpr, @[], argtypes)
+        let exsym = expandDefn(scope, fnsym.symbol.fexpr, @[], argtypes)
         fexpr[0] = exsym
         fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
       
@@ -39,7 +39,7 @@ proc expandDefnPass*(scope: Scope, fexpr: var FExpr): bool =
       let fnsym = fexpr[0]
       let argtypes = fexpr[2].mapIt(it.typ)
       if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.isGenerics:
-        let exsym = expandDefn(rootPass, scope, fnsym.symbol.fexpr, fexpr[1].mapIt(it.symbol), argtypes)
+        let exsym = expandDefn(scope, fnsym.symbol.fexpr, fexpr[1].mapIt(it.symbol), argtypes)
         fexpr[0] = exsym
         fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
 
@@ -49,7 +49,7 @@ proc expandDefnPass*(scope: Scope, fexpr: var FExpr): bool =
       let fnsym = fexpr[0]
       let argtypes = @[fexpr[1].typ, fexpr[2].typ]
       if argtypes.isSpecTypes and fnsym.symbol.fexpr.defn.isGenerics:
-        let exsym = expandDefn(rootPass, scope, fnsym.symbol.fexpr, @[], argtypes)
+        let exsym = expandDefn(scope, fnsym.symbol.fexpr, @[], argtypes)
         fexpr[0] = exsym
         fexpr.typ = exsym.symbol.fexpr.defn.ret.symbol
       

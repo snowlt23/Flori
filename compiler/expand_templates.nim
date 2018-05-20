@@ -131,7 +131,7 @@ proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExp
   
   return fsym
     
-proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, genericstypes: seq[Symbol], argtypes: seq[Symbol]): FExpr =
+proc expandDefn*(scope: Scope, fexpr: var FExpr, genericstypes: seq[Symbol], argtypes: seq[Symbol]): FExpr =
   fexpr.assert(fexpr.hasDefn)
   fexpr.assert(fexpr.defn.args.len == argtypes.len)
 
@@ -171,8 +171,8 @@ proc expandDefn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, generic
   
   return expanded.defn.name
 
-proc expandMacrofn*(rootPass: PassProcType, scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr =
-  result = expandDefn(rootPass, scope, fexpr, @[], argtypes)
+proc expandMacrofn*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr =
+  result = expandDefn(scope, fexpr, @[], argtypes)
   let mp = MacroProc(importname: codegenMangling(result.symbol, result.symbol.fexpr.defn.generics.mapIt(it.symbol), result.symbol.fexpr.defn.args.mapIt(it[1].symbol)) & "_macro")
   result.symbol.macroproc = mp
   result.symbol.kind = symbolMacro

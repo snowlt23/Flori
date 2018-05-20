@@ -7,6 +7,7 @@ import strutils, sequtils
 import tables
 
 proc internalPass*(scope: Scope, fexpr: var FExpr): bool =
+  # echo fexpr
   if fexpr.isEvaluated:
     return
   fexpr.internalScope = scope
@@ -22,7 +23,7 @@ proc internalPass*(scope: Scope, fexpr: var FExpr): bool =
       if scope.getDecl(name("Void")).isSome:
         scope.resolveByVoid(fexpr)
       fexpr.isEvaluated = true
-      internalopt.get.internalproc(rootPass, scope, fexpr)
+      internalopt.get.internalproc(scope, fexpr)
       return true
     elif internalopt.isSome and internalopt.get.isSyntax:
       scope.expandBy(fexpr.span):

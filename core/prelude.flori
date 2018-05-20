@@ -22,9 +22,11 @@ type UInt64 $[importc "uint64_t", header "stdint.h"]
 type Float $[importc "float", header nodeclc]
 type Double $[importc "double", header nodeclc]
 
+# fn int8(x IntLit) Int8 $[converter, importc, patternc "$1"]
+# fn uint8(x IntLit) UInt8 $[converter, importc, patternc "$1"]
 fn int(x IntLit) Int $[converter, importc, patternc "$1"]
-fn int32(x IntLit) Int32 $[converter, importc, patternc "$1"]
-fn uint32(x IntLit) UInt32 $[converter, importc, patternc "$1"]
+# fn int32(x IntLit) Int32 $[converter, importc, patternc "$1"]
+# fn uint32(x IntLit) UInt32 $[converter, importc, patternc "$1"]
 fn float(x FloatLit) Float $[converter, importc, patternc "$1"]
 fn double(x FloatLit) Double $[converter, importc, patternc "$1"]
 fn cstring(x StrLit) CString $[converter, importc, patternc "$1"]
@@ -68,6 +70,9 @@ fn `!=(a UInt32, b UInt32) Bool $[importc "!=", header nodeclc, patternc infixc,
 
 fn cast[T, F](val F) T $[importc, header nodeclc, patternc "((#1)($1))", importjs, patternjs "$1"]
 
+fn int(x Int32) Int {
+  cast[Int](x)
+}
 fn int(x Float) Int {
   cast[Int](x)
 }

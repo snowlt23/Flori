@@ -30,9 +30,8 @@ proc error*(span: Span, msg: string) =
     raise newException(FExprError, e)
 
 template assert*(fexpr: FExpr, b: typed) =
-  when not defined(release):
-    if not b:
-      fexpr.error("internal error.")
+  if not b:
+    fexpr.error("internal error.")
 
 proc hint*(fexpr: FExpr, msg: string) = fexpr.span.hint(msg)
 proc error*(fexpr: FExpr, msg: string) = fexpr.span.error(msg)

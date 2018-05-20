@@ -102,8 +102,7 @@ type
   MacroProc* = ref object
     importname*: string
     call*: proc (fexpr: FExpr): FExpr {.cdecl.}
-  PassProcType* = proc (scope: Scope, fexpr: var FExpr)
-  InternalProcType* = proc (rootPass: PassProcType, scope: Scope, fexpr: var FExpr)
+  InternalProcType* = proc (scope: Scope, fexpr: var FExpr)
   ProcDecl* = object
     isInternal*: bool
     internalProc*: InternalProcType
