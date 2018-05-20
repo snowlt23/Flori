@@ -23,7 +23,6 @@ type
     symbolTypeGenerics
     symbolVar
     symbolRef
-    symbolMove
     symbolFunc
     symbolFuncGenerics
     symbolFuncType
@@ -42,7 +41,7 @@ type
       argpos*: int
     of symbolTypeGenerics:
       types*: seq[Symbol]
-    of symbolVar, symbolRef, symbolMove:
+    of symbolVar, symbolRef:
       wrapped*: Symbol
     of symbolSyntax, symbolMacro:
       macroproc*: MacroProc
@@ -72,12 +71,16 @@ type
     fexprList
     fexprBlock
 
-  MarkingEffect* = ref object
-    moved*: bool
-    canMove*: bool
-    fieldbody*: Table[Name, MarkingEffect]
-  FnEffect* = ref object
-    argeffs*: seq[MarkingEffect]
+  MatchedKind* = enum
+    matchType
+    matchConvert
+    matchNone
+  Matched* = object
+    case kind*: MatchedKind
+    of matchConvert:
+      convsym*: Symbol
+    else:
+      discard
 
   FExpr* = ref object
     span*: Span
@@ -159,6 +162,13 @@ var gCtx*: SemanticContext
 
 proc `==`*(a, b: Scope): bool =
   a.name == b.name and a.level == b.level
+
+#
+# Matched
+#
+
+proc isMatch*(m: Matched): bool =
+  m.kind in {matchType, matchConvert}
   
 #
 # Name
@@ -195,8 +205,6 @@ proc toString*(sym: Symbol, desc: bool): string =
     toString(sym.wrapped, desc)
   of symbolRef:
     "ref " & toString(sym.wrapped, desc)
-  of symbolMove:
-    "move " & toString(sym.wrapped, desc)
   of symbolFuncType:
     "Fn[$#] $#" % [sym.argtypes.mapIt(toString(it, desc)).join(", "), toString(sym.rettype, desc)]
   of symbolIntLit:
@@ -217,9 +225,6 @@ proc varsym*(scope: Scope, sym: Symbol): Symbol =
   else:
     result = scope.symbol(sym.name, symbolVar, sym.fexpr)
     result.wrapped = sym
-proc movesym*(scope: Scope, sym: Symbol): Symbol =
-  result = scope.symbol(sym.name, symbolMove, sym.fexpr)
-  result.wrapped = sym
 proc symcopy*(sym: Symbol): Symbol =
   result = sym.scope.symbol(sym.name, sym.kind, sym.fexpr)
   result.instance = sym.instance
@@ -232,7 +237,7 @@ proc symcopy*(sym: Symbol): Symbol =
   elif sym.kind == symbolFuncType:
     result.argtypes = sym.argtypes
     result.rettype = sym.rettype
-  elif sym.kind in {symbolVar, symbolRef, symbolMove}:
+  elif sym.kind in {symbolVar, symbolRef}:
     result.wrapped = sym.wrapped.symcopy
 proc intsym*(scope: Scope, fexpr: FExpr): Symbol =
   result = scope.symbol(name("IntLit"), symbolIntLit, fexpr)
@@ -255,7 +260,7 @@ proc isSpecSymbol*(sym: Symbol): bool =
     return true
   elif sym.kind == symbolGenerics:
     return false
-  elif sym.kind in {symbolRef, symbolVar, symbolMove}:
+  elif sym.kind in {symbolRef, symbolVar}:
     return sym.wrapped.isSpecSymbol()
   elif sym.kind == symbolIntLit:
     return true

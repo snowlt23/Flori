@@ -59,8 +59,6 @@ proc codegenSymbol*(sym: Symbol): string =
     result &= codegenSymbol(sym.wrapped)
   elif sym.kind == symbolRef:
     result &= codegenSymbol(sym.wrapped)
-  elif sym.kind == symbolMove:
-    result &= "move_" & codegenSymbol(sym.wrapped)
   elif sym.kind == symbolIntLit:
     result &= $sym.intval
   elif sym.kind == symbolFuncType:
@@ -94,8 +92,6 @@ proc codegenType*(ctx: CCodegenContext, sym: Symbol, share = false): string =
     return ctx.codegenType(sym.wrapped, share)
   elif sym.kind == symbolRef:
     return ctx.codegenType(sym.wrapped, share) & "*"
-  elif sym.kind == symbolMove:
-    return ctx.codegenType(sym.wrapped, share)
   elif sym.kind == symbolFuncType:
     return "$# (*)($#)" % [ctx.codegenType(sym.rettype, share), sym.argtypes.mapIt(ctx.codegenType(it, share)).join(", ")]
 

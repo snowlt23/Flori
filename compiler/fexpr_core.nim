@@ -1,3 +1,3 @@
 
-import types, parser, fexpr, scope, metadata, passutils
-export types, parser, fexpr, scope, metadata, passutils
+import types, parser, fexpr, scope, metadata, passutils, fnmatch
+export types, parser, fexpr, scope, metadata, passutils, fnmatch

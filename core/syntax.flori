@@ -153,78 +153,78 @@ iterator items(fexpr TExpr[FExpr]) {
     }
   }
 }
-iterator items(fexpr TExpr[FSeq]) {
-  tmp := gensym()
-  quote {
-    for (`tmp : range(0, length(`fexpr)-1)) {
-      `element := `fexpr!`tmp
-      `yield
-    }
-  }
-}
-iterator items(fexpr TExpr[FList]) {
-  tmp := gensym()
-  quote {
-    for (`tmp : range(0, length(`fexpr)-1)) {
-      `element := `fexpr!`tmp
-      `yield
-    }
-  }
-}
-iterator items(fexpr TExpr[FArray]) {
-  tmp := gensym()
-  quote {
-    for (`tmp : range(0, length(`fexpr)-1)) {
-      `element := `fexpr!`tmp
-      `yield
-    }
-  }
-}
-iterator items(fexpr TExpr[FBlock]) {
-  tmp := gensym()
-  quote {
-    for (`tmp : range(0, length(`fexpr)-1)) {
-      `element := `fexpr!`tmp
-      `yield
-    }
-  }
-}
-iterator items(fexpr TExpr[TSeq]) {
-  tmp := gensym()
-  quote {
-    for (`tmp : range(0, length(`fexpr)-1)) {
-      `element := `fexpr!`tmp
-      `yield
-    }
-  }
-}
-iterator items(fexpr TExpr[TList]) {
-  tmp := gensym()
-  quote {
-    for (`tmp : range(0, length(`fexpr)-1)) {
-      `element := `fexpr!`tmp
-      `yield
-    }
-  }
-}
-iterator items(fexpr TExpr[TArray]) {
-  tmp := gensym()
-  quote {
-    for (`tmp : range(0, length(`fexpr)-1)) {
-      `element := `fexpr!`tmp
-      `yield
-    }
-  }
-}
-iterator items(fexpr TExpr[TBlock]) {
-  tmp := gensym()
-  quote {
-    for (`tmp : range(0, length(`fexpr)-1)) {
-      `element := `fexpr!`tmp
-      `yield
-    }
-  }
-}
+# iterator items(fexpr TExpr[FSeq]) {
+#   tmp := gensym()
+#   quote {
+#     for (`tmp : range(0, length(`fexpr)-1)) {
+#       `element := `fexpr!`tmp
+#       `yield
+#     }
+#   }
+# }
+# iterator items(fexpr TExpr[FList]) {
+#   tmp := gensym()
+#   quote {
+#     for (`tmp : range(0, length(`fexpr)-1)) {
+#       `element := `fexpr!`tmp
+#       `yield
+#     }
+#   }
+# }
+# iterator items(fexpr TExpr[FArray]) {
+#   tmp := gensym()
+#   quote {
+#     for (`tmp : range(0, length(`fexpr)-1)) {
+#       `element := `fexpr!`tmp
+#       `yield
+#     }
+#   }
+# }
+# iterator items(fexpr TExpr[FBlock]) {
+#   tmp := gensym()
+#   quote {
+#     for (`tmp : range(0, length(`fexpr)-1)) {
+#       `element := `fexpr!`tmp
+#       `yield
+#     }
+#   }
+# }
+# iterator items(fexpr TExpr[TSeq]) {
+#   tmp := gensym()
+#   quote {
+#     for (`tmp : range(0, length(`fexpr)-1)) {
+#       `element := `fexpr!`tmp
+#       `yield
+#     }
+#   }
+# }
+# iterator items(fexpr TExpr[TList]) {
+#   tmp := gensym()
+#   quote {
+#     for (`tmp : range(0, length(`fexpr)-1)) {
+#       `element := `fexpr!`tmp
+#       `yield
+#     }
+#   }
+# }
+# iterator items(fexpr TExpr[TArray]) {
+#   tmp := gensym()
+#   quote {
+#     for (`tmp : range(0, length(`fexpr)-1)) {
+#       `element := `fexpr!`tmp
+#       `yield
+#     }
+#   }
+# }
+# iterator items(fexpr TExpr[TBlock]) {
+#   tmp := gensym()
+#   quote {
+#     for (`tmp : range(0, length(`fexpr)-1)) {
+#       `element := `fexpr!`tmp
+#       `yield
+#     }
+#   }
+# }
 
 # FIXME: converter for macro
 macro const_eval(x TExpr[IntLit]) FExpr {

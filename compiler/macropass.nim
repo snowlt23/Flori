@@ -6,103 +6,112 @@ import options
 import strutils
 import tables
 
-proc isMatchMacro*(scope: Scope, args: FExpr, pd: ProcDecl): bool =
-  if args.len != pd.argtypes.len: return false
+proc isMatchMacro*(scope: Scope, args: FExpr, pd: ProcDecl): Option[seq[Matched]] =
+  var s = newSeq[Matched]()
+  if args.len != pd.argtypes.len: return none(seq[Matched])
   for i in 0..<args.len:
     if $pd.argtypes[i].name == "FExpr":
       continue
     elif $pd.argtypes[i].name == "FSeq":
       if args[i].kind != fexprSeq:
-        return false
+        return none(seq[Matched])
     elif $pd.argtypes[i].name == "FArray":
       if args[i].kind != fexprArray:
-        return false
+        return none(seq[Matched])
     elif $pd.argtypes[i].name == "FList":
       if args[i].kind != fexprList:
-        return false
+        return none(seq[Matched])
     elif $pd.argtypes[i].name == "FBlock":
       if args[i].kind != fexprBlock:
-        return false
+        return none(seq[Matched])
     elif $pd.argtypes[i].name == "FIdent":
       if args[i].kind != fexprIdent:
-        return false
+        return none(seq[Matched])
     elif $pd.argtypes[i].name == "FSymbol":
       if args[i].kind != fexprSymbol:
-        return false
+        return none(seq[Matched])
     elif $pd.argtypes[i].name == "FIntLit":
       if args[i].kind != fexprIntLit:
-        return false
+        return none(seq[Matched])
     elif $pd.argtypes[i].name == "FStrLit":
       if args[i].kind != fexprStrLit:
-        return false
+        return none(seq[Matched])
     elif $pd.argtypes[i].name == "TExpr":
       scope.rootPass(args[i])
-      if not args[i].typ.match(pd.argtypes[i].types[0]):
-        return false
+      let opt = args[i].typ.match(pd.argtypes[i].types[0])
+      if not opt.isMatch:
+        return none(seq[Matched])
+      s.add(opt)
+      continue
     elif $pd.argtypes[i].name == "TArray":
       scope.rootPass(args[i])
       if args[i].kind != fexprArray:
-        return false
+        return none(seq[Matched])
     elif $pd.argtypes[i].name == "TSeq":
       scope.rootPass(args[i])
       if args[i].kind != fexprSeq:
-        return false
+        return none(seq[Matched])
     elif $pd.argtypes[i].name == "TArray":
       scope.rootPass(args[i])
       if args[i].kind != fexprArray:
-        return false
+        return none(seq[Matched])
     elif $pd.argtypes[i].name == "TList":
       scope.rootPass(args[i])
       if args[i].kind != fexprList:
-        return false
+        return none(seq[Matched])
     elif $pd.argtypes[i].name == "TBlock":
       scope.rootPass(args[i])
       if args[i].kind != fexprBlock:
-        return false
+        return none(seq[Matched])
     elif $pd.argtypes[i].name == "TIdent":
       scope.rootPass(args[i])
       if args[i].kind != fexprIdent:
-        return false
+        return none(seq[Matched])
     elif $pd.argtypes[i].name == "TSymbol":
       scope.rootPass(args[i])
       if args[i].kind != fexprSymbol:
-        return false
+        return none(seq[Matched])
     elif $pd.argtypes[i].name == "TIntLit":
       scope.rootPass(args[i])
       if args[i].kind != fexprIntLit:
-        return false
+        return none(seq[Matched])
     elif $pd.argtypes[i].name == "TStrLit":
       scope.rootPass(args[i])
       if args[i].kind != fexprStrLit:
-        return false
+        return none(seq[Matched])
     else:
       args[i].error("macro argument type should be FExpr or TExpr[T]")
-  return true
-proc matchMacro*(scope: Scope, curscope: Scope, n: FExpr, args: FExpr, issyntax: bool, importscope = true): Option[ProcDecl] =
+    s.add(Matched(kind: matchType))
+  return some(s)
+proc matchMacro*(scope: Scope, curscope: Scope, n: FExpr, args: FExpr, issyntax: bool, importscope = true): Option[(ProcDecl, seq[Matched])] =
   if not scope.procdecls.hasKey(name(n)):
     if importscope:
       for scopename, s in scope.importscopes:
         let match = matchMacro(s, curscope, n, args, issyntax, importscope = false)
         if match.isSome:
           return match
-      return none(ProcDecl)
+      return none((ProcDecl, seq[Matched]))
     else:
-      return none(ProcDecl)
+      return none((ProcDecl, seq[Matched]))
 
   for pd in scope.procdecls[name(n)].decls:
-    if (not issyntax) and pd.isMacro and isMatchMacro(curscope, args, pd):
-      return some(pd)
-    elif issyntax and pd.fexpr.internalPragma.isSyntax and isMatchMacro(curscope, args, pd):
-      return some(pd)
+    if (not issyntax) and pd.isMacro:
+      let opt = isMatchMacro(curscope, args, pd)
+      if opt.isSome:
+        return some((pd, opt.get))
+    elif issyntax and pd.fexpr.internalPragma.isSyntax:
+      let opt = isMatchMacro(curscope, args, pd)
+      if opt.isSome:
+        return some((pd, opt.get))
 
   if importscope:
     for scopename, s in scope.importscopes:
       let match = matchMacro(s, curscope, n, args, issyntax, importscope = false)
       if match.isSome:
         return match
-    return none(ProcDecl)
+    return none((ProcDecl, seq[Matched]))
   else:
-    return none(ProcDecl)
+    return none((ProcDecl, seq[Matched]))
 
 proc isFExprName*(name: Name): bool =
   case $name
@@ -143,15 +152,16 @@ proc expandMacro*(scope: Scope, fexpr: var FExpr): bool =
   if fexpr.isNormalFuncCall:
     scope.expandBy(fexpr.span):
       let args = fexpr[1]
-      let pd = matchMacro(scope, scope, fexpr[0], args, false)
-      if pd.isSome:
-        if not pd.get.sym.fexpr.defn.generics.isSpecTypes:
-          fexpr[0] = expandMacrofn(scope, pd.get.sym.fexpr, scope.getMacroArgs(pd.get, args))
+      let opt = matchMacro(scope, scope, fexpr[0], args, false)
+      if opt.isSome:
+        let (pd, convs) = opt.get # converter at macroexpand
+        if not pd.sym.fexpr.defn.generics.isSpecTypes:
+          fexpr[0] = expandMacrofn(scope, pd.sym.fexpr, scope.getMacroArgs(pd, args))
           var expanded = fexpr[0].symbol.macroproc.call(args)
           scope.rootPass(expanded)
           fexpr = expanded
         else:
-          var expanded = pd.get.macroproc.call(args)
+          var expanded = pd.macroproc.call(args)
           scope.rootPass(expanded)
           fexpr = expanded
         return false
@@ -159,15 +169,16 @@ proc expandMacro*(scope: Scope, fexpr: var FExpr): bool =
   if fexpr.kind == fexprSeq:
     scope.expandBy(fexpr.span):
       let args = fexpr[1..^1]
-      let pd = matchMacro(scope, scope, fexpr[0], args, false)
-      if pd.isSome:
-        if not pd.get.sym.fexpr.defn.generics.isSpecTypes:
-          fexpr[0] = expandMacrofn(scope, pd.get.sym.fexpr, scope.getMacroArgs(pd.get, args))
+      let opt = matchMacro(scope, scope, fexpr[0], args, false)
+      if opt.isSome:
+        let (pd, convs) = opt.get # converter at macroexpand
+        if not pd.sym.fexpr.defn.generics.isSpecTypes:
+          fexpr[0] = expandMacrofn(scope, pd.sym.fexpr, scope.getMacroArgs(pd, args))
           var expanded = fexpr[0].symbol.macroproc.call(args)
           scope.rootPass(expanded)
           fexpr = expanded
         else:
-          var expanded = pd.get.macroproc.call(args)
+          var expanded = pd.macroproc.call(args)
           scope.rootPass(expanded)
           fexpr = expanded
         return false

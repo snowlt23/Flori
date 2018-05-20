@@ -1,5 +1,5 @@
 
-import parser, types, fexpr, scope, metadata
+import parser, types, fexpr, scope, metadata, fnmatch
 
 import options
 import strutils, sequtils
@@ -84,3 +84,13 @@ proc checkArgsHastype*(args: FExpr) =
   for arg in args:
     if not arg.hasTyp:
       arg.error("$# hasn't type." % $arg)
+      
+proc genConvertedCall*(args: FExpr, matches: seq[Matched]): FExpr =
+  result = flist(args.span)
+  args.assert(args.len == matches.len)
+  for i in 0..<args.len:
+    case matches[i].kind
+    of matchConvert:
+      result.addSon(args[i].span.quoteFExpr("`embed(`embed)", [fsymbol(args[i].span, matches[i].convsym), args[i]]))
+    else:
+      result.addSon(args[i])

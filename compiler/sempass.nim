@@ -1,6 +1,6 @@
 
 import fexpr_core
-import passmacro, typepass, macropass, expandpass, converterpass
+import passmacro, typepass, macropass, expandpass
 
 import options
 import strutils, sequtils
@@ -19,15 +19,15 @@ proc internalPass*(scope: Scope, fexpr: var FExpr): bool =
     
     let fnident = fexpr[0]
     let internalopt = scope.getFunc(procname(name(fnident), @[]))
-    if internalopt.isSome and internalopt.get.isInternal:
+    if internalopt.isSome and internalopt.get.pd.isInternal:
       if scope.getDecl(name("Void")).isSome:
         scope.resolveByVoid(fexpr)
       fexpr.isEvaluated = true
-      internalopt.get.internalproc(scope, fexpr)
+      internalopt.get.pd.internalproc(scope, fexpr)
       return true
-    elif internalopt.isSome and internalopt.get.isSyntax:
+    elif internalopt.isSome and internalopt.get.pd.isSyntax:
       scope.expandBy(fexpr.span):
-        var expanded = internalopt.get.macroproc.call(fexpr)
+        var expanded = internalopt.get.pd.macroproc.call(fexpr)
         scope.rootPass(expanded)
         fexpr = expanded
       return false
@@ -140,8 +140,10 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
     let argtypes = fexpr[1].mapIt(it.typ)
     let opt = scope.getFunc(procname(name(fnident), argtypes))
     if opt.isSome:
-      fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
-      fexpr.typ = opt.get.returntype
+      fexpr[0] = fsymbol(fexpr[0].span, opt.get.pd.sym)
+      fexpr.typ = opt.get.pd.returntype
+      fexpr[1] = genConvertedCall(fexpr[1], opt.get.matches)
+      scope.rootPass(fexpr[1])
 
     return true
   elif fexpr.isGenericsFuncCall:
@@ -155,18 +157,26 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
       g = fsymbol(g.span, scope.semType(g))
     let opt = scope.getFunc(procname(name(fnident), argtypes))
     if opt.isSome:
-      fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
-      fexpr.typ = opt.get.returntype
+      fexpr[0] = fsymbol(fexpr[0].span, opt.get.pd.sym)
+      fexpr.typ = opt.get.pd.returntype
+      fexpr[2] = genConvertedCall(fexpr[2], opt.get.matches)
+      scope.rootPass(fexpr[2])
 
     return true
   elif fexpr.isInfixFuncCall:
     let fnident = fexpr[0]
-    checkArgsHastype(fseq(fexpr.span, @[fexpr[1], fexpr[2]]))
+    let args = flist(fexpr.span, @[fexpr[1], fexpr[2]])
+    checkArgsHastype(args)
     let argtypes = @[fexpr[1].typ, fexpr[2].typ]
     let opt = scope.getFunc(procname(name(fnident), argtypes))
     if opt.isSome:
-      fexpr[0] = fsymbol(fexpr[0].span, opt.get.sym)
-      fexpr.typ = opt.get.returntype
+      fexpr[0] = fsymbol(fexpr[0].span, opt.get.pd.sym)
+      fexpr.typ = opt.get.pd.returntype
+      let converted = genConvertedCall(args, opt.get.matches)
+      fexpr[1] = converted[0]
+      fexpr[2] = converted[1]
+      scope.rootPass(fexpr[1])
+      scope.rootPass(fexpr[2])
       
     return true
   else:
@@ -213,7 +223,6 @@ definePass processSemPass, rootPass, (Scope, var FExpr):
   symbolResolve
   typeInfer
   overloadResolve
-  converterPass
   varfnResolve
   expandInlinePass
   expandDefnPass

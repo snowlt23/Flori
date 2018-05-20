@@ -331,7 +331,7 @@ proc semPragma*(scope: Scope, fexpr: FExpr, pragma: FExpr) =
     let internalopt = scope.getFunc(procname(pragmaname, @[]))
     newkey.addSon(fexpr)
     if internalopt.isSome:
-      internalopt.get.internalproc(scope, newkey)
+      internalopt.get.pd.internalproc(scope, newkey)
     else:
       scope.rootPass(newkey)
 
@@ -664,15 +664,6 @@ proc semDef*(scope: Scope, fexpr: var FExpr) =
     parsed.name[0] = fsym
   fexpr.internalMark = internalDef
   fexpr.defexpr = parsed
-
-proc findMatchSet*(scope: Scope, parsed: SetExpr): Option[FExpr] =
-  for conv in parsed.value.typ.fexpr.converters.converters:
-    let convname = conv.defn.name
-    var conv = parsed.value.span.quoteFExpr("`embed(`embed)", [convname, parsed.value])
-    scope.rootPass(conv)
-    if conv.typ.match(parsed.value.typ):
-      return some(conv)
-  return none(FExpr)
   
 proc semSet*(scope: Scope, fexpr: var FExpr) =
   if fexpr.len != 3:
@@ -698,15 +689,12 @@ proc semSet*(scope: Scope, fexpr: var FExpr) =
   if parsed.dst.typ.kind != symbolVar and parsed.dst.typ.kind != symbolRef:
     parsed.dst.error("ref value expected.")
 
-  if not parsed.dst.typ.match(parsed.value.typ):
-    if parsed.value.typ.fexpr.hasConverters:
-      let convvalue = findMatchSet(scope, parsed)
-      if convvalue.isSome:
-        parsed.value = convvalue.get
-      else:
-        parsed.value.error("cannot set $# value to $#." % [$parsed.value.typ, $parsed.dst.typ])
-    else:
-      parsed.value.error("cannot set $# value to $#." % [$parsed.value.typ, $parsed.dst.typ])
+  let matched = parsed.dst.typ.match(parsed.value.typ)
+  if not matched.isMatch:
+    parsed.value.error("cannot set $# value to $#." % [$parsed.value.typ, $parsed.dst.typ])
+  if matched.kind == matchConvert:
+    fexpr[2] = fsymbol(fexpr[2].span, matched.convsym)
+    scope.rootPass(fexpr[2])
 
   fexpr.internalMark = internalSet
   fexpr.setexpr = parsed

@@ -84,5 +84,3 @@ proc semType*(scope: Scope, fexpr: FExpr): Symbol =
   if parsed.prefix.isSome:
     if $parsed.prefix.get == "ref":
       result = scope.refsym(result)
-    elif $parsed.prefix.get == "move":
-      result = scope.movesym(result)

@@ -23,18 +23,12 @@ proc replaceIdent*(fexpr: var FExpr, ident: FExpr, by: FExpr) =
 proc applyInstance*(sym: Symbol, instance: Symbol): bool =
   if sym.kind in {symbolVar, symbolRef} and instance.kind in {symbolVar, symbolRef}:
     return sym.wrapped.applyInstance(instance.wrapped):
-  elif sym.kind == symbolMove and instance.kind == symbolMove:
-    return sym.wrapped.applyInstance(instance.wrapped)
   elif sym.kind == symbolFuncType and instance.kind == symbolFuncType:
     for i in 0..<sym.argtypes.len:
       if not sym.argtypes[i].applyInstance(instance.argtypes[i]):
         return false
     return sym.rettype.applyInstance(instance.rettype)
   elif instance.kind in {symbolVar, symbolRef}:
-    return sym.applyInstance(instance.wrapped)
-  elif sym.kind == symbolMove:
-    return sym.wrapped.applyInstance(instance)
-  elif instance.kind == symbolMove:
     return sym.applyInstance(instance.wrapped)
   elif sym.kind == symbolGenerics:
     if sym.instance.isSome:
@@ -60,8 +54,6 @@ proc expandSymbol*(scope: Scope, sym: Symbol): Symbol =
     result = scope.varsym(scope.expandSymbol(sym.wrapped))
   elif sym.kind == symbolRef:
     result = scope.refsym(scope.expandSymbol(sym.wrapped))
-  elif sym.kind == symbolMove:
-    result = scope.movesym(scope.expandSymbol(sym.wrapped))
   elif sym.kind == symbolFuncType:
     result = scope.symbol(name("Fn"), symbolFuncType, sym.fexpr)
     result.argtypes = @[]

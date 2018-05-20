@@ -3,7 +3,7 @@ import tables
 import options
 import strutils
 
-import types, fexpr, metadata
+import types, fexpr, metadata, fnmatch
 
 proc newScope*(ctx: SemanticContext, name: Name, path: string): Scope =
   new result
@@ -37,58 +37,11 @@ proc extendScope*(scope: Scope): Scope =
   result.scopevalues = @[]
   result.scopedepends = @[]
 
-proc match*(a, b: Symbol): bool =
-  if b.kind == symbolMove:
-    return a.match(b.wrapped)
-  elif a.kind == symbolMove:
-    return a.wrapped.match(b)
-  elif b.kind == symbolGenerics:
-    return true
-  elif a.kind == symbolTypeGenerics and b.kind == symbolTypeGenerics:
-    if a.name != b.name: return false
-    if a.types.len != b.types.len: return false
-    for i in 0..<a.types.len:
-      if not a.types[i].match(b.types[i]):
-        return false
-    return true
-  elif a.kind == symbolFuncType and b.kind == symbolFuncType:
-    if a.argtypes.len != b.argtypes.len: return false
-    for i in 0..<a.argtypes.len:
-      if not a.argtypes[i].match(b.argtypes[i]):
-        return false
-    if not a.rettype.match(b.rettype): return false
-    return true
-  elif a.kind == symbolRef and b.kind == symbolRef:
-    return a.wrapped.match(b.wrapped)
-  elif a.kind == symbolVar and b.kind == symbolRef:
-    return a.wrapped.match(b.wrapped)
-  elif b.kind == symbolVar:
-    return a.match(b.wrapped)
-  elif a.kind == symbolRef:
-    return a.wrapped.match(b)
-  elif a.kind == symbolVar:
-    return a.wrapped.match(b)
-  else:
-    return a == b
-
 proc procname*(name: Name, argtypes: seq[Symbol], generics = newSeq[Symbol]()): ProcName =
   ProcName(name: name, argtypes: argtypes, generics: generics)
 
-proc match*(a: ProcName, b: ProcDecl): bool =
-  if a.name != b.name: return false
-  if b.isInternal: return true
-  if b.isSyntax: return true
-  if a.argtypes.len != b.argtypes.len: return false
-  for i in 0..<a.argtypes.len:
-    if not a.argtypes[i].match(b.argtypes[i]): return false
-  return true
-
 proc spec*(a, b: Symbol): bool =
-  if b.kind == symbolMove:
-    return a.spec(b.wrapped)
-  elif a.kind == symbolMove:
-    return a.wrapped.spec(b)
-  elif a.kind == symbolType and b.kind == symbolType:
+  if a.kind == symbolType and b.kind == symbolType:
     return a == b
   elif a.kind == symbolTypeGenerics and b.kind == symbolTypeGenerics:
     if a.name != b.name: return false
@@ -128,8 +81,6 @@ proc spec*(a: ProcName, b: ProcDecl): bool =
 proc initProcIdentGroup*(): ProcDeclGroup =
   result.decls = @[]
 
-proc isCurrentScope*(n: Name): bool = $n == "flori_current_scope"
-
 proc getDecl*(scope: Scope, n: Name, importscope = true): Option[Symbol] =
   if not scope.decls.hasKey(n):
     if importscope:
@@ -153,6 +104,7 @@ proc getFnDecl*(scope: Scope, n: Name): Option[Symbol] =
     return some(fns[0].sym)
   else:
     return none(Symbol)
+    
 proc getSpecType*(scope: Scope, n: Name, types: seq[Symbol], importscope = true): Option[Symbol] =
   if scope.decls.hasKey(n):
     if scope.decls[n].types == types:
@@ -168,30 +120,6 @@ proc getSpecType*(scope: Scope, n: Name, types: seq[Symbol], importscope = true)
       return none(Symbol)
     else:
       return none(Symbol)
-proc getFunc*(scope: Scope, pd: ProcName, importscope = true): Option[ProcDecl] =
-  if not scope.procdecls.hasKey(pd.name):
-    if importscope:
-      for scopename, s in scope.importscopes:
-        let opt = s.getFunc(pd, importscope = scopename.isCurrentScope())
-        if opt.isSome:
-          return opt
-      return none(ProcDecl)
-    else:
-      return none(ProcDecl)
-
-  let group = scope.procdecls[pd.name]
-  for decl in group.decls:
-    if pd.match(decl) and not decl.sym.fexpr.isParsed:
-      return some(decl)
-
-  if importscope:
-    for scopename, s in scope.importscopes:
-      let opt = s.getFunc(pd, importscope = scopename.isCurrentScope())
-      if opt.isSome:
-        return opt
-    return none(ProcDecl)
-  else:
-    return none(ProcDecl)
 proc getSpecFunc*(scope: Scope, pd: ProcName, importscope = true): Option[ProcDecl] =
   if not scope.procdecls.hasKey(pd.name):
     if importscope:
