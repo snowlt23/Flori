@@ -393,9 +393,7 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
   of internalInit:
     if not topcodegen:
       ctx.codegenInit(src, fexpr)
-  of internalImport:
-    discard
-  of internalExport:
+  of internalImport, internalExport, internalReload:
     discard
   of internalCodegenDecl:
     if topcodegen:

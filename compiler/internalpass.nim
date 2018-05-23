@@ -779,6 +779,24 @@ proc semExport*(scope: Scope, fexpr: var FExpr) =
   scope.top.exportscopes[exportname] = module
   fexpr.internalMark = internalExport
 
+proc semReload*(scope: Scope, fexpr: var FExpr) =
+  if fexpr.len != 2:
+    fexpr.error("export syntax require filepath.")
+  if fexpr[1].kind != fexprStrLit:
+    fexpr.error("export syntax filepath should be FStrLit.")
+  let reloadname = name(fexpr[1].strval.replace("/", "."))
+  let filepath = ($reloadname).replace(".", "/")
+  if not scope.ctx.modules.hasKey(reloadname):
+    fexpr.error("couldn't find $# reloadable module" % $fexpr[1])
+  scope.ctx.modules.del(reloadname)
+  var modname = scope.ctx.semFile(filepath & ".flori")
+  if modname.isNone:
+    modname = scope.ctx.semFile(filepath / "root.flori")
+    if modname.isNone:
+      fexpr.error("cannot import $#" % $fexpr[1])
+  scope.top.importScope(reloadname, scope.ctx.modules[modname.get])
+  fexpr.internalMark = internalReload
+
 proc collectQuotedItems*(fexpr: FExpr, collected: var seq[FExpr]) =
   for son in fexpr:
     if son.kind == fexprQuote and son.quoted.kind == fexprIdent:
@@ -883,6 +901,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("init"), semInit)
   scope.addInternalEval(name("import"), semImport)
   scope.addInternalEval(name("export"), semExport)
+  scope.addInternalEval(name("reload"), semReload)
   scope.addInternalEval(name("quote"), semQuote)
   scope.addInternalEval(name("codegen_decl"), semCodegenDecl)
   scope.addInternalEval(name("codegen_head"), semCodegenHead)

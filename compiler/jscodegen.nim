@@ -399,9 +399,7 @@ proc codegenInternal*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr, top
   of internalInit:
     if not topcodegen:
       ctx.codegenInit(src, fexpr)
-  of internalImport:
-    discard
-  of internalExport:
+  of internalImport, internalExport, internalReload:
     discard
   of internalCodegenDecl:
     discard

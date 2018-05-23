@@ -140,6 +140,7 @@ type
     internalInit
     internalImport
     internalExport
+    internalReload
     internalCodegenDecl
     internalCodegenHead
     internalBlock
