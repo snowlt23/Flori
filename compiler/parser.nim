@@ -78,6 +78,8 @@ proc span*(context: ParserContext): Span =
   result.pos = context.pos
 proc error*(context: ParserContext, msg: string) =
   raise newException(FParseError, "$#($#:$#) " % [context.filename, $context.line, $context.linepos] & msg)
+proc getRangedSrc*(context: ParserContext, s: int, e: int): string =
+  context.src[s..e]
   
 proc getPriority*(ident: string): (int, bool) =
   if ident[0] in {'<', '>'}:
@@ -107,7 +109,8 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       context.inc
     return nil
   elif context.curchar == '(':
-    var lst = flist(context.span)
+    let span = context.span
+    var lst = flist(span)
     context.inc
     context.skipSpaces()
     if context.curchar == ')':
@@ -127,9 +130,11 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       let son = context.parseFExpr()
       if not son.isNil:
         lst.addSon(son)
+    lst.src = some(context.getRangedSrc(span.pos, context.pos-1))
     return lst
   elif context.curchar == '[': # Array
-    var arr = farray(context.span)
+    let span = context.span
+    var arr = farray(span)
     context.inc
     context.skipSpaces()
     if context.curchar == ']':
@@ -149,9 +154,11 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       let son = context.parseFExpr()
       if not son.isNil:
         arr.addSon(son)
+    arr.src = some(context.getRangedSrc(span.pos, context.pos-1))
     return arr
   elif context.curchar == '{': # Block
-    var blk = fblock(context.span)
+    let span = context.span
+    var blk = fblock(span)
     context.inc
     context.skipSpaces()
     if context.curchar == '}':
@@ -173,20 +180,21 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       let son = context.parseFExpr()
       if not son.isNil:
         blk.addSon(son)
+    blk.src = some(context.getRangedSrc(span.pos, context.pos-1))
     return blk
-  elif ('a' <= context.curchar and context.curchar <= 'z') or
-       ('A' <= context.curchar and context.curchar <= 'Z'): # ident
-    let span = context.span()
-    var idents = newSeq[string]()
-    var curstr = ""
-    while not context.isEOF:
-      if context.isSeparateSymbol or context.curchar == ' ' or context.curchar == '"':
-        break
-      curstr.add(context.curchar)
-      context.inc
-    if curstr != "":
-      idents.add(curstr)
-    return fident(span, name(idents))
+  # elif ('a' <= context.curchar and context.curchar <= 'z') or
+  #      ('A' <= context.curchar and context.curchar <= 'Z'): # ident
+  #   let span = context.span()
+  #   var idents = newSeq[string]()
+  #   var curstr = ""
+  #   while not context.isEOF:
+  #     if context.isSeparateSymbol or context.curchar == ' ' or context.curchar == '"':
+  #       break
+  #     curstr.add(context.curchar)
+  #     context.inc
+  #   if curstr != "":
+  #     idents.add(curstr)
+  #   return fident(span, name(idents))
   elif context.curchar in PrefixSymbols: # special ident
     var ident = ""
     let span = context.span()
@@ -251,7 +259,19 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
       context.inc
     return fstrlit(span, s)
   else:
-    context.error("couldn't parse F expression: $#" % $context.curchar)
+    let span = context.span()
+    var idents = newSeq[string]()
+    var curstr = ""
+    while not context.isEOF:
+      if context.isSeparateSymbol or context.curchar == ' ' or context.curchar == '"':
+        break
+      curstr.add(context.curchar)
+      context.inc
+    if curstr != "":
+      idents.add(curstr)
+    return fident(span, name(idents))
+  # else:
+  #   context.error("couldn't parse F expression: $#" % $context.curchar)
 
 proc polandToCall*(stack: seq[FExpr], pos: var int): FExpr =
   if stack.len <= pos:
@@ -303,7 +323,9 @@ proc rewriteToCall*(fexpr: FExpr): FExpr =
     for infix in infixstack.reversed():
       stack.add(infix)
     var pos = 0
-    return polandToCall(stack.reversed(), pos)
+    let ret = polandToCall(stack.reversed(), pos)
+    ret.src = fexpr.src
+    return ret
   else:
     return fexpr
 
@@ -312,12 +334,14 @@ proc parseFExpr*(context: var ParserContext): FExpr =
   if context.isEOF:
     return nil
 
-  let sq = fseq(context.span)
+  let span = context.span
+  let sq = fseq(span)
   while not context.isEndSymbol:
     context.skipSpaces()
     let elem = context.parseFExprElem()
     if not elem.isNil:
       sq.addSon(elem)
+  sq.src = some(context.getRangedSrc(span.pos, context.pos))
 
   if sq.len == 0:
     return nil

@@ -96,6 +96,11 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr): bool =
       if opt.isNone:
         fexpr.error("undeclared IntLit type, please import prelude.")
       fexpr.typ = opt.get
+    elif fexpr.symbol.kind == symbolIntLit:
+      let opt = scope.getDecl(name("IntLit"))
+      if opt.isNone:
+        fexpr.error("undeclared IntLit type, please import prelude.")
+      fexpr.typ = opt.get
     return true
   of fexprIntLit:
     let opt = scope.getDecl(name("IntLit"))

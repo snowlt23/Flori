@@ -7,6 +7,8 @@ floricache/
 jsdist/
 flori.exe
 flori
+florirepl.exe
+florirepl
 
 tests/basictester.exe
 tests/basictester

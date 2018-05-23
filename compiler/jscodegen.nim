@@ -246,7 +246,7 @@ proc codegenDefnInstance*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr)
   src &= "}\n"
 
 proc codegenDefn*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  if fexpr.internalPragma.importjs.isNone:
+  if not fexpr.hasInternalPragma or fexpr.internalPragma.importjs.isNone:
     if fexpr.defn.generics.isSpecTypes:
       ctx.codegenDefnInstance(src, fexpr)
 
@@ -320,10 +320,16 @@ proc codegenDef*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 
 proc codegenDefDecl*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "var "
-  src &= codegenSymbol(fexpr.defexpr.name)
+  if fexpr.defexpr.name.kind == fexprSeq:
+    src &= codegenSymbol(fexpr.defexpr.name[0])
+  else:
+    src &= codegenSymbol(fexpr.defexpr.name)
   src &= ";\n"
 proc codegenDefValue*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  src &= codegenSymbol(fexpr.defexpr.name)
+  if fexpr.defexpr.name.kind == fexprSeq:
+    src &= codegenSymbol(fexpr.defexpr.name[0])
+  else:
+    src &= codegenSymbol(fexpr.defexpr.name)
   src &= " = "
   ctx.codegenFExpr(src, fexpr.defexpr.value)
 
@@ -341,8 +347,9 @@ proc codegenFieldAccess*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) 
 proc codegenInit*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "{"
   for i, b in ctx.codegenArgsWithIndex(src, fexpr.initexpr.body):
-    src &= "\"$#\": " % $fexpr.initexpr.typ.deftype.body[i][0].symbol.name
+    src &= "\"$#\": " % $fexpr.initexpr.typ.symbol.fexpr.deftype.body[i][0]
     ctx.codegenFExpr(src, b)
+  src &= "}"
 
 proc codegenBlock*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "{\n"

@@ -13,7 +13,12 @@ task "debug64", "build 64bit compiler":
     createDir("bin")
   discard execShellCmd("nim c compiler/flori.nim")
   copyFile("compiler/flori".exe, "bin/flori".exe)
-  
+
+task "buildrepl", "build 64bit repl":
+  if not existsDir("bin"):
+    createDir("bin")
+  discard execShellCmd("nim c -d:release -d:replError compiler/florirepl.nim")
+  copyFile("compiler/florirepl".exe, "bin/florirepl".exe)
 task "build64", "build 64bit compiler":
   if not existsDir("bin"):
     createDir("bin")

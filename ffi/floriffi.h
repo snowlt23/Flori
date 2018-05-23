@@ -26,3 +26,4 @@ flori_int (*flori_intval)(flori_fexpr fexpr);
 char* (*flori_strval)(flori_fexpr fexpr);
 flori_fexpr (*flori_gensym)();
 flori_fexpr (*flori_get_type)(flori_fexpr fexpr);
+char* (*flori_get_srcexpr)(flori_fexpr fexpr);

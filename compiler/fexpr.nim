@@ -24,7 +24,9 @@ proc error*(span: Span, msg: string) =
   let e = "$#($#:$#): " % [span.filename, $span.line, $span.linepos] & msg
   styledEcho(fgRed, "[Error] ", resetStyle, e)
 
-  when defined(release) or defined(noExceptionError):
+  when defined(replError):
+    raise newException(FExprError, e)
+  elif defined(release) or defined(noExceptionError):
     quit()
   else:
     raise newException(FExprError, e)
@@ -195,6 +197,12 @@ proc toString*(fexpr: FExpr, indent: int, desc: bool): string =
 
 proc `$`*(fexpr: FExpr): string = fexpr.toString(0, false)
 proc desc*(fexpr: FExpr): string = fexpr.toString(0, true)
+
+proc getSrcExpr*(fexpr: FExpr): string =
+  if fexpr.src.isSome:
+    fexpr.src.get
+  else:
+    $fexpr
     
 proc name*(fexpr: FExpr): Name =
   case fexpr.kind

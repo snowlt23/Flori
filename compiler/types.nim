@@ -85,6 +85,7 @@ type
   FExpr* = ref object
     span*: Span
     metadata*: Table[string, Metadata]
+    src*: Option[string]
     case kind*: FExprKind
     of fexprIdent, fexprPrefix, fexprInfix:
       idname*: Name

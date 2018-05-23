@@ -152,31 +152,35 @@ proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: seq[FExpr], ret:
 proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: FExpr, ret: string = nil, rettype: Symbol = nil) =
   ctx.codegenBody(src, toSeq(body.items), ret, rettype)
 
-proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  if fexpr.internalPragma.inline:
-    return
-  
-  var decl = initSrcExpr()
-  decl &= ctx.codegenType(fexpr.defn.ret)
-  decl &= " "
+proc codegenDefnDecl*(ctx: CCodegeNContext, src: var SrcExpr, fexpr: FExpr, namepre = "", namepost = "") =
+  src &= ctx.codegenType(fexpr.defn.ret)
+  src &= " "
+  src &= namepre
   if fexpr.internalPragma.exportc.isSome:
-    decl &= fexpr.internalPragma.exportc.get
+    src &= fexpr.internalPragma.exportc.get
   else:
-    decl &= codegenMangling(fexpr.defn.name.symbol, fexpr.defn.generics.mapIt(it.symbol), fexpr.defn.args.mapIt(it[1].symbol))
-  decl &= "("
-  for arg in ctx.codegenArgs(decl, fexpr.defn.args):
+    src &= codegenMangling(fexpr.defn.name.symbol, fexpr.defn.generics.mapIt(it.symbol), fexpr.defn.args.mapIt(it[1].symbol))
+  src &= namepost
+  src &= "("
+  for arg in ctx.codegenArgs(src, fexpr.defn.args):
     if arg[1].symbol.kind == symbolFuncType:
-      decl &= "$# (*$#)($#)" % [
+      src &= "$# (*$#)($#)" % [
         ctx.codegenType(arg[1].symbol.rettype),
         codegenSymbol(arg[0]),
         arg[1].symbol.argtypes.mapIt(ctx.codegenType(it)).join(", ")
       ]
     else:
-      decl &= ctx.codegenType(arg[1])
-      decl &= " "
-      decl &= codegenSymbol(arg[0])
-  decl &= ")"
+      src &= ctx.codegenType(arg[1])
+      src &= " "
+      src &= codegenSymbol(arg[0])
+  src &= ")"
+  
+proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  if fexpr.internalPragma.inline:
+    return
 
+  var decl = initSrcExpr()
+  ctx.codegenDefnDecl(decl, fexpr)
   ctx.fndeclsrc &= decl.exp & ";\n"
 
   src &= decl
@@ -608,6 +612,26 @@ proc codegenToplevel*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
         continue
       son.isToplevel = true
       ctx.codegenToplevel(src, son)
+
+proc collectDependFn*(s: var seq[Symbol], fexpr: FExpr) =
+  if fexpr.isFuncCall and fexpr[0].kind == fexprSymbol:
+    s.add(fexpr[0].symbol)
+  if fexpr.kind in fexprContainer:
+    for f in fexpr:
+      collectDependFn(s, f)
+      
+proc codegenDynFn*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
+  fexpr.assert(fexpr.hasDefn)
+  var depends = newSeq[Symbol]()
+  collectDependFn(depends, fexpr.defn.body)
+  for d in depends:
+    ctx.codegenDefnDecl(src, d.fexpr, "(*", ")")
+    src &= ";\n"
+  ctx.codegenDefn(src, fexpr)
+proc codegenDynFn*(ctx: CCodegenContext, fexpr: FExpr): string =
+  var src = initSrcExpr()
+  ctx.codegenDynFn(src, fexpr)
+  ctx.cheadsrc & "\n" & ctx.headersrc & "\n" & ctx.cdeclsrc & "\n" & ctx.typesrc & "\n" & src.exp
   
 proc codegenSingle*(ctx: CCodegenContext, sem: SemanticContext): string =
   result = ""

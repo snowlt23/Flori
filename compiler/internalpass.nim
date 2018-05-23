@@ -467,7 +467,7 @@ proc semMacro*(scope: Scope, fexpr: var FExpr) =
   if not status:
     fexpr.error("redefinition $# macro." % $parsed.name)
   fexpr.internalMark = internalMacro
-  
+
   let delpos = scope.ctx.globaltoplevels.len
   scope.ctx.globaltoplevels.add(fexpr)
   if parsed.generics.isSpecTypes:

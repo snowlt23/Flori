@@ -193,3 +193,13 @@ macro `%(s FExpr, args FArray) FExpr {
     embed_to_template(`s, array `args)
   }
 }
+
+iterator items(s TExpr[String]) {
+  tmp := gensym()
+  quote {
+    for (`tmp : range(0, length(`s)-1)) {
+      `element := `s!`tmp
+      `yield
+    }
+  }
+}

@@ -85,6 +85,7 @@ fn intval(fexpr FIntLit) Int $[importc "flori_intval", header "floriffi.h", impo
 fn strval(fexpr FStrLit) CString $[importc "flori_strval", header "floriffi.h", importjs]
 fn gensym() FExpr $[importc "flori_gensym", header "floriffi.h", importjs]
 fn get_type(fexpr FExpr) FExpr $[importc "flori_get_type", header "floriffi.h", importjs]
+fn get_srcexpr(fexpr FExpr) CString $[importc "flori_get_srcexpr", header "floriffi.h", importjs]
 
 fn quote_expand_inside(fexpr FExpr, args FExpr, count ref Int) $[compiletime, importjs] {
   i := 0

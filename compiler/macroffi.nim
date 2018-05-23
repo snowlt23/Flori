@@ -59,3 +59,5 @@ proc ffiGetType*(fexpr: FExpr): FExpr {.cdecl.} =
   if not fexpr.hasTyp:
     fexpr.error("fexpr hasn't type.")
   return fsymbol(ffiSpan(), fexpr.typ)
+proc ffiGetSrcExpr*(fexpr: FExpr): cstring {.cdecl.} =
+  cstring(fexpr.getSrcExpr)
