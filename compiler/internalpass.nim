@@ -699,6 +699,28 @@ proc semSet*(scope: Scope, fexpr: var FExpr) =
   fexpr.internalMark = internalSet
   fexpr.setexpr = parsed
 
+proc semModulePrefix*(scope: Scope, fexpr: var FExpr) =
+  if not scope.importscopes.hasKey(name(fexpr[1])):
+    fexpr.error("undeclared $# identifier" % $fexpr[1])
+  let module = scope.importscopes[name(fexpr[1])]
+  
+  if fexpr[2].isNormalFuncCall:
+    scope.rootPass(fexpr[2][1])
+    let argtypes = fexpr[2][1].mapIt(it.typ)
+    let opt = module.getFunc(procname(name(fexpr[2][0]), argtypes), importscope = false)
+    if opt.isNone:
+      fexpr.error("undeclared $#.$#($#) function." % [$fexpr[1], $fexpr[2][0], argtypes.mapIt($it).join(", ")])
+    fexpr = fexpr.span.quoteFExpr("`embed `embed", [fsymbol(fexpr.span, opt.get.pd.sym), genConvertedCall(fexpr[2][1], opt.get.matches)])
+    fexpr.typ = opt.get.pd.returntype
+  elif fexpr[2].kind == fexprIdent:
+    let opt = module.getDecl(name(fexpr[2]), importscope = false)
+    if opt.isNone:
+      fexpr.error("undeclared $#.$# identifier." % [$fexpr[1], $fexpr[2]])
+    fexpr = fsymbol(fexpr.span, opt.get)
+    scope.rootPass(fexpr)
+  else:
+    fexpr.error("unknown `. syntax: $#" % $fexpr)
+  
 proc semFieldAccess*(scope: Scope, fexpr: var FExpr) =
   let fieldname = fexpr[2]
   if fieldname.kind != fexprIdent:
@@ -720,6 +742,16 @@ proc semFieldAccess*(scope: Scope, fexpr: var FExpr) =
   fexpr.fieldaccessexpr = FieldAccessExpr(fexpr: fexpr)
   fexpr.fieldaccessexpr.valuepos = 1
   fexpr.fieldaccessexpr.fieldnamepos = 2
+
+proc semDot*(scope: Scope, fexpr: var FExpr) =
+  if fexpr[1].kind == fexprIdent:
+    let opt = scope.getDecl(name(fexpr[1]))
+    if opt.isNone:
+      scope.semModulePrefix(fexpr)
+    else:
+      scope.semFieldAccess(fexpr)
+  else:
+    scope.semFieldAccess(fexpr)
   
 proc semInit*(scope: Scope, fexpr: var FExpr) =
   if fexpr.len != 3:
@@ -897,7 +929,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(name("var"), semVar)
   scope.addInternalEval(name(":="), semDef)
   scope.addInternalEval(name("="), semSet)
-  scope.addInternalEval(name("."), semFieldAccess)
+  scope.addInternalEval(name("."), semDot)
   scope.addInternalEval(name("init"), semInit)
   scope.addInternalEval(name("import"), semImport)
   scope.addInternalEval(name("export"), semExport)

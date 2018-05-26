@@ -18,6 +18,11 @@ type Region {
   prev Ptr[Region]
 }
 
+type RPtr[T] {
+  p Ptr[T]
+  r Ptr[Region]
+}
+
 when (is_windows) {
   fn MEM_COMMIT() Int $[importc, header "windows.h", patternc "MEM_COMMIT"]
   fn MEM_DECOMMIT() Int $[importc, header "windows.h", patternc "MEM_DECOMMIT"]
@@ -72,32 +77,31 @@ fn dealloc_region(hr ref HeapRegion, r Region) {
 }
 
 fn extend(hr ref HeapRegion, r ref Region, allocsize Int) {
-  if (r.current + allocsize >= r.size - sizeof[Ptr[Region]]()) {
-    prevr := r
+  if (r.current + allocsize >= r.size) {
+    prevr := getref(r)
     newrsize := r.size*2
     while (allocsize >= newrsize) {
       newrsize = newrsize*2
     }
     r = new_region(hr, newrsize*2)
-    r.prev = cast[Ptr[Region]](prevr.data)
-    unref(r.prev) = prevr
+    r.prev = prevr
   }
 }
 
-fn alloc[T](hr ref HeapRegion, r ref Region, len Int) Ptr[T] {
+fn alloc[T](hr ref HeapRegion, r ref Region, len Int) RPtr[T] {
   sz := sizeof[T]() * len
   extend(hr, r, sz)
   ret := cast[Ptr[T]](r.data +! r.current)
   r.current += sz
-  ret
+  init(RPtr[T]){ret; getref(r)}
 }
-fn alloc[T](hr ref HeapRegion, r ref Region) {
+fn alloc[T](hr ref HeapRegion, r ref Region) RPtr[T] {
   alloc[T](hr, r, 1)
 }
 
-fn realloc[T](hr ref HeapRegion, r ref Region, p Ptr[T], plen Int, newlen Int) Ptr[T] {
+fn realloc[T](hr ref HeapRegion, r ref Region, p RPtr[T], plen Int, newlen Int) RPtr[T] {
   ret := alloc[T](hr, r, newlen)
-  copy_memory(ret, p, plen)
+  copy_memory(ret.p, p.p, plen)
   ret
 }
 
@@ -117,7 +121,8 @@ fn region_settings(heapsize Int, regsize Int) {
   g_current_region = new_region(g_heap_region, regsize)
 }
 fn default_region_settings() {
-  region_settings(2147483647, 1048576)
+  # region_settings(2147483647, 1048576)
+  region_settings(2147483647, 1048576*20)
 }
 
 # for compile time memory allocations.
@@ -135,14 +140,14 @@ macro elimregist() FExpr {
   quote {}
 }
 
-fn alloc[T](len Int) Ptr[T] {
+fn alloc[T](len Int) RPtr[T] {
   alloc[T](g_heap_region, g_current_region, len)
 }
-fn alloc[T]() Ptr[T] {
+fn alloc[T]() RPtr[T] {
   alloc[T](1)
 }
-fn realloc[T](p Ptr[T], plen Int, newlen Int) Ptr[T] {
-  realloc(g_heap_region, g_current_region, p, plen, newlen)
+fn realloc[T](p RPtr[T], plen Int, newlen Int) RPtr[T] {
+  realloc(g_heap_region, unref(p.r), p, plen, newlen)
 }
 
 #
@@ -170,7 +175,7 @@ fn realloc[T](p Ptr[T], plen Int, newlen Int) Ptr[T] {
 macro in_region(size FExpr, body TBlock) FExpr $[syntax] {
   prevr := gensym()
   ret := gensym()
-  retcopy := gensym()
+  tmpr := gensym()
   # newbody := convert_to_copy(prevr, body)
   if (to_cs(get_type(body)) == "Void") {
     quote {
@@ -180,13 +185,25 @@ macro in_region(size FExpr, body TBlock) FExpr $[syntax] {
       dealloc_region(g_heap_region, g_current_region)
       g_current_region = `prevr
     }
-  } else {
+  } elif (to_cs(get_type(body)) == "FExpr") {
     quote {
       `prevr := g_current_region
       g_current_region = new_region(g_heap_region, `size)
       `ret := `body
       dealloc_region(g_heap_region, g_current_region)
       g_current_region = `prevr
+      `ret
+    }
+  } else {
+    quote {
+      `prevr := g_current_region
+      g_current_region = new_region(g_heap_region, `size)
+      
+      `ret := `body
+      `tmpr := g_current_region
+      g_current_region = `prevr
+      `ret = copy(`ret)
+      dealloc_region(g_heap_region, `tmpr)
       `ret
     }
   }

@@ -197,8 +197,11 @@ proc varfnResolve*(scope: Scope, fexpr: var FExpr): bool =
         echo fexpr[1].mapIt(it.typ)
         fexpr.error("undeclared $#($#) function." % [$fexpr[0], fexpr[1].mapIt($it.typ).join(", ")])
     scope.rootPass(fexpr[0])
-    if fexpr[0].typ.kind != symbolFuncType:
+    if fexpr[0].typ.kind != symbolFuncType and not (fexpr[0].typ.kind == symbolVar and fexpr[0].typ.wrapped.kind == symbolFuncType):
+      echo fexpr[0].typ.kind
       fexpr[0].error("$# is not callable." % $fexpr[0])
+    if fexpr[0].typ.kind == symbolVar:
+      fexpr[0].typ = fexpr[0].typ.wrapped
     fexpr.typ = fexpr[0].typ.rettype
 
   return true

@@ -44,6 +44,8 @@ proc parseTypeExpr*(fexpr: FExpr, pos: var int): ParsedType =
     fexpr[pos].error("$# isn't type expression." % $fexpr[pos])
 
 proc semType*(scope: Scope, fexpr: FExpr): Symbol =
+  if fexpr.kind == fexprSymbol:
+    return fexpr.symbol
   var pos = 0
   let parsed = parseTypeExpr(fexpr, pos)
 

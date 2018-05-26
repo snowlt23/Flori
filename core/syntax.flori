@@ -264,6 +264,12 @@ macro enum(typename FIdent, body FBlock) FExpr $[syntax] {
       fn int(e `typename) Int {
         cast[Int](e)
       }
+      fn `==(a `typename, b `typename) Bool {
+        int(a) == int(b)
+      }
+      fn `!=(a `typename, b `typename) Bool {
+        int(a) != int(b)
+      }
     })
   
   curr := 0

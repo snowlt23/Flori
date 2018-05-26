@@ -11,7 +11,7 @@ import "core/region"
 import "core/array"
 
 type String $[nodestruct] {
-  p Ptr[Char]
+  p RPtr[Char]
   len Int
   cap Int
 }
@@ -21,17 +21,17 @@ fn strlen(cs CString) Int $[importc "strlen", header "string.h", importjs, patte
 fn string(cs CString) String $[importjs, patternjs "$1"] {
   len := strlen(cs)
   cap := strlen(cs) * 2
-  if (cap < 1024) {
-    cap = int(1024)
+  if (cap < 20480) {
+    cap = int(20480)
   }
   s := init(String){alloc[Char](cap + 1); len; cap}
-  copy_memory(s.p, cast[Ptr[Char]](cs), len)
-  unref(s.p +! len) = char(0)
+  copy_memory(s.p.p, cast[Ptr[Char]](cs), len)
+  unref(s.p.p +! len) = char(0)
   s
 }
 fn string(len Int, cap Int) String $[importjs, patternjs "'\0'.repeat($1)"] {
   s := init(String){alloc[Char](cap + 1); len; cap}
-  unref(s.p +! len) = char(0)
+  unref(s.p.p +! len) = char(0)
   s
 }
 fn string(len Int) String $[importjs, patternjs "'\0'.repeat($1)"] {
@@ -43,7 +43,7 @@ fn string(len Int) String $[importjs, patternjs "'\0'.repeat($1)"] {
 }
 
 fn `!(s String, i Int) Char $[importjs, patternjs "$1[$2]"] {
-  unref(s.p +! i)
+  unref(s.p.p +! i)
 }
 
 macro s(s FStrLit) FExpr $[syntax] {
@@ -53,11 +53,15 @@ macro s(s FStrLit) FExpr $[syntax] {
 }
 
 fn to_cs(s String) CString $[importjs, patternjs "$1"] {
-  cast[CString](s.p)
+  cast[CString](s.p.p)
 }
 
 fn length(s String) Int $[importjs, patternjs "$1.length"] {
   s.len
+}
+
+fn copy(s String) String {
+  string(to_cs(s))
 }
 
 fn extend(s ref String, size Int) {
@@ -67,6 +71,7 @@ fn extend(s ref String, size Int) {
       newcap = newcap * 2
     }
     realloc[Char](s.p, s.len, newcap + 1)
+    unref(s.p.p +! s.len) = char(0)
     s.cap = newcap
   }
 }
@@ -74,27 +79,27 @@ fn extend(s ref String, size Int) {
 fn push(dest ref String, src CString) $[importjs "+=", patternjs infixjs] {
   extend(dest, strlen(src))
   l := length(dest) + strlen(src)
-  copy_memory(dest.p +! length(dest), cast[Ptr[Char]](src), strlen(src))
-  unref(dest.p +! l) = char(0)
+  copy_memory(dest.p.p +! length(dest), cast[Ptr[Char]](src), strlen(src))
+  unref(dest.p.p +! l) = char(0)
   dest.len = l
 }
 fn push(dest ref String, src String) $[importjs "+=", patternjs infixjs] {
   extend(dest, length(src))
   l := length(dest) + length(src)
-  copy_memory(dest.p +! length(dest), src.p, length(src))
-  unref(dest.p +! l) = char(0)
+  copy_memory(dest.p.p +! length(dest), src.p.p, length(src))
+  unref(dest.p.p +! l) = char(0)
   dest.len = l
 }
 fn push(dest ref String, c Char) $[importjs "+=", patternjs infixjs] {
   extend(dest, 1)
   l := length(dest) + 1
-  unref(dest.p +! length(dest)) = c
-  unref(dest.p +! l) = char(0)
+  unref(dest.p.p +! length(dest)) = c
+  unref(dest.p.p +! l) = char(0)
   dest.len = l
 }
 
 fn print(s String) $[importjs "console.log"] {
-  print(cast[CString](s.p))
+  print(cast[CString](s.p.p))
 }
 
 fn `&(a String, b String) String $[importjs "+", patternjs infixjs] {

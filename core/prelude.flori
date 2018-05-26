@@ -112,7 +112,7 @@ fn `<=(a Double, b Double) Bool $[importc "<=", header nodeclc, patternc infixc,
 fn `>(a Double, b Double) Bool $[importc ">", header nodeclc, patternc infixc, importjs ">", patternjs infixjs]
 fn `>=(a Double, b Double) Bool $[importc ">=", header nodeclc, patternc infixc, importjs ">=", patternjs infixjs]
 
-fn `/(a Int, b Int) Double $[inline] {
+fn `/(a Int, b Int) Double {
   cast[Double](a) / cast[Double](b)
 }
 
@@ -131,27 +131,27 @@ fn xor(a UInt32, b UInt32) UInt32 $[importc "^", header nodeclc, patternc infixc
 
 fn `%(a Int, b Int) Int $[importc "%", header nodeclc, patternc infixc, importjs "%", patternjs infixjs]
 
-fn uint32(x Int) UInt32 $[inline] {
+fn uint32(x Int) UInt32 {
   cast[UInt32](x)
 }
-fn int(x UInt32) Int $[inline] {
+fn int(x UInt32) Int {
   cast[Int](x)
 }
-fn float(x Int) Float $[inline] {
+fn float(x Int) Float {
   cast[Float](x)
 }
-fn float(x UInt32) Float $[inline] {
+fn float(x UInt32) Float {
   cast[Float](x)
 }
 
-fn uint8(x Int) UInt8 $[inline] {
+fn uint8(x Int) UInt8 {
   cast[UInt8](x)
 }
-fn int(x UInt8) Int $[inline] {
+fn int(x UInt8) Int {
   cast[Int](x)
 }
 
-fn bool(x Int) Bool $[inline] {
+fn bool(x Int) Bool {
   cast[Bool](x)
 }
 
@@ -169,7 +169,7 @@ fn return() $[importc, patternc "return"]
 # string.h
 fn strcmp(a CString, b CString) Int $[importc "strcmp", header "string.h", importjs "===", patternjs infixjs]
 fn `==(a CString, b CString) Bool $[importc, patternc "(strcmp($1, $2) == 0)", header "string.h", importjs "===", patternjs infixjs]
-fn `!=(a CString, b CString) Bool $[inline] {
+fn `!=(a CString, b CString) Bool {
   not(a == b)
 }
 fn `!(cs CString, i Int) Char $[importc, patternc "$1[$2]", importjs, patternjs "$1[$2]"]

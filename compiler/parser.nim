@@ -96,6 +96,8 @@ proc getPriority*(ident: string): (int, bool) =
     (4, true)
   elif ident[0] in {'.'}:
     (1, true)
+  elif ident[0] in {'=', ':'}:
+    (15, true)
   else:
     echo "internal message: unknown infix priority `", ident
     (16, true)
@@ -275,8 +277,8 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
 
 proc polandToCall*(stack: seq[FExpr], pos: var int): FExpr =
   if stack.len <= pos:
-    stack[pos-1].error("infix index out of bounds.")
-  if stack[pos].kind == fexprInfix:
+    result = stack[pos-1]
+  elif stack[pos].kind == fexprInfix:
     let infix = stack[pos]
     pos += 1
     let right = polandToCall(stack, pos)

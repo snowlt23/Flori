@@ -482,6 +482,24 @@ proc codegenCall*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr[0].kind != fexprSymbol:
     fexpr[0].error("$# isn't symbol." % $fexpr[0])
   let fn = fexpr[0].symbol.fexpr
+
+  if fn.typ.kind == symbolFuncType:
+    ctx.codegenFExpr(src, fexpr[0])
+    src &= "("
+    for i, arg in ctx.codegenArgsWithIndex(src, fexpr[1]):
+      let fnargtype = fn.typ.argtypes[i]
+      ctx.codegenCallArg(src, arg, fnargtype)
+      src &= ")"
+    return
+  elif fn.typ.kind == symbolVar and fn.typ.wrapped.kind == symbolFuncType:
+    ctx.codegenFExpr(src, fexpr[0])
+    src &= "("
+    for i, arg in ctx.codegenArgsWithIndex(src, fexpr[1]):
+      let fnargtype = fn.typ.wrapped.argtypes[i]
+      ctx.codegenCallArg(src, arg, fnargtype)
+      src &= ")"
+    return
+  
   if fn.hasinternalPragma and fn.internalPragma.importjs.isSome:
     ctx.codegenJSCall(src, fexpr)
   else: # normal call
@@ -512,7 +530,7 @@ proc codegenFExpr*(ctx: JSCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   of fexprIdent:
     src &= $fexpr
   of fexprSymbol:
-    if fexpr.hasTyp and fexpr.typ.kind == symbolFuncType:
+    if fexpr.hasTyp and fexpr.symbol.kind != symbolDef and fexpr.symbol.kind != symbolArg and fexpr.typ.kind == symbolFuncType:
       src &= codegenMangling(fexpr.symbol, @[], fexpr.typ.argtypes) # FIXME:
     else:
       src &= codegenSymbol(fexpr)

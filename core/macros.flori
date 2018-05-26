@@ -91,9 +91,11 @@ fn quote_expand_inside(fexpr FExpr, args FExpr, count ref Int) $[compiletime, im
   i := 0
   while (i < length(fexpr)) {
     k := kind(fexpr!i)
-    if (k == FEXPR_QUOTE && kind(quoted(fexpr!i)) != FEXPR_INFIX) {
+    if (k == FEXPR_QUOTE && kind(quoted(fexpr!i)) == FEXPR_IDENT) {
       fexpr!i = args!count
       count += 1
+    } elif (k == FEXPR_QUOTE && kind(quoted(fexpr!i)) == FEXPR_QUOTE) {
+      fexpr!i = quoted(fexpr!i)
     }
     if (k == FEXPR_SEQ || k == FEXPR_ARRAY || k == FEXPR_LIST || k == FEXPR_BLOCK) {
       quote_expand_inside(fexpr!i, args, count)

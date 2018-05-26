@@ -48,6 +48,7 @@ fn `+![T](p Ptr[T], i Int32) Ptr[T] {
 
 fn unref[T](p Ptr[T]) ref T $[importc, header nodeclc, patternc "($1)"]
 fn getptr[T](p T) Ptr[T] $[importc, header nodeclc, patternc "(&$1)"]
+fn getref[T](v ref T) Ptr[T] $[importc, header nodeclc, patternc "$1"]
 
 fn `![T](p Ptr[T], i Int) T {
   unref(p +! (i * sizeof[T]()))

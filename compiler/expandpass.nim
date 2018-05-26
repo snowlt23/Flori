@@ -9,6 +9,7 @@ import tables
 proc expandInlinePass*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
   if fexpr.isFuncCall:
+    fexpr[0].assert(fexpr[0].kind == fexprSymbol)
     if not fexpr[0].symbol.fexpr.hasDefn:
       return true
     scope.expandBy(fexpr.span):

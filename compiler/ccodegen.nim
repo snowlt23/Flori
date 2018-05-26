@@ -501,9 +501,15 @@ proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     src &= ")"
     
 proc getCallGenerics(fexpr: FExpr): seq[Symbol] =
-  fexpr[0].symbol.fexpr.defn.generics.mapIt(it.symbol)
+  if fexpr[0].symbol.kind == symbolFuncType:
+    @[]
+  else:
+    fexpr[0].symbol.fexpr.defn.generics.mapIt(it.symbol)
 proc getCallTypes(fexpr: FExpr): seq[Symbol] =
-  fexpr[0].symbol.fexpr.defn.args.mapIt(it[1].symbol)
+  if fexpr[0].symbol.kind == symbolFuncType:
+    fexpr[0].symbol.argtypes
+  else:
+    fexpr[0].symbol.fexpr.defn.args.mapIt(it[1].symbol)
   
 proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.len == 0:

@@ -7,7 +7,7 @@ import "core/macros"
 import "core/region"
 
 type Vec[T] $[nodestruct] {
-  data Ptr[T]
+  data RPtr[T]
   cap Int
   len Int
 }
@@ -29,7 +29,7 @@ fn vec[T]() Vec[T] {
 
 fn copy[T](r ref Region, v Vec[T]) Vec[T] {
   newv := vec[T](v.len, v.cap)
-  copy_memory(newv.data, v.data, sizeof[T]() * v.len)
+  copy_memory(newv.data.p, v.data.p, sizeof[T]() * v.len)
   newv
 }
 
@@ -74,7 +74,7 @@ fn push[T](v ref Vec[T], value T) $[nodestruct, importjs, patternjs "$1.push($2)
   if (v.cap < v.len+1) {
     extend(v)
   }
-  unref(v.data +! (v.len * sizeof[T]())) = value
+  unref(v.data.p +! (v.len * sizeof[T]())) = value
   v.len += 1
 }
 
@@ -83,11 +83,11 @@ fn length[T](v Vec[T]) Int $[importjs, patternjs "$1.length"] {
 }
 
 fn `![T](v Vec[T], i Int) ref T $[importjs, patternjs "$1[$2]"] {
-  unref(v.data +! (i * sizeof[T]()))
+  unref(v.data.p +! (i * sizeof[T]()))
 }
 
 fn `!![T](v ref Vec[T], i Int, value T) {
-  unref(v.data +! (i * sizeof[T]())) = value
+  unref(v.data.p +! (i * sizeof[T]())) = value
 }
 
 iterator items[T](v TExpr[Vec[T]]) {
@@ -113,5 +113,5 @@ fn print[T](v Vec[T]) {
 }
 
 fn getref[T](v ref Vec[T]) Ptr[T] {
-  v.data
+  v.data.p
 }
