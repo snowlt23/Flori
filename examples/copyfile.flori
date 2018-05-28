@@ -1,7 +1,7 @@
 
-import "core/prelude"
-import "core/io"
-import "core/fileio"
+import "core"
+import "std/fileio"
+default_region_settings()
 
 fn main() {
   if (copy_file("LICENSE", "bakLICENSE")) {

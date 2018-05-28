@@ -24,10 +24,6 @@ fn fread(cs CString, x Int, size Int, f File) Int $[importc "fread", header "std
 fn stdin() File $[importc, header "stdio.h", patternc "stdin"]
 fn stdout() File $[importc, header "stdio.h", patternc "stdout"]
 
-destructor(f File) {
-  fclose(f)
-}
-
 fn write(f File, cs CString) {
   fprintf(f, cs)
 }
@@ -38,9 +34,14 @@ fn write(f File, s String) {
 fn open_file(filename CString, mode CString) File {
   fopen(filename, mode)
 }
+fn close_file(f File) {
+  fclose(f)
+}
+
 fn write_file(filename CString, s CString) {
   f := open_file(filename, "w")
   write(f, s)
+  close_file(f)
 }
 
 fn read_file(filename CString) String {

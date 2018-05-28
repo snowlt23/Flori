@@ -1,5 +1,6 @@
 
 import "core"
+default_region_settings()
 
 fn reg() String $[region] {
   s := s"Hello Yukari!"

@@ -1,6 +1,5 @@
 
 import "core"
-
 default_region_settings()
 
 fn main() {

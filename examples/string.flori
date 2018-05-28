@@ -1,7 +1,6 @@
 
-import "core/prelude"
-import "core/io"
-import "core/string"
+import "core"
+default_region_settings()
 
 fn main() {
   s1 := s"Hello Yukari!"

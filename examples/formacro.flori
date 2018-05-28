@@ -1,8 +1,0 @@
-
-import "core/prelude"
-import "core/io"
-import "core/syntax"
-
-for i in range(1, 10) {
-  print(i)
-}

@@ -1,10 +1,12 @@
 
 import "core"
+default_region_settings()
 
-fn ex[T](x T) {
-  to_cs(x)
+fn ex[T](x T) String {
+  to_s(x)
 }
 
 fn main() {
-  ex(1)
+  println(ex(9))
 }
+main()

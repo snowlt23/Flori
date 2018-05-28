@@ -1,6 +1,7 @@
 
 import "core"
 import "std/fileio"
+default_region_settings()
 
 fn main() {
   s := s"A B C"

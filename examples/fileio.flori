@@ -1,6 +1,7 @@
 
 import "core"
 import "std/fileio"
+default_region_settings()
 
 fn main() {
   f := open_file("voiceroids.txt", "w")
@@ -8,6 +9,7 @@ fn main() {
   write(f, "Maki\n")
   write(f, "Akane\n")
   write(f, "Aoi\n")
+  close_file(f)
 }
 
 main()
