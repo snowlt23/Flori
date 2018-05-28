@@ -4,16 +4,16 @@ import "core/pointer"
 
 default_region_settings()
 
-fn pint(x Int32) Ptr[Int32] {
+fn pint(x Int32) RPtr[Int32] {
   i := alloc[Int32]()
-  unref(i) = x
+  unref(i.p) = x
   i
 }
 
 fn main() {
   for (i : range(1, 1000000)) {
     in_region {
-      v := vec[Ptr[Int32]]()
+      v := vec[RPtr[Int32]]()
       push(v, pint(1))
       push(v, pint(2))
       push(v, pint(3))

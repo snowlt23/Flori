@@ -14,11 +14,11 @@ fn bench(s CString) Double {
 
 fn main() {
   print("bench compile...")
-  system("g++ -O2 -oalloc_bench_cpp bench/alloc_bench.cpp")
-  system("nim c --hints:off -d:release -o:alloc_bench_nim bench/alloc_bench.nim")
-  system("rustc -C opt-level=2 -C debug_assertions=no -o alloc_bench_rs.exe bench/alloc_bench.rs")
-  system("go build -o alloc_bench_go.exe bench/alloc_bench.go")
-  system("flori c -oalloc_bench_flori --opt=2 bench/alloc_bench.flori")
+  system("g++ -O2 -oalloc_bench_cpp alloc_bench.cpp")
+  system("nim c --hints:off -d:release -o:alloc_bench_nim alloc_bench.nim")
+  system("rustc -C opt-level=2 -C debug_assertions=no -o alloc_bench_rs.exe alloc_bench.rs")
+  system("go build -o alloc_bench_go.exe alloc_bench.go")
+  system("flori c -oalloc_bench_flori --opt=2 alloc_bench.flori")
   println(" [done]")
   
   println("alloc bench:")

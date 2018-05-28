@@ -31,8 +31,13 @@ task "build32", "build 32bit compiler":
   copyFile("compiler/flori".exe, "bin/flori32".exe)
 
 task "build", "build compiler":
+  runTask "buildrepl"
   runTask "build64"
   runTask "build32"
+
+task "release", "packaging build binaries to zip":
+  runTask "build"
+  discard execShellCmd("7z a flori-v.zip bin core std ffi examples")
   
 task "test", "":
   discard execShellCmd("nim c -r tests/floritester.nim")

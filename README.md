@@ -1,7 +1,7 @@
 
 # Flori
 
-**Warning:** This project is still in experimental.
+**Warning**: This project is work in progress. (very early stage)
 
 Flori is statically typed programming language without GC for system/application programming.
 
@@ -28,6 +28,7 @@ Flori is statically typed programming language without GC for system/application
 ### Hello World
 ```
 import "core"
+default_region_settings()
 
 println("Hello World!")
 ```
@@ -35,6 +36,7 @@ println("Hello World!")
 ### Fibonacci
 ```
 import "core"
+default_region_settings()
 
 fn fib(n Int) Int {
   if (n < 2) {
@@ -47,23 +49,7 @@ fn fib(n Int) Int {
 println(fib(38))
 ```
 
-### File I/O
-```
-import "core"
-import "std/fileio"
-
-fn main() {
-  in_resource {
-    f := openFile("voiceroids.txt", "w")
-    write(f, "Yukari")
-    write(f, "Maki")
-    write(f, "Akane")
-    write(f, "Aoi")
-  }
-}
-
-main()
-```
+Other examples, please reference `Flori/examples` or `Flori/tests/floritests`.
 
 # Usage
 
@@ -71,11 +57,15 @@ main()
 $ flori c <filename>
 ```
 
+# Prebuilt Binaries
+
+[Releases](https://github.com/snowlt23/Flori/releases)
+
 # Compiler Instructions
 
 **Requirements**
 
-- Nim (devel branch)
+- Nim (0.18.0)
   - nimble
 - GCC (GNU C Compiler)
 - TCC (Tiny C Compiler)
@@ -97,6 +87,7 @@ $ nake test
 
 - Error Handling System
 - LiveReload
+- ImageDump
 - Concurrency
 - Standard Library
 - Reduction Build Times
