@@ -46,11 +46,11 @@ template internalSpan*(): Span =
   Span(filename: instantiationInfo().filename, line: instantiationInfo().line, isinternal: true)
 
 proc fident*(span: Span, name: string): FExpr =
-  genFExpr(FExprObj(span: span, kind: fexprIdent, idname: fstring(name)))
+  genFExpr(FExprObj(span: span, kind: fexprIdent, idname: istring(name)))
 proc fprefix*(span: Span, name: string): FExpr =
-  genFExpr(FExprObj(span: span, kind: fexprPrefix, idname: fstring(name)))
+  genFExpr(FExprObj(span: span, kind: fexprPrefix, idname: istring(name)))
 proc finfix*(span: Span, name: string, p: int, isleft: bool): FExpr =
-  genFExpr(FExprObj(span: span, kind: fexprInfix, idname: fstring(name), priority: p, isleft: isleft))
+  genFExpr(FExprObj(span: span, kind: fexprInfix, idname: istring(name), priority: p, isleft: isleft))
 proc fquote*(span: Span, q: FExpr): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprQuote, quoted: q))
 proc fsymbol*(span: Span, sym: Symbol): FExpr =
@@ -60,16 +60,16 @@ proc fintlit*(span: Span, x: int64): FExpr =
 proc ffloatlit*(span: Span, x: float): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprFloatLit, floatval: x))
 proc fstrlit*(span: Span, s: string): FExpr =
-  genFExpr(FExprObj(span: span, kind: fexprStrLit, strval: fstring(s)))
-proc fseq*(span: Span, sons: FArray[FExpr]): FExpr =
+  genFExpr(FExprObj(span: span, kind: fexprStrLit, strval: istring(s)))
+proc fseq*(span: Span, sons: IArray[FExpr]): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprSeq, sons: sons))
-proc farray*(span: Span, sons: FArray[FExpr]): FExpr =
+proc farray*(span: Span, sons: IArray[FExpr]): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprArray, sons: sons))
-proc flist*(span: Span, sons: FArray[FExpr]): FExpr =
+proc flist*(span: Span, sons: IArray[FExpr]): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprList, sons: sons))
-proc fblock*(span: Span, sons: FArray[FExpr]): FExpr =
+proc fblock*(span: Span, sons: IArray[FExpr]): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprBlock, sons: sons))
-proc fcontainer*(span: Span, kind: FExprKind, sons: FArray[FExpr]): FExpr =
+proc fcontainer*(span: Span, kind: FExprKind, sons: IArray[FExpr]): FExpr =
   var f: FExprObj
   f.span = span
   f.kind = kind
@@ -77,9 +77,16 @@ proc fcontainer*(span: Span, kind: FExprKind, sons: FArray[FExpr]): FExpr =
   genFExpr(f)
 
 proc kind*(fexpr: FExpr): FExprKind = fexpr.obj.kind
+proc priority*(fexpr: FExpr): int = fexpr.obj.priority
+proc isleft*(fexpr: FExpr): bool = fexpr.obj.isleft
+proc intval*(fexpr: FExpr): int64 = fexpr.obj.intval
+proc strval*(fexpr: FExpr): IString = fexpr.obj.strval
 proc symbol*(fexpr: FExpr): Symbol = fexpr.obj.symbol
 proc span*(fexpr: FExpr): Span = fexpr.obj.span
-proc sons*(fexpr: FExpr): var FArray[FExpr] = fexpr.obj.sons
+proc sons*(fexpr: FExpr): var IArray[FExpr] = fexpr.obj.sons
+proc src*(fexpr: FExpr): Option[IString] = fexpr.obj.src
+proc `src=`*(fexpr: FExpr, opt: Option[IString]) = fexpr.obj.src = opt
+proc len*(fexpr: FExpr): int = fexpr.obj.sons.len
 
 iterator items*(fexpr: FExpr): FExpr =
   case fexpr.kind
@@ -125,6 +132,10 @@ proc `[]`*(fexpr: var FExprObj, i: int): var FExpr =
     fexpr.error("$# isn't container" % $fexpr.kind)
 proc `[]`*(fexpr: var FExprObj, i: BackwardsIndex): var FExpr =
   fexpr[fexpr.len-int(i)]
+proc `[]`*(fexpr: FExpr, i: int): var FExpr =
+  fexpr.obj[i]
+proc `[]`*(fexpr: FExpr, i: BackwardsIndex): var FExpr =
+  fexpr.obj[fexpr.len-int(i)]
 proc `[]=`*(fexpr: var FExprObj, i: int, f: FExpr) =
   case fexpr.kind
   of fexprContainer:
@@ -146,6 +157,8 @@ proc isFuncCall*(fexpr: var FExprObj): bool =
 proc genIndent*(indent: int): string =
   repeat(' ', indent)
 
+proc toString*(fexpr: FExpr, indent: int, desc: bool): string
+  
 proc toString*(fexpr: var FExprObj, indent: int, desc: bool): string =
   case fexpr.kind
   of fexprIdent, fexprPrefix, fexprInfix:
@@ -181,9 +194,11 @@ proc toString*(fexpr: var FExprObj, indent: int, desc: bool): string =
       "{}"
     else:
       "{" & "\n" & genIndent(indent + 2) & fexpr.sons.mapIt(it.obj.toString(indent + 2, desc)).join("\n" & genIndent(indent + 2)) & "\n" & genIndent(indent) & "}"
+proc toString*(fexpr: FExpr, indent: int, desc: bool): string = fexpr.obj.toString(indent, desc)
 
 proc `$`*(fexpr: var FExprObj): string = fexpr.toString(0, false)
 proc `$`*(fexpr: FExpr): string = fexpr.obj.toString(0, false)
+proc desc*(fexpr: var FExprObj): string = fexpr.toString(0, true)
 proc desc*(fexpr: FExpr): string = fexpr.obj.toString(0, true)
 
 proc getSrcExpr*(fexpr: FExpr): string =

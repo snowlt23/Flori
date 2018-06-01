@@ -11,10 +11,10 @@ type
     linepos*: int
     pos*: int
     isinternal*: bool
-  FString* = object
+  IString* = object
     index*: int
     len*: int
-  FArray*[T] = object
+  IArray*[T] = object
     index*: int
     len*: int
   SymbolKind* = enum
@@ -35,7 +35,7 @@ type
     symbolConstant
   Symbol* = ref object
     scope*: FScope
-    name*: FString
+    name*: IString
     fexpr*: FExpr
     instance*: Option[Symbol]
     case kind*: SymbolKind
@@ -71,10 +71,10 @@ type
     fexprBlock
   FExprObj* = object
     span*: Span
-    src*: Option[FString]
+    src*: Option[IString]
     case kind*: FExprKind
     of fexprIdent, fexprPrefix, fexprInfix:
-      idname*: FString
+      idname*: IString
       priority*: int
       isleft*: bool
     of fexprQuote:
@@ -86,9 +86,9 @@ type
     of fexprFloatLit:
       floatval*: float64
     of fexprStrLit:
-      strval*: FString
+      strval*: IString
     of fexprSeq, fexprArray, fexprList, fexprBlock:
-      sons*: FArray[FExpr]
+      sons*: IArray[FExpr]
   FExpr* = object
     index: int
   FScopeObj* = object
@@ -124,33 +124,48 @@ proc addFScope*(image: var FImage, s: FScopeObj): FScope =
   result = FScope(index: image.scopes.len)
   image.scopes.add(s)
 
-proc fstring*(s: string): FString =
-  result = FString(index: gImage.mem.len, len: s.len)
+proc istring*(s: string): IString =
+  result = IString(index: gImage.mem.len, len: s.len)
   for c in s:
     gImage.mem.add(uint8(c))
-proc `$`*(fs: FString): string =
+proc `$`*(fs: IString): string =
   result = ""
   for i in 0..<fs.len:
     result.add(char(gImage.mem[fs.index + i]))
     
-proc farray*[T](len: int): FArray[T] =
-  result = FArray(index: gImage.mem.len, len: len * sizeof(T))
-proc `[]`*[T](arr: FArray[T], i: int): T =
+proc iarray*[T](len: int): IArray[T] =
+  result = IArray[T](index: gImage.mem.len, len: len)
+  for i in 0..<len * sizeof(T):
+    gImage.mem.add(0)
+proc checkBounds*[T](arr: IArray[T], i: int) =
+  when not defined(release):
+    if i < 0 or i >= arr.len:
+      raise newException(Exception, "index out of bounds: $#" % $i)
+proc `[]`*[T](arr: IArray[T], i: int): T =
+  arr.checkBounds(i)
   cast[ptr T](addr(gImage.mem[arr.index + i*sizeof(T)]))[]
-proc mget*[T](arr: var FArray[T], i: int): var T =
+proc mget*[T](arr: var IArray[T], i: int): var T =
+  arr.checkBounds(i)
   cast[ptr T](addr(gImage.mem[arr.index + i*sizeof(T)]))[]
-proc `[]=`*[T](arr: FArray[T], i: int, val: T) =
+proc `[]=`*[T](arr: IArray[T], i: int, val: T) =
+  arr.checkBounds(i)
   cast[ptr T](addr(gImage.mem[arr.index + i*sizeof(T)]))[] = val
-iterator items*[T](arr: FArray[T]): T =
+proc iarray*[T](arr: openArray[T]): IArray[T] =
+  result = iarray[T](arr.len)
+  for i, e in arr:
+    result[i] = e
+proc iarray*[T](): IArray[T] =
+  iarray[T]([])
+iterator items*[T](arr: IArray[T]): T =
   for i in 0..<arr.len:
     yield(arr[i])
-iterator mitems*[T](arr: var FArray[T]): var T =
+iterator mitems*[T](arr: var IArray[T]): var T =
   for i in 0..<arr.len:
     yield(arr.mget(i))
-iterator pairs*[T](arr: FArray[T]): (int, T) =
+iterator pairs*[T](arr: IArray[T]): (int, T) =
   for i in 0..<arr.len:
     yield(i, arr[i])
-iterator mpairs*[T](arr: var FArray[T]): (int, var T) =
+iterator mpairs*[T](arr: var IArray[T]): (int, var T) =
   for i in 0..<arr.len:
     yield(i, arr.mget(i))
 

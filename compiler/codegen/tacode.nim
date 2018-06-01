@@ -1,13 +1,17 @@
 
 import tables
 import strutils
+import options
 
 type
   TAAtomKind* = enum
+    atNone
     atVar
     atIntLit
   TAAtom* = object
     case kind*: TAAtomKind
+    of atNone:
+      discard
     of atVar:
       varname*: string
     of atIntLit:
@@ -18,12 +22,13 @@ type
     taSub
     taMul
     taDiv
+    taSet
     taVar
     taGoto
     taIf
   TACode* = object
     case kind*: TACodeKind
-    of {taAdd, taSub, taMul, taDiv}:
+    of {taAdd, taSub, taMul, taDiv, taSet}:
       dstname*: string
       left*: TAAtom
       right*: TAAtom
@@ -39,23 +44,31 @@ type
     codes*: seq[TACode]
     labels*: Table[string, int]
     revlabels*: Table[int, string]
+    nextlabel*: Option[string]
     tmp*: int
     tmpl*: int
 
 proc newTAContext*(): TAContext =
   TAContext(codes: @[], labels: initTable[string, int](), revlabels: initTable[int, string]())
 proc add*(ctx: var TAContext, code: TACode) =
+  ctx.nextlabel = none(string)
   ctx.codes.add(code)
 proc addLabel*(ctx: var TAContext, labelname: string) =
+  ctx.nextlabel = some(labelname)
   ctx.labels[labelname] = ctx.codes.len
   ctx.revlabels[ctx.codes.len] = labelname
 proc tmpsym*(ctx: var TAContext, prefix = "t"): string =
   result = prefix & $ctx.tmp
   ctx.tmp.inc
 proc tmplabel*(ctx: var TAContext, prefix = "L"): string =
-  result = prefix & $ctx.tmpl
-  ctx.tmpl.inc
+  if ctx.nextlabel.isSome:
+    result = ctx.nextlabel.get
+    ctx.nextlabel = none(string)
+  else:
+    result = prefix & $ctx.tmpl
+    ctx.tmpl.inc
 
+proc atomNone*(): TAAtom = TAAtom(kind: atNone)
 proc atomVar*(name: string): TAAtom = TAAtom(kind: atVar, varname: name)
 proc atomInt*(x: int64): TAAtom = TAAtom(kind: atIntLit, intval: x)
 
@@ -73,6 +86,8 @@ proc codeIf*(cond: TAAtom, label: string): TACode =
 
 proc `$`*(a: TAAtom): string =
   case a.kind
+  of atNone:
+    "none"
   of atVar:
     a.varname
   of atIntLit:
@@ -87,8 +102,10 @@ proc `$`*(code: TACode): string =
     "$# = $# * $#" % [code.dstname, $code.left, $code.right]
   of taDiv:
     "$# = $# / $#" % [code.dstname, $code.left, $code.right]
+  of taSet:
+    "$# = $#" % [$code.left, $code.right]
   of taVar:
-    "$# = $#" % [code.varname, $code.value]
+    "$# := $#" % [code.varname, $code.value]
   of taGoto:
     "goto $#" % code.gotolabel
   of taIf:
