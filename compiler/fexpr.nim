@@ -6,10 +6,10 @@ import terminal
 import deques
 import algorithm
 
-import types
+import image, symbol
 
 const fexprAtoms* = {fexprIdent..fexprStrLit}
-const fexprNames* = {fexprIdent, fexprPrefix, fexprInfix}
+const fexprNames* = {fexprIdent, fexprPrefix, fexprInfix, fexprSymbol}
 const fexprContainer* = {fexprSeq, fexprArray, fexprList, fexprBlock}
 
 proc `$`*(fexpr: FExpr): string
@@ -21,7 +21,11 @@ proc error*(span: Span, msg: string) =
   for expand in gCtx.expands:
     let e = "$#($#:$#): expand by" % [expand.filename, $expand.line, $expand.linepos]
     styledEcho(fgGreen, "[Expand] ", resetStyle, e)
-  let e = "$#($#:$#): " % [span.filename, $span.line, $span.linepos] & msg
+  var e = ""
+  if span.isinternal:
+    e = "internal.$#($#): " % [span.filename, $span.line] & msg
+  else:
+    e = "$#($#:$#): " % [span.filename, $span.line, $span.linepos] & msg
   styledEcho(fgRed, "[Error] ", resetStyle, e)
 
   when defined(replError):
@@ -35,44 +39,47 @@ template assert*(fexpr: FExpr, b: typed) =
   if not b:
     fexpr.error("internal error.")
 
-proc hint*(fexpr: FExpr, msg: string) = fexpr.span.hint(msg)
-proc error*(fexpr: FExpr, msg: string) = fexpr.span.error(msg)
+proc hint*(fexpr: FExprObj, msg: string) = fexpr.span.hint(msg)
+proc error*(fexpr: FExprObj, msg: string) = fexpr.span.error(msg)
 
 template internalSpan*(): Span =
-  const internalname = instantiationInfo().filename
-  const internalline = instantiationInfo().line
-  Span(line: 0, linepos: 0, internal: (internalname, internalline))
+  Span(filename: instantiationInfo().filename, line: instantiationInfo().line, isinternal: true)
 
-proc fident*(span: Span, name: Name): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprIdent, idname: name)
-proc fprefix*(span: Span, name: Name): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprPrefix, idname: name)
-proc finfix*(span: Span, name: Name, p: int, isleft: bool): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprInfix, idname: name, priority: p, isleft: isleft)
+proc fident*(span: Span, name: string): FExpr =
+  genFExpr(FExprObj(span: span, kind: fexprIdent, idname: fstring(name)))
+proc fprefix*(span: Span, name: string): FExpr =
+  genFExpr(FExprObj(span: span, kind: fexprPrefix, idname: fstring(name)))
+proc finfix*(span: Span, name: string, p: int, isleft: bool): FExpr =
+  genFExpr(FExprObj(span: span, kind: fexprInfix, idname: fstring(name), priority: p, isleft: isleft))
 proc fquote*(span: Span, q: FExpr): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprQuote, quoted: q)
+  genFExpr(FExprObj(span: span, kind: fexprQuote, quoted: q))
 proc fsymbol*(span: Span, sym: Symbol): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprSymbol, symbol: sym)
+  genFExpr(FExprObj(span: span, kind: fexprSymbol, symbol: sym))
 proc fintlit*(span: Span, x: int64): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprIntLit, intval: x)
+  genFExpr(FExprObj(span: span, kind: fexprIntLit, intval: x))
 proc ffloatlit*(span: Span, x: float): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprFloatLit, floatval: x)
+  genFExpr(FExprObj(span: span, kind: fexprFloatLit, floatval: x))
 proc fstrlit*(span: Span, s: string): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprStrLit, strval: s)
+  genFExpr(FExprObj(span: span, kind: fexprStrLit, strval: fstring(s)))
 proc fseq*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprSeq, sons: sons)
+  genFExpr(FExprObj(span: span, kind: fexprSeq, sons: sons))
 proc farray*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprArray, sons: sons)
+  genFExpr(FExprObj(span: span, kind: fexprArray, sons: sons))
 proc flist*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprList, sons: sons)
+  genFExpr(FExprObj(span: span, kind: fexprList, sons: sons))
 proc fblock*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprBlock, sons: sons)
+  genFExpr(FExprObj(span: span, kind: fexprBlock, sons: sons))
 proc fcontainer*(span: Span, kind: FExprKind, sons = newSeq[FExpr]()): FExpr =
-  new result
-  result.span = span
-  result.metadata = initTable[string, Metadata]()
-  result.kind = kind
-  result.sons = sons
+  var f: FExprObj
+  f.span = span
+  f.kind = kind
+  f.sons = sons
+  genFExpr(f)
+
+proc kind*(fexpr: FExpr): FExprKind = fexpr.obj.kind
+proc symbol*(fexpr: FExpr): Symbol = fexpr.obj.symbol
+proc span*(fexpr: FExpr): Span = fexpr.obj.span
+proc sons*(fexpr: FExpr): var seq[FExpr] = fexpr.obj.sons
 
 iterator items*(fexpr: FExpr): FExpr =
   case fexpr.kind
@@ -103,7 +110,7 @@ iterator mpairs*(fexpr: FExpr): (int, var FExpr) =
   else:
     fexpr.error("this fexpr isn't container type.")
 
-proc len*(fexpr: FExpr): int =
+proc len*(fexpr: FExprObj): int =
   case fexpr.kind
   of fexprContainer:
     return fexpr.sons.len
@@ -116,15 +123,15 @@ proc addSon*(fexpr: FExpr, f: FExpr) =
   fexpr.sons.add(f)
 proc delSon*(fexpr: FExpr, i: int) =
   fexpr.sons.del(i)
-proc `[]`*(fexpr: FExpr, i: int): var FExpr =
+proc `[]`*(fexpr: var FExprObj, i: int): var FExpr =
   case fexpr.kind
   of fexprContainer:
     return fexpr.sons[i]
   else:
     fexpr.error("$# isn't container" % $fexpr.kind)
-proc `[]`*(fexpr: FExpr, i: BackwardsIndex): var FExpr =
+proc `[]`*(fexpr: var FExprObj, i: BackwardsIndex): var FExpr =
   fexpr[fexpr.len-int(i)]
-proc `[]`*(fexpr: FExpr, sl: Slice[int]): FExpr =
+proc `[]`*(fexpr: var FExprObj, sl: Slice[int]): FExpr =
   case fexpr.kind
   of fexprSeq:
     result = fseq(fexpr[sl.a].span, fexpr.sons[sl])
@@ -136,30 +143,30 @@ proc `[]`*(fexpr: FExpr, sl: Slice[int]): FExpr =
     result = fblock(fexpr[sl.a].span, fexpr.sons[sl])
   else:
     fexpr.error("$# isn't container, couldn't use as slice." % $fexpr.kind)
-proc `[]`*(fexpr: FExpr, sl: HSlice[int, BackwardsIndex]): FExpr =
+proc `[]`*(fexpr: var FExprObj, sl: HSlice[int, BackwardsIndex]): FExpr =
   fexpr[sl.a..fexpr.len-int(sl.b)]
-proc `[]=`*(fexpr: FExpr, i: int, f: FExpr) =
+proc `[]=`*(fexpr: var FExprObj, i: int, f: FExpr) =
   case fexpr.kind
   of fexprContainer:
     fexpr.sons[i] = f
   else:
     fexpr.error("$# isn't container" % $fexpr.kind)
-proc `[]=`*(fexpr: FExpr, i: BackwardsIndex, f: FExpr) =
+proc `[]=`*(fexpr: var FExprObj, i: BackwardsIndex, f: FExpr) =
   fexpr[fexpr.len-int(i)] = f
 
-proc isNormalFuncCall*(fexpr: FExpr): bool =
+proc isNormalFuncCall*(fexpr: var FExprObj): bool =
   fexpr.kind == fexprSeq and fexpr.len == 2 and fexpr[1].kind == fexprList
-proc isGenericsFuncCall*(fexpr: FExpr): bool =
+proc isGenericsFuncCall*(fexpr: var FExprObj): bool =
   fexpr.kind == fexprSeq and fexpr.len == 3 and fexpr[1].kind == fexprArray and fexpr[2].kind == fexprList
-proc isInfixFuncCall*(fexpr: FExpr): bool =
+proc isInfixFuncCall*(fexpr: var FExprObj): bool =
   fexpr.kind == fexprSeq and fexpr.len == 3 and (fexpr[0].kind == fexprInfix or (fexpr[0].kind == fexprSymbol and fexpr[0].symbol.kind == symbolInfix))
-proc isFuncCall*(fexpr: FExpr): bool =
+proc isFuncCall*(fexpr: var FExprObj): bool =
   fexpr.isNormalFuncCall or fexpr.isGenericsFuncCall or fexpr.isInfixFuncCall
 
 proc genIndent*(indent: int): string =
   repeat(' ', indent)
 
-proc toString*(fexpr: FExpr, indent: int, desc: bool): string =
+proc toString*(fexpr: var FExprObj, indent: int, desc: bool): string =
   case fexpr.kind
   of fexprIdent, fexprPrefix, fexprInfix:
     $fexpr.idname
@@ -172,7 +179,7 @@ proc toString*(fexpr: FExpr, indent: int, desc: bool): string =
   of fexprFloatLit:
     $fexpr.floatval
   of fexprStrLit:
-    "\"" & fexpr.strval & "\""
+    "\"" & $fexpr.strval & "\""
   of fexprSeq:
     if fexpr.isNormalFuncCall:
       fexpr[0].toString(indent, desc) & fexpr[1].toString(indent, desc)
@@ -184,34 +191,33 @@ proc toString*(fexpr: FExpr, indent: int, desc: bool): string =
       else:
         fexpr[1].toString(indent, desc) & " " & fexpr.sons[0].toString(indent, desc) & " " & fexpr[2].toString(indent, desc)
     else:
-      fexpr.sons.mapIt(it.toString(indent, desc)).join(" ")
+      fexpr.sons.mapIt(it.obj.toString(indent, desc)).join(" ")
   of fexprArray:
-    "[" & fexpr.sons.mapIt(it.toString(indent, desc)).join(", ") & "]"
+    "[" & fexpr.sons.mapIt(it.obj.toString(indent, desc)).join(", ") & "]"
   of fexprList:
-    "(" & fexpr.sons.mapIt(it.toString(indent, desc)).join(", ") & ")"
+    "(" & fexpr.sons.mapIt(it.obj.toString(indent, desc)).join(", ") & ")"
   of fexprBlock:
     if fexpr.len == 0:
       "{}"
     else:
-      "{" & "\n" & genIndent(indent + 2) & fexpr.sons.mapIt(it.toString(indent + 2, desc)).join("\n" & genIndent(indent + 2)) & "\n" & genIndent(indent) & "}"
+      "{" & "\n" & genIndent(indent + 2) & fexpr.sons.mapIt(it.obj.toString(indent + 2, desc)).join("\n" & genIndent(indent + 2)) & "\n" & genIndent(indent) & "}"
 
-proc `$`*(fexpr: FExpr): string = fexpr.toString(0, false)
-proc desc*(fexpr: FExpr): string = fexpr.toString(0, true)
+proc `$`*(fexpr: var FExprObj): string = fexpr.toString(0, false)
+proc `$`*(fexpr: FExpr): string = fexpr.obj.toString(0, false)
+proc desc*(fexpr: FExpr): string = fexpr.obj.toString(0, true)
 
 proc getSrcExpr*(fexpr: FExpr): string =
-  if fexpr.src.isSome:
-    fexpr.src.get
+  if fexpr.obj.src.isSome:
+    $fexpr.obj.src.get
   else:
     $fexpr
     
-proc name*(fexpr: FExpr): Name =
+proc name*(fexpr: FExpr): string =
   case fexpr.kind
   of fexprNames:
-    return name($fexpr)
+    return $fexpr
   of fexprQuote:
-    return name(fexpr.quoted)
-  of fexprSymbol:
-    return fexpr.symbol.name
+    return name(fexpr.obj.quoted)
   else:
     fexpr.error("$# is not name." % $fexpr)
 
@@ -220,6 +226,6 @@ proc name*(fexpr: FExpr): Name =
 proc isParametricTypeExpr*(fexpr: FExpr, pos: int): bool =
   if fexpr.kind != fexprSeq: return false
   if fexpr.len <= pos+1: return false
-  return (fexpr[pos].kind == fexprIdent or fexpr[pos].kind == fexprQuote or fexpr[pos].kind == fexprSymbol) and fexpr[pos+1].kind == fexprArray
+  return (fexpr.obj[pos].kind == fexprIdent or fexpr.obj[pos].kind == fexprQuote or fexpr.obj[pos].kind == fexprSymbol) and fexpr.obj[pos+1].kind == fexprArray
 proc isPragmaPrefix*(fexpr: FExpr): bool =
   fexpr.kind == fexprPrefix and $fexpr == "$"
