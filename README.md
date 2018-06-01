@@ -1,7 +1,8 @@
 
 # Flori
 
-**Warning**: This project is work in progress. (very early stage)
+**Warning**: This project is work in progress. (very early stage)  
+**Important**: Compiler is rewriting now, please look image-compiler branch.
 
 Flori is statically typed programming language without GC for system/application programming.
 
@@ -17,6 +18,7 @@ Flori is statically typed programming language without GC for system/application
 # Inspired languages
 
 - Nim
+- Forth
 - bone-lisp
 - xtlang
 - REBOL
