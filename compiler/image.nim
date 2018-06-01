@@ -14,6 +14,9 @@ type
   FString* = object
     index*: int
     len*: int
+  FArray*[T] = object
+    index*: int
+    len*: int
   SymbolKind* = enum
     symbolType
     symbolGenerics
@@ -85,7 +88,7 @@ type
     of fexprStrLit:
       strval*: FString
     of fexprSeq, fexprArray, fexprList, fexprBlock:
-      sons*: seq[FExpr]
+      sons*: FArray[FExpr]
   FExpr* = object
     index: int
   FScopeObj* = object
@@ -129,6 +132,27 @@ proc `$`*(fs: FString): string =
   result = ""
   for i in 0..<fs.len:
     result.add(char(gImage.mem[fs.index + i]))
+    
+proc farray*[T](len: int): FArray[T] =
+  result = FArray(index: gImage.mem.len, len: len * sizeof(T))
+proc `[]`*[T](arr: FArray[T], i: int): T =
+  cast[ptr T](addr(gImage.mem[arr.index + i*sizeof(T)]))[]
+proc mget*[T](arr: var FArray[T], i: int): var T =
+  cast[ptr T](addr(gImage.mem[arr.index + i*sizeof(T)]))[]
+proc `[]=`*[T](arr: FArray[T], i: int, val: T) =
+  cast[ptr T](addr(gImage.mem[arr.index + i*sizeof(T)]))[] = val
+iterator items*[T](arr: FArray[T]): T =
+  for i in 0..<arr.len:
+    yield(arr[i])
+iterator mitems*[T](arr: var FArray[T]): var T =
+  for i in 0..<arr.len:
+    yield(arr.mget(i))
+iterator pairs*[T](arr: FArray[T]): (int, T) =
+  for i in 0..<arr.len:
+    yield(i, arr[i])
+iterator mpairs*[T](arr: var FArray[T]): (int, var T) =
+  for i in 0..<arr.len:
+    yield(i, arr.mget(i))
 
 proc genFExpr*(f: FExprObj): FExpr =
   gImage.addFExpr(f)

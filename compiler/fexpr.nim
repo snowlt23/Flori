@@ -61,15 +61,15 @@ proc ffloatlit*(span: Span, x: float): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprFloatLit, floatval: x))
 proc fstrlit*(span: Span, s: string): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprStrLit, strval: fstring(s)))
-proc fseq*(span: Span, sons = newSeq[FExpr]()): FExpr =
+proc fseq*(span: Span, sons: FArray[FExpr]): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprSeq, sons: sons))
-proc farray*(span: Span, sons = newSeq[FExpr]()): FExpr =
+proc farray*(span: Span, sons: FArray[FExpr]): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprArray, sons: sons))
-proc flist*(span: Span, sons = newSeq[FExpr]()): FExpr =
+proc flist*(span: Span, sons: FArray[FExpr]): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprList, sons: sons))
-proc fblock*(span: Span, sons = newSeq[FExpr]()): FExpr =
+proc fblock*(span: Span, sons: FArray[FExpr]): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprBlock, sons: sons))
-proc fcontainer*(span: Span, kind: FExprKind, sons = newSeq[FExpr]()): FExpr =
+proc fcontainer*(span: Span, kind: FExprKind, sons: FArray[FExpr]): FExpr =
   var f: FExprObj
   f.span = span
   f.kind = kind
@@ -79,7 +79,7 @@ proc fcontainer*(span: Span, kind: FExprKind, sons = newSeq[FExpr]()): FExpr =
 proc kind*(fexpr: FExpr): FExprKind = fexpr.obj.kind
 proc symbol*(fexpr: FExpr): Symbol = fexpr.obj.symbol
 proc span*(fexpr: FExpr): Span = fexpr.obj.span
-proc sons*(fexpr: FExpr): var seq[FExpr] = fexpr.obj.sons
+proc sons*(fexpr: FExpr): var FArray[FExpr] = fexpr.obj.sons
 
 iterator items*(fexpr: FExpr): FExpr =
   case fexpr.kind
@@ -117,34 +117,14 @@ proc len*(fexpr: FExprObj): int =
   else:
     return 0
 
-proc addSon*(fexpr: FExpr, f: FExpr) =
-  if fexpr.kind notin fexprContainer:
-    fexpr.error("$# isn't farray" % $fexpr.kind)
-  fexpr.sons.add(f)
-proc delSon*(fexpr: FExpr, i: int) =
-  fexpr.sons.del(i)
 proc `[]`*(fexpr: var FExprObj, i: int): var FExpr =
   case fexpr.kind
   of fexprContainer:
-    return fexpr.sons[i]
+    return fexpr.sons.mget(i)
   else:
     fexpr.error("$# isn't container" % $fexpr.kind)
 proc `[]`*(fexpr: var FExprObj, i: BackwardsIndex): var FExpr =
   fexpr[fexpr.len-int(i)]
-proc `[]`*(fexpr: var FExprObj, sl: Slice[int]): FExpr =
-  case fexpr.kind
-  of fexprSeq:
-    result = fseq(fexpr[sl.a].span, fexpr.sons[sl])
-  of fexprArray:
-    result = farray(fexpr[sl.a].span, fexpr.sons[sl])
-  of fexprList:
-    result = flist(fexpr[sl.a].span, fexpr.sons[sl])
-  of fexprBlock:
-    result = fblock(fexpr[sl.a].span, fexpr.sons[sl])
-  else:
-    fexpr.error("$# isn't container, couldn't use as slice." % $fexpr.kind)
-proc `[]`*(fexpr: var FExprObj, sl: HSlice[int, BackwardsIndex]): FExpr =
-  fexpr[sl.a..fexpr.len-int(sl.b)]
 proc `[]=`*(fexpr: var FExprObj, i: int, f: FExpr) =
   case fexpr.kind
   of fexprContainer:
@@ -187,9 +167,9 @@ proc toString*(fexpr: var FExprObj, indent: int, desc: bool): string =
       fexpr[0].toString(indent, desc) & fexpr[1].toString(indent, desc) & fexpr[2].toString(indent, desc)
     elif fexpr.isInfixFuncCall:
       if ($fexpr[0])[0] == '.':
-        fexpr[1].toString(indent, desc) & fexpr.sons[0].toString(indent, desc) & fexpr[2].toString(indent, desc)
+        fexpr[1].toString(indent, desc) & fexpr[0].toString(indent, desc) & fexpr[2].toString(indent, desc)
       else:
-        fexpr[1].toString(indent, desc) & " " & fexpr.sons[0].toString(indent, desc) & " " & fexpr[2].toString(indent, desc)
+        fexpr[1].toString(indent, desc) & " " & fexpr[0].toString(indent, desc) & " " & fexpr[2].toString(indent, desc)
     else:
       fexpr.sons.mapIt(it.obj.toString(indent, desc)).join(" ")
   of fexprArray:
