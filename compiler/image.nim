@@ -5,8 +5,8 @@ import streams
 
 type
   FExprError* = object of Exception
-  Span* = ref object
-    filename*: string
+  Span* = object
+    filename*: IString
     line*: int
     linepos*: int
     pos*: int
@@ -17,6 +17,11 @@ type
   IArray*[T] = object
     index*: int
     len*: int
+  IListObj*[T] = object
+    value*: T
+    next*: IList[T]
+  IList*[T] = object
+    index*: int
   SymbolKind* = enum
     symbolType
     symbolGenerics
@@ -40,14 +45,14 @@ type
     instance*: Option[Symbol]
     case kind*: SymbolKind
     of symbolTypeGenerics:
-      types*: seq[Symbol]
+      types*: IArray[Symbol]
     of symbolVar, symbolRef:
       wrapped*: Symbol
     of symbolSyntax, symbolMacro:
       discard
       # macroproc*: MacroProc
     of symbolFuncType:
-      argtypes*: seq[Symbol]
+      argtypes*: IArray[Symbol]
       rettype*: Symbol
     of symbolConstant:
       constvalue*: FExpr
@@ -72,6 +77,7 @@ type
   FExprObj* = object
     span*: Span
     src*: Option[IString]
+    typ*: Option[Symbol]
     case kind*: FExprKind
     of fexprIdent, fexprPrefix, fexprInfix:
       idname*: IString
@@ -90,31 +96,46 @@ type
     of fexprSeq, fexprArray, fexprList, fexprBlock:
       sons*: IArray[FExpr]
   FExpr* = object
-    index: int
-  FScopeObj* = object
+    index*: int
+  ProcName* = object
     name*: string
+    argtypes*: seq[Symbol]
+    generics*: seq[Symbol]
+  ProcDecl* = object
+    name*: IString
+    argtypes*: IArray[Symbol]
+    generics*: IArray[Symbol]
+    returntype*: Symbol
+    sym*: Symbol
+  ProcDeclGroup* = object
+    decls*: IList[ProcDecl]
+  TupleTable*[T] = tuple[name: IString, value: T]
+  FScopeObj* = object
+    name*: IString
     top*: FScope
     level*: int
-    decls*: Table[string, Symbol]
+    imports*: IList[TupleTable[FScope]]
+    decls*: IList[TupleTable[Symbol]]
+    procdecls*: IList[TupleTable[ProcDeclGroup]]
   FScope* = object
-    image: FImage
-    index: int
+    index*: int
   FImage* = object
     fexprs*: seq[FExprObj]
     scopes*: seq[FScopeObj]
     mem*: seq[uint8]
   SemContext* = object
     expands*: seq[Span]
+    tmpcount*: int
 
 proc newFImage*(): FImage =
   FImage(fexprs: @[], scopes: @[], mem: @[])
 
 var gImage* = newFImage()
-var gCtx* = SemContext(expands: @[])
+var gCtx* = SemContext(expands: @[], tmpcount: 0)
     
 converter obj*(fexpr: FExpr): var FExprObj =
   gImage.fexprs[fexpr.index]
-converter obj*(scope: FScope): FScopeObj =
+converter obj*(scope: FScope): var FScopeObj =
   gImage.scopes[scope.index]
 
 proc addFExpr*(image: var FImage, f: FExprObj): FExpr =
@@ -124,6 +145,10 @@ proc addFScope*(image: var FImage, s: FScopeObj): FScope =
   result = FScope(index: image.scopes.len)
   image.scopes.add(s)
 
+#
+# Internal Types
+#
+
 proc istring*(s: string): IString =
   result = IString(index: gImage.mem.len, len: s.len)
   for c in s:
@@ -132,6 +157,8 @@ proc `$`*(fs: IString): string =
   result = ""
   for i in 0..<fs.len:
     result.add(char(gImage.mem[fs.index + i]))
+proc `==`*(a: IString, b: string): bool =
+  $a == b
     
 proc iarray*[T](len: int): IArray[T] =
   result = IArray[T](index: gImage.mem.len, len: len)
@@ -169,6 +196,66 @@ iterator mpairs*[T](arr: var IArray[T]): (int, var T) =
   for i in 0..<arr.len:
     yield(i, arr.mget(i))
 
+proc ilist*[T](value: T, next: IList[T]): IList[T] =
+  result = IList[T](index: gImage.mem.len)
+  
+  for i in 0..<sizeof(T):
+    gImage.mem.add(0)
+  for i in 0..<sizeof(int32):
+    gImage.mem.add(0)
+
+  let p = cast[ptr IListObj[T]](addr(gImage.mem[result.index]))
+  p[].value = value
+  p[].next = next
+converter obj*[T](lst: IList[T]): IListObj[T] =
+  let p = cast[ptr IListObj[T]](addr(gImage.mem[lst.index]))
+  p[]
+proc value*[T](lst: IList[T]): var T =
+  let p = cast[ptr IListObj[T]](addr(gImage.mem[lst.index]))
+  p[].value
+proc next*[T](lst: IList[T]): var IList[T] =
+  let p = cast[ptr IListObj[T]](addr(gImage.mem[lst.index]))
+  p[].next
+proc ilistNil*[T](): IList[T] =
+  IList[T](index: -1)
+proc isNil*[T](lst: IList[T]): bool =
+  lst.next.index == -1
+proc last*[T](lst: IList[T]): IList[T] =
+  var cur = lst
+  while true:
+    if cur.isNil:
+      return cur
+    cur = cur.next
+proc add*[T](lst: var IList[T], value: T) =
+  lst = ilist(value, lst)
+iterator items*[T](lst: IList[T]): T =
+  var cur = lst
+  while true:
+    if cur.isNil:
+      break
+    yield(cur.value)
+    cur = cur.next
+iterator mitems*[T](lst: IList[T]): var T =
+  var cur = lst
+  while true:
+    if cur.isNil:
+      break
+    yield(cur.mvalue)
+    cur = cur.next
+iterator pairs*[T](lst: IList[T]): (int, T) =
+  var cur = lst
+  var i = 0
+  while true:
+    if cur.isNil:
+      break
+    yield(i, cur.value)
+    cur = cur.next
+    i.inc
+
+#
+# Image
+#
+  
 proc genFExpr*(f: FExprObj): FExpr =
   gImage.addFExpr(f)
 proc genFScope*(s: FScopeObj): FScope =

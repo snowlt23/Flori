@@ -3,43 +3,76 @@ import tables
 import options
 import strutils
 
-import types, fexpr, metadata, fnmatch
+import image, fexpr
 
-proc newScope*(ctx: SemanticContext, name: Name, path: string): Scope =
-  new result
-  result.ctx = ctx
-  result.path = path
-  result.name = name
-  result.top = result
-  result.level = 0
-  result.nodestruct = false
-  result.decls = initTable[Name, Symbol]()
-  result.procdecls = initTable[Name, ProcDeclGroup]()
-  result.importscopes = initOrderedTable[Name, Scope]()
-  result.exportscopes = initOrderedTable[Name, Scope]()
-  result.toplevels = @[]
-  result.scopevalues = @[]
-  result.scopedepends = @[]
+proc newFScope*(name: string, path: string): FScope =
+  genFScope(FScopeObj(
+    name: istring(name),
+    top: FScope(index: -1),
+    level: 0,
+    imports: ilistNil[(IString, FScope)](),
+    decls: ilistNil[(IString, Symbol)](),
+    procdecls: ilistNil[(IString, ProcDeclGroup)]()
+  ))
+proc extendFScope*(scope: FScope): FScope =
+  genFScope(FScopeObj(
+    name: scope.obj.name,
+    top: scope,
+    level: scope.obj.level+1,
+    imports: scope.obj.imports,
+    decls: scope.obj.decls,
+    procdecls: scope.obj.procdecls
+  ))
 
-proc extendScope*(scope: Scope): Scope =
-  new result
-  result.ctx = scope.ctx
-  result.path = scope.path
-  result.name = scope.name
-  result.top = scope.top
-  result.level = scope.level + 1
-  result.nodestruct = scope.nodestruct
-  result.decls = scope.decls
-  result.procdecls = scope.procdecls
-  result.importscopes = scope.importscopes
-  result.exportscopes = scope.exportscopes
-  result.toplevels = @[]
-  result.scopevalues = @[]
-  result.scopedepends = @[]
+proc imports*(scope: FScope): var IList[TupleTable[FScope]] = scope.obj.imports
+proc decls*(scope: FScope): var IList[TupleTable[Symbol]] = scope.obj.decls
+proc procdecls*(scope: FScope): var IList[TupleTable[ProcDeclGroup]] = scope.obj.procdecls
 
-proc procname*(name: Name, argtypes: seq[Symbol], generics = newSeq[Symbol]()): ProcName =
+proc procname*(name: string, argtypes: seq[Symbol], generics = newSeq[Symbol]()): ProcName =
   ProcName(name: name, argtypes: argtypes, generics: generics)
 
+proc initProcDeclGroup*(): ProcDeclGroup =
+  result.decls = ilistNil[ProcDecl]()
+
+proc match*(a, b: Symbol): bool =
+  if b.kind == symbolGenerics:
+    return true
+  elif a.kind == symbolTypeGenerics and b.kind == symbolTypeGenerics:
+    if a.name != b.name: return false
+    if a.types.len != b.types.len: return false
+    for i in 0..<a.types.len:
+      if not a.types[i].match(b.types[i]):
+        return false
+    return true
+  elif a.kind == symbolFuncType and b.kind == symbolFuncType:
+    if a.argtypes.len != b.argtypes.len: return false
+    for i in 0..<a.argtypes.len:
+      if not a.argtypes[i].match(b.argtypes[i]):
+        return false
+    if not a.rettype.match(b.rettype): return false
+    return true
+  elif a.kind == symbolRef and b.kind == symbolRef:
+    return a.wrapped.match(b.wrapped)
+  elif a.kind == symbolVar and b.kind == symbolRef:
+    return a.wrapped.match(b.wrapped)
+  elif b.kind == symbolVar:
+    return a.match(b.wrapped)
+  elif a.kind == symbolRef:
+    return a.wrapped.match(b)
+  elif a.kind == symbolVar:
+    return a.wrapped.match(b)
+  elif a == b:
+    return true
+  else:
+    return false
+proc match*(a: ProcDecl, b: ProcName): bool =
+  if a.name != b.name: return false
+  if a.argtypes.len != b.argtypes.len: return false
+  for i in 0..<a.argtypes.len:
+    if not a.argtypes[i].match(b.argtypes[i]):
+      return false
+  return true
+  
 proc spec*(a, b: Symbol): bool =
   if a.kind == symbolType and b.kind == symbolType:
     return a == b
@@ -57,8 +90,6 @@ proc spec*(a, b: Symbol): bool =
         return false
     if not a.rettype.spec(b.rettype): return false
     return true
-  elif a.kind == symbolIntLit and b.kind == symbolIntLit:
-    return a.intval == b.intval
   elif a.kind == symbolRef and b.kind == symbolRef:
     return a.wrapped.spec(b.wrapped)
   elif a.kind == symbolVar and b.kind == symbolRef:
@@ -69,7 +100,7 @@ proc spec*(a, b: Symbol): bool =
     return a.wrapped.spec(b)
   else:
     return false
-proc spec*(a: ProcName, b: ProcDecl): bool =
+proc spec*(a: ProcDecl, b: ProcName): bool =
   if a.generics.len != b.generics.len: return false
   if a.argtypes.len != b.argtypes.len: return false
   for i in 0..<a.generics.len:
@@ -78,93 +109,81 @@ proc spec*(a: ProcName, b: ProcDecl): bool =
     if not a.argtypes[i].spec(b.argtypes[i]): return false
   return true
 
-proc initProcIdentGroup*(): ProcDeclGroup =
-  result.decls = @[]
+proc find*(lst: IList[TupleTable[Symbol]], n: string): Option[Symbol] =
+  for f in lst:
+    let (name, sym) = f
+    if name == n:
+      return some(sym)
+  return none(Symbol)
+proc find*(lst: IList[TupleTable[ProcDeclGroup]], n: string): Option[IList[TupleTable[ProcDeclGroup]]] =
+  var cur = lst
+  while true:
+    if cur.isNil:
+      break
+    let (name, group) = cur.value
+    if name == n:
+      return some(cur)
+    cur = cur.next
+  return none(IList[TupleTable[ProcDeclGroup]])
 
-proc getDecl*(scope: Scope, n: Name, importscope = true): Option[Symbol] =
-  if not scope.decls.hasKey(n):
-    if importscope:
-      for scopename, s in scope.importscopes:
-        let opt = s.getDecl(n, importscope = scopename.isCurrentScope())
-        if opt.isSome:
-          return opt
-      return none(Symbol)
-    else:
-      return none(Symbol)
-  return some scope.decls[n]
-proc getFnDecl*(scope: Scope, n: Name): Option[Symbol] =
-  var fns = newSeq[ProcDecl]()
-  if scope.procdecls.hasKey(n):
-    fns &= scope.procdecls[n].decls
-  for scopename, s in scope.importscopes:
-    if s.procdecls.hasKey(n):
-      fns &= s.procdecls[n].decls
+proc getDecl*(scope: FScope, n: string): Option[Symbol] =
+  let opt = scope.decls.find(n)
+  if opt.isSome:
+    return opt
 
-  if fns.len == 1:
-    return some(fns[0].sym)
-  else:
-    return none(Symbol)
-    
-proc getSpecType*(scope: Scope, n: Name, types: seq[Symbol], importscope = true): Option[Symbol] =
-  if scope.decls.hasKey(n):
-    if scope.decls[n].types == types:
-      return some(scope.decls[n])
-    else:
-      return none(Symbol)
-  else:
-    if importscope:
-      for scopename, s in scope.importscopes:
-        let opt = s.getDecl(n, importscope = scopename.isCurrentScope())
-        if opt.isSome:
-          return opt
-      return none(Symbol)
-    else:
-      return none(Symbol)
-proc getSpecFunc*(scope: Scope, pd: ProcName, importscope = true): Option[ProcDecl] =
-  if not scope.procdecls.hasKey(pd.name):
-    if importscope:
-      for scopename, s in scope.importscopes:
-        let opt = s.getSpecFunc(pd, importscope = scopename.isCurrentScope())
-        if opt.isSome:
-          return opt
-      return none(ProcDecl)
-    else:
-      return none(ProcDecl)
+  for imscope in scope.imports:
+    let opt = imscope.value.decls.find(n)
+    if opt.isSome:
+      return opt
 
-  let group = scope.procdecls[pd.name]
-  for decl in group.decls:
-    if pd.spec(decl):
-      return some(decl)
+  return none(Symbol)
+proc getFunc*(scope: FScope, pd: ProcName): Option[ProcDecl] =
+  let groupopt = scope.procdecls.find(pd.name)
+  if groupopt.isSome:
+    for decl in groupopt.get.value.value.decls:
+      if decl.match(pd):
+        return some(decl)
 
-  if importscope:
-    for scopename, s in scope.importscopes:
-      let opt = s.getSpecFunc(pd, importscope = scopename.isCurrentScope())
-      if opt.isSome:
-        return opt
-    return none(ProcDecl)
-  else:
-    return none(ProcDecl)
+  for scopetup in scope.imports:
+    let (name, imscope) = scopetup
+    let groupopt = imscope.procdecls.find(pd.name)
+    if groupopt.isSome:
+      for decl in groupopt.get.value.value.decls:
+        if decl.match(pd):
+          return some(decl)
 
-proc addDecl*(scope: Scope, n: Name, v: Symbol): bool =
-  if scope.getDecl(n).isSome: return false
-  scope.decls[n] = v
-  return true
-proc addFunc*(scope: Scope, decl: ProcDecl): bool =
-  let pn = ProcName(name: decl.name, argtypes: decl.argtypes)
-  if scope.getFunc(pn).isSome: return false
-  if not scope.procdecls.hasKey(decl.name):
-    scope.procdecls[decl.name] = initProcIdentGroup()
-  scope.procdecls[decl.name].decls.add(decl)
-  return true
-proc addSpecFunc*(scope: Scope, decl: ProcDecl) =
-  if not scope.procdecls.hasKey(decl.name):
-    scope.procdecls[decl.name] = initProcIdentGroup()
-  scope.procdecls[decl.name].decls.add(decl)
+  return none(ProcDecl)
+proc getSpecFunc*(scope: FScope, pd: ProcName): Option[ProcDecl] =
+  let groupopt = scope.procdecls.find(pd.name)
+  if groupopt.isSome:
+    for decl in groupopt.get.value.value.decls:
+      if decl.spec(pd):
+        return some(decl)
 
-proc importScope*(scope: Scope, name: Name, importscope: Scope) =
-  scope.importscopes[name] = importscope
-  for name, exportscope in importscope.exportscopes:
-    scope.importscopes[name] = exportscope
+  for imscope in scope.imports:
+    let groupopt = imscope.value.procdecls.find(pd.name)
+    if groupopt.isSome:
+      for decl in groupopt.get.value.value.decls:
+        if decl.spec(pd):
+          return some(decl)
+
+  return none(ProcDecl)
+
+proc addDecl*(scope: FScope, n: IString, v: Symbol) =
+  scope.decls.add((n, v))
+proc addFunc*(scope: FScope, decl: ProcDecl) =
+  let opt = scope.procdecls.find($decl.name)
+  let group = if opt.isSome:
+                opt.get
+              else:
+                scope.procdecls.add((decl.name, initProcDeclGroup()))
+                scope.procdecls.find($decl.name).get
+  group.value.value.decls.add(decl)
+
+proc importScope*(scope: FScope, name: IString, importscope: FScope) =
+  scope.imports.add((name, importscope))
+  # for name, exportscope in importscope.exportscopes:
+  #   scope.importscopes[name] = exportscope
 
 proc isType*(sym: Symbol, name: string): bool =
   $sym.name == name
@@ -172,6 +191,3 @@ proc isBoolType*(sym: Symbol): bool =
   sym.isType("Bool")
 proc isVoidType*(sym: Symbol): bool =
   sym.isType("Void")
-
-proc tracking*(scope: Scope, value: FExpr) =
-  scope.scopevalues.add(value)

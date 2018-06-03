@@ -21,3 +21,4 @@ tests/bin/
 voiceroids.txt
 *.zip
 *.fimg
+*.bin

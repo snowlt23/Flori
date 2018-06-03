@@ -22,6 +22,8 @@ type
     scale4
     scale8
 
+const DataReg32* = {ecx, edx, ebx}
+
 proc sib*(s: Scale, index: Reg32, base: Reg32): uint8 =
   uint8((int(s) shl 6) + (int(index) shl 3) + int(base))
 proc modrm*(m: Mod, reg: Reg32, rm: Reg32): uint8 =
@@ -52,7 +54,7 @@ proc opRegImm*[B](b: var B, op: uint8, r: Reg32, i: int32) =
   b.asmd(i)
 proc opRegImmMod*[B](b: var B, op: uint8, m: int, r: Reg32, i: int32) =
   b.asmb(op)
-  b.asmb(modrm(modReg, r, cast[Reg32](m)))
+  b.asmb(modrm(modReg, cast[Reg32](m), r))
   b.asmd(i)
 proc opRegMod*[B](b: var B, op: uint8, m: int, r: Reg32) =
   b.asmb(op)
@@ -63,7 +65,7 @@ proc opRegReg*[B](b: var B, op: uint8, r1: Reg32, r2: Reg32) =
 proc opRegRegDisp32*[B](b: var B, op: uint8, r1: Reg32, r2: Reg32, disp: int32) =
   b.asmb(op)
   b.asmb(modrm(modRegDisp32, r1, r2))
-  b.asmb(sib(scale1, cast[Reg32](0b100), r2))
+  # b.asmb(sib(scale1, cast[Reg32](0b100), r2))
   b.asmd(disp)
 proc opReg*[B](b: var B, op: uint8, r: Reg32) =
   b.asmb(uint8(int(op) + int(r)))
@@ -75,19 +77,35 @@ proc opReg*[B](b: var B, op: uint8, r: Reg32) =
 proc mov*[B](b: var B, r: Reg32, i: int32) =
   b.opRegImm(0xB8, r, i)
 proc mov*[B](b: var B, r1: Reg32, r2: Reg32) =
-  b.opRegReg(0x8B, r1, r2)
+  b.opRegReg(0x89, r1, r2)
 proc mov*[B](b: var B, r1: Reg32, r2: Reg32, disp: int32) =
   b.opRegRegDisp32(0x8B, r1, r2, disp)
+  
 proc add*[B](b: var B, r: Reg32, i: int32) =
-  b.opRegImmMod(0x83, 0, r, i)
+  if r == eax:
+    b.opRegImm(0x05, r, i)
+  else:
+    b.opRegImmMod(0x81, 0, r, i)
 proc add*[B](b: var B, r1: Reg32, r2: Reg32) =
   b.opRegReg(0x01, r1, r2)
 proc add*[B](b: var B, r1: Reg32, r2: Reg32, disp: int32) =
-  b.opRegRegDisp32(0x01, r1, r2, disp)
+  b.opRegRegDisp32(0x03, r1, r2, disp)
+
+proc sub*[B](b: var B, r: Reg32, i: int32) =
+  if r == eax:
+    b.opRegImm(0x2D, r, i)
+  else:
+    b.opRegImmMod(0x81, 5, r, i)
+proc sub*[B](b: var B, r1: Reg32, r2: Reg32) =
+  b.opRegReg(0x29, r1, r2)
+proc sub*[B](b: var B, r1: Reg32, r2: Reg32, disp: int32) =
+  b.opRegRegDisp32(0x2B, r1, r2, disp)
+  
 proc push*[B](b: var B, r: Reg32) =
   b.opReg(0x50, r)
 proc pop*[B](b: var B, r: Reg32) =
   b.opReg(0x58, r)
+  
 proc callRel*[B](b: var B, rel: int32) =
   b.asmb(0xE8)
   b.asmd(rel)

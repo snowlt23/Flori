@@ -68,8 +68,7 @@ proc skipSpaces*(context: var ParserContext) =
     else:
       break
 proc span*(context: ParserContext): Span =
-  new result
-  result.filename = context.filename
+  result.filename = istring(context.filename)
   result.line = context.line
   result.linepos = context.linepos
   result.pos = context.pos
@@ -302,7 +301,7 @@ proc rewriteToCall*(fexpr: FExpr): FExpr =
         if arr.len == 1:
           stack.add(arr[0])
         else:
-          let f = fseq(fexpr[i].span, iarray(arr))
+          let f = fseq(fexpr.span, iarray(arr))
           stack.add(f)
     for infix in infixstack.reversed():
       stack.add(infix)
