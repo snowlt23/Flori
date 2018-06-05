@@ -15,7 +15,7 @@ type
   JitBuffer* = ref object
     mem: pointer
     cap: int
-    len: int
+    len*: int
   JitProc* = object
     buf: JitBuffer
     pos: int
@@ -40,3 +40,8 @@ proc getproc*(buf: JitBuffer): JitProc =
 
 proc toProc*[F](prc: JitProc): F =
   cast[F](cast[int](prc.buf.mem) + prc.pos)
+
+proc toBin*(buf: JitBuffer, s, e: int): string =
+  result = newString(e-s+1)
+  for i in s..e:
+    result[i-s] = cast[ptr char](cast[int](buf.mem) + i)[]

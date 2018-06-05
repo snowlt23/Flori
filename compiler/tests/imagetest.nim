@@ -1,5 +1,5 @@
 
-import image, fexpr, parser
+import ../image, ../fexpr, ../parser
 
 # discard parseToplevel("test.flori", """
 # 1 + 1

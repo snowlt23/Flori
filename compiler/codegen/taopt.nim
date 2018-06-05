@@ -1,6 +1,6 @@
 
 import ../image, ../parser, ../fexpr
-import tacode, tacodegen
+import tacode, tagen
 import tables
 import options
 

@@ -24,7 +24,7 @@ type
     elifbranches*: seq[(int, int)]
     elsebody*: Option[int]
 
-proc parseDefn*(fexpr: var FExpr): Defn =
+proc parseDefn*(fexpr: FExpr): Defn =
   var pos = 1
 
   # name
@@ -72,7 +72,7 @@ proc parseDefn*(fexpr: var FExpr): Defn =
     result.body = some(pos)
     pos.inc
 
-proc parseDeftype*(fexpr: var FExpr): Deftype =
+proc parseDeftype*(fexpr: FExpr): Deftype =
   var pos = 1
 
   # name

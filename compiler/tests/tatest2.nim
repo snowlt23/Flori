@@ -1,6 +1,6 @@
 
 import ../image, ../parser, ../fexpr
-import tacode, tacodegen, taopt
+import ../codegen/tacode, ../codegen/tagen, ../codegen/taopt
 
 let fexprs = parseToplevel("test.flori", """
 fn fib(x Int) Int {

@@ -1,6 +1,7 @@
 
 import ../image, ../parser, ../fexpr
-import tacode, tacodegen, taopt, ta_x86
+import ../codegen/tacode, ../codegen/tagen, ../codegen/taopt, ../codegen/ta_x86
+
 import tables
 import os, osproc, strutils
 
@@ -42,5 +43,5 @@ writeFile("fib.bin", bin)
 
 echo ctx
 echo "=>\n"
-let outp = execProcess("objdump -b binary -m i386 -D fib.bin")
+let outp = execProcess("objdump -b binary -M intel -m i386 -D fib.bin")
 echo outp.split("\n")[6..^1].join("\n")

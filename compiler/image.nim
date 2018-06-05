@@ -38,7 +38,7 @@ type
     symbolVar
     symbolRef
     symbolConstant
-  Symbol* = ref object
+  SymbolObj* = object
     scope*: FScope
     name*: IString
     fexpr*: FExpr
@@ -58,6 +58,8 @@ type
       constvalue*: FExpr
     else:
       discard
+  Symbol* = object
+    index*: int
   FExprKind* = enum
     fexprIdent = 0
     fexprPrefix
@@ -101,7 +103,9 @@ type
     name*: string
     argtypes*: seq[Symbol]
     generics*: seq[Symbol]
+  InternalProcType* = proc (scope: FScope, fexpr: var FExpr)
   ProcDecl* = object
+    internalproc*: Option[InternalProcType]
     name*: IString
     argtypes*: IArray[Symbol]
     generics*: IArray[Symbol]
@@ -121,29 +125,46 @@ type
     index*: int
   FImage* = object
     fexprs*: seq[FExprObj]
+    symbols*: seq[SymbolObj]
     scopes*: seq[FScopeObj]
     mem*: seq[uint8]
+    importpaths*: IList[IString]
   SemContext* = object
     expands*: seq[Span]
     tmpcount*: int
+    rootScope*: FScope
 
 proc newFImage*(): FImage =
-  FImage(fexprs: @[], scopes: @[], mem: @[])
+  FImage(fexprs: @[], symbols: @[], scopes: @[], mem: @[], importpaths: IList[IString](index: -1))
 
 var gImage* = newFImage()
 var gCtx* = SemContext(expands: @[], tmpcount: 0)
+
+template rootScope*(): FScope = gCtx.rootScope
     
-converter obj*(fexpr: FExpr): var FExprObj =
+proc obj*(fexpr: FExpr): var FExprObj =
   gImage.fexprs[fexpr.index]
-converter obj*(scope: FScope): var FScopeObj =
+proc obj*(sym: Symbol): var SymbolObj =
+  gImage.symbols[sym.index]
+proc obj*(scope: FScope): var FScopeObj =
   gImage.scopes[scope.index]
 
 proc addFExpr*(image: var FImage, f: FExprObj): FExpr =
   result = FExpr(index: image.fexprs.len)
   image.fexprs.add(f)
+proc addSymbol*(image: var FImage, s: SymbolObj): Symbol =
+  result = Symbol(index: image.symbols.len)
+  image.symbols.add(s)
 proc addFScope*(image: var FImage, s: FScopeObj): FScope =
   result = FScope(index: image.scopes.len)
   image.scopes.add(s)
+  
+proc genFExpr*(f: FExprObj): FExpr =
+  gImage.addFExpr(f)
+proc genSymbol*(s: SymbolObj): Symbol =
+  gImage.addSymbol(s)
+proc genFScope*(s: FScopeObj): FScope =
+  gImage.addFScope(s)
 
 #
 # Internal Types
@@ -219,7 +240,7 @@ proc next*[T](lst: IList[T]): var IList[T] =
 proc ilistNil*[T](): IList[T] =
   IList[T](index: -1)
 proc isNil*[T](lst: IList[T]): bool =
-  lst.next.index == -1
+  lst.index == -1
 proc last*[T](lst: IList[T]): IList[T] =
   var cur = lst
   while true:
@@ -256,41 +277,46 @@ iterator pairs*[T](lst: IList[T]): (int, T) =
 # Image
 #
   
-proc genFExpr*(f: FExprObj): FExpr =
-  gImage.addFExpr(f)
-proc genFScope*(s: FScopeObj): FScope =
-  gImage.addFScope(s)
-  
 proc writeimage*(s: Stream, image: var FImage) =
   let fsize = image.fexprs.len * sizeof(FExprObj)
+  let symsize = image.symbols.len * sizeof(SymbolObj)
   let ssize = image.scopes.len * sizeof(FScopeObj)
   let memsize = image.mem.len
   var fs = newString(fsize)
+  var syms = newString(symsize)
   var ss = newString(ssize)
   var mem = newString(memsize)
   if image.fexprs.len != 0:
     copyMem(cast[pointer](addr(fs[0])), cast[pointer](addr(image.fexprs[0])), fsize)
+  if image.symbols.len != 0:
+    copyMem(cast[pointer](addr(syms[0])), cast[pointer](addr(image.symbols[0])), symsize)
   if image.scopes.len != 0:
     copyMem(cast[pointer](addr(ss[0])), cast[pointer](addr(image.scopes[0])), ssize)
   if image.mem.len != 0:
     copyMem(cast[pointer](addr(mem[0])), cast[pointer](addr(image.mem[0])), memsize)
   s.write(fsize.int64)
+  s.write(symsize.int64)
   s.write(ssize.int64)
   s.write(memsize.int64)
   s.write(fs)
   s.write(ss)
   s.write(mem)
+  s.write(image.importpaths)
 proc readimage*(s: Stream): FImage =
   let fsize = s.readInt64()
+  let symsize = s.readInt64()
   let ssize = s.readInt64()
   let memsize = s.readInt64()
-  result = FImage(fexprs: newSeq[FExprObj](fsize div sizeof(FExprObj)), scopes: newSeq[FScopeObj](ssize div sizeof(FScopeObj)), mem: newSeq[uint8](memsize))
+  result = FImage(fexprs: newSeq[FExprObj](fsize div sizeof(FExprObj)), symbols: newSeq[SymbolObj](symsize div sizeof(SymbolObj)), scopes: newSeq[FScopeObj](ssize div sizeof(FScopeObj)), mem: newSeq[uint8](memsize))
   if result.fexprs.len != 0:
     discard s.readData(cast[pointer](addr(result.fexprs[0])), fsize.int)
+  if result.symbols.len != 0:
+    discard s.readData(cast[pointer](addr(result.symbols[0])), symsize.int)
   if result.scopes.len != 0:
     discard s.readData(cast[pointer](addr(result.scopes[0])), ssize.int)
   if result.mem.len != 0:
     discard s.readData(cast[pointer](addr(result.mem[0])), memsize.int)
+  discard s.readData(cast[pointer](addr(result.importpaths)), sizeof(IList[IString]))
 proc saveimage*(filename: string) =
   let ss = newStringStream()
   ss.writeimage(gImage)
@@ -298,3 +324,5 @@ proc saveimage*(filename: string) =
 proc loadimage*(filename: string) =
   let ss = newStringStream(readFile(filename))
   gImage = ss.readimage()
+  if gImage.scopes.len > 0:
+    gCtx.rootScope = FScope(index: 0)

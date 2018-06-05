@@ -1,88 +1,83 @@
 
-import fexpr_core
-import expand_templates
+import fcore
+# import expand_templates
 
 import options
 import strutils, sequtils
 import tables
 
 type
-  ParsedType* = ref object
-    prefix*: Option[FExpr]
-    typ*: FExpr
-    generics*: FExpr
-    ret*: FExpr
+  ParsedType* = object
+    prefix*: Option[int]
+    typ*: int
+    generics*: Option[int]
+    ret*: Option[int]
 
 proc parseTypeExpr*(fexpr: FExpr, pos: var int): ParsedType =
   if fexpr.kind in {fexprIdent, fexprSymbol, fexprQuote}:
-    result = ParsedType(typ: fexpr, generics: farray(fexpr.span), prefix: none(FExpr))
-  elif fexpr.kind == fexprIntLit:
-    result = ParsedType(typ: fexpr, generics: farray(fexpr.span), prefix: none(FExpr))
+    result = ParsedType(typ: -1)
   elif fexpr.kind == fexprSeq:
-    new result
-    if $fexpr[pos] == "ref" or $fexpr[pos] == "move":
-      result.prefix = some(fexpr[pos])
+    if $fexpr[pos] == "ref":
+      result.prefix = some(pos)
       pos += 1
-    else:
-      result.prefix = none(FExpr)
 
     if fexpr.isParametricTypeExpr(pos):
-      result.typ = fexpr[pos]
-      result.generics = fexpr[pos+1]
+      result.typ = pos
+      result.generics = some(pos+1)
       pos += 2
     else:
-      result.typ = fexpr[pos]
-      result.generics = farray(fexpr[pos].span)
+      result.typ = pos
       pos += 1
 
-    if $result.typ == "Fn":
+    if $fexpr[result.typ] == "Fn":
       if pos < fexpr.len:
-        result.ret = fexpr[pos]
-      else:
-        result.ret = fseq(fexpr.span, @[fident(fexpr.span, name("Void"))])
+        result.ret = some(pos)
+        pos += 1
   else:
     fexpr[pos].error("$# isn't type expression." % $fexpr[pos])
 
-proc semType*(scope: Scope, fexpr: FExpr): Symbol =
+proc semType*(scope: FScope, fexpr: FExpr, pos: int): Symbol =
   if fexpr.kind == fexprSymbol:
     return fexpr.symbol
-  var pos = 0
+  var pos = pos
   let parsed = parseTypeExpr(fexpr, pos)
 
-  if parsed.typ.kind == fexprIntLit:
-    return scope.intsym(parsed.typ)
-
-  if $parsed.typ == "Fn":
-    let sym = scope.symbol(name("Fn"), symbolFuncType, parsed.typ)
-    sym.argtypes = @[]
-    for arg in parsed.generics.mitems:
-      var pos = 1
-      sym.argtypes.add(scope.semType(arg))
-    sym.rettype = scope.semType(parsed.ret)
+  if parsed.typ == -1:
+    let opt = scope.getDecl($fexpr)
+    if opt.isNone:
+      fexpr.error("undeclared $# type." % $fexpr)
+    return opt.get
+  elif $fexpr[parsed.typ] == "Fn":
+    let sym = scope.symbol(fntypeString, symbolFuncType, fexpr[parsed.typ])
+    var argtypes = newSeq[Symbol]()
+    for arg in fexpr[parsed.generics.get].mitems:
+      argtypes.add(scope.semType(arg, 0))
+    sym.obj.argtypes = iarray(argtypes)
+    if parsed.ret.isSome:
+      sym.obj.rettype = scope.semType(fexpr[parsed.ret.get], 0)
+    else:
+      sym.obj.rettype = voidtypeSymbol
     return sym
   
-  let opt = scope.getDecl(name(parsed.typ))
+  let opt = scope.getDecl($fexpr[parsed.typ])
   if opt.isNone:
-    parsed.typ.error("undeclared $# type." % $parsed.typ)
-  if opt.get.fexpr.hasInternalMark and opt.get.fexpr.internalMark == internalConst:
-    return scope.semType(opt.get.fexpr.constvalue)
+    fexpr[parsed.typ].error("undeclared $# type." % $fexpr[parsed.typ])
   elif fexpr.kind == fexprSeq and fexpr[0].kind == fexprSymbol:
     result = fexpr[0].symbol
   elif fexpr.kind == fexprSymbol:
     result = fexpr.symbol
-  elif parsed.generics.len == 0:
-    # if opt.get.instance.isSome:
-    #   result = opt.get.instance.get
-    # else:
-    #   result = opt.get
-    result = opt.get
-  else:
+  elif parsed.generics.isSome:
     var sym = opt.get.scope.symbol(opt.get.name, symbolTypeGenerics, opt.get.fexpr)
-    for arg in parsed.generics.mitems:
-      sym.types.add(scope.semType(arg))
-    result = scope.expandDeftype(sym.fexpr, sym.types).symbol.symcopy
-    result.types = sym.types
+    var types = newSeq[Symbol]()
+    for arg in fexpr[parsed.generics.get]:
+      types.add(scope.semType(arg, 0))
+    sym.obj.types = iarray(types)
+    # result = scope.expandDeftype(sym.fexpr, sym.types).symbol.symcopy
+    sym.obj.types = sym.types
+    result = sym
+  else:
+    result = opt.get
 
   if parsed.prefix.isSome:
-    if $parsed.prefix.get == "ref":
-      result = scope.refsym(result)
+    if $fexpr[parsed.prefix.get] == "ref":
+      result = refsym(result)

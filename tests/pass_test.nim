@@ -1,110 +1,83 @@
 
 import unittest
-import compiler.parser, compiler.types, compiler.fexpr, compiler.scope, compiler.metadata
-import compiler.passdef, compiler.internalpass
+import options
+import compiler.fcore, compiler.internalpass, compiler.passmacro
 
 let prelude = """
-type Void $[importc "void", header nodeclc]
-type Bool $[importc "bool", header "stdbool.h"]
-type IntLit $[importc "int64_t", header "stdint.h"]
-type StrLit $[importc "char*", header nodeclc]
+type Bool {}
 
-type Int $[importc "int64_t", header "stdint.h"]
-type CString $[importc "char*", header nodeclc]
-
-fn int(x ref IntLit) ref Int $[converter, importc, patternc "$1"]
-fn int(x IntLit) Int $[converter, importc, patternc "$1"]
-fn to_cstring(x StrLit) CString $[converter, importc, patternc "$1"]
-
-fn `+(a Int, b Int) Int $[importc "+", header nodeclc, patternc infixc]
-fn `-(a Int, b Int) Int $[importc "-", header nodeclc, patternc infixc]
-fn `<(a Int, b Int) Bool $[importc "<", header nodeclc, patternc infixc]
-fn `==(a Int, b Int) Bool $[importc "==", header nodeclc, patternc infixc]
-fn printf(fmt CString, x Int) $[importc "printf", header "stdio.h"]
+fn `+(a IntLit, b IntLit) IntLit
+fn `-(a IntLit, b IntLit) IntLit
+fn `<(a IntLit, b IntLit) Bool
+fn `==(a IntLit, b IntLit) Bool
+fn printf(fmt StrLit, x IntLit)
 """
+
+initRootScope()
+let scope = newFScope("testmodule", "testmodule.flori")
+scope.importFScope(internalScope.obj.name, internalScope)
+proc evalTest*(src: string): seq[FExpr] =
+  result = parseToplevel("testmodule.flori", src)
+  for f in result.mitems:
+    scope.rootPass(f)
+discard evalTest(prelude)
 
 suite "semantic step test":
   test "call":
-    let ctx = newSemanticContext()
-    var fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = evalTest("""
 printf("%d", 9)
 """)
-    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
-    ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check $fexprs[^1][1][0].typ == "CString"
-    check $fexprs[^1][1][1].typ == "Int"
-    check $fexprs[^1].typ == "Void"
+    check $fexprs[^1][1][0].typ.get == "StrLit"
+    check $fexprs[^1][1][1].typ.get == "IntLit"
+    check $fexprs[^1].typ.get == "Void"
   test "infix call":
-    let ctx = newSemanticContext()
-    var fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = evalTest("""
 4 + 5
 """)
-    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
-    ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check $fexprs[^1].typ == "Int"
+    check $fexprs[^1].typ.get == "IntLit"
   test "fn":
-    let ctx = newSemanticContext()
-    var fexprs = parseToplevel("testmodule.flori", prelude & """
-fn add5(x Int) Int {
+    var fexprs = evalTest("""
+fn add5(x IntLit) IntLit {
   x + 5
 }
 add5(4)
 """)
-    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
-    ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check $fexprs[^1].typ == "Int"
+    check $fexprs[^1].typ.get == "IntLit"
   test "if":
-    let ctx = newSemanticContext()
-    var fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = evalTest("""
 if (1 == 1) {
   1
 } else {
   2
 }
 """)
-    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
-    ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check $fexprs[^1].typ == "IntLit"
-    check fexprs[^1].internalMark == internalIf
+    check $fexprs[^1].typ.get == "IntLit"
   test "while":
-    let ctx = newSemanticContext()
-    var fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = evalTest("""
 while (1 == 2) {
   printf("%d", 9)
 }
 """)
-    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
-    ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check $fexprs[^1].typ == "Void"
+    check $fexprs[^1].typ.get == "Void"
     check $fexprs[^1][0] == "while"
-    check fexprs[^1].internalMark == internalWhile
   test "local def":
-    let ctx = newSemanticContext()
-    var fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = evalTest("""
 nine := 9
 printf("%d", nine)
 """)
-    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
-    ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check fexprs[^2].internalMark == internalDef
-    check $fexprs[^2].typ == "Void"
+    check $fexprs[^2].typ.get == "Void"
     check $fexprs[^1][1][1] == "nine"
-    check $fexprs[^1][1][1].typ == "Int"
+    check $fexprs[^1][1][1].typ.get == "IntLit"
   test "generics init":
-    let ctx = newSemanticContext()
-    var fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = evalTest("""
 type Wrap[T] {
   x T
 }
-init(Wrap[Int]){9}
+init(Wrap[IntLit]){9}
 """)
-    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
-    ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check fexprs[^1].internalMark == internalInit
-    check $fexprs[^1].typ == "Wrap[Int]"
+    check $fexprs[^1].typ.get == "Wrap[IntLit]"
   test "generics fn":
-    let ctx = newSemanticContext()
-    var fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = evalTest("""
 type Wrap[T] {
   x T
 }
@@ -113,13 +86,10 @@ fn wrap[T](x T) Wrap[T] {
 }
 wrap(9)
 """)
-    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
-    ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check $fexprs[^1].typ == "Wrap[IntLit]"
+    check $fexprs[^1].typ.get == "Wrap[IntLit]"
   test "recursion call":
-    let ctx = newSemanticContext()
-    var fexprs = parseToplevel("testmodule.flori", prelude & """
-fn fib(n Int) Int {
+    var fexprs = evalTest("""
+fn fib(n IntLit) IntLit {
   if (n < 2) {
     n
   } else {
@@ -129,12 +99,9 @@ fn fib(n Int) Int {
 
 printf("%d\n", fib(30))
 """)
-    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
-    ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check $fexprs[^1][1][1].typ == "Int"
+    check $fexprs[^1][1][1].typ.get == "IntLit"
   test "generics call fn":
-    let ctx = newSemanticContext()
-    var fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = evalTest("""
 type Wrap[T] {
   x T
 }
@@ -142,13 +109,12 @@ fn wrap[T](x T) Wrap[T] {
   init(Wrap){x}
 }
 fn main() {
-  wrap[Int](9)
+  wrap[IntLit](9)
 }
 main()
 """)
   test "generics cannot instantiate":
-    let ctx = newSemanticContext()
-    var fexprs = parseToplevel("testmodule.flori", prelude & """
+    var fexprs = evalTest("""
 type Wrap[T] {
   x T
 }
@@ -157,26 +123,19 @@ fn wrap[T](x Int) Wrap[T] {
 wrap(9)
 """)
     expect(FExprError):
-      let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
-      ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-  test "import":
-    let ctx = newSemanticContext()
-    var fexprs = parseToplevel("testmodule.flori", prelude & """
-import "core/prelude"
-""")
-    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
-    ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check fexprs[^1].internalMark == internalImport
+      let scope = newFScope("testmodule", "testmodule.flori")
+      semModule(istring("testmodule"), scope, fexprs)
+  # test "import":
+#     var fexprs = evalTest("""
+# import "core/prelude"
+# """)
   test "ref type":
-    let ctx = newSemanticContext()
-    var fexprs = parseToplevel("testmodule.flori", prelude & """
-fn `+=(a ref Int, b Int) $[importc, header nodeclc, patternc infixc]
-fn add5(x ref Int) {
+    var fexprs = evalTest("""
+fn `+=(a ref IntLit, b IntLit)
+fn add5(x ref IntLit) {
   x += 5
 }
 a := 1
 add5(a)
 """)
-    let scope = ctx.newScope(name("testmodule"), "testmodule.flori")
-    ctx.semModule(processFPass, name("testmodule"), scope, fexprs)
-    check $fexprs[^1].typ == "Void"
+    check $fexprs[^1].typ.get == "Void"

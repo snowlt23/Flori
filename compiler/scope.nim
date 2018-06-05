@@ -3,7 +3,7 @@ import tables
 import options
 import strutils
 
-import image, fexpr
+import image, fexpr, symbol
 
 proc newFScope*(name: string, path: string): FScope =
   genFScope(FScopeObj(
@@ -66,6 +66,7 @@ proc match*(a, b: Symbol): bool =
   else:
     return false
 proc match*(a: ProcDecl, b: ProcName): bool =
+  if a.internalproc.isSome: return true
   if a.name != b.name: return false
   if a.argtypes.len != b.argtypes.len: return false
   for i in 0..<a.argtypes.len:
@@ -125,6 +126,12 @@ proc find*(lst: IList[TupleTable[ProcDeclGroup]], n: string): Option[IList[Tuple
       return some(cur)
     cur = cur.next
   return none(IList[TupleTable[ProcDeclGroup]])
+proc find*(lst: IList[TupleTable[FScope]], n: string): Option[FScope] =
+  for f in lst:
+    let (name, scope) = f
+    if name == n:
+      return some(scope)
+  return none(FScope)
 
 proc getDecl*(scope: FScope, n: string): Option[Symbol] =
   let opt = scope.decls.find(n)
@@ -180,7 +187,7 @@ proc addFunc*(scope: FScope, decl: ProcDecl) =
                 scope.procdecls.find($decl.name).get
   group.value.value.decls.add(decl)
 
-proc importScope*(scope: FScope, name: IString, importscope: FScope) =
+proc importFScope*(scope: FScope, name: IString, importscope: FScope) =
   scope.imports.add((name, importscope))
   # for name, exportscope in importscope.exportscopes:
   #   scope.importscopes[name] = exportscope

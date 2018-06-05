@@ -40,7 +40,9 @@ template assert*(fexpr: FExpr, b: typed) =
     fexpr.error("internal error.")
 
 proc hint*(fexpr: FExprObj, msg: string) = fexpr.span.hint(msg)
+proc hint*(fexpr: FExpr, msg: string) = fexpr.obj.span.hint(msg)
 proc error*(fexpr: FExprObj, msg: string) = fexpr.span.error(msg)
+proc error*(fexpr: FExpr, msg: string) = fexpr.obj.span.error(msg)
 
 template internalSpan*(): Span =
   Span(filename: istring(instantiationInfo().filename), line: instantiationInfo().line, isinternal: true)
@@ -77,7 +79,6 @@ proc fcontainer*(span: Span, kind: FExprKind, sons: IArray[FExpr]): FExpr =
   genFExpr(f)
 
 proc kind*(fexpr: FExpr): FExprKind = fexpr.obj.kind
-proc typ*(fexpr: FExpr): Option[Symbol] = fexpr.obj.typ
 proc priority*(fexpr: FExpr): int = fexpr.obj.priority
 proc isleft*(fexpr: FExpr): bool = fexpr.obj.isleft
 proc intval*(fexpr: FExpr): int64 = fexpr.obj.intval
@@ -87,6 +88,8 @@ proc span*(fexpr: FExpr): Span = fexpr.obj.span
 proc sons*(fexpr: FExpr): var IArray[FExpr] = fexpr.obj.sons
 proc src*(fexpr: FExpr): Option[IString] = fexpr.obj.src
 proc `src=`*(fexpr: FExpr, opt: Option[IString]) = fexpr.obj.src = opt
+proc typ*(fexpr: FExpr): Option[Symbol] = fexpr.obj.typ
+proc `typ=`*(fexpr: FExpr, opt: Option[Symbol]) = fexpr.obj.typ = opt
 proc len*(fexpr: FExpr): int = fexpr.obj.sons.len
 
 iterator items*(fexpr: FExpr): FExpr =
@@ -158,6 +161,11 @@ proc isInfixFuncCall*(fexpr: var FExprObj): bool =
   fexpr.kind == fexprSeq and fexpr.len == 3 and (fexpr[0].kind == fexprInfix or (fexpr[0].kind == fexprSymbol and fexpr[0].symbol.kind == symbolInfix))
 proc isFuncCall*(fexpr: var FExprObj): bool =
   fexpr.isNormalFuncCall or fexpr.isGenericsFuncCall or fexpr.isInfixFuncCall
+
+proc isNormalFuncCall*(fexpr: FExpr): bool = fexpr.obj.isNormalFuncCall
+proc isGenericsFuncCall*(fexpr: FExpr): bool = fexpr.obj.isGenericsFuncCall
+proc isInfixFuncCall*(fexpr: FExpr): bool = fexpr.obj.isInfixFuncCall
+proc isFuncCall*(fexpr: FExpr): bool = fexpr.obj.isFuncCall
 
 proc genIndent*(indent: int): string =
   repeat(' ', indent)

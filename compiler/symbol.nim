@@ -3,6 +3,39 @@ import sequtils, strutils
 
 import image
 
+proc scope*(sym: Symbol): FScope =
+  sym.obj.scope
+proc name*(sym: Symbol): IString =
+  sym.obj.name
+proc fexpr*(sym: Symbol): FExpr =
+  sym.obj.fexpr
+proc kind*(sym: Symbol): SymbolKind =
+  sym.obj.kind
+proc types*(sym: Symbol): IArray[Symbol] =
+  sym.obj.types
+proc argtypes*(sym: Symbol): IArray[Symbol] =
+  sym.obj.argtypes
+proc rettype*(sym: Symbol): Symbol =
+  sym.obj.rettype
+proc wrapped*(sym: Symbol): Symbol =
+  sym.obj.wrapped
+
+proc symbol*(scope: FScope, name: IString, kind: SymbolKind, fexpr: FExpr): Symbol =
+  var s: Symbolobj
+  s.scope = scope
+  s.name = name
+  s.fexpr = fexpr
+  s.kind = kind
+  return genSymbol(s)
+proc symbol*(scope: FScope, name: string, kind: SymbolKind, fexpr: FExpr): Symbol =
+  scope.symbol(istring(name), kind, fexpr)
+proc refsym*(sym: Symbol): Symbol =
+  result = sym.scope.symbol(sym.name, symbolRef, sym.fexpr)
+  result.obj.wrapped = sym
+proc varsym*(sym: Symbol): Symbol =
+  result = sym.scope.symbol(sym.name, symbolVar, sym.fexpr)
+  result.obj.wrapped = sym
+
 proc isSpecSymbol*(sym: Symbol): bool =
   if sym.kind == symbolType:
     return true
