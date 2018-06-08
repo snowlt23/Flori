@@ -2,7 +2,7 @@
 # Flori
 
 **Warning**: This project is work in progress. (very early stage)  
-**Important**: Compiler is rewriting now, please look image-compiler branch.
+**Important**: Compiler is rewriting now, please look [image-compiler](https://github.com/snowlt23/Flori/tree/image-compiler) branch.
 
 Flori is statically typed programming language without GC for system/application programming.
 
@@ -51,7 +51,7 @@ fn fib(n Int) Int {
 println(fib(38))
 ```
 
-Other examples, please reference `Flori/examples` or `Flori/tests/floritests`.
+Other examples, please reference [/examples](https://github.com/snowlt23/Flori/tree/master/examples) or [/tests/floritests](https://github.com/snowlt23/Flori/tree/master/tests/floritests).
 
 # Usage
 
@@ -87,6 +87,7 @@ $ nake test
 
 # TODO
 
+- Documentation
 - Error Handling System
 - LiveReload
 - ImageDump
