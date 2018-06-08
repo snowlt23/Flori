@@ -24,6 +24,7 @@ proc extendFScope*(scope: FScope): FScope =
     procdecls: scope.obj.procdecls
   ))
 
+proc name*(scope: FScope): IString = scope.obj.name
 proc imports*(scope: FScope): var IList[TupleTable[FScope]] = scope.obj.imports
 proc decls*(scope: FScope): var IList[TupleTable[Symbol]] = scope.obj.decls
 proc procdecls*(scope: FScope): var IList[TupleTable[ProcDeclGroup]] = scope.obj.procdecls
@@ -35,7 +36,7 @@ proc initProcDeclGroup*(): ProcDeclGroup =
   result.decls = ilistNil[ProcDecl]()
 
 proc match*(a, b: Symbol): bool =
-  if b.kind == symbolGenerics:
+  if a.kind == symbolGenerics:
     return true
   elif a.kind == symbolTypeGenerics and b.kind == symbolTypeGenerics:
     if a.name != b.name: return false
@@ -53,15 +54,11 @@ proc match*(a, b: Symbol): bool =
     return true
   elif a.kind == symbolRef and b.kind == symbolRef:
     return a.wrapped.match(b.wrapped)
-  elif a.kind == symbolVar and b.kind == symbolRef:
+  elif a.kind == symbolRef and b.kind == symbolVar:
     return a.wrapped.match(b.wrapped)
   elif b.kind == symbolVar:
     return a.match(b.wrapped)
-  elif a.kind == symbolRef:
-    return a.wrapped.match(b)
-  elif a.kind == symbolVar:
-    return a.wrapped.match(b)
-  elif a == b:
+  elif a.scope.name == b.scope.name and a.name == b.name:
     return true
   else:
     return false
@@ -76,7 +73,7 @@ proc match*(a: ProcDecl, b: ProcName): bool =
   
 proc spec*(a, b: Symbol): bool =
   if a.kind == symbolType and b.kind == symbolType:
-    return a == b
+    return a.scope.name == b.scope.name and a.name == b.name
   elif a.kind == symbolTypeGenerics and b.kind == symbolTypeGenerics:
     if a.name != b.name: return false
     if a.types.len != b.types.len: return false

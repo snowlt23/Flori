@@ -1,6 +1,6 @@
 
 import fcore
-import passmacro, typepass
+import passmacro, typepass, expandpass
 
 import options
 import strutils, sequtils
@@ -68,6 +68,8 @@ proc typeInfer*(scope: FScope, fexpr: var FExpr): bool =
   of fexprSymbol:
     if fexpr.symbol.fexpr.typ.isSome:
       fexpr.typ = fexpr.symbol.fexpr.typ
+    elif fexpr.symbol.kind in {symbolType, symbolTypeGenerics}:
+      fexpr.typ = some(fexpr.symbol)
     else:
       fexpr.error("$# hasn't type." % $fexpr)
     return true
@@ -172,5 +174,5 @@ definePass processSemPass, rootPass, (FScope, var FExpr):
   overloadResolve
   # varfnResolve
   # expandInlinePass
-  # expandDefnPass
+  expandDefnPass
   finalPass

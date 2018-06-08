@@ -1,13 +1,14 @@
 
-import sequtils, strutils
-
 import image
+
+import sequtils, strutils
+import options
 
 proc scope*(sym: Symbol): FScope =
   sym.obj.scope
 proc name*(sym: Symbol): IString =
   sym.obj.name
-proc fexpr*(sym: Symbol): FExpr =
+proc fexpr*(sym: Symbol): var FExpr =
   sym.obj.fexpr
 proc kind*(sym: Symbol): SymbolKind =
   sym.obj.kind
@@ -19,6 +20,10 @@ proc rettype*(sym: Symbol): Symbol =
   sym.obj.rettype
 proc wrapped*(sym: Symbol): Symbol =
   sym.obj.wrapped
+proc instance*(sym: Symbol): Option[Symbol] =
+  sym.obj.instance
+proc `instance=`*(sym: Symbol, value: Option[Symbol]) =
+  sym.obj.instance = value
 
 proc symbol*(scope: FScope, name: IString, kind: SymbolKind, fexpr: FExpr): Symbol =
   var s: Symbolobj
@@ -82,3 +87,24 @@ proc toString*(sym: Symbol, desc: bool): string =
     else:
       $sym.name
 proc `$`*(sym: Symbol): string = toString(sym, false)
+
+proc symcopy*(sym: SymbolObj): SymbolObj =
+  result.scope = sym.scope
+  result.name = sym.name
+  result.fexpr = sym.fexpr
+  result.instance = sym.instance
+  case sym.kind
+  of symbolTypeGenerics:
+    result.types = sym.types
+  of symbolVar, symbolRef:
+    result.wrapped = sym.wrapped
+  of symbolSyntax, symbolMacro:
+    discard
+  of symbolFUncType:
+    result.argtypes = sym.argtypes
+  of symbolConstant:
+    result.constvalue = sym.constvalue
+  else:
+    discard
+proc symcopy*(sym: Symbol): Symbol =
+  genSymbol(sym.obj.symcopy)

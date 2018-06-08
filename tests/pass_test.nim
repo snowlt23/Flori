@@ -22,7 +22,7 @@ proc evalTest*(src: string): seq[FExpr] =
     scope.rootPass(f)
 discard evalTest(prelude)
 
-suite "semantic step test":
+suite "semantic pass test":
   test "call":
     var fexprs = evalTest("""
 printf("%d", 9)
@@ -106,25 +106,23 @@ type Wrap[T] {
   x T
 }
 fn wrap[T](x T) Wrap[T] {
-  init(Wrap){x}
+  init(Wrap[T]){x}
 }
 fn main() {
-  wrap[IntLit](9)
+  w := wrap[IntLit](9)
 }
 main()
 """)
   test "generics cannot instantiate":
-    var fexprs = evalTest("""
+    expect(FExprError):
+      var fexprs = evalTest("""
 type Wrap[T] {
   x T
 }
-fn wrap[T](x Int) Wrap[T] {
+fn wrap[T](x IntLit) Wrap[T] {
 }
 wrap(9)
 """)
-    expect(FExprError):
-      let scope = newFScope("testmodule", "testmodule.flori")
-      semModule(istring("testmodule"), scope, fexprs)
   # test "import":
 #     var fexprs = evalTest("""
 # import "core/prelude"

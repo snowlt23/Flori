@@ -77,6 +77,7 @@ type
     fexprList
     fexprBlock
   FExprObj* = object
+    scope*: Option[FScope]
     span*: Span
     src*: Option[IString]
     typ*: Option[Symbol]

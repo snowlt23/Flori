@@ -106,11 +106,10 @@ proc semFunc*(scope: FScope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): 
     let pd = ProcDecl(name: name, argtypes: iarray(argtypes), generics: iarray(generics), returntype: rettype, sym: sym)
     scope.addFunc(pd)
     fnscope.addFunc(pd)
-
-  if parsed.generics.isSome and fexpr.isGenerics(parsed):
-    return (fnscope, generics, argtypes, rettype, sym)
     
   let fsym = fsymbol(fexpr[0].span, sym)
+  fexpr[parsed.name] = fsym
+  fexpr.scope = some(fnscope)
 
   for i, arg in fexpr[parsed.argdecls]:
     let argname = istring($arg[0])
@@ -120,6 +119,11 @@ proc semFunc*(scope: FScope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): 
     # replace by symbol
     arg[0] = fsymbol(arg[0].span, argsym)
     arg[1] = fsymbol(arg[1].span, argtypes[i])
+  if parsed.ret.isSome:
+    fexpr[parsed.ret.get] = fsymbol(fexpr[parsed.ret.get].span, rettype)
+
+  if parsed.generics.isSome and fexpr.isGenerics(parsed):
+    return (fnscope, generics, argtypes, rettype, sym)
 
   if parsed.body.isSome:
     fnscope.rootPass(fexpr[parsed.body.get])
@@ -135,17 +139,23 @@ proc semDefn*(scope: FScope, fexpr: var FExpr) =
 proc semDeftype*(scope: FScope, fexpr: var FExpr) =
   let parsed = parseDeftype(fexpr)
 
-  let typename = istring($fexpr[parsed.name])
+  let typename = if fexpr[parsed.name].kind == fexprIdent:
+                   fexpr[parsed.name].idname
+                 else:
+                   fexpr[parsed.name].symbol.name
   let sym = scope.symbol(typename, if parsed.generics.isSome: symbolTypeGenerics else: symbolType, fexpr)
   if parsed.generics.isSome and not fexpr.isGenerics(parsed):
     sym.obj.types = iarray(fexpr[parsed.generics.get].mapIt(it.symbol))
   scope.addDecl(typename, sym)
+  
+  let fsym = fsymbol(fexpr[0].span, sym)
+  let typescope = scope.extendFScope()
+  fexpr[parsed.name] = fsym
+  fexpr.scope = some(typescope)
 
   if fexpr.isGenerics(parsed):
     return
     
-  let fsym = fsymbol(fexpr[0].span, sym)
-  let typescope = scope.extendFScope()
   if parsed.body.isSome:
     for field in fexpr[parsed.body.get]:
       let fieldtypesym = typescope.semType(field, 1)

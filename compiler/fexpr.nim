@@ -79,6 +79,7 @@ proc fcontainer*(span: Span, kind: FExprKind, sons: IArray[FExpr]): FExpr =
   genFExpr(f)
 
 proc kind*(fexpr: FExpr): FExprKind = fexpr.obj.kind
+proc idname*(fexpr: FExpr): IString = fexpr.obj.idname
 proc priority*(fexpr: FExpr): int = fexpr.obj.priority
 proc isleft*(fexpr: FExpr): bool = fexpr.obj.isleft
 proc intval*(fexpr: FExpr): int64 = fexpr.obj.intval
@@ -91,6 +92,8 @@ proc `src=`*(fexpr: FExpr, opt: Option[IString]) = fexpr.obj.src = opt
 proc typ*(fexpr: FExpr): Option[Symbol] = fexpr.obj.typ
 proc `typ=`*(fexpr: FExpr, opt: Option[Symbol]) = fexpr.obj.typ = opt
 proc len*(fexpr: FExpr): int = fexpr.obj.sons.len
+proc scope*(fexpr: FExpr): Option[FScope] = fexpr.obj.scope
+proc `scope=`*(fexpr: FExpr, opt: Option[FScope]) = fexpr.obj.scope = opt
 
 iterator items*(fexpr: FExpr): FExpr =
   case fexpr.kind
@@ -249,3 +252,15 @@ proc isParametricTypeExpr*(fexpr: FExpr, pos: int): bool =
   return (fexpr.obj[pos].kind == fexprIdent or fexpr.obj[pos].kind == fexprQuote or fexpr.obj[pos].kind == fexprSymbol) and fexpr.obj[pos+1].kind == fexprArray
 proc isPragmaPrefix*(fexpr: FExpr): bool =
   fexpr.kind == fexprPrefix and $fexpr == "$"
+
+proc copy*(fexpr: FExpr): FExpr =
+  if fexpr.kind in fexprContainer:
+    var sons = newSeq[FExpr]()
+    for son in fexpr:
+      sons.add(son.copy)
+    result = fcontainer(fexpr.span, fexpr.kind, iarray(sons))
+    result.scope = fexpr.scope
+    result.src = fexpr.src
+    result.typ = fexpr.typ
+  else:
+    result = fexpr

@@ -49,8 +49,8 @@ proc tmpsym*(): string =
   result = "tmpid" & $gCtx.tmpcount
   gCtx.tmpcount.inc
 
-proc genManglingName*(name: string, types: seq[Symbol]): string =
-  name & "_" & types.mapIt($it).join("_")
+proc genManglingName*(name: string, types: seq[Symbol], generics: seq[Symbol]): string =
+  name & "_" & types.mapIt($it).join("_") & "_" & generics.mapIt($it).join("_")
 
 proc expandStart*(span: Span) =
   gCtx.expands.add(span)

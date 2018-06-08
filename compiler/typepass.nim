@@ -1,6 +1,5 @@
 
-import fcore
-# import expand_templates
+import fcore, expand_templates
 
 import options
 import strutils, sequtils
@@ -41,6 +40,8 @@ proc semType*(scope: FScope, fexpr: FExpr, pos: int): Symbol =
     return fexpr.symbol
   var pos = pos
   let parsed = parseTypeExpr(fexpr, pos)
+  if fexpr.kind == fexprSeq and fexpr[parsed.typ].kind == fexprSymbol:
+    return fexpr[parsed.typ].symbol
 
   if parsed.typ == -1:
     let opt = scope.getDecl($fexpr)
@@ -58,23 +59,17 @@ proc semType*(scope: FScope, fexpr: FExpr, pos: int): Symbol =
     else:
       sym.obj.rettype = voidtypeSymbol
     return sym
-  
+
   let opt = scope.getDecl($fexpr[parsed.typ])
   if opt.isNone:
     fexpr[parsed.typ].error("undeclared $# type." % $fexpr[parsed.typ])
-  elif fexpr.kind == fexprSeq and fexpr[0].kind == fexprSymbol:
-    result = fexpr[0].symbol
-  elif fexpr.kind == fexprSymbol:
-    result = fexpr.symbol
   elif parsed.generics.isSome:
     var sym = opt.get.scope.symbol(opt.get.name, symbolTypeGenerics, opt.get.fexpr)
     var types = newSeq[Symbol]()
     for arg in fexpr[parsed.generics.get]:
       types.add(scope.semType(arg, 0))
     sym.obj.types = iarray(types)
-    # result = scope.expandDeftype(sym.fexpr, sym.types).symbol.symcopy
-    sym.obj.types = sym.types
-    result = sym
+    result = scope.expandDeftype(sym.fexpr, toSeq(sym.types.items)).symbol
   else:
     result = opt.get
 
