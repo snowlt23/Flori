@@ -67,6 +67,11 @@ proc opRegRegSibDisp32*[B](b: var B, op: uint8, r1: Reg32, r2: Reg32, disp: int3
   b.asmb(modrm(modRegDisp32, r1, r2))
   b.asmb(sib(scale1, cast[Reg32](0b100), r2))
   b.asmd(disp)
+proc opRegDisp32Reg*[B](b: var B, op: uint8, r1: Reg32, disp: int32, r2: Reg32) =
+  b.asmb(op)
+  b.asmb(modrm(modRegDisp32, r2, r1))
+  # b.asmb(sib(scale1, cast[Reg32](0b100), r2))
+  b.asmd(disp)
 proc opRegRegDisp32*[B](b: var B, op: uint8, r1: Reg32, r2: Reg32, disp: int32) =
   b.asmb(op)
   b.asmb(modrm(modRegDisp32, r1, r2))
@@ -83,8 +88,10 @@ proc mov*[B](b: var B, r: Reg32, i: int32) =
   b.opRegImm(0xB8, r, i)
 proc mov*[B](b: var B, r1: Reg32, r2: Reg32) =
   b.opRegReg(0x89, r1, r2)
+proc mov*[B](b: var B, r1: Reg32, disp: int32, r2: Reg32) =
+  b.opRegDisp32Reg(0x89, r1, disp, r2)
 proc mov*[B](b: var B, r1: Reg32, r2: Reg32, disp: int32) =
-  b.opRegRegSibDisp32(0x8B, r1, r2, disp)
+  b.opRegRegDisp32(0x8B, r1, r2, disp)
   
 proc add*[B](b: var B, r: Reg32, i: int32) =
   if r == eax:

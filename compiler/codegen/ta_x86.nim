@@ -87,13 +87,18 @@ proc generateFromTACode*[B](ctx: var AsmContext[B], code: TACode) =
     ctx.addLabel(code.fnname)
     for i in 0..<code.fnargs.len:
       let (argname, argsize) = code.fnargs[i]
-      ctx.address["$" & $i] = AsmAtom(kind: asmEbpRel, ebprel: 8 + i*4)
+      ctx.address[argname] = AsmAtom(kind: asmEbpRel, ebprel: 8 + i*4)
   of taCall:
     let labelpos = ctx.getLabelPos(code.fnlabel)
-    let codepos = ctx.getCodePos()
+    let codepos = ctx.getCodePos() + 5
     ctx.buffer.callRel(int32(labelpos - codepos))
   of taVar:
-    discard
+    ctx.stacklen += code.size
+    ctx.buffer.sub(esp, int32(code.size))
+    ctx.address[code.varname] = AsmAtom(kind: asmEbpRel, ebprel: -ctx.stacklen)
+    let valueaddr = ctx.address[$code.value]
+    if valueaddr.kind == asmReg:
+      ctx.buffer.mov(ebp, int32(-ctx.stacklen), valueaddr.reg)
   of taGoto:
     discard
   of taIf:

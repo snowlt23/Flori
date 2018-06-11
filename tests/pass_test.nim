@@ -137,3 +137,10 @@ a := 1
 add5(a)
 """)
     check $fexprs[^1].typ.get == "Void"
+  test "pragma test":
+    var fexprs = evalTest("""
+fn `+(a IntLit, b IntLit) $[internalop "+"]
+fn `-(a IntLit, b IntLit) $[internalop "-"]
+""")
+    check fexprs[0].obj.internal.get.obj.internalop == internalAdd
+    check fexprs[1].obj.internal.get.obj.internalop == internalSub

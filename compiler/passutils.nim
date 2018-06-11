@@ -6,36 +6,38 @@ import strutils, sequtils
 import tables
 import macros
 
-var internals {.compileTime.} = newSeq[(NimNode, NimNode, NimNode, string)]()
-macro defineInternalSymbol*(name: untyped, s: string): untyped =
+var internals {.compileTime.} = newSeq[(NimNode, NimNode, NimNode, string, int)]()
+macro defineInternalType*(name: untyped, s: string, size: int): untyped =
   let id = ident($name & "Ident")
   let sym = ident($name & "Symbol")
   let fe = ident($name & "FExpr")
-  internals.add((id, sym, fe, s.strval))
+  internals.add((id, sym, fe, s.strval, int(size.intval)))
   result = quote do:
     var `id`*: FExpr
     var `sym`*: Symbol
     var `fe`*: FExpr
-macro instantiateInternalSymbol*(scope: FScope): untyped =
+macro instantiateInternalType*(scope: FScope): untyped =
   result = newStmtList()
   for internal in internals:
-    let (id, sym, fe, s) = internal
+    let (id, sym, fe, s, size) = internal
     result.add(quote do:
       `id` = fident(internalSpan(), `s`)
+      `id`.obj.internal = some(newInternalMarker())
+      `id`.obj.internal.get.obj.internalsize = `size`
       `sym` = `scope`.symbol(`s`, symbolType, `id`)
       `fe` = fsymbol(internalSpan(), `sym`)
       `scope`.addDecl(istring(`s`), `sym`)
     )
 
-defineInternalSymbol(voidtype, "Void")
-defineInternalSymbol(intlittype, "IntLit")
-defineInternalSymbol(floatlittype, "FloatLit")
-defineInternalSymbol(strlittype, "StrLit")
+defineInternalType(voidtype, "Void", 0)
+defineInternalType(intlittype, "IntLit", 4)
+defineInternalType(floatlittype, "FloatLit", 4)
+defineInternalType(strlittype, "StrLit", 4)
 var fntypeString*: IString
 var internalScope*: FScope
 
 proc initInternalPrimitive*(scope: FScope) =
-  scope.instantiateInternalSymbol()
+  scope.instantiateInternalType()
   fntypeString = istring("Fn")
 
 proc fntypesym*(scope: FScope, fexpr: FExpr, argtypes: openArray[Symbol], rettype: Symbol): Symbol =
@@ -100,3 +102,8 @@ proc isEqualTypes*(types: seq[Symbol]): bool =
 #       result.addSon(args[i].span.quoteFExpr("`embed(`embed)", [fsymbol(args[i].span, matches[i].convsym), args[i]]))
 #     else:
 #       result.addSon(args[i])
+
+proc typesize*(fexpr: FExpr): int =
+  if fexpr.obj.internal.isNone:
+    fexpr.error("$# type hasn't size." % $fexpr)
+  return fexpr.obj.internal.get.obj.internalsize

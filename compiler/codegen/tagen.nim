@@ -1,5 +1,5 @@
 
-import ../image, ../parser, ../fexpr
+import ../fcore
 import tacode
 
 import options
@@ -36,9 +36,9 @@ proc convertIf*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   let retsym = ctx.tmpsym
   let nextl = ctx.tmplabel
   let size = if fexpr.typ.isSome:
-               999999
+               fexpr.typ.get.fexpr.typesize
              else:
-               0
+               -1
   ctx.add(codeVar(retsym, size, atomNone()))
   for c in conds:
     let (label, fcond, _) = c
@@ -64,24 +64,25 @@ proc convertArg*(ctx: var TAContext, id: string, i: int, s: int, e: int) =
     if atom.kind == atVar and atom.varname == id:
       atom = atomArg(i)
 proc convertFn*(ctx: var TAContext, fexpr: FExpr): TAAtom =
-  let fname = fexpr[1]
-  let args = if fexpr[2].kind == fexprArray:
-               fexpr[3]
-             else:
-               fexpr[2]
-  let fbody = fexpr[^1]
-  let fnlabel = desc(fname)
-  ctx.addFn(codeFn(fnlabel, args.mapIt((desc(it[0]), 0)), 0))
-  let s = ctx.codes.len
-  for i in 0..<fbody.len-1:
-    discard ctx.convertFExpr(fbody[i])
-  if fbody.len != 0:
-    ctx.add(codeRet(ctx.convertFExpr(fbody[^1])))
+  let parsed = parseDefn(fexpr)
+  let args = fexpr[parsed.argdecls]
+  let fnlabel = desc(fexpr[parsed.name])
+  let retsize = if parsed.ret.isSome:
+                  fexpr[parsed.ret.get].symbol.fexpr.typesize
+                else:
+                  -1
+  ctx.addFn(codeFn(fnlabel, args.mapIt((desc(it[0]), it[1].symbol.fexpr.typesize)), retsize))
+  # let s = ctx.codes.len
+  if parsed.body.isSome:
+    for i in 0..<fexpr[parsed.body.get].len-1:
+      discard ctx.convertFExpr(fexpr[parsed.body.get][i])
+  if parsed.body.isSome and fexpr[parsed.body.get].len != 0:
+    ctx.add(codeRet(ctx.convertFExpr(fexpr[parsed.body.get][^1])))
   else:
     ctx.add(codeRet(atomNone()))
-  let e = ctx.codes.len-1
-  for i, argname in args.mapIt(desc(it[0])):
-    ctx.convertArg(argname, i, s, e)
+  # let e = ctx.codes.len-1
+  # for i, argname in args.mapIt(desc(it[0])):
+  #   ctx.convertArg(argname, i, s, e)
   ctx.addLabel(ctx.tmplabel)
   return atomNone()
   
@@ -113,32 +114,33 @@ proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom =
       discard ctx.convertFExpr(b)
     return atomNone()
   elif fexpr.obj.isInfixFuncCall and $fexpr[0] == ":=":
-    let name = $fexpr[1]
+    let name = desc(fexpr[1])
     let size = if fexpr[2].typ.isSome:
-                 999999
+                 fexpr[2].typ.get.fexpr.typesize
                else:
                  0
     let value = ctx.convertFExpr(fexpr[2])
     ctx.add(codeVar(name, size, value))
     return atomNone()
-  elif fexpr.obj.isInfixFuncCall:
+  elif fexpr.isFuncCall and fexpr[0].kind == fexprSymbol and fexpr[0].symbol.fexpr.obj.internal.isSome:
+    let op = fexpr[0].symbol.fexpr.obj.internal.get.obj.internalop
     let left = ctx.convertFExpr(fexpr[1])
     let right = ctx.convertFExpr(fexpr[2])
     let tmp = ctx.tmpsym
-    case $fexpr[0]
-    of "+":
+    case op
+    of internalAdd:
       ctx.add(codeOp(taAdd, tmp, left, right))
-    of "-":
+    of internalSub:
       ctx.add(codeOp(taSub, tmp, left, right))
-    of "*":
+    of internalMul:
       ctx.add(codeOp(taMul, tmp, left, right))
-    of "/":
+    of internalDiv:
       ctx.add(codeOp(taDiv, tmp, left, right))
-    of ">":
+    of internalGreater:
       ctx.add(codeOp(taGreater, tmp, left, right))
-    of "<":
+    of internalLess:
       ctx.add(codeOp(taLess, tmp, left, right))
-    of "=":
+    of internalSet:
       ctx.add(codeOp(taSet, tmp, left, right))
       return atomNone()
     else:
@@ -147,12 +149,18 @@ proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   elif fexpr.obj.isFuncCall:
     return ctx.convertCall(fexpr)
   elif fexpr.kind == fexprSeq and fexpr.len >= 1:
-    if $fexpr[0] == "while":
+    if $fexpr[0] == "type":
+      return atomNone()
+    elif $fexpr[0] == "while":
       return ctx.convertWhile(fexpr)
     elif $fexpr[0] == "if":
       return ctx.convertIf(fexpr)
     elif $fexpr[0] == "fn":
-      return ctx.convertFn(fexpr)
+      let parsed = parseDefn(fexpr)
+      if parsed.body.isSome:
+        return ctx.convertFn(fexpr)
+      else:
+        return atomNone()
     else:
       fexpr.error("unsupported internal tacodegen of: $#" % $fexpr)
   else:

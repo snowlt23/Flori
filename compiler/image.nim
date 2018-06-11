@@ -22,6 +22,19 @@ type
     next*: IList[T]
   IList*[T] = object
     index*: int
+  InternalOp* = enum
+    internalAdd
+    internalSub
+    internalMul
+    internalDiv
+    internalGreater
+    internalLess
+    internalSet
+  InternalMarkerObj* = object
+    internalop*: InternalOp
+    internalsize*: int
+  InternalMarker* = object
+    index*: int
   SymbolKind* = enum
     symbolType
     symbolGenerics
@@ -81,6 +94,7 @@ type
     span*: Span
     src*: Option[IString]
     typ*: Option[Symbol]
+    internal*: Option[InternalMarker]
     case kind*: FExprKind
     of fexprIdent, fexprPrefix, fexprInfix:
       idname*: IString
@@ -150,6 +164,9 @@ proc obj*(sym: Symbol): var SymbolObj =
 proc obj*(scope: FScope): var FScopeObj =
   gImage.scopes[scope.index]
 
+proc obj*(marker: InternalMarker): var InternalMarkerObj =
+  cast[ptr InternalMarkerObj](addr(gImage.mem[marker.index]))[]
+
 proc addFExpr*(image: var FImage, f: FExprObj): FExpr =
   result = FExpr(index: image.fexprs.len)
   image.fexprs.add(f)
@@ -166,6 +183,14 @@ proc genSymbol*(s: SymbolObj): Symbol =
   gImage.addSymbol(s)
 proc genFScope*(s: FScopeObj): FScope =
   gImage.addFScope(s)
+
+proc genInternalMarker*(marker: InternalMarkerObj): InternalMarker =
+  result = InternalMarker(index: gImage.mem.len)
+  for i in 0..<sizeof(InternalMarkerObj):
+    gImage.mem.add(0)
+  cast[ptr InternalMarkerObj](addr(gImage.mem[result.index]))[] = marker
+proc newInternalMarker*(): InternalMarker =
+  genInternalMarker(InternalMarkerObj())
 
 #
 # Internal Types

@@ -148,10 +148,12 @@ proc getname*(code: TACode): string =
     raise newException(Exception, "cannot getname: $#" % $code.kind)
 
 proc sizerepr*(s: int): string =
-  if s == 0:
-    "s[undefined]"
+  if s == -1:
+    "<undefined>"
+  elif s == 0:
+    "<void>"
   else:
-    "s[$#]" % $s
+    "<$#>" % $s
 proc `$`*(a: TAAtom): string =
   case a.kind
   of atNone:

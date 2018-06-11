@@ -34,26 +34,44 @@ proc getFieldType*(fexpr: FExpr, fieldname: string): Option[Symbol] =
   #   fromtype.fexpr.converters = Converters(converters: @[])
   # fromtype.fexpr.converters.converters.add(fexpr[1])
 
-# proc semPragma*(scope: FScope, fexpr: FExpr, pragma: FExpr) =
-#   if pragma.kind != fexprArray:
-#     pragma.error("$# isn't internal pragma." % $pragma)
-#   fexpr.pragma = InternalPragma()
+proc semInternalOpPragma*(scope: FScope, fexpr: var FExpr) =
+  if fexpr[0].len != 2 or fexpr[0][1].kind != fexprStrLit:
+    fexpr.error("illegal internal pragma: $#" % $fexpr[0])
+  let internalname = $fexpr[0][1].strval
+  case internalname
+  of "+":
+    fexpr[1].obj.internal.get.obj.internalop = internalAdd
+  of "-":
+    fexpr[1].obj.internal.get.obj.internalop = internalSub
+  of "<":
+    fexpr[1].obj.internal.get.obj.internalop = internalLess
+  else:
+    fexpr[0].error("couldn't find internal operation: $#" % internalname)
+proc semInternalSizePragma*(scope: FScope, fexpr: var FExpr) =
+  if fexpr[0].len != 2 or fexpr[0][1].kind != fexprIntLit:
+    fexpr.error("illegal internal pragma: $#" % $fexpr[0])
+  let size = fexpr[0][1].intval
+  fexpr[1].obj.internal.get.obj.internalsize = int(size)
 
-#   for key in pragma.mitems:
-#     let pragmaname = if key.kind in fexprContainer:
-#                        name(key[0])
-#                      else:
-#                        name(key)
-#     var newkey = if key.kind in fexprContainer:
-#                    key.copy
-#                  else:
-#                    fseq(key.span, @[key])
-#     let internalopt = scope.getFunc(procname(pragmaname, @[]))
-#     newkey.addSon(fexpr)
-#     if internalopt.isSome:
-#       internalopt.get.pd.internalproc(scope, newkey)
-#     else:
-#       scope.rootPass(newkey)
+proc semPragma*(scope: FScope, fexpr: FExpr, pragma: FExpr) =
+  if pragma.kind != fexprArray:
+    pragma.error("$# isn't pragma." % $pragma)
+  fexpr.obj.internal = some(newInternalMarker())
+
+  for p in pragma.mitems:
+    let pname = if p.kind == fexprIdent:
+                 p
+               else:
+                 p[0]
+    var pcall = if p.kind == fexprIdent:
+                  p.span.quoteFExpr("`embed(`embed)", [p, fexpr])
+                else:
+                  p.span.quoteFExpr("`embed `embed", [p, fexpr])
+    let internalopt = scope.getFunc(procname($pname, @[]))
+    if internalopt.isSome:
+      (internalopt.get.internalproc.get)(scope, pcall)
+    else:
+      pname.error("undeclared $# pragma." % $pname)
 
 #
 # Evaluater
@@ -121,6 +139,9 @@ proc semFunc*(scope: FScope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): 
     arg[1] = fsymbol(arg[1].span, argtypes[i])
   if parsed.ret.isSome:
     fexpr[parsed.ret.get] = fsymbol(fexpr[parsed.ret.get].span, rettype)
+
+  if parsed.pragma.isSome:
+    scope.semPragma(fexpr, fexpr[parsed.pragma.get])
 
   if parsed.generics.isSome and fexpr.isGenerics(parsed):
     return (fnscope, generics, argtypes, rettype, sym)
@@ -219,6 +240,7 @@ proc semDef*(scope: FScope, fexpr: var FExpr) =
   let varname = istring($name)
   let varsym = scope.symbol(varname, symbolDef, name)
   fexpr[1].typ = some(fexpr[2].typ.get.varsym())
+  fexpr[1] = fsymbol(fexpr[1].span, varsym)
   scope.addDecl(varname, varsym)
   
 proc semSet*(scope: FScope, fexpr: var FExpr) =
@@ -347,6 +369,10 @@ proc initInternalEval*(scope: FScope) =
   scope.addInternalEval("init", semInit)
   scope.addInternalEval("import", semImport)
   scope.addInternalEval("block", semBlock)
+
+  # pragmas
+  scope.addInternalEval("internalop", semInternalOpPragma)
+  scope.addInternalEval("internalsize", semInternalSizePragma)
 
 proc initInternalScope*() =
   let scope = newFScope("internal", "internal")
