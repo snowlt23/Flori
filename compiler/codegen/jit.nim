@@ -45,3 +45,7 @@ proc toBin*(buf: JitBuffer, s, e: int): string =
   result = newString(e-s+1)
   for i in s..e:
     result[i-s] = cast[ptr char](cast[int](buf.mem) + i)[]
+
+iterator items*(buf: JitBuffer): uint8 =
+  for i in 0..<buf.len:
+    yield(cast[ptr uint8](cast[int](buf.mem) + i)[])
