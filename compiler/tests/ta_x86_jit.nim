@@ -34,7 +34,6 @@ discard evalTest(prelude)
 #     fib(x-1) + fib(x-2)
 #   }
 # }
-# fib(30)
 # """)
 let fexprs = evalTest("""
 fn add5(x IntLit) IntLit {

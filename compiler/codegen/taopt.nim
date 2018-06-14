@@ -160,7 +160,7 @@ proc optInline*(ctx: TAContext): TAContext =
         continue
     ctx.reloc(result, i)
     result.add(ctx.codes[i])
-
+  
 proc optimize*(ctx: var TAContext): TAContext =
   result = ctx
   result = result.optElimRetDeadcode()
