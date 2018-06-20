@@ -1,7 +1,7 @@
 
 
 import ../fcore, ../passmacro, ../internalpass
-import ../codegen/tacode, ../codegen/tagen, ../codegen/taopt, ../codegen/ta_x86, ../codegen/jit
+import ../codegen/tacode, ../codegen/tagen, ../codegen/x86code, ../codegen/x86gen, ../codegen/jit
 
 import tables
 import os, osproc, strutils
@@ -48,17 +48,15 @@ for f in fexprs:
 let jitbuf = initJitBuffer(1024)
 let add5 = toProc[proc (a: int32): int32 {.cdecl.}](jitbuf.getproc())
 var asmctx = newAsmContext(jitbuf)
-for i, c in tactx.codes:
-  if tactx.revlabels.hasKey(i):
-    asmctx.addLabel(tactx.revlabels[i])
-  asmctx.generateFromTACode(c)
+var x86ctx = tactx.toX86Context().naiveRegalloc()
+asmctx.generateX86(x86ctx)
 var bin = ""
 for b in asmctx.buffer:
   bin.add(cast[char](b))
 writeFile("fib.bin", bin)
 
-echo "\n=> TACode\n"
-stdout.write(tactx)
+echo "\n=> X86Code\n"
+stdout.write(x86ctx)
 
 echo "=> x86\n"
 let outp = execProcess("objdump -b binary -M intel -m i386 -D fib.bin")

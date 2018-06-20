@@ -243,7 +243,6 @@ template expandLeftRight*(fn: var X86Fn, code: X86Code, variant: untyped, init: 
     fn.body.add(init(code.variant.left, initX86AtomReg(eax)))
   else:
     fn.body.add(code)
-  
 proc expandDoubleRef*(fn: var X86Fn, code: X86Code) =
   case code.kind
   of X86CodeKind.Add:
@@ -256,11 +255,33 @@ proc expandDoubleRef*(fn: var X86Fn, code: X86Code) =
     expandLeftRight(fn, code, cmp, initX86CodeCmp)
   else:
     fn.body.add(code)
-  
 proc expandDoubleRef*(fn: X86Fn): X86Fn =
   result = X86Fn(name: fn.name, args: fn.args, body: @[])
   for code in fn.body:
     result.expandDoubleRef(code)
+
+template expandIntLit*(fn: var X86Fn, code: X86Code, variant: untyped, init: untyped) =
+  if code.variant.left.kind != X86AtomKind.Reg and code.variant.right.kind == X86AtomKind.IntLit:
+    fn.body.add(initX86CodeMov(initX86AtomReg(eax), code.variant.right))
+    fn.body.add(init(code.variant.left, initX86AtomReg(eax)))
+  else:
+    fn.body.add(code)
+proc expandIntLit*(fn: var X86Fn, code: X86Code) =
+  case code.kind
+  of X86CodeKind.Add:
+    expandIntLit(fn, code, add, initX86CodeAdd)
+  of X86CodeKind.Sub:
+    expandIntLit(fn, code, sub, initX86CodeSub)
+  of X86CodeKind.Mov:
+    expandIntLit(fn, code, mov, initX86CodeMov)
+  of X86CodeKind.Cmp:
+    expandIntLit(fn, code, cmp, initX86CodeCmp)
+  else:
+    fn.body.add(code)
+proc expandIntLit*(fn: X86Fn): X86Fn =
+  result = X86Fn(name: fn.name, args: fn.args, body: @[])
+  for code in fn.body:
+    result.expandIntLit(code)
   
 proc naiveRegalloc*(fn: X86Fn): X86Fn =
   result = X86Fn(name: fn.name, args: fn.args, body: @[])
@@ -292,7 +313,8 @@ proc naiveRegalloc*(fn: X86Fn): X86Fn =
   for b in replacedfn.body:
     result.body.add(b)
 
-  result = result.expandDoubleRef
+  result = result.expandDoubleRef()
+  result = result.expandIntLit()
 
 proc naiveRegalloc*(ctx: X86Context): X86Context =
   result = newX86Context()
