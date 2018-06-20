@@ -3,147 +3,75 @@ import tables
 import strutils, sequtils
 import options
 
+import variant
+
+defVariant TAAtom:
+  None()
+  AVar(name: string)
+  IntLit(intval: int64)
+
+defVariant TACode:
+  Add(name: string, left: TAAtom, right: TAAtom)
+  Sub(name: string, left: TAAtom, right: TAAtom)
+  Mul(name: string, left: TAAtom, right: TAAtom)
+  ADiv(name: string, left: TAAtom, right: TAAtom)
+  Greater(name: string, left: TAAtom, right: TAAtom)
+  Lesser(name: string, left: TAAtom, right: TAAtom)
+  Set(name: string, value: TAAtom)
+  Label(name: string)
+  Call(name: string, calllabel: string, args: seq[TAAtom], isPure: bool)
+  AVar(name: string, size: int, value: TAAtom)
+  Goto(gotolabel: string)
+  AIf(cond: TAAtom, gotolabel: string)
+  Ret(value: TAAtom)
+
 type
-  TAAtomKind* = enum
-    atNone
-    atVar
-    atArg
-    atIntLit
-  TAAtom* = object
-    case kind*: TAAtomKind
-    of atNone:
-      discard
-    of atVar:
-      varname*: string
-    of atArg:
-      argindex*: int
-    of atIntLit:
-      intval*: int64
-      
-  TACodeKind* = enum
-    taAdd
-    taSub
-    taMul
-    taDiv
-    taGreater
-    taLess
-    taSet
-    taFn
-    taCall
-    taVar
-    taGoto
-    taIf
-    taRet
-  TACode* = object
-    case kind*: TACodeKind
-    of {taAdd..taSet}:
-      dstname*: string
-      left*: TAAtom
-      right*: TAAtom
-    of taFn:
-      fnname*: string
-      fnargs*: seq[(string, int)]
-      retsize*: int
-    of taCall:
-      calldstname*: string
-      fnlabel*: string
-      args*: seq[TAAtom]
-      isPure*: bool
-    of taVar:
-      varname*: string
-      size*: int
-      value*: TAAtom
-    of taGoto:
-      gotolabel*: string
-    of taIf:
-      cond*: TAAtom
-      iflabel*: string
-    of taRet:
-      ret*: TAAtom
+  TAFn* = object
+    fnname*: string
+    args*: seq[(string, int)]
+    retsize*: int
+    body*: seq[TACode]
   TAContext* = object
+    fns*: seq[TAFn]
     codes*: seq[TACode]
-    fnlabels*: Table[string, int]
-    labels*: Table[string, int]
-    revlabels*: Table[int, string]
-    nextlabel*: Option[string]
     tmp*: int
     tmpl*: int
 
 proc newTAContext*(): TAContext =
-  TAContext(codes: @[], fnlabels: initTable[string, int](), labels: initTable[string, int](), revlabels: initTable[int, string]())
+  TAContext(fns: @[], codes: @[])
 proc add*(ctx: var TAContext, code: TACode) =
-  ctx.nextlabel = none(string)
   ctx.codes.add(code)
-proc addFn*(ctx: var TAContext, code: TACode) =
-  ctx.fnlabels[code.fnname] = ctx.codes.len
-  ctx.add(code)
-proc addLabel*(ctx: var TAContext, labelname: string) =
-  ctx.nextlabel = some(labelname)
-  ctx.labels[labelname] = ctx.codes.len
-  ctx.revlabels[ctx.codes.len] = labelname
+proc addLabel*(ctx: var TAContext, name: string) =
+  ctx.codes.add(initTACodeLabel(name))
+proc addFn*(ctx: var TAContext, fn: TAFn) =
+  ctx.fns.add(fn)
 proc tmpsym*(ctx: var TAContext, prefix = "t"): string =
   result = prefix & $ctx.tmp
   ctx.tmp.inc
 proc tmplabel*(ctx: var TAContext, prefix = "L"): string =
-  if ctx.nextlabel.isSome:
-    result = ctx.nextlabel.get
-    ctx.nextlabel = none(string)
-  else:
-    result = prefix & $ctx.tmpl
-    ctx.tmpl.inc
-
-proc atomNone*(): TAAtom = TAAtom(kind: atNone)
-proc atomVar*(name: string): TAAtom = TAAtom(kind: atVar, varname: name)
-proc atomArg*(i: int): TAAtom = TAAtom(kind: atArg, argindex: i)
-proc atomInt*(x: int64): TAAtom = TAAtom(kind: atIntLit, intval: x)
-
-proc codeOp*(kind: TACodeKind, dstname: string, left, right: TAAtom): TACode =
-  result.kind = kind
-  result.dstname = dstname
-  result.left = left
-  result.right = right
-proc codeFn*(fnname: string, args: seq[(string, int)], retsize: int): TACode =
-  TACode(kind: taFn, fnname: fnname, fnargs: args, retsize: retsize)
-proc codeCall*(dstname: string, fnlabel: string, args: seq[TAAtom], pure: bool): TACode =
-  TACode(kind: taCall, calldstname: dstname, fnlabel: fnlabel, args: args, isPure: pure)
-proc codeVar*(varname: string, size: int, val: TAAtom): TACode =
-  TACode(kind: taVar, varname: varname, size: size, value: val)
-proc codeGoto*(label: string): TACode =
-  TACode(kind: taGoto, gotolabel: label)
-proc codeIf*(cond: TAAtom, label: string): TACode =
-  TACode(kind: taIf, cond: cond, iflabel: label)
-proc codeRet*(ret: TAAtom): TACode =
-  TACode(kind: taRet, ret: ret)
-
-iterator atoms*(ctx: var TAContext, s, e: int): var TAAtom =
-  for i in s..e:
-    case ctx.codes[i].kind
-    of taAdd..taSet:
-      yield(ctx.codes[i].left)
-      yield(ctx.codes[i].right)
-    of taCall:
-      for arg in ctx.codes[i].args.mitems:
-        yield(arg)
-    of taVar:
-      yield(ctx.codes[i].value)
-    of taIf:
-      yield(ctx.codes[i].cond)
-    of taRet:
-      yield(ctx.codes[i].ret)
-    else:
-      discard
-iterator atoms*(ctx: var TAContext): var TAAtom =
-  for atom in ctx.atoms(0, ctx.codes.len-1):
-    yield(atom)
+  result = prefix & $ctx.tmpl
+  ctx.tmpl.inc
 
 proc getname*(code: TACode): string =
   case code.kind
-  of taAdd..taSet:
-    return code.dstname
-  of taCall:
-    return code.calldstname
-  of tavar:
-    return code.varname
+  of TACodeKind.Add:
+    return code.add.name
+  of TACodeKind.Sub:
+    return code.sub.name
+  of TACodeKind.Mul:
+    return code.mul.name
+  of TACodeKind.ADiv:
+    return code.adiv.name
+  of TACodeKind.Greater:
+    return code.greater.name
+  of TACodeKind.Lesser:
+    return code.lesser.name
+  of TACodeKind.Set:
+    return code.set.name
+  of TACodeKind.Call:
+    return code.call.name
+  of TACodeKind.AVar:
+    return code.avar.name
   else:
     raise newException(Exception, "cannot getname: $#" % $code.kind)
 
@@ -156,55 +84,57 @@ proc sizerepr*(s: int): string =
     "<$#>" % $s
 proc `$`*(a: TAAtom): string =
   case a.kind
-  of atNone:
+  of TAAtomKind.None:
     "none"
-  of atVar:
-    a.varname
-  of atArg:
-    "$" & $a.argindex
-  of atIntLit:
-    $a.intval
+  of TAAtomKind.AVar:
+    a.avar.name
+  of TAAtomKind.IntLit:
+    $a.intlit.intval
 proc `$`*(code: TACode): string =
   case code.kind
-  of taAdd:
-    "$# = $# + $#" % [code.dstname, $code.left, $code.right]
-  of taSub:
-    "$# = $# - $#" % [code.dstname, $code.left, $code.right]
-  of taMul:
-    "$# = $# * $#" % [code.dstname, $code.left, $code.right]
-  of taDiv:
-    "$# = $# / $#" % [code.dstname, $code.left, $code.right]
-  of taGreater:
-    "$# = $# > $#" % [code.dstname, $code.left, $code.right]
-  of taLess:
-    "$# = $# < $#" % [code.dstname, $code.left, $code.right]
-  of taSet:
-    "$# = $#" % [$code.left, $code.right]
-  of taFn:
-    "fn $#($#) $#:" % [code.fnname, code.fnargs.map(proc (arg: (string, int)): string =
-      let (n, s) = arg
-      "$# $#" % [n, sizerepr(s)]
-    ).join(", "), sizerepr(code.retsize)]
-  of taCall:
-    "$# = $#($#)" % [code.calldstname, code.fnlabel, code.args.mapIt($it).join(", ")]
-  of taVar:
-    "$# $# := $#" % [code.varname, sizerepr(code.size), $code.value]
-  of taGoto:
-    "goto $#" % code.gotolabel
-  of taIf:
-    "if $# goto $#" % [$code.cond, code.iflabel]
-  of taRet:
-    "ret $#\n" % $code.ret
+  of TACodeKind.Add:
+    "$# = $# + $#" % [code.add.name, $code.add.left, $code.add.right]
+  of TACodeKind.Sub:
+    "$# = $# - $#" % [code.sub.name, $code.sub.left, $code.sub.right]
+  of TACodeKind.Mul:
+    "$# = $# * $#" % [code.mul.name, $code.mul.left, $code.mul.right]
+  of TACodeKind.ADiv:
+    "$# = $# / $#" % [code.adiv.name, $code.adiv.left, $code.adiv.right]
+  of TACodeKind.Greater:
+    "$# = $# > $#" % [code.greater.name, $code.greater.left, $code.greater.right]
+  of TACodeKind.Lesser:
+    "$# = $# < $#" % [code.lesser.name, $code.lesser.left, $code.lesser.right]
+  of TACodeKind.Set:
+    "$# = $#" % [$code.set.value]
+  of TACodeKind.Label:
+    "$#:" % code.label.name
+  of TACodeKind.Call:
+    "$# = $#($#)" % [code.call.name, code.call.calllabel, code.call.args.mapIt($it).join(", ")]
+  of TACodeKind.AVar:
+    "$# $# := $#" % [code.avar.name, sizerepr(code.avar.size), $code.avar.value]
+  of TACodeKind.Goto:
+    "goto $#" % code.goto.gotolabel
+  of TACodeKind.AIf:
+    "if $# goto $#" % [$code.aif.cond, code.aif.gotolabel]
+  of TACodeKind.Ret:
+    "ret $#\n" % $code.ret.value
+
+proc `$`*(fn: TAFn): string =
+  "fn $#($#) $#:\n  $#" % [fn.fnname, fn.args.map(proc (arg: (string, int)): string =
+                                                let (n, s) = arg
+                                                "$# $#" % [n, sizerepr(s)]
+  ).join(", "), sizerepr(fn.retsize), fn.body.mapIt($it).join("\n  ")]
 
 proc `$`*(ctx: TAContext): string =
   result = ""
-  for i, c in ctx.codes:
-    if ctx.revlabels.hasKey(i):
-      result &= ctx.revlabels[i] & ":\n"
-    if c.kind == taFn:
-      result &= $c & "\n"
-    else:
-      result &= "  " & $c & "\n"
+  for i, c in ctx.fns:
+    result &= $c & "\n"
+
+# let left = initTAAtomIntLit(4)
+# let right = initTAAtomIntLit(5)
+# let avar = initTAAtomAVar("t0")
+# echo initTACodeAdd("t0", left, right)
+# echo initTACodeSub("t1", avar, right)
     
 # var ctx = newTAContext()
 # ctx.add(codeVar("a", atomInt(5)))
