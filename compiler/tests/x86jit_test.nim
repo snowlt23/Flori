@@ -2,6 +2,7 @@
 
 import ../fcore, ../passmacro, ../internalpass
 import ../codegen/tacode, ../codegen/liveness, ../codegen/tagen, ../codegen/x86code, ../codegen/x86gen, ../codegen/jit
+import ../codegen/x86tiling
 
 import tables
 import os, osproc, strutils
@@ -62,7 +63,8 @@ var asmctx = newAsmContext(jitbuf)
 
 # echo tactx.toX86Context()
 # var x86ctx = tactx.toX86Context().naiveRegalloc()
-var x86ctx = tactx.toX86Context().simpleRegalloc(tactx.analyzeLiveness())
+# var x86ctx = tactx.toX86Context().simpleRegalloc(tactx.analyzeLiveness())
+var x86ctx = tactx.x86Tiling().simpleRegalloc(tactx.analyzeLiveness())
 echo "\n=> X86Code\n"
 stdout.write(x86ctx)
 
