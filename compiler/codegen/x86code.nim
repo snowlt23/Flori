@@ -4,7 +4,7 @@ import tables
 import options
 
 import variant
-import tacode, asm_x86
+import tacode, liveness, asm_x86
 
 defVariant X86Atom:
   Temp(name: string)
@@ -15,7 +15,7 @@ defVariant X86Atom:
 
 defVariant X86Code:
   Label(name: string)
-  AVar(name: string, size: int)
+  AVar(name: string, size: int, isCall: bool)
   Add(left: X86Atom, right: X86Atom)
   Sub(left: X86Atom, right: X86Atom)
   Mul(right: X86Atom)
@@ -43,11 +43,13 @@ type
 
 const refX86Atom* = {X86AtomKind.EbpRel, X86AtomKind.EspRel}
 
+proc initX86CodeAVar*(name: string, size: int): X86Code = initX86CodeAVar(name, size, false)
+
 proc add*(ctx: var X86Context, code: X86Code) =
   ctx.codes.add(code)
 proc addLabel*(ctx: var X86Context, labelname: string) =
   ctx.codes.add(initX86CodeLabel(labelname))
-proc tmplabel*(ctx: var X86Context, prefix = "L"): string =
+proc tmplabel*(ctx: var X86Context, prefix = "XL"): string =
   result = prefix & $ctx.tmpl
   ctx.tmpl.inc
 
@@ -98,7 +100,7 @@ proc `$`*(code: X86Code): string =
   of X86CodeKind.Push:
     "push $#" % [$code.push.value]
   of X86CodeKind.Pop:
-    "pop $#" % [$code.pop.value]  
+    "pop $#" % [$code.pop.value]
   of X86CodeKind.Cmp:
     "cmp $#, $#" % [$code.cmp.left, $code.cmp.right]
   of X86CodeKind.JmpGreater:
@@ -135,7 +137,7 @@ proc toX86Code*(ctx: var X86Context, code: TACode) =
   of TACodeKind.Sub:
     ctx.add(initX86CodeAVar(code.sub.name, 4)) # FIXME:
     ctx.add(initX86CodeMov(initX86AtomTemp(code.sub.name), toX86Atom(code.sub.left)))
-    ctx.add(initX86CodeAdd(initX86AtomTemp(code.sub.name), toX86Atom(code.sub.right)))
+    ctx.add(initX86CodeSub(initX86AtomTemp(code.sub.name), toX86Atom(code.sub.right)))
   of TACodeKind.Mul:
     ctx.add(initX86CodeAVar(code.mul.name, 4)) # FIXME:
     ctx.add(initX86CodeMov(initX86AtomReg(eax), toX86Atom(code.mul.left)))
@@ -146,27 +148,43 @@ proc toX86Code*(ctx: var X86Context, code: TACode) =
     ctx.add(initX86CodeMov(initX86AtomReg(eax), toX86Atom(code.adiv.left)))
     ctx.add(initX86CodeADiv(toX86Atom(code.adiv.right)))
     ctx.add(initX86CodeMov(initX86AtomTemp(code.adiv.name), initX86AtomReg(eax)))
-  of TACodeKind.Greater: # FIXME:
+  of TACodeKind.Greater:
+    let tlabel = ctx.tmplabel
+    let nlabel = ctx.tmplabel
+    ctx.add(initX86CodeAVar(code.greater.name, 4))
     ctx.add(initX86CodeCmp(toX86Atom(code.greater.left), toX86Atom(code.greater.right)))
-    let label = ctx.tmplabel
-    ctx.add(initX86CodeJmpGreater(label))
-    ctx.addLabel(label)
-  of TACodeKind.Lesser: # FIXME:
+    ctx.add(initX86CodeJmpGreater(tlabel))
+    ctx.add(initX86CodeMov(initX86AtomTemp(code.greater.name), initX86AtomIntLit(0)))
+    ctx.add(initX86CodeJmp(nlabel))
+    ctx.add(initX86CodeLabel(tlabel))
+    ctx.add(initX86CodeMov(initX86AtomTemp(code.greater.name), initX86AtomIntLit(1)))
+    ctx.add(initX86CodeLabel(nlabel))
+  of TACodeKind.Lesser:
+    let tlabel = ctx.tmplabel
+    let nlabel = ctx.tmplabel
+    ctx.add(initX86CodeAVar(code.lesser.name, 4)) # FIXME:
     ctx.add(initX86CodeCmp(toX86Atom(code.lesser.left), toX86Atom(code.lesser.right)))
-    let label = ctx.tmplabel
-    ctx.add(initX86CodeJmpLesser(label))
-    ctx.addLabel(label)
+    ctx.add(initX86CodeJmpLesser(tlabel))
+    ctx.add(initX86CodeMov(initX86AtomTemp(code.lesser.name), initX86AtomIntLit(0)))
+    ctx.add(initX86CodeJmp(nlabel))
+    ctx.add(initX86CodeLabel(tlabel))
+    ctx.add(initX86CodeMov(initX86AtomTemp(code.lesser.name), initX86AtomIntLit(1)))
+    ctx.add(initX86CodeLabel(nlabel))
   of TACodeKind.Set:
     ctx.add(initX86CodeMov(initX86AtomTemp(code.set.name), toX86Atom(code.set.value)))
   of TACodeKind.Call:
+    var argssize = 0
     for i in 1..code.call.args.len:
       let n = code.call.args.len - i
       ctx.add(initX86CodePush(toX86Atom(code.call.args[n])))
+      argssize += 4 # FIXME:
+    ctx.add(initX86CodeAVar(code.call.name, 4, true)) # FIXME:
     ctx.add(initX86CodeCall(code.call.calllabel))
     ctx.add(initX86CodeMov(initX86AtomTemp(code.call.name), initX86AtomReg(eax)))
+    ctx.add(initX86CodeAdd(initX86AtomReg(esp), initX86AtomIntLit(argssize)))
   of TACodeKind.AVar:
     ctx.add(initX86CodeAVar(code.avar.name, code.avar.size))
-    if code.avar.value.kind != TAAtomKind.None: 
+    if code.avar.value.kind != TAAtomKind.None:
       ctx.add(initX86CodeMov(initX86AtomTemp(code.avar.name), toX86Atom(code.avar.value)))
   of TACodeKind.Goto:
     ctx.add(initX86CodeJmp(code.goto.gotolabel))
@@ -175,9 +193,6 @@ proc toX86Code*(ctx: var X86Context, code: TACode) =
     ctx.add(initX86CodeJmpZero(code.aif.gotolabel))
   of TACodeKind.Ret:
     ctx.add(initX86CodeMov(initX86AtomReg(eax), toX86Atom(code.ret.value)))
-    ctx.add(initX86CodeMov(initX86AtomReg(esp), initX86AtomReg(ebp)))
-    ctx.add(initX86CodePop(initX86AtomReg(ebp)))
-    ctx.add(initX86CodeRet())
 proc toX86Context*(ctx: TAContext): X86Context =
   result = newX86Context()
   for fn in ctx.fns:
@@ -191,11 +206,11 @@ proc collectNaiveStacklen*(fn: X86Fn): int =
   for code in fn.body:
     if code.kind == X86CodeKind.AVar:
       result += code.avar.size
-proc collectVariables*(fn: X86Fn): seq[(string, int)] =
+proc collectVariables*(fn: X86Fn): seq[(string, int, bool)] =
   result = @[]
   for code in fn.body:
     if code.kind == X86CodeKind.AVar:
-      result.add((code.avar.name, code.avar.size))
+      result.add((code.avar.name, code.avar.size, code.avar.isCall))
 
 proc replaceTemp*(atom: var X86Atom, tmpname: string, by: X86Atom) =
   if atom.kind == X86AtomKind.Temp and atom.temp.name == tmpname:
@@ -282,16 +297,16 @@ proc expandIntLit*(fn: X86Fn): X86Fn =
   result = X86Fn(name: fn.name, args: fn.args, body: @[])
   for code in fn.body:
     result.expandIntLit(code)
-  
+
 proc naiveRegalloc*(fn: X86Fn): X86Fn =
   result = X86Fn(name: fn.name, args: fn.args, body: @[])
-    
+
   # prologue gen
   let stacklen = fn.collectNaiveStacklen()
   result.body.add(initX86CodePush(initX86AtomReg(ebp)))
   result.body.add(initX86CodeMov(initX86AtomReg(ebp), initX86AtomReg(esp)))
   result.body.add(initX86CodeSub(initX86AtomReg(esp), initX86AtomIntLit(stacklen)))
-  
+
   var variables = fn.collectVariables()
   var allocatoms = newSeq[(string, X86Atom)]()
 
@@ -303,8 +318,8 @@ proc naiveRegalloc*(fn: X86Fn): X86Fn =
     curargpos += argsize
   # variable gen
   var curvarpos = 0
-  for i, variable in variables:
-    let (varname, varsize) = variable
+  for variable in variables:
+    let (varname, varsize, _) = variable
     curvarpos += varsize
     allocatoms.add((varname, initX86AtomEbpRel(-curvarpos)))
 
@@ -313,6 +328,11 @@ proc naiveRegalloc*(fn: X86Fn): X86Fn =
   for b in replacedfn.body:
     result.body.add(b)
 
+  # epilogue gen
+  result.body.add(initX86CodeMov(initX86AtomReg(esp), initX86AtomReg(ebp)))
+  result.body.add(initX86CodePop(initX86AtomReg(ebp)))
+  result.body.add(initX86CodeRet())
+
   result = result.expandDoubleRef()
   result = result.expandIntLit()
 
@@ -320,6 +340,69 @@ proc naiveRegalloc*(ctx: X86Context): X86Context =
   result = newX86Context()
   for fn in ctx.fns:
     result.fns.add(fn.naiveRegalloc())
-    
-# proc simpleRegalloc*(ctx: var X86Context, code: TACode) =
-#   discard
+
+proc isDuplicate*(a, b: seq[string]): bool =
+  for e in b:
+    if e in a:
+      return true
+  return false
+
+proc allocReg*(regmap: var Table[Reg32, int], liveness: Liveness, varname: string): Option[Reg32] =
+  for r in DataReg32:
+    if regmap[r] < liveness.lifetime[varname]:
+      regmap[r] = liveness.lifetime[varname]
+      return some(r)
+  return none(Reg32)
+
+proc simpleRegalloc*(fn: X86Fn, liveness: Liveness): X86Fn =
+  result = X86Fn(name: fn.name, args: fn.args, body: @[])
+
+  var variables = fn.collectVariables()
+  var allocatoms = newSeq[(string, X86Atom)]()
+
+  var curargpos = 0
+  for i, arg in fn.args:
+    let (argname, argsize) = arg
+    allocatoms.add((argname, initX86AtomEbpRel(8 + curargpos)))
+    curargpos += argsize
+  var curvarpos = 0
+  var regmap = initTable[Reg32, int]()
+  for r in DataReg32:
+    regmap[r] = -1
+  for variable in variables:
+    let (varname, varsize, iscall) = variable
+    if iscall:
+      curvarpos += varsize
+      allocatoms.add((varname, initX86AtomEbpRel(-curvarpos)))
+      continue
+
+    let regopt = allocReg(regmap, liveness, varname)
+    if regopt.isSome:
+      allocatoms.add((varname, initX86AtomReg(regopt.get)))
+    else:
+      curvarpos += varsize
+      allocatoms.add((varname, initX86AtomEbpRel(-curvarpos)))
+
+  # prologue gen
+  if curvarpos != 0:
+    result.body.add(initX86CodePush(initX86AtomReg(ebp)))
+    result.body.add(initX86CodeMov(initX86AtomReg(ebp), initX86AtomReg(esp)))
+    result.body.add(initX86CodeSub(initX86AtomReg(esp), initX86AtomIntLit(curvarpos)))
+
+  let replacedfn = fn.replaceTemp(allocatoms)
+  for b in replacedfn.body:
+    result.body.add(b)
+
+  # epilogue gen
+  if curvarpos != 0:
+    result.body.add(initX86CodeMov(initX86AtomReg(esp), initX86AtomReg(ebp)))
+    result.body.add(initX86CodePop(initX86AtomReg(ebp)))
+    result.body.add(initX86CodeRet())
+
+  # result = result.expandDoubleRef()
+  result = result.expandIntLit()
+
+proc simpleRegalloc*(ctx: X86Context, liveness: Liveness): X86Context =
+  result = newX86Context()
+  for fn in ctx.fns:
+    result.fns.add(fn.simpleRegalloc(liveness))

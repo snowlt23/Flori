@@ -64,9 +64,11 @@ proc generateX86*[B](ctx: var AsmContext[B], code: X86Code) =
     if code.push.value.kind == X86AtomKind.Reg:
       ctx.buffer.push(code.push.value.reg.reg)
     elif code.push.value.kind == X86AtomKind.EbpRel:
-      ctx.buffer.push(ebp, int32(code.push.value.ebprel.rel))
+      ctx.buffer.mov(eax, ebp, int32(code.push.value.ebprel.rel))
+      ctx.buffer.push(eax)
     elif code.push.value.kind == X86AtomKind.EspRel:
-      ctx.buffer.push(esp, int32(code.push.value.esprel.rel))
+      ctx.buffer.mov(eax, esp, int32(code.push.value.esprel.rel))
+      ctx.buffer.push(eax)
     elif code.push.value.kind == X86AtomKind.IntLit:
       ctx.buffer.push(int32(code.push.value.intlit.intval))
     else:
@@ -98,6 +100,17 @@ proc generateX86*[B](ctx: var AsmContext[B], code: X86Code) =
     discard
 
 proc generateX86*[B](ctx: var AsmContext[B], x86ctx: X86Context) =
+  var tmpctx = newAsmContext(newSeq[uint8]())
+  for fn in x86ctx.fns:
+    tmpctx.addLabel(fn.name)
+    for code in fn.body:
+      if code.kind == X86CodeKind.Label:
+        tmpctx.addLabel(code.label.name)
+  for fn in x86ctx.fns:
+    tmpctx.addLabel(fn.name)
+    for code in fn.body:
+      tmpctx.generateX86(code)
+  ctx.labelpos = tmpctx.labelpos
   for fn in x86ctx.fns:
     for code in fn.body:
       ctx.generateX86(code)

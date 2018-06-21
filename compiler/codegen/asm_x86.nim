@@ -96,7 +96,7 @@ proc mov*[B](b: var B, r1: Reg32, disp: int32, r2: Reg32) =
   b.opRegDisp32Reg(0x89, r1, disp, r2)
 proc mov*[B](b: var B, r1: Reg32, r2: Reg32, disp: int32) =
   b.opRegRegDisp32(0x8B, r1, r2, disp)
-  
+
 proc add*[B](b: var B, r: Reg32, i: int32) =
   if r == eax:
     b.opRegImm(0x05, r, i)
@@ -136,18 +136,18 @@ proc cmp*[B](b: var B, r1: Reg32, r2: Reg32, disp: int32) =
 proc jg*[B](b: var B, rel: int32) =
   b.asmb(0x0F)
   b.asmb(0x8F)
-  b.asmd(rel)
+  b.asmd(rel - 6)
 proc jl*[B](b: var B, rel: int32) =
   b.asmb(0x0F)
   b.asmb(0x8C)
-  b.asmd(rel)
+  b.asmd(rel - 6)
 proc jz*[B](b: var B, rel: int32) =
   b.asmb(0x0F)
   b.asmb(0x84)
-  b.asmd(rel)
+  b.asmd(rel - 6)
 proc jmp*[B](b: var B, rel: int32) =
   b.asmb(0xE9)
-  b.asmd(rel)
+  b.asmd(rel - 5)
 
 proc push*[B](b: var B, i: int32) =
   b.asmb(0x68)
@@ -160,10 +160,10 @@ proc pop*[B](b: var B, r: Reg32) =
   b.opReg(0x58, r)
 proc pop*[B](b: var B, r: Reg32, disp: int32) =
   b.opRegModDisp32(0x8F, 0, r, disp)
-  
+
 proc callRel*[B](b: var B, rel: int32) =
   b.asmb(0xE8)
-  b.asmd(rel)
+  b.asmd(rel - 5)
 proc ret*[B](b: var B) =
   b.asmb(0xC3)
 proc enter*[B](b: var B, i: int16, ib: int8) =

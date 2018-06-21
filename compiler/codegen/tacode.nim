@@ -52,6 +52,29 @@ proc tmplabel*(ctx: var TAContext, prefix = "L"): string =
   result = prefix & $ctx.tmpl
   ctx.tmpl.inc
 
+proc hasDist*(code: TACode): bool =
+  case code.kind
+  of TACodeKind.Add:
+    return true
+  of TACodeKind.Sub:
+    return true
+  of TACodeKind.Mul:
+    return true
+  of TACodeKind.ADiv:
+    return true
+  of TACodeKind.Greater:
+    return true
+  of TACodeKind.Lesser:
+    return true
+  of TACodeKind.Set:
+    return true
+  of TACodeKind.Call:
+    return true
+  of TACodeKind.AVar:
+    return true
+  else:
+    return false
+
 proc getname*(code: TACode): string =
   case code.kind
   of TACodeKind.Add:
@@ -105,7 +128,7 @@ proc `$`*(code: TACode): string =
   of TACodeKind.Lesser:
     "$# = $# < $#" % [code.lesser.name, $code.lesser.left, $code.lesser.right]
   of TACodeKind.Set:
-    "$# = $#" % [$code.set.value]
+    "$# = $#" % [code.set.name, $code.set.value]
   of TACodeKind.Label:
     "$#:" % code.label.name
   of TACodeKind.Call:
@@ -135,7 +158,7 @@ proc `$`*(ctx: TAContext): string =
 # let avar = initTAAtomAVar("t0")
 # echo initTACodeAdd("t0", left, right)
 # echo initTACodeSub("t1", avar, right)
-    
+
 # var ctx = newTAContext()
 # ctx.add(codeVar("a", atomInt(5)))
 # ctx.add(codeIf(atomVar("a"), "L0"))

@@ -79,7 +79,7 @@ proc convertFn*(ctx: var TAContext, fexpr: FExpr): TAAtom =
     fnctx.add(initTACodeRet(fnctx.convertFExpr(fexpr[parsed.body.get][^1])))
   else:
     fnctx.add(initTACodeRet(initTAAtomNone()))
-  fnctx.addLabel(ctx.tmplabel)
+  # fnctx.addLabel(ctx.tmplabel)
   ctx.addFn(TAFn(fnname: fnlabel, args: args.mapIt((desc(it[0]), it[1].symbol.fexpr.typesize)), retsize: retsize, body: fnctx.codes))
   return initTAAtomNone()
   
