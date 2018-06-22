@@ -2,6 +2,7 @@
 import tables
 import strutils, sequtils
 import tacode
+import options
 
 type
   Liveness* = object
@@ -36,12 +37,28 @@ proc isUsed*(code: TACode, name: string): bool =
   else:
     return false
 
+proc findBackwardGoto*(codes: seq[TACode], prevlabels: seq[string], x: int): Option[int] =
+  result = none(int)
+  for i in x+1..<codes.len:
+    if codes[i].kind == TACodeKind.Goto and codes[i].goto.gotolabel in prevlabels:
+      result = some(i)
+
 proc analyzeLiveness*(ctx: TAContext): Liveness =
   result = Liveness(lifetime: initTable[string, int]())
   for fn in ctx.fns:
     for i in 0..<fn.body.len:
       if not fn.body[i].hasDist: continue
-      result.lifetime[fn.body[i].getname] = i
+      if not result.lifetime.hasKey(fn.body[i].getname):
+        result.lifetime[fn.body[i].getname] = i
+      result.lifetime[fn.body[i].getname] = max(result.lifetime[fn.body[i].getname], i)
+      var prevlabels = newSeq[string]()
       for j in i+1..<fn.body.len:
+        if fn.body[j].kind == TACodeKind.Label:
+          prevlabels.add(fn.body[j].label.name)
+          continue
         if fn.body[j].isUsed(fn.body[i].getname):
-          result.lifetime[fn.body[i].getname] = j
+          let nextopt = findBackwardGoto(fn.body, prevlabels, j)
+          if nextopt.isSome:
+            result.lifetime[fn.body[i].getname] = max(result.lifetime[fn.body[i].getname], nextopt.get)
+          else:
+            result.lifetime[fn.body[i].getname] = max(result.lifetime[fn.body[i].getname], j)

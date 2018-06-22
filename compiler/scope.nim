@@ -10,9 +10,9 @@ proc newFScope*(name: string, path: string): FScope =
     name: istring(name),
     top: FScope(index: -1),
     level: 0,
-    imports: ilistNil[(IString, FScope)](),
-    decls: ilistNil[(IString, Symbol)](),
-    procdecls: ilistNil[(IString, ProcDeclGroup)]()
+    imports: ilistNil[TupleTable[FScope]](),
+    decls: ilistNil[TupleTable[Symbol]](),
+    procdecls: ilistNil[TupleTable[ProcDeclGroup]]()
   ))
 proc extendFScope*(scope: FScope): FScope =
   genFScope(FScopeObj(
@@ -33,7 +33,7 @@ proc procname*(name: string, argtypes: seq[Symbol], generics = newSeq[Symbol]())
   ProcName(name: name, argtypes: argtypes, generics: generics)
 
 proc initProcDeclGroup*(): ProcDeclGroup =
-  result.decls = ilistNil[ProcDecl]()
+  ProcDeclGroup(decls: ilistNil[ProcDecl]())
 
 proc match*(a, b: Symbol): bool =
   if a.kind == symbolGenerics:
@@ -70,7 +70,7 @@ proc match*(a: ProcDecl, b: ProcName): bool =
     if not a.argtypes[i].match(b.argtypes[i]):
       return false
   return true
-  
+
 proc spec*(a, b: Symbol): bool =
   if a.kind == symbolType and b.kind == symbolType:
     return a.scope.name == b.scope.name and a.name == b.name
@@ -109,25 +109,22 @@ proc spec*(a: ProcDecl, b: ProcName): bool =
 
 proc find*(lst: IList[TupleTable[Symbol]], n: string): Option[Symbol] =
   for f in lst:
-    let (name, sym) = f
-    if name == n:
-      return some(sym)
+    if f.name == n:
+      return some(f.value)
   return none(Symbol)
 proc find*(lst: IList[TupleTable[ProcDeclGroup]], n: string): Option[IList[TupleTable[ProcDeclGroup]]] =
   var cur = lst
   while true:
     if cur.isNil:
       break
-    let (name, group) = cur.value
-    if name == n:
+    if cur.value.name == n:
       return some(cur)
     cur = cur.next
   return none(IList[TupleTable[ProcDeclGroup]])
 proc find*(lst: IList[TupleTable[FScope]], n: string): Option[FScope] =
   for f in lst:
-    let (name, scope) = f
-    if name == n:
-      return some(scope)
+    if f.name == n:
+      return some(f.value)
   return none(FScope)
 
 proc getDecl*(scope: FScope, n: string): Option[Symbol] =
@@ -149,8 +146,7 @@ proc getFunc*(scope: FScope, pd: ProcName): Option[ProcDecl] =
         return some(decl)
 
   for scopetup in scope.imports:
-    let (name, imscope) = scopetup
-    let groupopt = imscope.procdecls.find(pd.name)
+    let groupopt = scopetup.value.procdecls.find(pd.name)
     if groupopt.isSome:
       for decl in groupopt.get.value.value.decls:
         if decl.match(pd):
@@ -174,18 +170,19 @@ proc getSpecFunc*(scope: FScope, pd: ProcName): Option[ProcDecl] =
   return none(ProcDecl)
 
 proc addDecl*(scope: FScope, n: IString, v: Symbol) =
-  scope.decls.add((n, v))
+  scope.decls.add(TupleTable[Symbol](name: n, value: v))
 proc addFunc*(scope: FScope, decl: ProcDecl) =
   let opt = scope.procdecls.find($decl.name)
-  let group = if opt.isSome:
-                opt.get
-              else:
-                scope.procdecls.add((decl.name, initProcDeclGroup()))
-                scope.procdecls.find($decl.name).get
-  group.value.value.decls.add(decl)
+  if opt.isSome:
+    let group = opt.get
+    group.value.value.decls.add(decl)
+  else:
+    var group = initProcDeclGroup()
+    group.decls.add(decl)
+    scope.procdecls.add(TupleTable[ProcDeclGroup](name: decl.name, value: group))
 
 proc importFScope*(scope: FScope, name: IString, importscope: FScope) =
-  scope.imports.add((name, importscope))
+  scope.imports.add(TupleTable[FScope](name: name, value: importscope))
   # for name, exportscope in importscope.exportscopes:
   #   scope.importscopes[name] = exportscope
 

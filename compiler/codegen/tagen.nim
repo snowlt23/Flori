@@ -8,11 +8,11 @@ import strutils, sequtils
 proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom
 
 proc convertWhile*(ctx: var TAContext, fexpr: FExpr): TAAtom =
-  let cond = ctx.convertFExpr(fexpr[1][0])
   let whilel = ctx.tmplabel
   let bodyl = ctx.tmplabel
   let nextl = ctx.tmplabel
   ctx.addLabel(whilel)
+  let cond = ctx.convertFExpr(fexpr[1][0])
   ctx.add(initTACodeAIf(cond, bodyl))
   ctx.add(initTACodeGoto(nextl))
   ctx.addLabel(bodyl)
@@ -62,6 +62,13 @@ proc convertIf*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   ctx.addLabel(nextl)
   return initTAAtomAVar(retsym)
 
+proc convertSet*(ctx: var TAContext, fexpr: FExpr): TAAtom =
+  let dst = ctx.convertFExpr(fexpr[1])
+  if dst.kind != TAAtomKind.AVar:
+    error(fexpr, "unsupported expression set `= in currently")
+  ctx.add(initTACodeSet(dst.avar.name, ctx.convertFExpr(fexpr[2])))
+  return initTAAtomNone()
+
 proc convertFn*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   let parsed = parseDefn(fexpr)
   let args = fexpr[parsed.argdecls]
@@ -82,7 +89,7 @@ proc convertFn*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   # fnctx.addLabel(ctx.tmplabel)
   ctx.addFn(TAFn(fnname: fnlabel, args: args.mapIt((desc(it[0]), it[1].symbol.fexpr.typesize)), retsize: retsize, body: fnctx.codes))
   return initTAAtomNone()
-  
+
 proc convertCall*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   let fnlabel = desc(fexpr[0])
   var args = newSeq[TAAtom]()
@@ -119,6 +126,8 @@ proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom =
     let value = ctx.convertFExpr(fexpr[2])
     ctx.add(initTACodeAVar(name, size, value))
     return initTAAtomNone()
+  elif fexpr.obj.isInfixFuncCall and $fexpr[0] == "=":
+    return ctx.convertSet(fexpr)
   elif fexpr.isFuncCall and fexpr[0].kind == fexprSymbol and fexpr[0].symbol.fexpr.obj.internal.isSome:
     let op = fexpr[0].symbol.fexpr.obj.internal.get.obj.internalop
     let left = ctx.convertFExpr(fexpr[1])

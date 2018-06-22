@@ -153,6 +153,43 @@ proc `$`*(ctx: TAContext): string =
   for i, c in ctx.fns:
     result &= $c & "\n"
 
+iterator atoms*(ctx: var TAContext): var TAAtom =
+  for code in ctx.codes.mitems:
+    case code.kind
+    of TACodeKind.Add:
+      yield(code.add.left)
+      yield(code.add.right)
+    of TACodeKind.Sub:
+      yield(code.sub.left)
+      yield(code.sub.right)
+    of TACodeKind.Mul:
+      yield(code.mul.left)
+      yield(code.mul.right)
+    of TACodeKind.ADiv:
+      yield(code.adiv.left)
+      yield(code.adiv.right)
+    of TACodeKind.Greater:
+      yield(code.greater.left)
+      yield(code.greater.right)
+    of TACodeKind.Lesser:
+      yield(code.lesser.left)
+      yield(code.lesser.right)
+    of TACodeKind.Set:
+      yield(code.set.value)
+    of TACodeKind.Label:
+      discard
+    of TACodeKind.Call:
+      for arg in code.call.args.mitems:
+        yield(arg)
+    of TACodeKind.AVar:
+      yield(code.avar.value)
+    of TACodeKind.Goto:
+      discard
+    of TACodeKind.AIf:
+      yield(code.aif.cond)
+    of TACodeKind.Ret:
+      yield(code.ret.value)
+
 # let left = initTAAtomIntLit(4)
 # let right = initTAAtomIntLit(5)
 # let avar = initTAAtomAVar("t0")

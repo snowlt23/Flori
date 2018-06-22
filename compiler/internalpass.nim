@@ -25,7 +25,7 @@ proc getFieldType*(fexpr: FExpr, fieldname: string): Option[Symbol] =
 #
 # Pragmas
 #
-  
+
 # proc semConverter*(scope: FScope, fexpr: var FExpr) =
   # if fexpr[1].defn.args.len != 1:
   #   fexpr.error("converter fn should be 1 argument.")
@@ -98,7 +98,7 @@ proc declArgtypes*(scope: FScope, fexpr: FExpr): seq[Symbol] =
       let typesym = scope.semType(arg, 1)
       arg[1] = fsymbol(arg[1].span, typesym)
       result.add(typesym)
-        
+
 proc semFunc*(scope: FScope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): (FScope, seq[Symbol], seq[Symbol], Symbol, Symbol) =
   let parsed = parseDefn(fexpr)
   let fnscope = scope.extendFScope()
@@ -111,7 +111,7 @@ proc semFunc*(scope: FScope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): 
                   fnscope.semType(fexpr, parsed.ret.get)
                 else:
                   voidtypeSymbol
-  
+
   let symkind = if fexpr[parsed.name].kind == fexprQuote:
                   symbolInfix
                 else:
@@ -124,7 +124,7 @@ proc semFunc*(scope: FScope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): 
     let pd = ProcDecl(name: name, argtypes: iarray(argtypes), generics: iarray(generics), returntype: rettype, sym: sym)
     scope.addFunc(pd)
     fnscope.addFunc(pd)
-    
+
   let fsym = fsymbol(fexpr[0].span, sym)
   fexpr[parsed.name] = fsym
   fexpr.scope = some(fnscope)
@@ -151,12 +151,12 @@ proc semFunc*(scope: FScope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): 
     if fexpr[parsed.body.get].len != 0:
       if not fexpr[parsed.body.get].typ.get.spec(rettype):
         fexpr[parsed.body.get].error("function expect $# return type, actually $#" % [$rettype, $fexpr[parsed.body.get].typ.get])
-  
+
   return (fnscope, generics, argtypes, rettype, sym)
 
 proc semDefn*(scope: FScope, fexpr: var FExpr) =
   let (fnscope, generics, argtypes, rettype, sym) = semFunc(scope, fexpr, symbolFunc, true)
-    
+
 proc semDeftype*(scope: FScope, fexpr: var FExpr) =
   let parsed = parseDeftype(fexpr)
 
@@ -168,7 +168,7 @@ proc semDeftype*(scope: FScope, fexpr: var FExpr) =
   if parsed.generics.isSome and not fexpr.isGenerics(parsed):
     sym.obj.types = iarray(fexpr[parsed.generics.get].mapIt(it.symbol))
   scope.addDecl(typename, sym)
-  
+
   let fsym = fsymbol(fexpr[0].span, sym)
   let typescope = scope.extendFScope()
   fexpr[parsed.name] = fsym
@@ -176,7 +176,7 @@ proc semDeftype*(scope: FScope, fexpr: var FExpr) =
 
   if fexpr.isGenerics(parsed):
     return
-    
+
   if parsed.body.isSome:
     for field in fexpr[parsed.body.get]:
       let fieldtypesym = typescope.semType(field, 1)
@@ -223,11 +223,11 @@ proc semWhile*(scope: FScope, fexpr: var FExpr) =
   let bodyscope = scope.extendFScope()
   bodyscope.rootPass(fexpr[2])
   resolveByVoid(fexpr)
-  
+
 proc semDef*(scope: FScope, fexpr: var FExpr) =
   if fexpr.len != 3:
     fexpr.error("invalid `:= syntax.")
-    
+
   let name = fexpr[1]
   if name.kind != fexprIdent:
     name.error("variable name should be FIdent.")
@@ -242,7 +242,7 @@ proc semDef*(scope: FScope, fexpr: var FExpr) =
   fexpr[1].typ = some(fexpr[2].typ.get.varsym())
   fexpr[1] = fsymbol(fexpr[1].span, varsym)
   scope.addDecl(varname, varsym)
-  
+
 proc semSet*(scope: FScope, fexpr: var FExpr) =
   if fexpr.len != 3:
     fexpr.error("invalid `= syntax.")
@@ -257,12 +257,12 @@ proc semSet*(scope: FScope, fexpr: var FExpr) =
     fexpr[2].error("value hasn't type.")
   if fexpr[1].typ.get.kind != symbolVar and fexpr[1].typ.get.kind != symbolRef:
     fexpr[1].error("ref value expected.")
-  
+
   if fexpr[1].isInfixFuncCall and $fexpr[1][0] == "!" and scope.hasSetter(fexpr[1][1].typ.get, fexpr[1][2].typ.get, fexpr[2].typ.get):
     fexpr = fexpr.span.quoteFExpr("`!!(`embed, `embed, `embed)", [fexpr[1][1], fexpr[1][2], fexpr[2]])
     scope.rootPass(fexpr)
     return
-  
+
 proc semFieldAccess*(scope: FScope, fexpr: var FExpr) =
   if fexpr.len != 3:
     fexpr.error("illegal `. syntax.")
@@ -282,7 +282,7 @@ proc semFieldAccess*(scope: FScope, fexpr: var FExpr) =
 
 proc semDot*(scope: FScope, fexpr: var FExpr) =
   scope.semFieldAccess(fexpr)
-  
+
 proc semInit*(scope: FScope, fexpr: var FExpr) =
   if fexpr.len != 3:
     fexpr.error("init require 2 arguments.")
@@ -292,7 +292,7 @@ proc semInit*(scope: FScope, fexpr: var FExpr) =
     fexpr.error("init type should be single argument.")
   if fexpr[2].kind != fexprBlock:
     fexpr.error("init body should be FBlock.")
-    
+
   let typesym = scope.semType(fexpr[1][0], 0)
   fexpr.typ = some(typesym)
   scope.rootPass(fexpr[2])
@@ -344,11 +344,11 @@ proc semBlock*(scope: FScope, fexpr: var FExpr) =
     fexpr.error("invalid block syntax.")
   let blockscope = scope.extendFScope()
   blockscope.rootPass(fexpr[1])
-    
+
 #
 # Internal
 #
-  
+
 proc addInternalEval*(scope: FScope, n: string, p: InternalProcType) =
   internals.add(n)
   scope.addFunc(ProcDecl(
@@ -357,7 +357,7 @@ proc addInternalEval*(scope: FScope, n: string, p: InternalProcType) =
     argtypes: iarray[Symbol](),
     generics: iarray[Symbol]()
   ))
-  
+
 proc initInternalEval*(scope: FScope) =
   scope.addInternalEval("fn", semDefn)
   scope.addInternalEval("type", semDeftype)
@@ -369,6 +369,10 @@ proc initInternalEval*(scope: FScope) =
   scope.addInternalEval("init", semInit)
   scope.addInternalEval("import", semImport)
   scope.addInternalEval("block", semBlock)
+
+  for group in scope.procdecls:
+    for decl in group.value.decls:
+      echo decl.name
 
   # pragmas
   scope.addInternalEval("internalop", semInternalOpPragma)

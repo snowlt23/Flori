@@ -12,7 +12,7 @@ proc internalPass*(scope: FScope, fexpr: var FExpr): bool =
   of fexprSeq:
     if fexpr.len == 0:
       return false
-    
+
     let fnident = $fexpr[0]
     let internalopt = scope.getFunc(procname(fnident, @[]))
     if internalopt.isSome and internalopt.get.internalproc.isSome:
@@ -46,7 +46,7 @@ proc toplevelPass*(scope: FScope, fexpr: var FExpr): bool =
     return true
   else:
     return true
-    
+
 proc symbolResolve*(scope: FScope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
   case fexpr.kind
@@ -98,7 +98,7 @@ proc typeInfer*(scope: FScope, fexpr: var FExpr): bool =
     return true
   else:
     return true
-  
+
 proc overloadResolve*(scope: FScope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
   if fexpr.isNormalFuncCall:
@@ -164,7 +164,7 @@ proc overloadResolve*(scope: FScope, fexpr: var FExpr): bool =
 
 proc finalPass*(scope: FScope, fexpr: var FExpr): bool =
   return true
-    
+
 definePass processSemPass, rootPass, (FScope, var FExpr):
   internalPass
   # expandMacro

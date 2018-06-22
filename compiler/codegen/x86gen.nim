@@ -35,7 +35,7 @@ template generateLeftRight*[B](ctx: var AsmContext[B], code: X86Code, variant: u
     ctx.buffer.asmop(code.variant.left.reg.reg, int32(code.variant.right.intlit.intval))
   else:
     raise newException(Exception, "unsupported $#:$# pattern in x86" % [$code.variant.left.kind, $code.variant.right.kind])
-    
+
 template generateValue*[B](ctx: var AsmContext[B], code: X86Code, variant: untyped, asmop: untyped) =
   if code.variant.value.kind == X86AtomKind.Reg:
     ctx.buffer.asmop(code.variant.value.reg.reg)
@@ -45,7 +45,7 @@ template generateValue*[B](ctx: var AsmContext[B], code: X86Code, variant: untyp
     ctx.buffer.asmop(esp, int32(code.variant.value.esprel.rel))
   else:
     raise newException(Exception, "unsupported $# kind in x86" % [$code.variant.value.kind])
-  
+
 proc generateX86*[B](ctx: var AsmContext[B], code: X86Code) =
   case code.kind
   of X86CodeKind.Label:
@@ -83,6 +83,9 @@ proc generateX86*[B](ctx: var AsmContext[B], code: X86Code) =
     else:
       raise newException(Exception, "unsupported $# kind in x86.pop" % [$code.pop.value.kind])
   of X86CodeKind.Cmp:
+    if code.cmp.left.kind == X86AtomKind.EbpRel and code.cmp.right.kind == X86AtomKind.IntLit:
+      ctx.buffer.cmp(ebp, int32(code.cmp.left.ebprel.rel), int32(code.cmp.right.intlit.intval))
+      return
     ctx.generateLeftRight(code, cmp, cmp)
   of X86CodeKind.JmpGreater:
     ctx.buffer.jg(ctx.getRel(code.jmpgreater.label))

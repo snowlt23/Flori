@@ -80,7 +80,7 @@ type
 
     fexprQuote
     fexprSymbol
-    
+
     fexprIntLit
     fexprFloatLit
     fexprStrLit
@@ -128,7 +128,9 @@ type
     sym*: Symbol
   ProcDeclGroup* = object
     decls*: IList[ProcDecl]
-  TupleTable*[T] = tuple[name: IString, value: T]
+  TupleTable*[T] = object
+    name*: IString
+    value*: T
   FScopeObj* = object
     name*: IString
     top*: FScope
@@ -156,7 +158,7 @@ var gImage* = newFImage()
 var gCtx* = SemContext(expands: @[], tmpcount: 0)
 
 template rootScope*(): FScope = gCtx.rootScope
-    
+
 proc obj*(fexpr: FExpr): var FExprObj =
   gImage.fexprs[fexpr.index]
 proc obj*(sym: Symbol): var SymbolObj =
@@ -176,7 +178,7 @@ proc addSymbol*(image: var FImage, s: SymbolObj): Symbol =
 proc addFScope*(image: var FImage, s: FScopeObj): FScope =
   result = FScope(index: image.scopes.len)
   image.scopes.add(s)
-  
+
 proc genFExpr*(f: FExprObj): FExpr =
   gImage.addFExpr(f)
 proc genSymbol*(s: SymbolObj): Symbol =
@@ -204,9 +206,11 @@ proc `$`*(fs: IString): string =
   result = ""
   for i in 0..<fs.len:
     result.add(char(gImage.mem[fs.index + i]))
+proc `==`*(a: IString, b: IString): bool =
+  $a == $b
 proc `==`*(a: IString, b: string): bool =
   $a == b
-    
+
 proc iarray*[T](len: int): IArray[T] =
   result = IArray[T](index: gImage.mem.len, len: len)
   for i in 0..<len * sizeof(T):
@@ -245,10 +249,8 @@ iterator mpairs*[T](arr: var IArray[T]): (int, var T) =
 
 proc ilist*[T](value: T, next: IList[T]): IList[T] =
   result = IList[T](index: gImage.mem.len)
-  
-  for i in 0..<sizeof(T):
-    gImage.mem.add(0)
-  for i in 0..<sizeof(int32):
+
+  for i in 0..<sizeof(IListObj[T]):
     gImage.mem.add(0)
 
   let p = cast[ptr IListObj[T]](addr(gImage.mem[result.index]))
@@ -287,7 +289,7 @@ iterator mitems*[T](lst: IList[T]): var T =
   while true:
     if cur.isNil:
       break
-    yield(cur.mvalue)
+    yield(cur.value)
     cur = cur.next
 iterator pairs*[T](lst: IList[T]): (int, T) =
   var cur = lst
@@ -298,11 +300,15 @@ iterator pairs*[T](lst: IList[T]): (int, T) =
     yield(i, cur.value)
     cur = cur.next
     i.inc
+proc len*[T](lst: IList[T]): int =
+  result = 0
+  for e in lst:
+    result.inc
 
 #
 # Image
 #
-  
+
 proc writeimage*(s: Stream, image: var FImage) =
   let fsize = image.fexprs.len * sizeof(FExprObj)
   let symsize = image.symbols.len * sizeof(SymbolObj)

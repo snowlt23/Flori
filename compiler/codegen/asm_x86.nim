@@ -132,6 +132,11 @@ proc cmp*[B](b: var B, r1: Reg32, disp: int32, r2: Reg32) =
   b.opRegDisp32Reg(0x39, r1, disp, r2)
 proc cmp*[B](b: var B, r1: Reg32, r2: Reg32, disp: int32) =
   b.opRegRegDisp32(0x3B, r1, r2, disp)
+proc cmp*[B](b: var B, r1: Reg32, disp: int32, i: int32) =
+  b.asmb(0x81)
+  b.asmb(modrm(modRegDisp32, cast[Reg32](7), r1))
+  b.asmd(disp)
+  b.asmd(i)
 
 proc jg*[B](b: var B, rel: int32) =
   b.asmb(0x0F)

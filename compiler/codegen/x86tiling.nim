@@ -122,6 +122,24 @@ defTile tileX86Ret:
     TACodeKind.Ret
   CODE:
     initX86CodeMov(initX86AtomReg(eax), toX86Atom(code1.ret.value))
+    initX86CodeMov(initX86AtomReg(esp), initX86AtomReg(ebp))
+    initX86CodePop(initX86AtomReg(ebp))
+    initX86CodeRet()
+
+defTile tileX86LesserIfToGreaterIf: # FIXME:
+  PATTERN:
+    TACodeKind.Lesser
+    TACodeKind.AIf
+    TACodeKind.Goto
+    TACodeKind.Label
+  MATCH:
+    code1.lesser.right.kind == TAAtomKind.IntLit
+    code2.aif.cond.kind == TAAtomKind.AVar
+    code1.lesser.name == code2.aif.cond.avar.name
+    code2.aif.gotolabel == code4.label.name
+  CODE:
+    initX86CodeCmp(toX86Atom(code1.lesser.left), initX86AtomIntLit(code1.lesser.right.intlit.intval-1))
+    initX86CodeJmpGreater(code3.goto.gotolabel)
 
 defTile tileX86GreaterIf: # FIXME:
   PATTERN:
@@ -145,10 +163,61 @@ defTile tileX86LesserIf: # FIXME:
     initX86CodeCmp(tox86atom(code1.lesser.left), tox86atom(code1.lesser.right))
     initX86CodeJmpLesser(code2.aif.gotolabel)
 
+defTile tileX86CallAddRet:
+  PATTERN:
+    TACodeKind.Call
+    TACodeKind.Add
+    TACodeKind.Ret
+  MATCH:
+    code2.add.right.kind == TAAtomKind.AVar and code1.call.name == code2.add.right.avar.name
+  CODE:
+    CODEBLOCK:
+      var argssize = 0
+      for i in 1..code1.call.args.len:
+        let n = code1.call.args.len - i
+        addCode(initX86CodePush(toX86Atom(code1.call.args[n])))
+        argssize += 4 # FIXME:
+    initX86CodeCall(code1.call.calllabel)
+
+    initX86CodeAdd(initX86AtomReg(eax), toX86Atom(code2.add.left))
+    initX86CodeMov(initX86AtomReg(esp), initX86AtomReg(ebp))
+    initX86CodePop(initX86AtomReg(ebp))
+    initX86CodeRet()
+
+defTile tileX86AddRet:
+  PATTERN:
+    TACodeKind.Add
+    TACodeKind.Ret
+  CODE:
+    initX86CodeMov(initX86AtomReg(eax), toX86Atom(code1.add.left))
+    initX86CodeAdd(initX86AtomReg(eax), toX86Atom(code1.add.right))
+    initX86CodeMov(initX86AtomReg(esp), initX86AtomReg(ebp))
+    initX86CodePop(initX86AtomReg(ebp))
+    initX86CodeRet()
+
+defTile tileX86SubRet:
+  PATTERN:
+    TACodeKind.Sub
+    TACodeKind.Ret
+  CODE:
+    initX86CodeMov(initX86AtomReg(eax), toX86Atom(code1.sub.left))
+    initX86CodeSub(initX86AtomReg(eax), toX86Atom(code1.sub.right))
+    initX86CodeMov(initX86AtomReg(esp), initX86AtomReg(ebp))
+    initX86CodePop(initX86AtomReg(ebp))
+    initX86CodeRet()
+
 defTileset x86Tilingset:
+  # 4
+  tileX86LesserIfToGreaterIf
+
+  # 3
+  tileX86CallAddRet
+
   # 2
   tileX86GreaterIf
   tileX86LesserIf
+  tileX86AddRet
+  tileX86SubRet
 
   # 1
   tileX86Label

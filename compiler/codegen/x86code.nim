@@ -15,7 +15,7 @@ defVariant X86Atom:
 
 defVariant X86Code:
   Label(name: string)
-  AVar(name: string, size: int, isCall: bool)
+  AVar(name: string, size: int, stack: bool)
   Add(left: X86Atom, right: X86Atom)
   Sub(left: X86Atom, right: X86Atom)
   Mul(right: X86Atom)
@@ -206,11 +206,11 @@ proc collectNaiveStacklen*(fn: X86Fn): int =
   for code in fn.body:
     if code.kind == X86CodeKind.AVar:
       result += code.avar.size
-proc collectVariables*(fn: X86Fn): seq[(string, int, bool)] =
+proc collectVariables*(fn: X86Fn): seq[(string, int, bool, int)] =
   result = @[]
-  for code in fn.body:
+  for i, code in fn.body:
     if code.kind == X86CodeKind.AVar:
-      result.add((code.avar.name, code.avar.size, code.avar.isCall))
+      result.add((code.avar.name, code.avar.size, code.avar.stack, i))
 
 proc replaceTemp*(atom: var X86Atom, tmpname: string, by: X86Atom) =
   if atom.kind == X86AtomKind.Temp and atom.temp.name == tmpname:
@@ -319,7 +319,7 @@ proc naiveRegalloc*(fn: X86Fn): X86Fn =
   # variable gen
   var curvarpos = 0
   for variable in variables:
-    let (varname, varsize, _) = variable
+    let (varname, varsize, _, _) = variable
     curvarpos += varsize
     allocatoms.add((varname, initX86AtomEbpRel(-curvarpos)))
 
@@ -327,11 +327,6 @@ proc naiveRegalloc*(fn: X86Fn): X86Fn =
   let replacedfn = fn.replaceTemp(allocatoms)
   for b in replacedfn.body:
     result.body.add(b)
-
-  # epilogue gen
-  result.body.add(initX86CodeMov(initX86AtomReg(esp), initX86AtomReg(ebp)))
-  result.body.add(initX86CodePop(initX86AtomReg(ebp)))
-  result.body.add(initX86CodeRet())
 
   result = result.expandDoubleRef()
   result = result.expandIntLit()
@@ -347,7 +342,7 @@ proc isDuplicate*(a, b: seq[string]): bool =
       return true
   return false
 
-proc allocReg*(regmap: var Table[Reg32, int], liveness: Liveness, varname: string): Option[Reg32] =
+proc allocReg*(regmap: var Table[Reg32, int], liveness: Liveness, varname: string, i: int): Option[Reg32] =
   for r in DataReg32:
     if regmap[r] < liveness.lifetime[varname]:
       regmap[r] = liveness.lifetime[varname]
@@ -370,13 +365,13 @@ proc simpleRegalloc*(fn: X86Fn, liveness: Liveness): X86Fn =
   for r in DataReg32:
     regmap[r] = -1
   for variable in variables:
-    let (varname, varsize, iscall) = variable
+    let (varname, varsize, iscall, i) = variable
     if iscall:
       curvarpos += varsize
       allocatoms.add((varname, initX86AtomEbpRel(-curvarpos)))
       continue
 
-    let regopt = allocReg(regmap, liveness, varname)
+    let regopt = allocReg(regmap, liveness, varname, i)
     if regopt.isSome:
       allocatoms.add((varname, initX86AtomReg(regopt.get)))
     else:
@@ -384,22 +379,15 @@ proc simpleRegalloc*(fn: X86Fn, liveness: Liveness): X86Fn =
       allocatoms.add((varname, initX86AtomEbpRel(-curvarpos)))
 
   # prologue gen
-  if curvarpos != 0:
-    result.body.add(initX86CodePush(initX86AtomReg(ebp)))
-    result.body.add(initX86CodeMov(initX86AtomReg(ebp), initX86AtomReg(esp)))
-    result.body.add(initX86CodeSub(initX86AtomReg(esp), initX86AtomIntLit(curvarpos)))
+  result.body.add(initX86CodePush(initX86AtomReg(ebp)))
+  result.body.add(initX86CodeMov(initX86AtomReg(ebp), initX86AtomReg(esp)))
+  result.body.add(initX86CodeSub(initX86AtomReg(esp), initX86AtomIntLit(curvarpos)))
 
   let replacedfn = fn.replaceTemp(allocatoms)
   for b in replacedfn.body:
     result.body.add(b)
 
-  # epilogue gen
-  if curvarpos != 0:
-    result.body.add(initX86CodeMov(initX86AtomReg(esp), initX86AtomReg(ebp)))
-    result.body.add(initX86CodePop(initX86AtomReg(ebp)))
-    result.body.add(initX86CodeRet())
-
-  # result = result.expandDoubleRef()
+  result = result.expandDoubleRef()
   result = result.expandIntLit()
 
 proc simpleRegalloc*(ctx: X86Context, liveness: Liveness): X86Context =
