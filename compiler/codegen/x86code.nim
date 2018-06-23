@@ -119,9 +119,10 @@ proc `$`*(code: X86Code): string =
 proc `$`*(fn: X86Fn): string =
   "fn $#:\n  $#" % [fn.name, fn.body.mapIt($it).join("\n  ")]
 proc `$`*(ctx: X86Context): string =
-  result = ""
+  var sq = newSeq[string]()
   for fn in ctx.fns:
-    result &= $fn & "\n"
+    sq.add($fn)
+  return sq.join("\n")
 
 proc newX86Context*(): X86Context =
   X86Context(fns: @[], codes: @[])

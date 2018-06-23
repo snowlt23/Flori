@@ -149,9 +149,10 @@ proc `$`*(fn: TAFn): string =
   ).join(", "), sizerepr(fn.retsize), fn.body.mapIt($it).join("\n  ")]
 
 proc `$`*(ctx: TAContext): string =
-  result = ""
-  for i, c in ctx.fns:
-    result &= $c & "\n"
+  var sq = newSeq[string]()
+  for fn in ctx.fns:
+    sq.add($fn)
+  return sq.join("\n")
 
 iterator atoms*(ctx: var TAContext): var TAAtom =
   for code in ctx.codes.mitems:
