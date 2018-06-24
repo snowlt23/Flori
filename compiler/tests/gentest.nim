@@ -25,6 +25,18 @@ proc evalTest*(src: string): seq[FExpr] =
     discard tactx.convertFExpr(f)
 discard evalTest(prelude)
 
+{.push stackTrace:off.}
+proc procffi*(n: int32, p: pointer): int32 =
+  asm """
+    movl %1, %%ecx
+    movl %2, %%edx
+    call %%edx
+    movl %%eax, %0
+    :"=a"(`result`)
+    :"c"(`n`), "d"(`p`)
+  """
+{.pop.}
+
 template bench*(body: untyped) =
   let s = epochTime()
   body

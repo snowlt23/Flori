@@ -5,37 +5,60 @@ import tacode
 import options
 
 type
+  VarLive* = tuple[lifetime: int, count: int]
   Liveness* = object
-    lifetime*: Table[string, int]
+    variables*: Table[string, VarLive]
 
 proc isUsed*(atom: TAAtom, name: string): bool =
   atom.kind == TAAtomKind.AVar and atom.avar.name == name
-proc isUsed*(code: TACode, name: string): bool =
+proc useCount*(code: TACode, name: string): int =
+  result = 0
   case code.kind
   of TACodeKind.Add:
-    return code.add.left.isUsed(name) or code.add.right.isUsed(name)
+    if code.add.left.isUsed(name):
+      result.inc
+    if code.add.right.isUsed(name):
+      result.inc
   of TACodeKind.Sub:
-    return code.sub.left.isUsed(name) or code.sub.right.isUsed(name)
+    if code.sub.left.isUsed(name):
+      result.inc
+    if code.sub.right.isUsed(name):
+      result.inc
   of TACodeKind.Mul:
-    return code.mul.left.isUsed(name) or code.mul.right.isUsed(name)
+    if code.mul.left.isUsed(name):
+      result.inc
+    if code.mul.right.isUsed(name):
+      result.inc
   of TACodeKind.ADiv:
-    return code.adiv.left.isUsed(name) or code.adiv.right.isUsed(name)
+    if code.mul.left.isUsed(name):
+      result.inc
+    if code.mul.right.isUsed(name):
+      result.inc
   of TACodeKind.Greater:
-    return code.greater.left.isUsed(name) or code.greater.right.isUsed(name)
+    if code.greater.left.isUsed(name):
+      result.inc
+    if code.greater.right.isUsed(name):
+      result.inc
   of TACodeKind.Lesser:
-    return code.lesser.left.isUsed(name) or code.lesser.right.isUsed(name)
+    if code.lesser.left.isUsed(name):
+      result.inc
+    if code.lesser.right.isUsed(name):
+      result.inc
   of TACodeKind.Set:
-    return code.set.value.isUsed(name)
+    if code.set.value.isUsed(name):
+      result.inc
   of TACodeKind.Call:
     for arg in code.call.args:
       if arg.isUsed(name):
-        return true
+        result.inc
   of TACodeKind.AVar:
-    return code.avar.value.isUsed(name)
+    if code.avar.value.isUsed(name):
+      result.inc
   of TACodeKind.AIf:
-    return code.aif.cond.isUsed(name)
+    if code.aif.cond.isUsed(name):
+      result.inc
   else:
-    return false
+    discard
 
 proc findBackwardGoto*(codes: seq[TACode], prevlabels: seq[string], x: int): Option[int] =
   result = none(int)
@@ -44,21 +67,45 @@ proc findBackwardGoto*(codes: seq[TACode], prevlabels: seq[string], x: int): Opt
       result = some(i)
 
 proc analyzeLiveness*(ctx: TAContext): Liveness =
-  result = Liveness(lifetime: initTable[string, int]())
+  result = Liveness(variables: initTable[string, VarLive]())
+
   for fn in ctx.fns:
-    for i in 0..<fn.body.len:
-      if not fn.body[i].hasDist: continue
-      if not result.lifetime.hasKey(fn.body[i].getname):
-        result.lifetime[fn.body[i].getname] = i
-      result.lifetime[fn.body[i].getname] = max(result.lifetime[fn.body[i].getname], i)
+    # fn args liveness
+    for i, arg in fn.args:
+      let (argname, _) = arg
+      if not result.variables.hasKey(argname):
+        result.variables[argname] = (i, 0)
+      result.variables[argname].lifetime = max(result.variables[argname].lifetime, i)
       var prevlabels = newSeq[string]()
       for j in i+1..<fn.body.len:
         if fn.body[j].kind == TACodeKind.Label:
           prevlabels.add(fn.body[j].label.name)
           continue
-        if fn.body[j].isUsed(fn.body[i].getname):
+        let count = fn.body[j].useCount(argname)
+        if count != 0:
+          result.variables[argname].count += count
           let nextopt = findBackwardGoto(fn.body, prevlabels, j)
           if nextopt.isSome:
-            result.lifetime[fn.body[i].getname] = max(result.lifetime[fn.body[i].getname], nextopt.get)
+            result.variables[argname].lifetime = max(result.variables[argname].lifetime, nextopt.get)
           else:
-            result.lifetime[fn.body[i].getname] = max(result.lifetime[fn.body[i].getname], j)
+            result.variables[argname].lifetime = max(result.variables[argname].lifetime, j)
+
+    # fn variables liveness
+    for i in 0..<fn.body.len:
+      if not fn.body[i].hasDist: continue
+      if not result.variables.hasKey(fn.body[i].getname):
+        result.variables[fn.body[i].getname] = (i, 0)
+      result.variables[fn.body[i].getname].lifetime = max(result.variables[fn.body[i].getname].lifetime, i)
+      var prevlabels = newSeq[string]()
+      for j in i+1..<fn.body.len:
+        if fn.body[j].kind == TACodeKind.Label:
+          prevlabels.add(fn.body[j].label.name)
+          continue
+        let count = fn.body[j].useCount(fn.body[i].getname)
+        if count != 0:
+          result.variables[fn.body[i].getname].count += count
+          let nextopt = findBackwardGoto(fn.body, prevlabels, j)
+          if nextopt.isSome:
+            result.variables[fn.body[i].getname].lifetime = max(result.variables[fn.body[i].getname].lifetime, nextopt.get)
+          else:
+            result.variables[fn.body[i].getname].lifetime = max(result.variables[fn.body[i].getname].lifetime, j)

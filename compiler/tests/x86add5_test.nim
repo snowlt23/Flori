@@ -21,16 +21,17 @@ for f in fexprs:
 echo tactx
 
 let jitbuf = initJitBuffer(1024)
-let add5 = toProc[proc (a: int32): int32 {.cdecl.}](jitbuf.getproc())
+let add5p = toProc[pointer](jitbuf.getproc())
 var asmctx = newAsmContext(jitbuf)
 
 # var x86ctx = tactx.x86Tiling().naiveRegalloc()
 # var x86ctx = tactx.x86Tiling().simpleRegalloc(tactx.analyzeLiveness())
-var x86ctx = tactx.optimize().x86Tiling().simpleRegalloc(tactx.analyzeLiveness())
+# var x86ctx = tactx.optimize().x86Tiling().simpleRegalloc(tactx.analyzeLiveness())
+var x86ctx = tactx.optimize().x86Tiling().freqRegalloc(tactx.analyzeLiveness())
 echo x86ctx
 
 asmctx.generateX86(x86ctx)
 echo objdump(asmctx.buffer.toBin)
 
 bench:
-  echo "add5(4) => ", add5(4)
+  echo "add5(4) => ", procffi(4, add5p)

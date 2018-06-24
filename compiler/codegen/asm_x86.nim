@@ -46,6 +46,8 @@ proc asmd[B](b: var B, x: int32) =
   asmb(b, uint8(l3))
   asmb(b, uint8(l4))
 
+proc isImm8*(i: int32): bool = -128 <= i and i <= 127
+
 proc opImm*[B](b: var B, op: uint8, i: int32) =
   b.asmb(op)
   b.asmd(i)
@@ -56,13 +58,21 @@ proc opRegImmMod*[B](b: var B, op: uint8, m: int, r: Reg32, i: int32) =
   b.asmb(op)
   b.asmb(modrm(modReg, cast[Reg32](m), r))
   b.asmd(i)
+proc opRegImm8Mod*[B](b: var B, op: uint8, m: int, r: Reg32, i: int8) =
+  b.asmb(op)
+  b.asmb(modrm(modReg, cast[Reg32](m), r))
+  b.asmb(uint8(i))
 proc opRegMod*[B](b: var B, op: uint8, m: int, r: Reg32) =
   b.asmb(op)
   b.asmb(modrm(modReg, r, cast[Reg32](m)))
 proc opRegModDisp32*[B](b: var B, op: uint8, m: int, r: Reg32, disp: int32) =
   b.asmb(op)
-  b.asmb(modrm(modRegDisp32, r, cast[Reg32](m)))
-  b.asmd(disp)
+  if disp.isImm8:
+    b.asmb(modrm(modRegDisp8, r, cast[Reg32](m)))
+    b.asmb(uint8(disp))
+  else:
+    b.asmb(modrm(modRegDisp32, r, cast[Reg32](m)))
+    b.asmd(disp)
 proc opRegReg*[B](b: var B, op: uint8, r1: Reg32, r2: Reg32) =
   b.asmb(op)
   b.asmb(modrm(modReg, r2, r1))
@@ -73,9 +83,12 @@ proc opRegRegSibDisp32*[B](b: var B, op: uint8, r1: Reg32, r2: Reg32, disp: int3
   b.asmd(disp)
 proc opRegDisp32Reg*[B](b: var B, op: uint8, r1: Reg32, disp: int32, r2: Reg32) =
   b.asmb(op)
-  b.asmb(modrm(modRegDisp32, r2, r1))
-  # b.asmb(sib(scale1, cast[Reg32](0b100), r2))
-  b.asmd(disp)
+  if disp.isImm8:
+    b.asmb(modrm(modRegDisp8, r2, r1))
+    b.asmb(uint8(disp))
+  else:
+    b.asmb(modrm(modRegDisp32, r2, r1))
+    b.asmd(disp)
 proc opRegRegDisp32*[B](b: var B, op: uint8, r1: Reg32, r2: Reg32, disp: int32) =
   b.asmb(op)
   b.asmb(modrm(modRegDisp32, r1, r2))
@@ -101,7 +114,10 @@ proc add*[B](b: var B, r: Reg32, i: int32) =
   if r == eax:
     b.opRegImm(0x05, r, i)
   else:
-    b.opRegImmMod(0x81, 0, r, i)
+    if i.isImm8:
+      b.opRegImm8Mod(0x83, 0, r, int8(i))
+    else:
+      b.opRegImmMod(0x81, 0, r, i)
 proc add*[B](b: var B, r1: Reg32, r2: Reg32) =
   b.opRegReg(0x01, r1, r2)
 proc add*[B](b: var B, r1: Reg32, disp: int32, r2: Reg32) =
@@ -113,7 +129,10 @@ proc sub*[B](b: var B, r: Reg32, i: int32) =
   if r == eax:
     b.opRegImm(0x2D, r, i)
   else:
-    b.opRegImmMod(0x81, 5, r, i)
+    if i.isImm8:
+      b.opRegImm8Mod(0x83, 5, r, int8(i))
+    else:
+      b.opRegImmMod(0x81, 5, r, i)
 proc sub*[B](b: var B, r1: Reg32, r2: Reg32) =
   b.opRegReg(0x29, r1, r2)
 proc sub*[B](b: var B, r1: Reg32, disp: int32, r2: Reg32) =
@@ -125,7 +144,10 @@ proc cmp*[B](b: var B, r: Reg32, i: int32) =
   if r == eax:
     b.opRegImm(0x3D, r, i)
   else:
-    b.opRegImmMod(0x81, 7, r, i)
+    if i.isImm8:
+      b.opRegImm8Mod(0x83, 7, r, int8(i))
+    else:
+      b.opRegImmMod(0x81, 7, r, i)
 proc cmp*[B](b: var B, r1: Reg32, r2: Reg32) =
   b.opRegReg(0x39, r1, r2)
 proc cmp*[B](b: var B, r1: Reg32, disp: int32, r2: Reg32) =
@@ -133,26 +155,52 @@ proc cmp*[B](b: var B, r1: Reg32, disp: int32, r2: Reg32) =
 proc cmp*[B](b: var B, r1: Reg32, r2: Reg32, disp: int32) =
   b.opRegRegDisp32(0x3B, r1, r2, disp)
 proc cmp*[B](b: var B, r1: Reg32, disp: int32, i: int32) =
-  b.asmb(0x81)
-  b.asmb(modrm(modRegDisp32, cast[Reg32](7), r1))
-  b.asmd(disp)
-  b.asmd(i)
+  if i.isImm8:
+    b.asmb(0x83)
+  else:
+    b.asmb(0x81)
+  if disp.isImm8:
+    b.asmb(modrm(modRegDisp8, cast[Reg32](7), r1))
+    b.asmb(uint8(disp))
+  else:
+    b.asmb(modrm(modRegDisp32, cast[Reg32](7), r1))
+    b.asmd(disp)
+  if i.isImm8:
+    b.asmb(uint8(i))
+  else:
+    b.asmd(i)
 
 proc jg*[B](b: var B, rel: int32) =
-  b.asmb(0x0F)
-  b.asmb(0x8F)
-  b.asmd(rel - 6)
+  if isImm8(rel - 2):
+    b.asmb(0x7F)
+    b.asmb(uint8(rel-2))
+  else:
+    b.asmb(0x0F)
+    b.asmb(0x8F)
+    b.asmd(rel - 6)
 proc jl*[B](b: var B, rel: int32) =
-  b.asmb(0x0F)
-  b.asmb(0x8C)
-  b.asmd(rel - 6)
+  if isImm8(rel-2):
+    b.asmb(0x7C)
+    b.asmb(uint8(rel-2))
+  else:
+    b.asmb(0x0F)
+    b.asmb(0x8C)
+    b.asmd(rel - 6)
 proc jz*[B](b: var B, rel: int32) =
-  b.asmb(0x0F)
-  b.asmb(0x84)
-  b.asmd(rel - 6)
+  if isImm8(rel-2):
+    b.asmb(0x74)
+    b.asmb(uint8(rel-2))
+  else:
+    b.asmb(0x0F)
+    b.asmb(0x84)
+    b.asmd(rel - 6)
 proc jmp*[B](b: var B, rel: int32) =
-  b.asmb(0xE9)
-  b.asmd(rel - 5)
+  if isImm8(rel-2):
+    b.asmb(0xEB)
+    b.asmb(uint8(rel-2))
+  else:
+    b.asmb(0xE9)
+    b.asmd(rel - 5)
 
 proc push*[B](b: var B, i: int32) =
   b.asmb(0x68)

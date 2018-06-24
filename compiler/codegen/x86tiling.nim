@@ -1,6 +1,7 @@
 
 import opselect
 import tacode, x86code, asm_x86
+import sequtils
 
 defTile tileX86Label:
   PATTERN:
@@ -84,16 +85,9 @@ defTile tileX86Call:
   PATTERN:
     TACodeKind.Call
   CODE:
-    CODEBLOCK:
-      var argssize = 0
-      for i in 1..code1.call.args.len:
-        let n = code1.call.args.len - i
-        addCode(initX86CodePush(toX86Atom(code1.call.args[n])))
-        argssize += 4 # FIXME:
     initX86CodeAVar(code1.call.name, 4, true) # FIXME:
-    initX86CodeCall(code1.call.calllabel)
+    initX86CodeCall(code1.call.calllabel, code1.call.args.mapIt(toX86Atom(it)))
     initX86CodeMov(initX86AtomTemp(code1.call.name), initX86AtomReg(eax))
-    initX86CodeAdd(initX86AtomReg(esp), initX86AtomIntLit(argssize))
 
 defTile tileX86AVar:
   PATTERN:
@@ -122,8 +116,6 @@ defTile tileX86Ret:
     TACodeKind.Ret
   CODE:
     initX86CodeMov(initX86AtomReg(eax), toX86Atom(code1.ret.value))
-    initX86CodeMov(initX86AtomReg(esp), initX86AtomReg(ebp))
-    initX86CodePop(initX86AtomReg(ebp))
     initX86CodeRet()
 
 defTile tileX86LesserIfToGreaterIf: # FIXME:
@@ -171,17 +163,9 @@ defTile tileX86CallAddRet:
   MATCH:
     code2.add.right.kind == TAAtomKind.AVar and code1.call.name == code2.add.right.avar.name
   CODE:
-    CODEBLOCK:
-      var argssize = 0
-      for i in 1..code1.call.args.len:
-        let n = code1.call.args.len - i
-        addCode(initX86CodePush(toX86Atom(code1.call.args[n])))
-        argssize += 4 # FIXME:
-    initX86CodeCall(code1.call.calllabel)
+    initX86CodeCall(code1.call.calllabel, code1.call.args.mapit(toX86Atom(it)))
 
     initX86CodeAdd(initX86AtomReg(eax), toX86Atom(code2.add.left))
-    initX86CodeMov(initX86AtomReg(esp), initX86AtomReg(ebp))
-    initX86CodePop(initX86AtomReg(ebp))
     initX86CodeRet()
 
 defTile tileX86AddRet:
@@ -191,8 +175,6 @@ defTile tileX86AddRet:
   CODE:
     initX86CodeMov(initX86AtomReg(eax), toX86Atom(code1.add.left))
     initX86CodeAdd(initX86AtomReg(eax), toX86Atom(code1.add.right))
-    initX86CodeMov(initX86AtomReg(esp), initX86AtomReg(ebp))
-    initX86CodePop(initX86AtomReg(ebp))
     initX86CodeRet()
 
 defTile tileX86SubRet:
@@ -202,8 +184,6 @@ defTile tileX86SubRet:
   CODE:
     initX86CodeMov(initX86AtomReg(eax), toX86Atom(code1.sub.left))
     initX86CodeSub(initX86AtomReg(eax), toX86Atom(code1.sub.right))
-    initX86CodeMov(initX86AtomReg(esp), initX86AtomReg(ebp))
-    initX86CodePop(initX86AtomReg(ebp))
     initX86CodeRet()
 
 defTileset x86Tilingset:

@@ -39,6 +39,13 @@ proc optElimAlias*(ctx: TAContext): TAContext =
     let (left, right) = r
     result.replaceAlias(left, right)
 
+proc optElimUnusedVar*(ctx: TAContext): TAContext =
+  result = newTAContext()
+  let varrefs = ctx.getVarRefs()
+  for code in ctx.codes:
+    if code.kind == TACodeKind.AVar and code.avar.name notin varrefs: continue
+    result.add(code)
+
 proc optElimDeadLabel*(ctx: TAContext): TAContext =
   result = newTAContext()
   var prevlabelpos = -1
@@ -119,5 +126,6 @@ proc optimize*(ctx: var TAContext): TAContext =
     # optimize pass begin
     optimized = optimized.optElimAlias()
     optimized = optimized.optElimDeadLabel()
+    optimized = optimized.optElimUnusedVar()
     # optimize pass end
     result.fns.add(TAFn(fnname: fn.fnname, args: fn.args, retsize: fn.retsize, body: optimized.codes))

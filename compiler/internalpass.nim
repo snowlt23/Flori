@@ -370,10 +370,6 @@ proc initInternalEval*(scope: FScope) =
   scope.addInternalEval("import", semImport)
   scope.addInternalEval("block", semBlock)
 
-  for group in scope.procdecls:
-    for decl in group.value.decls:
-      echo decl.name
-
   # pragmas
   scope.addInternalEval("internalop", semInternalOpPragma)
   scope.addInternalEval("internalsize", semInternalSizePragma)

@@ -98,6 +98,64 @@ proc getname*(code: TACode): string =
   else:
     raise newException(Exception, "cannot getname: $#" % $code.kind)
 
+proc getVarRefs*(code: TACode): seq[string] =
+  result = @[]
+  case code.kind
+  of TACodeKind.Add:
+    if code.add.left.kind == TAAtomKind.AVar:
+      result.add(code.add.left.avar.name)
+    if code.add.right.kind == TAAtomKind.AVar:
+      result.add(code.add.right.avar.name)
+  of TACodeKind.Sub:
+    if code.sub.left.kind == TAAtomKind.AVar:
+      result.add(code.sub.left.avar.name)
+    if code.sub.right.kind == TAAtomKind.AVar:
+      result.add(code.sub.right.avar.name)
+  of TACodeKind.Mul:
+    if code.mul.left.kind == TAAtomKind.AVar:
+      result.add(code.mul.left.avar.name)
+    if code.mul.right.kind == TAAtomKind.AVar:
+      result.add(code.mul.right.avar.name)
+  of TACodeKind.ADiv:
+    if code.adiv.left.kind == TAAtomKind.AVar:
+      result.add(code.adiv.left.avar.name)
+    if code.adiv.right.kind == TAAtomKind.AVar:
+      result.add(code.adiv.right.avar.name)
+  of TACodeKind.Greater:
+    if code.greater.left.kind == TAAtomKind.AVar:
+      result.add(code.greater.left.avar.name)
+    if code.greater.right.kind == TAAtomKind.AVar:
+      result.add(code.greater.right.avar.name)
+  of TACodeKind.Lesser:
+    if code.lesser.left.kind == TAAtomKind.AVar:
+      result.add(code.lesser.left.avar.name)
+    if code.lesser.right.kind == TAAtomKind.AVar:
+      result.add(code.lesser.right.avar.name)
+  of TACodeKind.Set:
+    if code.set.value.kind == TAAtomKind.AVar:
+      result.add(code.set.value.avar.name)
+  of TACodeKind.Label:
+    discard
+  of TACodeKind.Call:
+    for arg in code.call.args:
+      if arg.kind == TAAtomKind.AVar:
+        result.add(arg.avar.name)
+  of TACodeKind.AVar:
+    if code.avar.value.kind == TAAtomKind.AVAr:
+      result.add(code.avar.value.avar.name)
+  of TACodeKind.Goto:
+    discard
+  of TACodeKind.AIf:
+    if code.aif.cond.kind == TAAtomKind.AVAr:
+      result.add(code.aif.cond.avar.name)
+  of TACodeKind.Ret:
+    if code.ret.value.kind == TAAtomKind.AVAr:
+      result.add(code.ret.value.avar.name)
+proc getVarRefs*(ctx: TAContext): seq[string] =
+  result = @[]
+  for code in ctx.codes:
+    result &= code.getVarRefs()
+
 proc sizerepr*(s: int): string =
   if s == -1:
     "<undefined>"
