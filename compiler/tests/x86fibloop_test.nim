@@ -28,6 +28,7 @@ fn fib(n IntLit) IntLit {
 for f in fexprs:
   echo f
 echo tactx
+echo tactx.optimize()
 
 let jitbuf = initJitBuffer(1024)
 let fibp = toProc[pointer](jitbuf.getproc())
@@ -36,7 +37,7 @@ var asmctx = newAsmContext(jitbuf)
 # var x86ctx = tactx.x86Tiling().naiveRegalloc()
 # var x86ctx = tactx.x86Tiling().simpleRegalloc(tactx.analyzeLiveness())
 # var x86ctx = tactx.optimize().x86Tiling().simpleRegalloc(tactx.analyzeLiveness())
-var x86ctx = tactx.x86Tiling().freqRegalloc(tactx.analyzeLiveness())
+var x86ctx = tactx.optimize().x86Tiling().freqRegalloc(tactx.analyzeLiveness())
 echo x86ctx
 
 asmctx.generateX86(x86ctx)

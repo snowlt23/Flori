@@ -18,6 +18,24 @@ proc searchRetName*(ctx: TAContext): Option[string] =
         return none(string)
   return none(string)
 
+proc canEarlyRet*(ctx: TAContext, x: int): bool =
+  let labels = ctx.getLabels()
+  var alreadygotos = newSeq[string]()
+  var i = x+1
+  while i < ctx.codes.len:
+    if ctx.codes[i].kind == TACodeKind.Label:
+      i.inc
+      continue
+    if ctx.codes[i].kind == TACodeKind.Ret:
+      i.inc
+      continue
+    if ctx.codes[i].kind == TACOdeKind.Goto and ctx.codes[i].goto.gotolabel notin alreadygotos:
+      alreadygotos.add(ctx.codes[i].goto.gotolabel)
+      i = labels[ctx.codes[i].goto.gotolabel]
+      continue
+    return false
+  return true
+
 proc optElimAlias*(ctx: TAContext): TAContext =
   result = newTAContext()
   let retname = ctx.searchRetName()
@@ -27,11 +45,12 @@ proc optElimAlias*(ctx: TAContext): TAContext =
     if ctx.codes[i].kind == TACodeKind.AVar and ctx.codes[i].avar.value.kind == TAAtomKind.AVar:
       replaces.add((ctx.codes[i].avar.name, ctx.codes[i].avar.value.avar.name))
     elif ctx.codes[i].kind == TACodeKind.Set and ctx.codes[i].set.value.kind == TAAtomKind.AVar:
-      if retname.isSome and ctx.codes[i].set.name == retname.get:
+      if retname.isSome and ctx.codes[i].set.name == retname.get and ctx.canEarlyRet(i):
         result.add(initTACodeRet(ctx.codes[i].set.value))
         returned = true
       else:
-        replaces.add((ctx.codes[i].set.name, ctx.codes[i].set.value.avar.name))
+        result.add(ctx.codes[i])
+        # replaces.add((ctx.codes[i].set.name, ctx.codes[i].set.value.avar.name))
     else:
       if ctx.codes[i].kind == TACodeKind.Ret and returned: continue
       result.add(ctx.codes[i])

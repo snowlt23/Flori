@@ -21,6 +21,7 @@ fn fib(n IntLit) IntLit {
 
 for f in fexprs:
   echo f
+echo tactx
 echo tactx.optimize()
 
 let jitbuf = initJitBuffer(1024)

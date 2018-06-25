@@ -132,6 +132,7 @@ proc getVarRefs*(code: TACode): seq[string] =
     if code.lesser.right.kind == TAAtomKind.AVar:
       result.add(code.lesser.right.avar.name)
   of TACodeKind.Set:
+    result.add(code.set.name)
     if code.set.value.kind == TAAtomKind.AVar:
       result.add(code.set.value.avar.name)
   of TACodeKind.Label:
@@ -155,6 +156,12 @@ proc getVarRefs*(ctx: TAContext): seq[string] =
   result = @[]
   for code in ctx.codes:
     result &= code.getVarRefs()
+
+proc getLabels*(ctx: TAContext): Table[string, int] =
+  result = initTable[string, int]()
+  for i, code in ctx.codes:
+    if code.kind == TACodeKind.Label:
+      result[code.label.name] = i
 
 proc sizerepr*(s: int): string =
   if s == -1:
