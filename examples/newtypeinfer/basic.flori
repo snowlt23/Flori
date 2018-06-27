@@ -1,0 +1,45 @@
+
+import prelude
+
+# overloaded functions
+fn `+(a Int, b Int) Int $[internalop "int_add"]
+fn `+(a Float, b Float) Int $[internalop "float_add"]
+
+# illegal, because `+ is already overloaded
+fn `+(a, b) {
+  add(a, b)
+}
+
+# inferred function
+fn add5(x) {
+  x + 5 # => Int | Float
+}
+# =>
+fn add5[T: Int | Float](x Int | Float) | Float {
+  x + 5
+}
+
+# illegal, inferred add5 is already declarated, but can declare in other module.
+fn add5(x) {
+  x - 5
+}
+# correct, inferred add5 is already declared, but restricted function type
+fn add5(x Float) Float {
+  x + 5
+}
+# call
+fn main() {
+  add5(4) # illegal, add5 is duplicated.
+  othermodule.add5(4) # correct.
+}
+
+type Wrap[T] {
+  value T
+}
+type Cont[T] {
+  value T
+}
+
+fn get(x) {
+  x.value
+}
