@@ -75,19 +75,16 @@ type
     index*: int
   FExprKind* = enum
     fexprIdent = 0
-    fexprPrefix
-    fexprInfix
-
-    fexprQuote
     fexprSymbol
-
+    fexprQuote
     fexprIntLit
     fexprFloatLit
     fexprStrLit
 
-    fexprSeq
-    fexprArray
-    fexprList
+    fexprInfix
+    fexprCall
+    fexprMethod
+    fexprField
     fexprBlock
   FExprObj* = object
     scope*: Option[FScope]
@@ -96,21 +93,22 @@ type
     typ*: Option[Symbol]
     internal*: Option[InternalMarker]
     case kind*: FExprKind
-    of fexprIdent, fexprPrefix, fexprInfix:
+    of fexprIdent:
       idname*: IString
-      priority*: int
-      isleft*: bool
-    of fexprQuote:
-      quoted*: FExpr
     of fexprSymbol:
       symbol*: Symbol
+    of fexprQuote:
+      quoted*: FExpr
     of fexprIntLit:
       intval*: int64
     of fexprFloatLit:
       floatval*: float64
     of fexprStrLit:
       strval*: IString
-    of fexprSeq, fexprArray, fexprList, fexprBlock:
+    of fexprInfix, fexprCall, fexprMethod, fexprField:
+      callname*: FExpr
+      args*: IArray[FExpr]
+    of fexprBlock:
       sons*: IArray[FExpr]
   FExpr* = object
     index*: int
