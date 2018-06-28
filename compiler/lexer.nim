@@ -8,6 +8,7 @@ type
     tokenIdent
     tokenInfix
     tokenIntLit
+    tokenComma
     tokenLParen
     tokenRParen
     tokenLBlock
@@ -23,6 +24,7 @@ type
       leftconc*: bool
     of tokenIntLit:
       intval*: int64
+    of tokenComma: discard
     of tokenLParen: discard
     of tokenRParen: discard
     of tokenLBlock: discard
@@ -46,6 +48,8 @@ proc `$`*(token: Token): string =
     token.infix
   of tokenIntLit:
     $token.intval
+  of tokenComma:
+    ","
   of tokenLParen:
     "("
   of tokenRParen:
@@ -115,7 +119,7 @@ proc getPriority*(ident: string): (int, bool) =
   elif ident[0] in {'=', ':'}:
     (15, true)
   else:
-    echo "internal message: unknown infix priority `", ident
+    echo "internal message: unknown infix priority `$#`" % ident
     (16, true)
 
 proc skipComment*(ctx: var LexerContext) =
@@ -193,6 +197,9 @@ proc lex*(ctx: var LexerContext): seq[Token] =
           ctx.inc
         else:
           break
+    elif ctx.curchar == ',':
+      result.add(Token(span: ctx.span, kind: tokenComma))
+      ctx.inc
     elif ctx.curchar == '(':
       result.add(Token(span: ctx.span, kind: tokenLParen))
       ctx.inc

@@ -17,3 +17,35 @@ suite "F expression parser test":
     check fexpr.args[1].kind == fexprInfix
     check $fexpr.args[1].call == "*"
     check $fexpr.args[1] == "2 * 3"
+  test "call":
+    let fexpr = parse("""
+fib(n-1) + fib(n-2)
+""")
+    check fexpr.kind == fexprInfix
+    check $fexpr.call == "+"
+    check $fexpr.args[0] == "fib(n - 1)"
+    check $fexpr.args[1] == "fib(n - 2)"
+  test "block":
+    let fexpr = parse("""
+add5 =>
+  x + 5
+""")
+    check fexpr.kind == fexprInfix
+    check $fexpr.call == "=>"
+    check $fexpr.args[0] == "add5"
+    check fexpr.args[1].kind == fexprBlock
+    check $fexpr.args[1].sons[0] == "x + 5"
+  test "fib":
+    let fexpr = parse("""
+fib =>
+  if n<2
+    n
+  else
+    fib(n-1) + fib(n-2)
+""")
+    check fexpr.kind == fexprInfix
+    check $fexpr.call == "=>"
+    check $fexpr.args[0] == "fib"
+    # check $fexpr.args[1].kind == fexprIf
+    # check $fexpr.args[1].ifcond == "n < 2"
+    # check $fexpr.args[1].ifbody == "n"
