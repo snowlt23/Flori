@@ -1,3 +1,4 @@
 
+import lexer_test
 import parser_test
-import pass_test
+import sem_test

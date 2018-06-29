@@ -25,6 +25,8 @@ proc extendFScope*(scope: FScope): FScope =
   ))
 
 proc name*(scope: FScope): IString = scope.obj.name
+proc word*(scope: FScope): Option[FExpr] = scope.obj.word
+proc `word=`*(scope: FScope, opt: Option[FExpr]) = scope.obj.word = opt
 proc imports*(scope: FScope): var IList[TupleTable[FScope]] = scope.obj.imports
 proc decls*(scope: FScope): var IList[TupleTable[Symbol]] = scope.obj.decls
 proc procdecls*(scope: FScope): var IList[TupleTable[ProcDeclGroup]] = scope.obj.procdecls
@@ -44,13 +46,6 @@ proc match*(a, b: Symbol): bool =
     for i in 0..<a.types.len:
       if not a.types[i].match(b.types[i]):
         return false
-    return true
-  elif a.kind == symbolFuncType and b.kind == symbolFuncType:
-    if a.argtypes.len != b.argtypes.len: return false
-    for i in 0..<a.argtypes.len:
-      if not a.argtypes[i].match(b.argtypes[i]):
-        return false
-    if not a.rettype.match(b.rettype): return false
     return true
   elif a.kind == symbolRef and b.kind == symbolRef:
     return a.wrapped.match(b.wrapped)
@@ -80,13 +75,6 @@ proc spec*(a, b: Symbol): bool =
     for i in 0..<a.types.len:
       if not a.types[i].spec(b.types[i]):
         return false
-    return true
-  elif a.kind == symbolFuncType and b.kind == symbolFuncType:
-    if a.argtypes.len != b.argtypes.len: return false
-    for i in 0..<a.argtypes.len:
-      if not a.argtypes[i].spec(b.argtypes[i]):
-        return false
-    if not a.rettype.spec(b.rettype): return false
     return true
   elif a.kind == symbolRef and b.kind == symbolRef:
     return a.wrapped.spec(b.wrapped)
@@ -138,6 +126,20 @@ proc getDecl*(scope: FScope, n: string): Option[Symbol] =
       return opt
 
   return none(Symbol)
+proc getWords*(scope: FScope, name: string): seq[ProcDecl] =
+  result = @[]
+
+  let groupopt = scope.procdecls.find(name)
+  if groupopt.isSome:
+    for decl in groupopt.get.value.value.decls:
+      result.add(decl)
+
+  for scopetup in scope.imports:
+    let groupopt = scopetup.value.procdecls.find(name)
+    if groupopt.isSome:
+      for decl in groupopt.get.value.value.decls:
+        result.add(decl)
+
 proc getFunc*(scope: FScope, pd: ProcName): Option[ProcDecl] =
   let groupopt = scope.procdecls.find(pd.name)
   if groupopt.isSome:
@@ -171,7 +173,7 @@ proc getSpecFunc*(scope: FScope, pd: ProcName): Option[ProcDecl] =
 
 proc addDecl*(scope: FScope, n: IString, v: Symbol) =
   scope.decls.add(TupleTable[Symbol](name: n, value: v))
-proc addFunc*(scope: FScope, decl: ProcDecl) =
+proc addWord*(scope: FScope, decl: ProcDecl) =
   let opt = scope.procdecls.find($decl.name)
   if opt.isSome:
     let group = opt.get

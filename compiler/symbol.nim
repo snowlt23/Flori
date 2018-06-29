@@ -14,19 +14,17 @@ proc kind*(sym: Symbol): SymbolKind =
   sym.obj.kind
 proc types*(sym: Symbol): IArray[Symbol] =
   sym.obj.types
-proc argtypes*(sym: Symbol): IArray[Symbol] =
-  sym.obj.argtypes
-proc rettype*(sym: Symbol): Symbol =
-  sym.obj.rettype
 proc wrapped*(sym: Symbol): Symbol =
   sym.obj.wrapped
+proc `wrapped=`*(sym: Symbol, s: Symbol) =
+  sym.obj.wrapped = s
 proc instance*(sym: Symbol): Option[Symbol] =
   sym.obj.instance
 proc `instance=`*(sym: Symbol, value: Option[Symbol]) =
   sym.obj.instance = value
 
 proc symbol*(scope: FScope, name: IString, kind: SymbolKind, fexpr: FExpr): Symbol =
-  var s: Symbolobj
+  var s: SymbolObj
   s.scope = scope
   s.name = name
   s.fexpr = fexpr
@@ -34,6 +32,9 @@ proc symbol*(scope: FScope, name: IString, kind: SymbolKind, fexpr: FExpr): Symb
   return genSymbol(s)
 proc symbol*(scope: FScope, name: string, kind: SymbolKind, fexpr: FExpr): Symbol =
   scope.symbol(istring(name), kind, fexpr)
+proc linksym*(sym: Symbol): Symbol =
+  result = sym.scope.symbol(sym.name, symbolLink, sym.fexpr)
+  result.obj.wrapped = sym
 proc refsym*(sym: Symbol): Symbol =
   result = sym.scope.symbol(sym.name, symbolRef, sym.fexpr)
   result.obj.wrapped = sym
@@ -48,12 +49,6 @@ proc isSpecSymbol*(sym: Symbol): bool =
     return false
   elif sym.kind in {symbolRef, symbolVar}:
     return sym.wrapped.isSpecSymbol()
-  elif sym.kind == symbolFuncType:
-    for t in sym.argtypes:
-      if not t.isSpecSymbol:
-        return false
-    if not sym.rettype.isSpecSymbol: return false
-    return true
   elif sym.kind == symbolTypeGenerics:
     for t in sym.types:
       if not t.isSpecSymbol:
@@ -75,12 +70,12 @@ proc toString*(sym: Symbol, desc: bool): string =
       $sym.scope.obj.name & "." & $sym.name & "[" & sym.types.mapIt(toString(it, desc)).join(",") & "]"
     else:
       $sym.name & "[" & sym.types.mapIt(toString(it, desc)).join(",") & "]"
+  of symbolLink:
+    toString(sym.wrapped, desc)
   of symbolVar:
     toString(sym.wrapped, desc)
   of symbolRef:
     "ref " & toString(sym.wrapped, desc)
-  of symbolFuncType:
-    "Fn[$#] $#" % [sym.argtypes.mapIt(toString(it, desc)).join(", "), toString(sym.rettype, desc)]
   else:
     if desc:
       $sym.scope.obj.name & "." & $sym.name
@@ -98,12 +93,6 @@ proc symcopy*(sym: SymbolObj): SymbolObj =
     result.types = sym.types
   of symbolVar, symbolRef:
     result.wrapped = sym.wrapped
-  of symbolSyntax, symbolMacro:
-    discard
-  of symbolFUncType:
-    result.argtypes = sym.argtypes
-  of symbolConstant:
-    result.constvalue = sym.constvalue
   else:
     discard
 proc symcopy*(sym: Symbol): Symbol =

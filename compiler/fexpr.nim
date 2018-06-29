@@ -50,8 +50,8 @@ proc fident*(span: Span, name: string): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprIdent, idname: istring(name)))
 proc fsymbol*(span: Span, sym: Symbol): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprSymbol, symbol: sym))
-proc fquote*(span: Span, q: FExpr): FExpr =
-  genFExpr(FExprObj(span: span, kind: fexprQuote, quoted: q))
+proc fquote*(span: Span, q: string): FExpr =
+  genFExpr(FExprObj(span: span, kind: fexprQuote, quoted: istring(q)))
 
 proc fintlit*(span: Span, x: int64): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprIntLit, intval: x))
@@ -75,6 +75,7 @@ proc fblock*(span: Span, sons: openArray[FExpr]): FExpr =
 proc kind*(fexpr: FExpr): FExprKind = fexpr.obj.kind
 proc idname*(fexpr: FExpr): IString = fexpr.obj.idname
 proc symbol*(fexpr: FExpr): Symbol = fexpr.obj.symbol
+proc quoted*(fexpr: FExpr): IString = fexpr.obj.quoted
 proc intval*(fexpr: FExpr): int64 = fexpr.obj.intval
 proc strval*(fexpr: FExpr): IString = fexpr.obj.strval
 proc span*(fexpr: FExpr): Span = fexpr.obj.span
@@ -101,7 +102,7 @@ proc toString*(fexpr: var FExprObj, indent: int, desc: bool, typ: bool): string 
   of fexprSymbol:
     toString(fexpr.symbol, desc)
   of fexprQuote:
-    "`" & fexpr.quoted.toString(indent, desc, typ)
+    "`" & $fexpr.quoted
   of fexprIntLit:
     $fexpr.intval
   of fexprFloatLit:

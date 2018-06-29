@@ -3,9 +3,16 @@
 # examples
 #
 
-+ => $typed(int, int) internalfn("int_add")
-+ => $typed(float, float) internalfn("float_add")
-+ => $typed(double, double) internalfn("double_add")
++ => $typed(int) internalfn("int_add")
++ => $typed(float) internalfn("float_add")
++ => $typed(double) internalfn("double_add")
+
+addfsug => $trigger(typemismatch(+, float, float))
+  span.suggest("float + float is illegal, maybe +.")
+  span.rewrite("a +. b")
+addisug => $trigger(typemismatch(+, float, float))
+  span.suggest("int +. int is illegal, maybe +")
+  span.rewrite("a + b")
 
 # overloaded functions
 add5 => $typed(int)

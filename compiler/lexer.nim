@@ -8,6 +8,8 @@ type
     tokenIdent
     tokenInfix
     tokenIntLit
+    tokenStrLit
+    tokenQuote
     tokenComma
     tokenLParen
     tokenRParen
@@ -24,6 +26,9 @@ type
       leftconc*: bool
     of tokenIntLit:
       intval*: int64
+    of tokenStrLit:
+      strval*: string
+    of tokenQuote: discard
     of tokenComma: discard
     of tokenLParen: discard
     of tokenRParen: discard
@@ -38,7 +43,7 @@ type
   LexerError* = object of Exception
 
 const InfixSymbols* = {'.', '!', '%', '+', '-', '*', '/', '<', '=', '>', ':', '|', '&'}
-const SeparateSymbols* = InfixSymbols + {'(', ')', ' '}
+const SeparateSymbols* = InfixSymbols + {'(', ')', ',', ';', '`', ' '}
 
 proc `$`*(token: Token): string =
   case token.kind
@@ -48,6 +53,10 @@ proc `$`*(token: Token): string =
     token.infix
   of tokenIntLit:
     $token.intval
+  of tokenStrLit:
+    "\"" & token.strval & "\""
+  of tokenQuote:
+    "`"
   of tokenComma:
     ","
   of tokenLParen:
@@ -197,9 +206,23 @@ proc lex*(ctx: var LexerContext): seq[Token] =
           ctx.inc
         else:
           break
+    elif ctx.curchar == '`':
+      result.add(Token(span: ctx.span, kind: tokenQuote))
+      ctx.inc
     elif ctx.curchar == ',':
       result.add(Token(span: ctx.span, kind: tokenComma))
       ctx.inc
+    elif ctx.curchar == '"':
+      let span = ctx.span
+      ctx.inc
+      var s = ""
+      while ctx.curchar != '"':
+        if ctx.isEOF:
+          ctx.error("unmatched `\"` strlit.")
+        s.add(ctx.curchar)
+        ctx.inc
+      ctx.inc
+      result.add(Token(span: span, kind: tokenStrLit, strval: s))
     elif ctx.curchar == '(':
       result.add(Token(span: ctx.span, kind: tokenLParen))
       ctx.inc

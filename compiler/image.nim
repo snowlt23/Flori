@@ -33,24 +33,21 @@ type
   InternalMarkerObj* = object
     internalop*: InternalOp
     internalsize*: int
+    argnames*: Option[IArray[IString]]
+    argtypes*: Option[IArray[Symbol]]
+    returntype*: Option[Symbol]
   InternalMarker* = object
     index*: int
   SymbolKind* = enum
+    symbolLink
     symbolType
-    symbolGenerics
     symbolTypeGenerics
-    symbolFunc
-    symbolFuncGenerics
-    symbolFuncType
-    symbolInfix
-    symbolMacro
-    symbolSyntax
-    symbolInternal
+    symbolGenerics
+    symbolUnion
+    symbolWord
     symbolDef
-    symbolArg
     symbolVar
     symbolRef
-    symbolConstant
   SymbolObj* = object
     scope*: FScope
     name*: IString
@@ -59,16 +56,10 @@ type
     case kind*: SymbolKind
     of symbolTypeGenerics:
       types*: IArray[Symbol]
-    of symbolVar, symbolRef:
+    of symbolUnion:
+      uniontypes*: IArray[Symbol]
+    of symbolLink, symbolVar, symbolRef:
       wrapped*: Symbol
-    of symbolSyntax, symbolMacro:
-      discard
-      # macroproc*: MacroProc
-    of symbolFuncType:
-      argtypes*: IArray[Symbol]
-      rettype*: Symbol
-    of symbolConstant:
-      constvalue*: FExpr
     else:
       discard
   Symbol* = object
@@ -98,7 +89,7 @@ type
     of fexprSymbol:
       symbol*: Symbol
     of fexprQuote:
-      quoted*: FExpr
+      quoted*: IString
     of fexprIntLit:
       intval*: int64
     of fexprFloatLit:
@@ -132,6 +123,7 @@ type
   FScopeObj* = object
     name*: IString
     top*: FScope
+    word*: Option[FExpr]
     level*: int
     imports*: IList[TupleTable[FScope]]
     decls*: IList[TupleTable[Symbol]]
@@ -220,7 +212,7 @@ proc checkBounds*[T](arr: IArray[T], i: int) =
 proc `[]`*[T](arr: IArray[T], i: int): T =
   arr.checkBounds(i)
   cast[ptr T](addr(gImage.mem[arr.index + i*sizeof(T)]))[]
-proc mget*[T](arr: var IArray[T], i: int): var T =
+proc mget*[T](arr: IArray[T], i: int): var T =
   arr.checkBounds(i)
   cast[ptr T](addr(gImage.mem[arr.index + i*sizeof(T)]))[]
 proc `[]=`*[T](arr: IArray[T], i: int, val: T) =
@@ -235,13 +227,13 @@ proc iarray*[T](): IArray[T] =
 iterator items*[T](arr: IArray[T]): T =
   for i in 0..<arr.len:
     yield(arr[i])
-iterator mitems*[T](arr: var IArray[T]): var T =
+iterator mitems*[T](arr: IArray[T]): var T =
   for i in 0..<arr.len:
     yield(arr.mget(i))
 iterator pairs*[T](arr: IArray[T]): (int, T) =
   for i in 0..<arr.len:
     yield(i, arr[i])
-iterator mpairs*[T](arr: var IArray[T]): (int, var T) =
+iterator mpairs*[T](arr: IArray[T]): (int, var T) =
   for i in 0..<arr.len:
     yield(i, arr.mget(i))
 

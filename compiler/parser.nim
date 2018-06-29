@@ -60,6 +60,9 @@ proc factor(ctx: var ParserContext): FExpr =
   elif tok.get.kind == tokenIntLit:
     ctx.nextToken()
     return fintlit(tok.get.span, tok.get.intval)
+  elif tok.get.kind == tokenStrLit:
+    ctx.nextToken()
+    return fstrlit(tok.get.span, tok.get.strval)
   else:
     return ctx.topexpr()
 
@@ -84,11 +87,26 @@ proc callexpr(ctx: var ParserContext): FExpr =
         ctx.nextToken()
         return fcall(tok.get.span, call, args)
       else:
-        tok.get.error("exptected Comma, or RParen) by function call, but $#" % $next.get)
+        next.get.error("exptected Comma, or RParen) by function call, but $#" % $next.get)
   else:
     return call
 
-defineInfixExpr(infix4, callexpr, 4)
+proc quoteexpr(ctx: var ParserContext): FExpr =
+  let tok = ctx.getToken()
+  if tok.isSome and tok.get.kind == tokenQuote:
+    ctx.nextToken()
+    let id = ctx.getToken()
+    if id.isNone:
+      tok.get.error("required more token.")
+    ctx.nextToken()
+    return fquote(tok.get.span, $id.get)
+  elif tok.isSome and tok.get.kind == tokenInfix:
+    # prefix
+    tok.get.error("prefix operator unsupported in currently.")
+  else:
+    return ctx.callexpr()
+
+defineInfixExpr(infix4, quoteexpr, 4)
 defineInfixExpr(infix5, infix4, 5)
 defineInfixExpr(infix7, infix5, 7)
 defineInfixExpr(infix15, infix7, 15)
@@ -118,3 +136,9 @@ proc parseFExpr*(filename: string, src: string): FExpr =
   var lexer = newLexerContext(filename, src)
   var parser = newParserContext(lexer.lex())
   return parser.topexpr()
+proc parseToplevel*(filename: string, src: string): seq[FExpr] =
+  result = @[]
+  var lexer = newLexerContext(filename, src)
+  var parser = newParserContext(lexer.lex())
+  while not parser.isEnd:
+    result.add(parser.topexpr())

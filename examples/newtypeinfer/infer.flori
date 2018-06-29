@@ -1,0 +1,26 @@
+
+number => $union(int, float, double)
+
++ => $typed(int, int)
++ => $typed(float, float)
++ => $typed(double, double)
+
+add5 =>
+  x + 5 # x+5 => result:number
+
+range => $struct[s, e]
+.. => range(s, e)
+# .. => $typed(U0, U1)
+start => r.s
+next =>
+  result = r.s
+  r.s += 1 # r:range, r.s:number
+# .. => $typed(int, U1)
+iscont =>
+  r.s <= r.e # r:range, r.e:number
+# .. => $typed(int, int)
+
+iota =>
+  result = vector() # result:vector[U0]
+  for i in a..b: # arg(a, b), i:int
+    result.push(i) # result:vector[int]

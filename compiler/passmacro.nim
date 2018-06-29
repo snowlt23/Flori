@@ -26,7 +26,4 @@ macro definePass*(passname: untyped, rootname: untyped, argtypes: untyped, passe
 var internals* = newSeq[string]()
 
 template thruInternal*(fexpr: FExpr) =
-  if fexpr.kind == fexprSeq and fexpr.len >= 1:
-    for internal in internals:
-      if $fexpr[0] == internal:
-        return true
+  discard

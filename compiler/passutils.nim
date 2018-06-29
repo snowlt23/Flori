@@ -1,5 +1,5 @@
 
-import image, parser, fexpr, symbol, scope, localparser
+import image, parser, fexpr, symbol, scope
 
 import options
 import strutils, sequtils
@@ -29,27 +29,29 @@ macro instantiateInternalType*(scope: FScope): untyped =
       `scope`.addDecl(istring(`s`), `sym`)
     )
 
-defineInternalType(voidtype, "Void", 0)
-defineInternalType(intlittype, "IntLit", 4)
-defineInternalType(floatlittype, "FloatLit", 4)
-defineInternalType(strlittype, "StrLit", 4)
+defineInternalType(voidtype, "void", 0)
+defineInternalType(booltype, "bool", 0)
+defineInternalType(intlittype, "intlit", 4)
+defineInternalType(floatlittype, "floatlit", 4)
+defineInternalType(strlittype, "strlit", 4)
+defineInternalType(uniontype, "union", 0)
 var fntypeString*: IString
 var internalScope*: FScope
 
 proc initInternalPrimitive*(scope: FScope) =
   scope.instantiateInternalType()
-  fntypeString = istring("Fn")
-
-proc fntypesym*(scope: FScope, fexpr: FExpr, argtypes: openArray[Symbol], rettype: Symbol): Symbol =
-  result = scope.symbol(fntypeString, symbolFuncType, fexpr)
-  result.obj.argtypes = iarray(argtypes)
-  result.obj.rettype = rettype
-proc fntypesym*(scope: FScope, fexpr: FExpr, argtypes: openArray[Symbol]): Symbol =
-  scope.fntypesym(fexpr, argtypes, voidtypeSymbol)
+  fntypeString = istring("fn")
 
 proc tmpsym*(): string =
   result = "tmpid" & $gCtx.tmpcount
   gCtx.tmpcount.inc
+
+proc unionsym*(syms: openArray[Symbol]): Symbol =
+  result = syms[0].scope.symbol(uniontypeident.idname, symbolUnion, uniontypeIdent)
+  result.obj.uniontypes = iarray(syms)
+
+proc getReturnType*(pd: ProcDecl): Symbol =
+  pd.sym.fexpr.obj.internal.get.obj.returntype.get
 
 proc genManglingName*(name: string, types: seq[Symbol], generics: seq[Symbol]): string =
   name & "_" & types.mapIt($it).join("_") & "_" & generics.mapIt($it).join("_")
@@ -66,25 +68,11 @@ template expandBy*(span: Span, body: untyped) =
   finally:
     expandEnd()
 
-proc isGenerics*(fexpr: FExpr, defn: Defn): bool =
-  defn.generics.isSome and not fexpr[defn.generics.get].isSpecTypes
-proc isGenerics*(fexpr: FExpr, deftype: Deftype): bool =
-  deftype.generics.isSome and not fexpr[deftype.generics.get].isSpecTypes
-
 proc hasSetter*(scope: FScope, dstvalue: Symbol, dstindex: Symbol, value: Symbol): bool =
   scope.getFunc(procname("!!", @[dstvalue, dstindex, value])).isSome
 
 proc resolveByVoid*(fexpr: FExpr) =
   fexpr.typ = some(voidtypeSymbol)
-
-proc checkArgsHastype*(args: seq[FExpr]) =
-  for arg in args:
-    if arg.typ.isNone:
-      arg.error("$# hasn't type." % $arg)
-proc checkArgsHastype*(args: FExpr) =
-  for arg in args:
-    if arg.typ.isNone:
-      arg.error("$# hasn't type." % $arg)
 
 proc isEqualTypes*(types: seq[Symbol]): bool =
   let first = types[0]
@@ -92,16 +80,6 @@ proc isEqualTypes*(types: seq[Symbol]): bool =
     if not first.spec(types[i]):
       return false
   return true
-      
-# proc genConvertedCall*(args: FExpr, matches: seq[Matched]): FExpr =
-#   result = flist(args.span)
-#   args.assert(args.len == matches.len)
-#   for i in 0..<args.len:
-#     case matches[i].kind
-#     of matchConvert:
-#       result.addSon(args[i].span.quoteFExpr("`embed(`embed)", [fsymbol(args[i].span, matches[i].convsym), args[i]]))
-#     else:
-#       result.addSon(args[i])
 
 proc typesize*(fexpr: FExpr): int =
   if fexpr.obj.internal.isNone:
