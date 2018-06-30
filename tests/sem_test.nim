@@ -17,6 +17,9 @@ discard evalTest("""
 `+ =>
   $typed(intlit, intlit)
   internalop("int_add")
+`- =>
+  $typed(intlit, intlit)
+  internalop("int_sub")
 `< =>
   $typed(intlit, intlit)
   internalop("int_lesser")
@@ -34,7 +37,7 @@ add5 => a + 5
 """)
     check f[0].getargnames == "a"
     check f[0].getargtypes == "intlit"
-    check $f[0].args[1].typ.get == "intlit"
+    check $f[0].args[1].gettype == "intlit"
   test "call stmt":
     var f = evalTest("""
 add9 =>
@@ -42,7 +45,7 @@ add9 =>
 """)
     check f[0].getargnames == "a"
     check f[0].getargtypes == "intlit"
-    check $f[0].args[1].sons[0].typ.get == "intlit"
+    check $f[0].args[1].sons[0].gettype == "intlit"
   test "generalize":
     var f = evalTest("""
 id => x

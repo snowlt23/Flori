@@ -46,6 +46,8 @@ fib =>
     check fexpr.kind == fexprInfix
     check $fexpr.call == "=>"
     check $fexpr.args[0] == "fib"
+    check fexpr.args[1].sons[0].kind == fexprIf
+    check $fexpr.args[1].sons[0].ifcond == "n < 2"
     # check $fexpr.args[1].kind == fexprIf
     # check $fexpr.args[1].ifcond == "n < 2"
     # check $fexpr.args[1].ifbody == "n"

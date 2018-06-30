@@ -10,19 +10,17 @@ import os, osproc, strutils
 import times
 
 let fexprs = evalTest("""
-fn fib(n IntLit) IntLit {
-  if (n < 2) {
+fib =>
+  if n<2
     n
-  } else {
+  else
     fib(n-1) + fib(n-2)
-  }
-}
 """)
 
 for f in fexprs:
   echo f
-echo tactx
-echo tactx.optimize()
+  echo "inferred: ", inferred(f)
+echo ""
 
 let jitbuf = initJitBuffer(1024)
 # let fib = toProc[proc (a: int32): int32 {.cdecl.}](jitbuf.getproc())
@@ -34,7 +32,6 @@ var asmctx = newAsmContext(jitbuf)
 # var x86ctx = tactx.optimize().x86Tiling().simpleRegalloc(tactx.analyzeLiveness())
 var x86ctx = tactx.optimize().x86Tiling().freqRegalloc(tactx.analyzeLiveness())
 echo x86ctx
-
 asmctx.generateX86(x86ctx)
 echo objdump(asmctx.buffer.toBin)
 

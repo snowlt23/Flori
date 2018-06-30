@@ -22,45 +22,46 @@ proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom
 #   ctx.addLabel(nextl)
 #   return initTAAtomNone()
 
-# proc convertIf*(ctx: var TAContext, fexpr: FExpr): TAAtom =
-#   var conds = @[(ctx.tmplabel, some(fexpr[1][0]), fexpr[2])]
-#   var i = 3
-#   while i < fexpr.len:
-#     if $fexpr[i] == "elif": # elif clause
-#       conds.add((ctx.tmplabel, some(fexpr[i+1][0]), fexpr[i+2]))
-#       i += 3
-#     elif $fexpr[i] == "else": # else clause
-#       conds.add((ctx.tmplabel, none(FExpr), fexpr[i+1]))
-#       i += 2
+proc convertIf*(ctx: var TAContext, fexpr: FExpr): TAAtom =
+  let retsym = ctx.tmpsym
+  let nextl = ctx.tmplabel
+  let size = fexpr.gettype.typesize
+  if size != 0:
+    ctx.add(initTACodeAVar(retsym, size, initTAAtomNone()))
 
-#   let retsym = ctx.tmpsym
-#   let nextl = ctx.tmplabel
-#   let size = if fexpr.typ.isSome:
-#                fexpr.typ.get.fexpr.typesize
-#              else:
-#                -1
-#   if size != -1:
-#     ctx.add(initTACodeAVar(retsym, size, initTAAtomNone()))
-#   for c in conds:
-#     let (label, fcond, _) = c
-#     if fcond.isSome:
-#       let cond = ctx.convertFExpr(fcond.get)
-#       ctx.add(initTACodeAIf(cond, label))
-#     else:
-#       ctx.add(initTACodeGoto(label))
-#   ctx.add(initTACodeGoto(nextl))
-#   for c in conds:
-#     let (label, _, fbody) = c
-#     ctx.addLabel(label)
-#     for i in 0..<fbody.len-1:
-#       discard ctx.convertFExpr(fbody[i])
-#     if size != -1:
-#       ctx.add(initTACodeSet(retsym, ctx.convertFExpr(fbody[^1])))
-#     else:
-#       discard ctx.convertFExpr(fbody[^1])
-#     ctx.add(initTACodeGoto(nextl))
-#   ctx.addLabel(nextl)
-#   return initTAAtomAVar(retsym)
+  var conds = newSeq[(string, Option[FExpr], FExpr)]()
+  conds.add((ctx.tmplabel, some(fexpr.ifcond), fexpr.ifbody))
+  for elifbranch in fexpr.elifbranches:
+    conds.add((ctx.tmplabel, some(elifbranch.cond), elifbranch.body))
+  conds.add((ctx.tmplabel, none(FExpr), fexpr.elsebody))
+
+  for c in conds:
+    let (label, fcond, _) = c
+    if fcond.isSome:
+      let cond = ctx.convertFExpr(fcond.get)
+      ctx.add(initTACodeAIf(cond, label))
+    else:
+      ctx.add(initTACodeGoto(label))
+  ctx.add(initTACodeGoto(nextl))
+  for c in conds:
+    let (label, _, fbody) = c
+    ctx.addLabel(label)
+    if fbody.kind == fexprBlock:
+      for i in 0..<fbody.sons.len-2:
+        discard ctx.convertFExpr(fbody.sons[i])
+    if size != 0:
+      if fbody.kind == fexprBlock:
+        ctx.add(initTACodeSet(retsym, ctx.convertFExpr(fbody.sons[fbody.sons.len-1])))
+      else:
+        ctx.add(initTACodeSet(retsym, ctx.convertFExpr(fbody)))
+    else:
+      if fbody.kind == fexprBlock:
+        discard ctx.convertFExpr(fbody.sons[fbody.sons.len-1])
+      else:
+        discard ctx.convertFExpr(fbody)
+    ctx.add(initTACodeGoto(nextl))
+  ctx.addLabel(nextl)
+  return initTAAtomAVar(retsym)
 
 # proc convertSet*(ctx: var TAContext, fexpr: FExpr): TAAtom =
 #   let dst = ctx.convertFExpr(fexpr[1])
@@ -74,7 +75,7 @@ proc convertWord*(ctx: var TAContext, fexpr: FExpr): TAAtom =
     return initTAAtomNone()
 
   let fnlabel = desc(fexpr.args[0])
-  let retsize = fexpr.internal.obj.returntype.get.typesize
+  let retsize = fexpr.internal.obj.returntype.typesize
 
   var fnctx = newTAContext()
   if fexpr.args[1].kind == fexprBlock:
@@ -131,5 +132,7 @@ proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom =
     return ctx.convertWord(fexpr)
   elif fexpr.kind in fexprCalls:
     return ctx.convertCall(fexpr)
+  elif fexpr.kind == fexprIf:
+    return ctx.convertIf(fexpr)
   else:
     fexpr.error("unsupported tacodegen of: $#" % $fexpr)

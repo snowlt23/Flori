@@ -91,6 +91,29 @@ proc callexpr(ctx: var ParserContext): FExpr =
   else:
     return call
 
+proc ifexpr(ctx: var ParserContext): FExpr =
+  let tok = ctx.getToken()
+  if tok.isSome and $tok.get == "if":
+    ctx.nextToken()
+    let ifcond = ctx.topexpr()
+    let ifbody = ctx.topexpr()
+    var elifbranches = newSeq[(FExpr, FExpr)]()
+    var elsebody = fcall(tok.get.span, fident(tok.get.span, "discard"), [])
+    while true:
+      let nexttok = ctx.getToken()
+      if nexttok.isSome and $nexttok.get == "elif":
+        ctx.nextToken()
+        elifbranches.add((ctx.topexpr(), ctx.topexpr()))
+      elif nexttok.isSome and $nexttok.get == "else":
+        ctx.nextToken()
+        elsebody = ctx.topexpr()
+        break
+      else:
+        break
+    return fif(tok.get.span, ifcond, ifbody, elifbranches, elsebody)
+  else:
+    return ctx.callexpr()
+
 proc quoteexpr(ctx: var ParserContext): FExpr =
   let tok = ctx.getToken()
   if tok.isSome and tok.get.kind == tokenQuote:
@@ -104,7 +127,7 @@ proc quoteexpr(ctx: var ParserContext): FExpr =
     # prefix
     tok.get.error("prefix operator unsupported in currently.")
   else:
-    return ctx.callexpr()
+    return ctx.ifexpr()
 
 defineInfixExpr(infix4, quoteexpr, 4)
 defineInfixExpr(infix5, infix4, 5)

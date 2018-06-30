@@ -47,9 +47,6 @@ proc tmpsym*(): string =
   result = "tmpid" & $gCtx.tmpcount
   gCtx.tmpcount.inc
 
-proc getReturnType*(pd: ProcDecl): Symbol =
-  pd.sym.fexpr.obj.internal.get.obj.returntype.get
-
 proc hasUnionType*(syms: seq[Symbol], s: Symbol): bool =
   for sym in syms:
     if sym.match(s):
@@ -82,8 +79,8 @@ template expandBy*(span: Span, body: untyped) =
   finally:
     expandEnd()
 
-proc hasSetter*(scope: FScope, dstvalue: Symbol, dstindex: Symbol, value: Symbol): bool =
-  scope.getFunc(procname("!!", @[dstvalue, dstindex, value])).isSome
+# proc hasSetter*(scope: FScope, dstvalue: Symbol, dstindex: Symbol, value: Symbol): bool =
+#   scope.getFunc(procname("!!", @[dstvalue, dstindex, value])).isSome
 
 proc resolveByVoid*(fexpr: FExpr) =
   fexpr.typ = some(voidtypeSymbol)
@@ -91,9 +88,36 @@ proc resolveByVoid*(fexpr: FExpr) =
 proc isEqualTypes*(types: seq[Symbol]): bool =
   let first = types[0]
   for i in 1..<types.len:
+    if $types[i] == "undef":
+      continue
     if not first.spec(types[i]):
       return false
   return true
+
+proc getargtypes*(pd: ProcDecl): Option[IArray[Symbol]] =
+  pd.sym.fexpr.internal.obj.argtypes
+proc getReturnType*(pd: ProcDecl): Symbol =
+  pd.sym.fexpr.obj.internal.get.obj.returntype
+proc gettype*(f: FExpr): Symbol =
+  if f.typ.isNone:
+    f.error("expression hasn't type.")
+  return f.typ.get
+
+proc filterWords*(words: openArray[ProcDecl], arglen: int): seq[ProcDecl] =
+  result = @[]
+  for word in words:
+    if word.getargtypes.isNone or arglen == word.getargtypes.get.len or word.undecided:
+      result.add(word)
+proc argumentUnion*(words: openArray[ProcDecl], index: int): Option[Symbol] =
+  var typs = newSeq[Symbol]()
+  for word in words:
+    if word.getargtypes.isNone:
+      continue
+    typs.add(word.getargtypes.get[index])
+  if typs.len == 0:
+    return none(Symbol)
+  else:
+    return some(unionsym(typs))
 
 proc typesize*(sym: Symbol): int =
   if sym.kind == symbolLink:

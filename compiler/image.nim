@@ -38,7 +38,7 @@ type
     inferargnames*: IList[Symbol]
     argtypes*: Option[IArray[Symbol]]
     inferargtypes*: IList[Symbol]
-    returntype*: Option[Symbol]
+    returntype*: Symbol
   InternalMarker* = object
     index*: int
   SymbolKind* = enum
@@ -80,6 +80,9 @@ type
     fexprMethod
     fexprField
     fexprBlock
+
+    fexprIf
+    fexprWhile
   FExprObj* = object
     scope*: Option[FScope]
     span*: Span
@@ -104,6 +107,14 @@ type
       args*: IArray[FExpr]
     of fexprBlock:
       sons*: IArray[FExpr]
+    of fexprIf:
+      ifcond*: FExpr
+      ifbody*: FExpr
+      elifbranches*: IArray[tuple[cond: FExpr, body: FExpr]]
+      elsebody*: FExpr
+    of fexprWhile:
+      whilecond*: FExpr
+      whilebody*: FExpr
   FExpr* = object
     index*: int
   ProcName* = object
@@ -114,10 +125,8 @@ type
   ProcDecl* = object
     internalproc*: Option[InternalProcType]
     name*: IString
-    argtypes*: IArray[Symbol]
-    generics*: IArray[Symbol]
-    returntype*: Symbol
     sym*: Symbol
+    undecided*: bool
   ProcDeclGroup* = object
     decls*: IList[ProcDecl]
   TupleTable*[T] = object

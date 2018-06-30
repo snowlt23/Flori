@@ -3,12 +3,19 @@ import ../fcore, ../passmacro, ../internalpass
 import ../codegen/tacode, ../codegen/tagen
 import os, osproc
 import strutils, sequtils
+import options
 import times
 
 let prelude = """
 `+ =>
   $typed(intlit, intlit)
   internalop("int_add")
+`- =>
+  $typed(intlit, intlit)
+  internalop("int_sub")
+`< =>
+  $typed(intlit, intlit)
+  internalop("int_lesser")
 """
 
 initRootScope()
@@ -21,6 +28,9 @@ proc evalTest*(src: string): seq[FExpr] =
     scope.rootPass(f)
     discard tactx.convertFExpr(f)
 discard evalTest(prelude)
+
+proc inferred*(f: FExpr): string =
+  "$# => $$typed($#) $$named($#) $$returned($#)" % [$f.args[0], f.internal.obj.argtypes.get.mapIt($it).join(", "), f.internal.obj.argnames.get.mapIt($it).join(", "), $f.internal.obj.returntype]
 
 {.push stackTrace:off.}
 proc procffi*(n: int32, p: pointer): int32 =

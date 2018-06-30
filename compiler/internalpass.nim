@@ -59,7 +59,7 @@ proc semReturned*(scope: FScope, fexpr: var FExpr) =
   let typ = scope.getDecl($fexpr.args[0])
   if typ.isNone:
     fexpr.args[0].error("undeclared $# type." % $fexpr.args[0])
-  scope.word.get.internal.obj.returntype = some(typ.get)
+  scope.word.get.internal.obj.returntype.wrapped = typ.get
   fexpr.typ = some(typ.get)
 
 proc semWord*(scope: FScope, fexpr: var FExpr) =
@@ -77,15 +77,13 @@ proc semWord*(scope: FScope, fexpr: var FExpr) =
   fexpr.args[0] = fsym
   fexpr.scope = some(fnscope)
 
-  if fexpr.args[1].kind == fexprBlock:
-    for son in fexpr.args[1].sons.mitems:
-      fnscope.rootPass(son)
-    if fexpr.obj.internal.get.obj.returntype.isNone:
-      fexpr.obj.internal.get.obj.returntype = some(fexpr.args[1].sons[fexpr.args[1].sons.len-1].typ.get)
-  else:
-    fnscope.rootPass(fexpr.args.mget(1))
-    if fexpr.obj.internal.get.obj.returntype.isNone:
-      fexpr.obj.internal.get.obj.returntype = some(fexpr.args[1].typ.get)
+  let pd = ProcDecl(name: name, sym: sym, undecided: true)
+  scope.addWord(pd)
+  fnscope.addWord(pd)
+  fexpr.internal.obj.returntype = linksym(undeftypeSymbol)
+
+  fnscope.rootPass(fexpr.args.mget(1))
+  fexpr.obj.internal.get.obj.returntype.wrapped = fexpr.args[1].gettype
 
   if fexpr.internal.obj.argtypes.isNone:
     fexpr.internal.obj.argnames = some(iarray(toSeq(fexpr.internal.obj.inferargnames.items).reversed()))
@@ -99,10 +97,6 @@ proc semWord*(scope: FScope, fexpr: var FExpr) =
         i.inc
     fexpr.internal.obj.argtypes = some(iarray(argtypes))
     fexpr.internal.obj.inferargtypes = ilistNil[Symbol]()
-
-  let pd = ProcDecl(name: name, argtypes: fexpr.internal.obj.argtypes.get, returntype: fexpr.obj.internal.get.obj.returntype.get, sym: sym)
-  scope.addWord(pd)
-  fnscope.addWord(pd)
 
 # proc semDeftype*(scope: FScope, fexpr: var FExpr) =
 #   let parsed = parseDeftype(fexpr)
@@ -129,7 +123,26 @@ proc semWord*(scope: FScope, fexpr: var FExpr) =
 #       let fieldtypesym = typescope.semType(field, 1)
 #       field[1] = fsymbol(field[1].span, fieldtypesym)
 
-proc semIf*(scope: FScope, fexpr: var FExpr) = discard
+proc semIf*(scope: FScope, fexpr: var FExpr) =
+  var rettypes = newSeq[Symbol]()
+  scope.rootPass(fexpr.ifcond)
+  let ifscope = scope.extendFScope()
+  ifscope.rootPass(fexpr.ifbody)
+  rettypes.add(fexpr.ifbody.gettype)
+  for elifbranch in fexpr.elifbranches.mitems:
+    scope.rootPass(elifbranch.cond)
+    let elifscope = scope.extendFScope()
+    elifscope.rootPass(elifbranch.body)
+    rettypes.add(elifbranch.body.gettype)
+  let elsescope = scope.extendFScope()
+  elsescope.rootPass(fexpr.elsebody)
+  rettypes.add(fexpr.elsebody.gettype)
+
+  if rettypes.isEqualTypes:
+    fexpr.typ = some(rettypes[0])
+  else:
+    resolveByVoid(fexpr)
+
 proc semWhile*(scope: FScope, fexpr: var FExpr) = discard
 proc semDef*(scope: FScope, fexpr: var FExpr) = discard
 proc semSet*(scope: FScope, fexpr: var FExpr) = discard
@@ -182,8 +195,6 @@ proc addInternalEval*(scope: FScope, n: string, p: InternalProcType) =
   scope.addWord(ProcDecl(
     internalproc: some(p),
     name: istring(n),
-    argtypes: iarray[Symbol](),
-    generics: iarray[Symbol]()
   ))
 
 proc initInternalEval*(scope: FScope) =

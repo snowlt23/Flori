@@ -72,6 +72,11 @@ proc ffield*(span: Span, first: FExpr, call: FExpr): FExpr =
 proc fblock*(span: Span, sons: openArray[FExpr]): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprBlock, sons: iarray(sons)))
 
+proc fif*(span: Span, ifcond: FExpr, ifbody: FExpr, elifbranches: openArray[(FExpr, FExpr)], elsebody: FExpr): FExpr =
+  genFExpr(FExprObj(span: span, kind: fexprIf, ifcond: ifcond, ifbody: ifbody, elifbranches: iarray(elifbranches), elsebody: elsebody))
+proc fwhile*(span: Span, whilecond: FExpr, whilebody: FExpr): FExpr =
+  genFExpr(FExprObj(span: span, kind: fexprWhile, whilecond: whilecond, whilebody: whilebody))
+
 proc kind*(fexpr: FExpr): FExprKind = fexpr.obj.kind
 proc idname*(fexpr: FExpr): IString = fexpr.obj.idname
 proc symbol*(fexpr: FExpr): Symbol = fexpr.obj.symbol
@@ -91,6 +96,13 @@ proc len*(fexpr: FExpr): int = fexpr.obj.sons.len
 proc scope*(fexpr: FExpr): Option[FScope] = fexpr.obj.scope
 proc `scope=`*(fexpr: FExpr, opt: Option[FScope]) = fexpr.obj.scope = opt
 proc internal*(fexpr: FExpr): InternalMarker = fexpr.obj.internal.get
+
+proc ifcond*(fexpr: FExpr): var FExpr = fexpr.obj.ifcond
+proc ifbody*(fexpr: FExpr): var FExpr = fexpr.obj.ifbody
+proc elifbranches*(fexpr: FExpr): IArray[tuple[cond: FExpr, body: FExpr]] = fexpr.obj.elifbranches
+proc elsebody*(fexpr: FExpr): var FExpr = fexpr.obj.elsebody
+proc whilecond*(fexpr: FExpr): var FExpr = fexpr.obj.whilecond
+proc whilebody*(fexpr: FExpr): var FExpr = fexpr.obj.whilebody
 
 proc genIndent*(indent: int): string =
   repeat(' ', indent)
@@ -127,6 +139,14 @@ proc toString*(fexpr: var FExprObj, indent: int, desc: bool, typ: bool): string 
       ""
     else:
       "\n" & genIndent(indent+2) & fexpr.sons.mapIt(it.toString(indent+2, desc, typ)).join("\n" & genIndent(indent+2))
+  of fexprIf:
+    var s = "if $# $#" % [toString(fexpr.ifcond, indent, desc, typ), toString(fexpr.ifbody, indent+2, desc, typ)]
+    for elifbranch in fexpr.elifbranches:
+      s &= "\n$#elif $# $#" % [genIndent(indent), toString(elifbranch.cond, indent, desc, typ),  toString(elifbranch.body, indent+2, desc, typ)]
+    s &= "\n$#else $#" % [genIndent(indent), toString(fexpr.elsebody, indent, desc, typ)]
+    s
+  of fexprWhile:
+    "while $# $#" % [toString(fexpr.whilecond, indent, desc, typ), toString(fexpr.whilebody, indent+2, desc, typ)]
 proc toString*(fexpr: FExpr, indent: int, desc: bool, typ: bool): string = fexpr.obj.toString(indent, desc, typ)
 
 proc `$`*(fexpr: var FExprObj): string = fexpr.toString(0, false, false)
