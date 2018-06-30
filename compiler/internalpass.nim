@@ -61,6 +61,10 @@ proc semReturned*(scope: FScope, fexpr: var FExpr) =
     fexpr.args[0].error("undeclared $# type." % $fexpr.args[0])
   scope.word.get.internal.obj.returntype.wrapped = typ.get
   fexpr.typ = some(typ.get)
+proc semTemplate*(scope: FScope, fexpr: var FExpr) =
+  if scope.word.isNone:
+    fexpr.error("$template should be declaration in word.")
+  scope.word.get.internal.obj.isTemplate = true
 
 proc semWord*(scope: FScope, fexpr: var FExpr) =
   let fnscope = scope.extendFScope()
@@ -83,45 +87,54 @@ proc semWord*(scope: FScope, fexpr: var FExpr) =
   fexpr.internal.obj.returntype = linksym(undeftypeSymbol)
 
   fnscope.rootPass(fexpr.args.mget(1))
-  fexpr.obj.internal.get.obj.returntype.wrapped = fexpr.args[1].gettype
+  let opt = fexpr.obj.internal.get.obj.returntype.linkinfer(fexpr.args[1].gettype)
+  if opt.isSome:
+    fexpr.args[1].error(opt.get)
 
-  if fexpr.internal.obj.argtypes.isNone:
+  if fexpr.internal.obj.argnames.isNone:
     fexpr.internal.obj.argnames = some(iarray(toSeq(fexpr.internal.obj.inferargnames.items).reversed()))
     fexpr.internal.obj.inferargnames = ilistNil[Symbol]()
   if fexpr.internal.obj.argtypes.isNone:
     var argtypes = toSeq(fexpr.internal.obj.inferargtypes.items).reversed()
-    var i = 0
-    for argtype in argtypes:
-      if argtype.kind == symbolLink and $argtype.wrapped == "undef":
-        argtype.wrapped = fnscope.symbol("T" & $i, symbolGenerics, fident(fexpr.span, "T" & $i))
-        i.inc
+    # var i = 0
+    # for argtype in argtypes:
+    #   if argtype.kind == symbolLink and $argtype.wrapped == "undef":
+    #     argtype.wrapped = fnscope.symbol("T" & $i, symbolGenerics, fident(fexpr.span, "T" & $i))
+    #     i.inc
+    if fexpr.internal.obj.isTemplate: # FIXME:
+      var i = 0
+      for argtype in argtypes:
+        if argtype.kind == symbolLink and $argtype.wrapped == "undef":
+          argtype.wrapped = fnscope.symbol("T" & $i, symbolGenerics, fident(fexpr.span, "T" & $i))
+          i.inc
     fexpr.internal.obj.argtypes = some(iarray(argtypes))
     fexpr.internal.obj.inferargtypes = ilistNil[Symbol]()
 
-# proc semDeftype*(scope: FScope, fexpr: var FExpr) =
-#   let parsed = parseDeftype(fexpr)
+proc semStruct*(scope: FScope, fexpr: var FExpr) =
+  if scope.word.isNone:
+    fexpr.error("$struct should be declaration in word.")
+  let typename = scope.word.get.args[0].symbol.name
+  let sym = scope.symbol(typename, symbolType, fexpr)
+  scope.obj.top.addDecl(typename, sym)
 
-#   let typename = if fexpr[parsed.name].kind == fexprIdent:
-#                    fexpr[parsed.name].idname
-#                  else:
-#                    fexpr[parsed.name].symbol.name
-#   let sym = scope.symbol(typename, if parsed.generics.isSome: symbolTypeGenerics else: symbolType, fexpr)
-#   if parsed.generics.isSome and not fexpr.isGenerics(parsed):
-#     sym.obj.types = iarray(fexpr[parsed.generics.get].mapIt(it.symbol))
-#   scope.addDecl(typename, sym)
-
-#   let fsym = fsymbol(fexpr[0].span, sym)
-#   let typescope = scope.extendFScope()
-#   fexpr[parsed.name] = fsym
-#   fexpr.scope = some(typescope)
-
-#   if fexpr.isGenerics(parsed):
-#     return
-
-#   if parsed.body.isSome:
-#     for field in fexpr[parsed.body.get]:
-#       let fieldtypesym = typescope.semType(field, 1)
-#       field[1] = fsymbol(field[1].span, fieldtypesym)
+  for field in fexpr.args:
+    let fieldtyp = linksym(undeftypeSymbol)
+    let fieldtypf = fsymbol(field.span, fieldtyp)
+    scope.word.get.internal.obj.inferargnames.add(scope.symbol(field.idname, symbolDef, field))
+    scope.word.get.internal.obj.inferargtypes.add(fieldtyp)
+    var fieldword = quoteFExpr(fexpr.span, """
+`embed =>
+  $typed(`embed)
+  $field(`embed)
+""", [field, scope.word.get.args[0], fieldtypf])
+    scope.obj.top.rootPass(fieldword)
+  fexpr.typ = some(sym)
+proc semField*(scope: FScope, fexpr: var FExpr) =
+  if scope.word.isNone:
+    fexpr.error("$field should be declaration in word.")
+  if fexpr.args[0].kind != fexprSymbol:
+    fexpr.args[0].error("$field argument should be fsymbol.")
+  fexpr.typ = some(fexpr.args[0].symbol)
 
 proc semIf*(scope: FScope, fexpr: var FExpr) =
   var rettypes = newSeq[Symbol]()
@@ -146,7 +159,9 @@ proc semIf*(scope: FScope, fexpr: var FExpr) =
 proc semWhile*(scope: FScope, fexpr: var FExpr) = discard
 proc semDef*(scope: FScope, fexpr: var FExpr) = discard
 proc semSet*(scope: FScope, fexpr: var FExpr) = discard
-proc semField*(scope: FScope, fexpr: var FExpr) = discard
+proc semDot*(scope: FScope, fexpr: var FExpr) =
+  fexpr = quoteFExpr(fexpr.span, "`embed(`embed)", [fexpr.args[1], fexpr.args[0]])
+  scope.rootPass(fexpr)
 
 proc semImport*(scope: FScope, fexpr: var FExpr) = discard
   # if fexpr[1].kind != fexprStrLit:
@@ -200,12 +215,16 @@ proc addInternalEval*(scope: FScope, n: string, p: InternalProcType) =
 proc initInternalEval*(scope: FScope) =
   scope.addInternalEval("=>", semWord)
   scope.addInternalEval("$typed", semTyped)
-  scope.addInternalEval("$returned", semTyped)
+  scope.addInternalEval("$returned", semReturned)
+  scope.addInternalEval("$template", semTemplate)
+  scope.addInternalEval("$struct", semStruct)
+  scope.addInternalEval("$field", semField)
 
   scope.addInternalEval("if", semIf)
   scope.addInternalEval("while", semWhile)
   scope.addInternalEval(":=", semDef)
   scope.addInternalEval("=", semSet)
+  scope.addInternalEval(".", semDot)
 
   # pragmas
   scope.addInternalEval("internalop", semInternalOp)

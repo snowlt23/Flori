@@ -48,7 +48,9 @@ add9 =>
     check $f[0].args[1].sons[0].gettype == "intlit"
   test "generalize":
     var f = evalTest("""
-id => x
+id =>
+  $template
+  x
 """)
     check f[0].getargnames == "x"
     check f[0].getargtypes == "T0"
@@ -66,3 +68,25 @@ fib =>
     check f[0].getargnames == "n"
     check f[0].getargtypes == "intlit"
     check $f[0].args[1].sons[0].typ.get == "intlit"
+  test "struct":
+    var f = evalTest("""
+myint => $struct(x, y)
+left => mi.x
+right => mi.y
+""")
+    check f[0].getargnames == "x y"
+    check f[0].getargtypes == "undef undef"
+    check f[1].getargnames == "mi"
+    check f[1].getargtypes == "myint"
+    check f[2].getargnames == "mi"
+    check f[2].getargtypes == "myint"
+    var f2 = evalTest("""
+left1 => left(r) + 1
+right1 => right(r) + 1
+""")
+    check f2[0].getargnames == "r"
+    check f2[0].getargtypes == "myint"
+    check $f2[0].args[1].args[0].gettype == "intlit"
+    check $f2[0].internal.obj.returntype == "intlit"
+    check f[0].getargnames == "x y"
+    check f[0].getargtypes == "intlit intlit"

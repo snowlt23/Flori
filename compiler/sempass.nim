@@ -9,6 +9,13 @@ import tables
 proc internalPass*(scope: FScope, fexpr: var FExpr): bool =
   # echo fexpr
   case fexpr.kind
+  of fexprIdent:
+    let internalopt = scope.getWords($fexpr)
+    if internalopt.len != 0 and internalopt[0].internalproc.isSome:
+      (internalopt[0].internalproc.get)(scope, fexpr)
+      return false
+    else:
+      return true
   of fexprIf:
     let internalopt = scope.getWords("if")
     if internalopt.len != 0 and internalopt[0].internalproc.isSome:
@@ -96,14 +103,9 @@ proc callResolve*(scope: FScope, fexpr: var FExpr): bool =
         let argtyp = argumentUnion(words, i)
         if argtyp.isNone:
           continue
-        if arg.typ.isSome and arg.typ.get.kind == symbolLink:
-          arg.typ.get.wrapped = argtyp.get
-        elif arg.typ.isSome:
-          if not argtyp.get.match(arg.typ.get):
-            arg.error("type mismatch $#:$# in $#" % [$argtyp, $arg.typ.get, $fexpr])
-        else:
-          arg.typ = some(argtyp.get)
-
+        let opt = arg.typ.linkinfer(argtyp.get)
+        if opt.isSome:
+          arg.error(opt.get & " in " & $fexpr)
   return true
 
 proc finalPass*(scope: FScope, fexpr: var FExpr): bool =

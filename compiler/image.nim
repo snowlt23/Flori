@@ -34,6 +34,7 @@ type
   InternalMarkerObj* = object
     internalop*: InternalOp
     internalsize*: int
+    isTemplate*: bool
     argnames*: Option[IArray[Symbol]]
     inferargnames*: IList[Symbol]
     argtypes*: Option[IArray[Symbol]]
@@ -207,6 +208,7 @@ proc istring*(s: string): IString =
   result = IString(index: gImage.mem.len, len: s.len)
   for c in s:
     gImage.mem.add(uint8(c))
+  gImage.mem.add(0)
 proc `$`*(fs: IString): string =
   result = ""
   for i in 0..<fs.len:
@@ -261,7 +263,7 @@ proc ilist*[T](value: T, next: IList[T]): IList[T] =
   let p = cast[ptr IListObj[T]](addr(gImage.mem[result.index]))
   p[].value = value
   p[].next = next
-converter obj*[T](lst: IList[T]): IListObj[T] =
+proc obj*[T](lst: IList[T]): var IListObj[T] =
   let p = cast[ptr IListObj[T]](addr(gImage.mem[lst.index]))
   p[]
 proc value*[T](lst: IList[T]): var T =
@@ -274,12 +276,6 @@ proc ilistNil*[T](): IList[T] =
   IList[T](index: -1)
 proc isNil*[T](lst: IList[T]): bool =
   lst.index == -1
-proc last*[T](lst: IList[T]): IList[T] =
-  var cur = lst
-  while true:
-    if cur.isNil:
-      return cur
-    cur = cur.next
 proc add*[T](lst: var IList[T], value: T) =
   lst = ilist(value, lst)
 iterator items*[T](lst: IList[T]): T =

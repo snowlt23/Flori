@@ -123,3 +123,31 @@ proc typesize*(sym: Symbol): int =
   if sym.kind == symbolLink:
     return sym.wrapped.typesize
   return sym.fexpr.internal.obj.internalsize
+
+proc linkinfer*(sym: var Symbol, by: Symbol): Option[string] =
+  if sym.kind != symbolLink: return none(string)
+  if sym.kind == symbolLink and by.kind == symbolLink:
+    sym.wrapped = by.wrapped
+    sym = by
+    return none(string)
+  if by.kind == symbolLink:
+    return sym.linkinfer(by.wrapped)
+
+  if $sym.wrapped == "undef":
+    sym.wrapped = by
+  elif sym.wrapped.kind == symbolTypeGenerics and by.kind == symbolTypeGenerics:
+    if $sym.wrapped.name != $by.name:
+      return some("typemismatch $#[..]:$#[..]" % [$sym.wrapped.name, $by.name])
+    for i in 0..<sym.wrapped.types.len:
+      let opt = sym.wrapped.types.mget(i).linkinfer(by.types[i])
+      if opt.isSome:
+        return opt
+
+  return none(string)
+proc linkinfer*(sym: var Option[Symbol], by: Symbol): Option[string] =
+  if sym.isSome:
+    var s = sym.get
+    result = s.linkinfer(by)
+    sym = some(s)
+  else:
+    sym = some(by)

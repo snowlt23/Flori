@@ -84,13 +84,13 @@ proc quoted*(fexpr: FExpr): IString = fexpr.obj.quoted
 proc intval*(fexpr: FExpr): int64 = fexpr.obj.intval
 proc strval*(fexpr: FExpr): IString = fexpr.obj.strval
 proc span*(fexpr: FExpr): Span = fexpr.obj.span
-proc call*(fexpr: FExpr): FExpr = fexpr.obj.callname
+proc call*(fexpr: FExpr): var FExpr = fexpr.obj.callname
 proc `call=`*(fexpr: FExpr, c: FExpr) = fexpr.obj.callname = c
 proc args*(fexpr: FExpr): IArray[FExpr] = fexpr.obj.args
 proc sons*(fexpr: FExpr): IArray[FExpr] = fexpr.obj.sons
 proc src*(fexpr: FExpr): Option[IString] = fexpr.obj.src
 proc `src=`*(fexpr: FExpr, opt: Option[IString]) = fexpr.obj.src = opt
-proc typ*(fexpr: FExpr): Option[Symbol] = fexpr.obj.typ
+proc typ*(fexpr: FExpr): var Option[Symbol] = fexpr.obj.typ
 proc `typ=`*(fexpr: FExpr, opt: Option[Symbol]) = fexpr.obj.typ = opt
 proc len*(fexpr: FExpr): int = fexpr.obj.sons.len
 proc scope*(fexpr: FExpr): Option[FScope] = fexpr.obj.scope

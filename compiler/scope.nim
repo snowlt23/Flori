@@ -106,15 +106,11 @@ proc find*(lst: IList[TupleTable[Symbol]], n: string): Option[Symbol] =
     if f.name == n:
       return some(f.value)
   return none(Symbol)
-proc find*(lst: IList[TupleTable[ProcDeclGroup]], n: string): Option[IList[TupleTable[ProcDeclGroup]]] =
-  var cur = lst
-  while true:
-    if cur.isNil:
-      break
-    if cur.value.name == n:
-      return some(cur)
-    cur = cur.next
-  return none(IList[TupleTable[ProcDeclGroup]])
+proc find*(lst: IList[TupleTable[ProcDeclGroup]], n: string): Option[ProcDeclGroup] =
+  for f in lst:
+    if f.name == n:
+      return some(f.value)
+  return none(ProcDeclGroup)
 proc find*(lst: IList[TupleTable[FScope]], n: string): Option[FScope] =
   for f in lst:
     if f.name == n:
@@ -137,13 +133,13 @@ proc getWords*(scope: FScope, name: string): seq[ProcDecl] =
 
   let groupopt = scope.procdecls.find(name)
   if groupopt.isSome:
-    for decl in groupopt.get.value.value.decls:
+    for decl in groupopt.get.decls:
       result.add(decl)
 
   for scopetup in scope.imports:
     let groupopt = scopetup.value.procdecls.find(name)
     if groupopt.isSome:
-      for decl in groupopt.get.value.value.decls:
+      for decl in groupopt.get.decls:
         result.add(decl)
 
 # proc getFunc*(scope: FScope, pd: ProcName): Option[ProcDecl] =
@@ -164,14 +160,14 @@ proc getWords*(scope: FScope, name: string): seq[ProcDecl] =
 proc getSpecFunc*(scope: FScope, pd: ProcName): Option[ProcDecl] =
   let groupopt = scope.procdecls.find(pd.name)
   if groupopt.isSome:
-    for decl in groupopt.get.value.value.decls:
+    for decl in groupopt.get.decls:
       if decl.spec(pd):
         return some(decl)
 
   for imscope in scope.imports:
     let groupopt = imscope.value.procdecls.find(pd.name)
     if groupopt.isSome:
-      for decl in groupopt.get.value.value.decls:
+      for decl in groupopt.get.decls:
         if decl.spec(pd):
           return some(decl)
 
@@ -180,14 +176,18 @@ proc getSpecFunc*(scope: FScope, pd: ProcName): Option[ProcDecl] =
 proc addDecl*(scope: FScope, n: IString, v: Symbol) =
   scope.decls.add(TupleTable[Symbol](name: n, value: v))
 proc addWord*(scope: FScope, decl: ProcDecl) =
-  let opt = scope.procdecls.find($decl.name)
-  if opt.isSome:
-    let group = opt.get
-    group.value.value.decls.add(decl)
-  else:
-    var group = initProcDeclGroup()
-    group.decls.add(decl)
-    scope.procdecls.add(TupleTable[ProcDeclGroup](name: decl.name, value: group))
+  var cur = scope.procdecls
+  while true:
+    if cur.isNil:
+      var group = initProcDeclGroup()
+      group.decls.add(decl)
+      scope.procdecls.add(TupleTable[ProcDeclGroup](name: decl.name, value: group))
+      return
+
+    if $cur.value.name == $decl.name:
+      cur.value.value.decls.add(decl)
+      return
+    cur = cur.next
 
 proc importFScope*(scope: FScope, name: IString, importscope: FScope) =
   scope.imports.add(TupleTable[FScope](name: name, value: importscope))

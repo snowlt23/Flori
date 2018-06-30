@@ -8,7 +8,7 @@ number => $union(int, float, double)
 add5 =>
   x + 5 # x+5 => result:number
 
-range => $struct[s, e]
+range => $struct(s, e)
 .. => range(s, e)
 # .. => $typed(U0, U1)
 start => r.s
@@ -21,6 +21,6 @@ iscont =>
 # .. => $typed(int, int)
 
 iota =>
-  result = vector() # result:vector[U0]
+  result = vector() # result:vector[undef]
   for i in a..b: # arg(a, b), i:int
     result.push(i) # result:vector[int]

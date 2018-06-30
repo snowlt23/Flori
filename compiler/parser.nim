@@ -66,8 +66,23 @@ proc factor(ctx: var ParserContext): FExpr =
   else:
     return ctx.topexpr()
 
+proc quoteexpr(ctx: var ParserContext): FExpr =
+  let tok = ctx.getToken()
+  if tok.isSome and tok.get.kind == tokenQuote:
+    ctx.nextToken()
+    let id = ctx.getToken()
+    if id.isNone:
+      tok.get.error("required more token.")
+    ctx.nextToken()
+    return fquote(tok.get.span, $id.get)
+  elif tok.isSome and tok.get.kind == tokenInfix:
+    # prefix
+    tok.get.error("prefix operator unsupported in currently.")
+  else:
+    return ctx.factor()
+
 proc callexpr(ctx: var ParserContext): FExpr =
-  let call = ctx.factor()
+  let call = ctx.quoteexpr()
   let tok = ctx.getToken()
   if tok.isSome and tok.get.kind == tokenLParen:
     ctx.nextToken()
@@ -114,22 +129,8 @@ proc ifexpr(ctx: var ParserContext): FExpr =
   else:
     return ctx.callexpr()
 
-proc quoteexpr(ctx: var ParserContext): FExpr =
-  let tok = ctx.getToken()
-  if tok.isSome and tok.get.kind == tokenQuote:
-    ctx.nextToken()
-    let id = ctx.getToken()
-    if id.isNone:
-      tok.get.error("required more token.")
-    ctx.nextToken()
-    return fquote(tok.get.span, $id.get)
-  elif tok.isSome and tok.get.kind == tokenInfix:
-    # prefix
-    tok.get.error("prefix operator unsupported in currently.")
-  else:
-    return ctx.ifexpr()
-
-defineInfixExpr(infix4, quoteexpr, 4)
+defineInfixExpr(infix1, ifexpr, 1)
+defineInfixExpr(infix4, infix1, 4)
 defineInfixExpr(infix5, infix4, 5)
 defineInfixExpr(infix7, infix5, 7)
 defineInfixExpr(infix15, infix7, 15)
@@ -165,3 +166,20 @@ proc parseToplevel*(filename: string, src: string): seq[FExpr] =
   var parser = newParserContext(lexer.lex())
   while not parser.isEnd:
     result.add(parser.topexpr())
+
+proc embed*(fexpr: var FExpr, span: Span, i: var int, args: openArray[FExpr]) =
+  if fexpr.kind == fexprQuote and $fexpr.quoted == "embed":
+    fexpr = args[i]
+    i.inc
+  elif fexpr.kind in fexprCalls:
+    fexpr.call.embed(span, i, args)
+    for arg in fexpr.args.mitems:
+      arg.embed(span, i, args)
+  elif fexpr.kind == fexprBlock:
+    for son in fexpr.sons.mitems:
+      son.embed(span, i, args)
+
+proc quoteFExpr*(span: Span, src: string, args: openArray[FExpr]): FExpr =
+  result = parseFExpr("internal.flori", src)
+  var i = 0
+  result.embed(span, i, args)
