@@ -31,9 +31,9 @@ var asmctx = newAsmContext(jitbuf)
 # var x86ctx = tactx.x86Tiling().simpleRegalloc(tactx.analyzeLiveness())
 # var x86ctx = tactx.optimize().x86Tiling().simpleRegalloc(tactx.analyzeLiveness())
 var x86ctx = tactx.optimize().x86Tiling().freqRegalloc(tactx.analyzeLiveness())
-echo x86ctx
+# echo x86ctx
 asmctx.generateX86(x86ctx)
-echo objdump(asmctx.buffer.toBin)
+# echo objdump(asmctx.buffer.toBin)
 
 import dynlib
 let lib = loadLib("fib.dll")

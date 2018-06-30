@@ -140,9 +140,9 @@ proc toString*(fexpr: var FExprObj, indent: int, desc: bool, typ: bool): string 
     else:
       "\n" & genIndent(indent+2) & fexpr.sons.mapIt(it.toString(indent+2, desc, typ)).join("\n" & genIndent(indent+2))
   of fexprIf:
-    var s = "if $# $#" % [toString(fexpr.ifcond, indent, desc, typ), toString(fexpr.ifbody, indent+2, desc, typ)]
+    var s = "if $# $#" % [toString(fexpr.ifcond, indent, desc, typ), toString(fexpr.ifbody, indent, desc, typ)]
     for elifbranch in fexpr.elifbranches:
-      s &= "\n$#elif $# $#" % [genIndent(indent), toString(elifbranch.cond, indent, desc, typ),  toString(elifbranch.body, indent+2, desc, typ)]
+      s &= "\n$#elif $# $#" % [genIndent(indent), toString(elifbranch.cond, indent, desc, typ),  toString(elifbranch.body, indent, desc, typ)]
     s &= "\n$#else $#" % [genIndent(indent), toString(fexpr.elsebody, indent, desc, typ)]
     s
   of fexprWhile:
