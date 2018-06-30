@@ -80,6 +80,7 @@ proc intval*(fexpr: FExpr): int64 = fexpr.obj.intval
 proc strval*(fexpr: FExpr): IString = fexpr.obj.strval
 proc span*(fexpr: FExpr): Span = fexpr.obj.span
 proc call*(fexpr: FExpr): FExpr = fexpr.obj.callname
+proc `call=`*(fexpr: FExpr, c: FExpr) = fexpr.obj.callname = c
 proc args*(fexpr: FExpr): IArray[FExpr] = fexpr.obj.args
 proc sons*(fexpr: FExpr): IArray[FExpr] = fexpr.obj.sons
 proc src*(fexpr: FExpr): Option[IString] = fexpr.obj.src
@@ -89,6 +90,7 @@ proc `typ=`*(fexpr: FExpr, opt: Option[Symbol]) = fexpr.obj.typ = opt
 proc len*(fexpr: FExpr): int = fexpr.obj.sons.len
 proc scope*(fexpr: FExpr): Option[FScope] = fexpr.obj.scope
 proc `scope=`*(fexpr: FExpr, opt: Option[FScope]) = fexpr.obj.scope = opt
+proc internal*(fexpr: FExpr): InternalMarker = fexpr.obj.internal.get
 
 proc genIndent*(indent: int): string =
   repeat(' ', indent)

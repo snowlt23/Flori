@@ -6,16 +6,13 @@ import strutils, sequtils
 import times
 
 let prelude = """
-type Bool $[internalsize 4] {}
-
-fn `+(a IntLit, b IntLit) IntLit $[internalop "+"]
-fn `-(a IntLit, b IntLit) IntLit $[internalop "-"]
-fn `<(a IntLit, b IntLit) Bool $[internalop "<"]
+`+ =>
+  $typed(intlit, intlit)
+  internalop("int_add")
 """
 
 initRootScope()
 var tactx* = newTAContext()
-
 let scope = newFScope("testmodule", "testmodule.flori")
 scope.importFScope(internalScope.obj.name, internalScope)
 proc evalTest*(src: string): seq[FExpr] =

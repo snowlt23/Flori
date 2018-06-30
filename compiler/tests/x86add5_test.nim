@@ -10,10 +10,7 @@ import os, osproc, strutils
 import times
 
 let fexprs = evalTest("""
-fn add5(n IntLit) IntLit {
-  a := n + 5
-  a
-}
+add5 => n+5
 """)
 
 for f in fexprs:

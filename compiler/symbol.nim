@@ -14,6 +14,8 @@ proc kind*(sym: Symbol): SymbolKind =
   sym.obj.kind
 proc types*(sym: Symbol): IArray[Symbol] =
   sym.obj.types
+proc uniontypes*(sym: Symbol): IArray[Symbol] =
+  sym.obj.uniontypes
 proc wrapped*(sym: Symbol): Symbol =
   sym.obj.wrapped
 proc `wrapped=`*(sym: Symbol, s: Symbol) =
@@ -76,6 +78,8 @@ proc toString*(sym: Symbol, desc: bool): string =
     toString(sym.wrapped, desc)
   of symbolRef:
     "ref " & toString(sym.wrapped, desc)
+  of symbolUnion:
+    sym.uniontypes.mapIt(toString(it, desc)).join("|")
   else:
     if desc:
       $sym.scope.obj.name & "." & $sym.name

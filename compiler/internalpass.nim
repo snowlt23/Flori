@@ -1,10 +1,10 @@
 
 import fcore, sempass
 import passmacro
-# import compileutils, macroffi
 
 import options
 import strutils, sequtils
+import algorithm
 import tables
 import os
 
@@ -26,13 +26,13 @@ proc semInternalOp*(scope: FScope, fexpr: var FExpr) =
     fexpr.error("internalop should be declaration in word.")
   case $op.strval
   of "int_add":
-    scope.word.get.obj.internal.get.obj.internalop = internalAdd
+    scope.word.get.internal.obj.internalop = internalAdd
     fexpr.typ = some(intlittypeSymbol)
   of "int_sub":
-    scope.word.get.obj.internal.get.obj.internalop = internalSub
+    scope.word.get.internal.obj.internalop = internalSub
     fexpr.typ = some(intlittypeSymbol)
   of "int_lesser":
-    scope.word.get.obj.internal.get.obj.internalop = internalLess
+    scope.word.get.internal.obj.internalop = internalLess
     fexpr.typ = some(booltypeSymbol)
   else:
     fexpr.error("couldn't find internal operation: $#" % $op)
@@ -50,14 +50,17 @@ proc semTyped*(scope: FScope, fexpr: var FExpr) =
     let typ = scope.getDecl($arg)
     if typ.isNone:
       arg.error("undeclared $# type." % $arg)
-  scope.word.get.obj.internal.get.obj.argtypes = some(iarray(argtypes))
+    argtypes.add(typ.get)
+  scope.word.get.internal.obj.argtypes = some(iarray(argtypes))
+  resolveByVoid(fexpr)
 proc semReturned*(scope: FScope, fexpr: var FExpr) =
   if scope.word.isNone:
     fexpr.error("$returned should be declaration in word.")
   let typ = scope.getDecl($fexpr.args[0])
   if typ.isNone:
     fexpr.args[0].error("undeclared $# type." % $fexpr.args[0])
-  scope.word.get.obj.internal.get.obj.returntype = some(typ.get)
+  scope.word.get.internal.obj.returntype = some(typ.get)
+  fexpr.typ = some(typ.get)
 
 proc semWord*(scope: FScope, fexpr: var FExpr) =
   let fnscope = scope.extendFScope()
@@ -69,11 +72,6 @@ proc semWord*(scope: FScope, fexpr: var FExpr) =
              else:
                fexpr.args[0].quoted
   let sym = scope.symbol(name, symbolWord, fexpr)
-
-  let retlink = linksym(voidtypeSymbol)
-  let pd = ProcDecl(name: name, returntype: retlink, sym: sym)
-  scope.addWord(pd)
-  fnscope.addWord(pd)
 
   let fsym = fsymbol(fexpr.call.span, sym)
   fexpr.args[0] = fsym
@@ -88,6 +86,23 @@ proc semWord*(scope: FScope, fexpr: var FExpr) =
     fnscope.rootPass(fexpr.args.mget(1))
     if fexpr.obj.internal.get.obj.returntype.isNone:
       fexpr.obj.internal.get.obj.returntype = some(fexpr.args[1].typ.get)
+
+  if fexpr.internal.obj.argtypes.isNone:
+    fexpr.internal.obj.argnames = some(iarray(toSeq(fexpr.internal.obj.inferargnames.items).reversed()))
+    fexpr.internal.obj.inferargnames = ilistNil[Symbol]()
+  if fexpr.internal.obj.argtypes.isNone:
+    var argtypes = toSeq(fexpr.internal.obj.inferargtypes.items).reversed()
+    var i = 0
+    for argtype in argtypes:
+      if argtype.kind == symbolLink and $argtype.wrapped == "undef":
+        argtype.wrapped = fnscope.symbol("T" & $i, symbolGenerics, fident(fexpr.span, "T" & $i))
+        i.inc
+    fexpr.internal.obj.argtypes = some(iarray(argtypes))
+    fexpr.internal.obj.inferargtypes = ilistNil[Symbol]()
+
+  let pd = ProcDecl(name: name, argtypes: fexpr.internal.obj.argtypes.get, returntype: fexpr.obj.internal.get.obj.returntype.get, sym: sym)
+  scope.addWord(pd)
+  fnscope.addWord(pd)
 
 # proc semDeftype*(scope: FScope, fexpr: var FExpr) =
 #   let parsed = parseDeftype(fexpr)

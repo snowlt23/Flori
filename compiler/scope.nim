@@ -47,6 +47,11 @@ proc match*(a, b: Symbol): bool =
       if not a.types[i].match(b.types[i]):
         return false
     return true
+  elif a.kind == symbolUnion:
+    for t in a.uniontypes:
+      if t.match(b):
+        return true
+    return false
   elif a.kind == symbolRef and b.kind == symbolRef:
     return a.wrapped.match(b.wrapped)
   elif a.kind == symbolRef and b.kind == symbolVar:

@@ -23,6 +23,7 @@ type
   IList*[T] = object
     index*: int
   InternalOp* = enum
+    internalNone
     internalAdd
     internalSub
     internalMul
@@ -33,8 +34,10 @@ type
   InternalMarkerObj* = object
     internalop*: InternalOp
     internalsize*: int
-    argnames*: Option[IArray[IString]]
+    argnames*: Option[IArray[Symbol]]
+    inferargnames*: IList[Symbol]
     argtypes*: Option[IArray[Symbol]]
+    inferargtypes*: IList[Symbol]
     returntype*: Option[Symbol]
   InternalMarker* = object
     index*: int
@@ -182,7 +185,10 @@ proc genInternalMarker*(marker: InternalMarkerObj): InternalMarker =
     gImage.mem.add(0)
   cast[ptr InternalMarkerObj](addr(gImage.mem[result.index]))[] = marker
 proc newInternalMarker*(): InternalMarker =
-  genInternalMarker(InternalMarkerObj())
+  genInternalMarker(InternalMarkerObj(
+    inferargnames: IList[Symbol](index: -1),
+    inferargtypes: IList[Symbol](index: -1)
+  ))
 
 #
 # Internal Types

@@ -7,101 +7,91 @@ import strutils, sequtils
 
 proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom
 
-proc convertWhile*(ctx: var TAContext, fexpr: FExpr): TAAtom =
-  let whilel = ctx.tmplabel
-  let bodyl = ctx.tmplabel
-  let nextl = ctx.tmplabel
-  ctx.addLabel(whilel)
-  let cond = ctx.convertFExpr(fexpr[1][0])
-  ctx.add(initTACodeAIf(cond, bodyl))
-  ctx.add(initTACodeGoto(nextl))
-  ctx.addLabel(bodyl)
-  for b in fexpr[2]:
-    discard ctx.convertFExpr(b)
-  ctx.add(initTACodeGoto(whilel))
-  ctx.addLabel(nextl)
-  return initTAAtomNone()
+# proc convertWhile*(ctx: var TAContext, fexpr: FExpr): TAAtom =
+#   let whilel = ctx.tmplabel
+#   let bodyl = ctx.tmplabel
+#   let nextl = ctx.tmplabel
+#   ctx.addLabel(whilel)
+#   let cond = ctx.convertFExpr(fexpr[1][0])
+#   ctx.add(initTACodeAIf(cond, bodyl))
+#   ctx.add(initTACodeGoto(nextl))
+#   ctx.addLabel(bodyl)
+#   for b in fexpr[2]:
+#     discard ctx.convertFExpr(b)
+#   ctx.add(initTACodeGoto(whilel))
+#   ctx.addLabel(nextl)
+#   return initTAAtomNone()
 
-proc convertIf*(ctx: var TAContext, fexpr: FExpr): TAAtom =
-  var conds = @[(ctx.tmplabel, some(fexpr[1][0]), fexpr[2])]
-  var i = 3
-  while i < fexpr.len:
-    if $fexpr[i] == "elif": # elif clause
-      conds.add((ctx.tmplabel, some(fexpr[i+1][0]), fexpr[i+2]))
-      i += 3
-    elif $fexpr[i] == "else": # else clause
-      conds.add((ctx.tmplabel, none(FExpr), fexpr[i+1]))
-      i += 2
+# proc convertIf*(ctx: var TAContext, fexpr: FExpr): TAAtom =
+#   var conds = @[(ctx.tmplabel, some(fexpr[1][0]), fexpr[2])]
+#   var i = 3
+#   while i < fexpr.len:
+#     if $fexpr[i] == "elif": # elif clause
+#       conds.add((ctx.tmplabel, some(fexpr[i+1][0]), fexpr[i+2]))
+#       i += 3
+#     elif $fexpr[i] == "else": # else clause
+#       conds.add((ctx.tmplabel, none(FExpr), fexpr[i+1]))
+#       i += 2
 
-  let retsym = ctx.tmpsym
-  let nextl = ctx.tmplabel
-  let size = if fexpr.typ.isSome:
-               fexpr.typ.get.fexpr.typesize
-             else:
-               -1
-  if size != -1:
-    ctx.add(initTACodeAVar(retsym, size, initTAAtomNone()))
-  for c in conds:
-    let (label, fcond, _) = c
-    if fcond.isSome:
-      let cond = ctx.convertFExpr(fcond.get)
-      ctx.add(initTACodeAIf(cond, label))
-    else:
-      ctx.add(initTACodeGoto(label))
-  ctx.add(initTACodeGoto(nextl))
-  for c in conds:
-    let (label, _, fbody) = c
-    ctx.addLabel(label)
-    for i in 0..<fbody.len-1:
-      discard ctx.convertFExpr(fbody[i])
-    if size != -1:
-      ctx.add(initTACodeSet(retsym, ctx.convertFExpr(fbody[^1])))
-    else:
-      discard ctx.convertFExpr(fbody[^1])
-    ctx.add(initTACodeGoto(nextl))
-  ctx.addLabel(nextl)
-  return initTAAtomAVar(retsym)
+#   let retsym = ctx.tmpsym
+#   let nextl = ctx.tmplabel
+#   let size = if fexpr.typ.isSome:
+#                fexpr.typ.get.fexpr.typesize
+#              else:
+#                -1
+#   if size != -1:
+#     ctx.add(initTACodeAVar(retsym, size, initTAAtomNone()))
+#   for c in conds:
+#     let (label, fcond, _) = c
+#     if fcond.isSome:
+#       let cond = ctx.convertFExpr(fcond.get)
+#       ctx.add(initTACodeAIf(cond, label))
+#     else:
+#       ctx.add(initTACodeGoto(label))
+#   ctx.add(initTACodeGoto(nextl))
+#   for c in conds:
+#     let (label, _, fbody) = c
+#     ctx.addLabel(label)
+#     for i in 0..<fbody.len-1:
+#       discard ctx.convertFExpr(fbody[i])
+#     if size != -1:
+#       ctx.add(initTACodeSet(retsym, ctx.convertFExpr(fbody[^1])))
+#     else:
+#       discard ctx.convertFExpr(fbody[^1])
+#     ctx.add(initTACodeGoto(nextl))
+#   ctx.addLabel(nextl)
+#   return initTAAtomAVar(retsym)
 
-proc convertSet*(ctx: var TAContext, fexpr: FExpr): TAAtom =
-  let dst = ctx.convertFExpr(fexpr[1])
-  if dst.kind != TAAtomKind.AVar:
-    error(fexpr, "unsupported expression set `= in currently")
-  ctx.add(initTACodeSet(dst.avar.name, ctx.convertFExpr(fexpr[2])))
-  return initTAAtomNone()
+# proc convertSet*(ctx: var TAContext, fexpr: FExpr): TAAtom =
+#   let dst = ctx.convertFExpr(fexpr[1])
+#   if dst.kind != TAAtomKind.AVar:
+#     error(fexpr, "unsupported expression set `= in currently")
+#   ctx.add(initTACodeSet(dst.avar.name, ctx.convertFExpr(fexpr[2])))
+#   return initTAAtomNone()
 
-proc convertFn*(ctx: var TAContext, fexpr: FExpr): TAAtom =
-  let parsed = parseDefn(fexpr)
-  let args = fexpr[parsed.argdecls]
-  let fnlabel = desc(fexpr[parsed.name])
-  let retsize = if parsed.ret.isSome:
-                  fexpr[parsed.ret.get].symbol.fexpr.typesize
-                else:
-                  -1
+proc convertWord*(ctx: var TAContext, fexpr: FExpr): TAAtom =
+  if fexpr.internal.obj.internalop != internalNone:
+    return initTAAtomNone()
+
+  let fnlabel = desc(fexpr.args[0])
+  let retsize = fexpr.internal.obj.returntype.get.typesize
 
   var fnctx = newTAContext()
-  if parsed.body.isSome:
-    for i in 0..<fexpr[parsed.body.get].len-1:
-      discard fnctx.convertFExpr(fexpr[parsed.body.get][i])
-  if parsed.body.isSome and fexpr[parsed.body.get].len != 0:
-    fnctx.add(initTACodeRet(fnctx.convertFExpr(fexpr[parsed.body.get][^1])))
+  if fexpr.args[1].kind == fexprBlock:
+    for i in 0..<fexpr.args[1].sons.len-1:
+      discard fnctx.convertFExpr(fexpr.args[1].sons[i])
+    fnctx.add(initTACodeRet(fnctx.convertFExpr(fexpr.args[1].sons[fexpr.args[1].sons.len-1])))
   else:
-    fnctx.add(initTACodeRet(initTAAtomNone()))
-  # fnctx.addLabel(ctx.tmplabel)
-  ctx.addFn(TAFn(fnname: fnlabel, args: args.mapIt((desc(it[0]), it[1].symbol.fexpr.typesize)), retsize: retsize, body: fnctx.codes))
+    fnctx.add(initTACodeRet(fnctx.convertFExpr(fexpr.args[1])))
+  var args = newSeq[(string, int)]()
+  for i in 0..<fexpr.internal.obj.argtypes.get.len:
+    args.add((toString(fexpr.internal.obj.argnames.get[i], desc=true), fexpr.internal.obj.argtypes.get[i].typesize))
+  ctx.addFn(TAFn(fnname: fnlabel, args: args, retsize: retsize, body: fnctx.codes))
   return initTAAtomNone()
 
 proc convertCall*(ctx: var TAContext, fexpr: FExpr): TAAtom =
-  let fnlabel = desc(fexpr[0])
-  var args = newSeq[TAAtom]()
-  if fexpr.obj.isNormalFuncCall:
-    for arg in fexpr[1]:
-      args.add(ctx.convertFExpr(arg))
-  elif fexpr.obj.isGenericsFuncCall:
-    for arg in fexpr[2]:
-      args.add(ctx.convertFExpr(arg))
-  elif fexpr.obj.isInfixFuncCall:
-    args.add(ctx.convertFExpr(fexpr[1]))
-    args.add(ctx.convertFExpr(fexpr[2]))
+  let fnlabel = desc(fexpr.call)
+  var args = fexpr.args.mapIt(ctx.convertFExpr(it))
   let tmp = ctx.tmpsym
   ctx.add(initTACodeCall(tmp, fnlabel, args, false))
   return initTAAtomAVar(tmp)
@@ -113,25 +103,10 @@ proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom =
     return initTAAtomAVar($fexpr)
   elif fexpr.kind == fexprSymbol:
     return initTAAtomAVar(desc(fexpr))
-  elif fexpr.kind == fexprBlock:
-    for b in fexpr:
-      discard ctx.convertFExpr(b)
-    return initTAAtomNone()
-  elif fexpr.obj.isInfixFuncCall and $fexpr[0] == ":=":
-    let name = desc(fexpr[1])
-    let size = if fexpr[2].typ.isSome:
-                 fexpr[2].typ.get.fexpr.typesize
-               else:
-                 0
-    let value = ctx.convertFExpr(fexpr[2])
-    ctx.add(initTACodeAVar(name, size, value))
-    return initTAAtomNone()
-  elif fexpr.obj.isInfixFuncCall and $fexpr[0] == "=":
-    return ctx.convertSet(fexpr)
-  elif fexpr.isFuncCall and fexpr[0].kind == fexprSymbol and fexpr[0].symbol.fexpr.obj.internal.isSome:
-    let op = fexpr[0].symbol.fexpr.obj.internal.get.obj.internalop
-    let left = ctx.convertFExpr(fexpr[1])
-    let right = ctx.convertFExpr(fexpr[2])
+  elif fexpr.kind in fexprCalls and fexpr.call.kind == fexprSymbol and fexpr.call.symbol.fexpr.obj.internal.isSome and fexpr.call.symbol.fexpr.internal.obj.internalop != internalNone:
+    let op = fexpr.call.symbol.fexpr.obj.internal.get.obj.internalop
+    let left = ctx.convertFExpr(fexpr.args[0])
+    let right = ctx.convertFExpr(fexpr.args[1])
     let tmp = ctx.tmpsym
     case op
     of internalAdd:
@@ -152,22 +127,9 @@ proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom =
     else:
       return ctx.convertCall(fexpr)
     return initTAAtomAVar(tmp)
-  elif fexpr.obj.isFuncCall:
+  elif fexpr.kind in fexprCalls and $fexpr.call == "=>":
+    return ctx.convertWord(fexpr)
+  elif fexpr.kind in fexprCalls:
     return ctx.convertCall(fexpr)
-  elif fexpr.kind == fexprSeq and fexpr.len >= 1:
-    if $fexpr[0] == "type":
-      return initTAAtomNone()
-    elif $fexpr[0] == "while":
-      return ctx.convertWhile(fexpr)
-    elif $fexpr[0] == "if":
-      return ctx.convertIf(fexpr)
-    elif $fexpr[0] == "fn":
-      let parsed = parseDefn(fexpr)
-      if parsed.body.isSome:
-        return ctx.convertFn(fexpr)
-      else:
-        return initTAAtomNone()
-    else:
-      fexpr.error("unsupported internal tacodegen of: $#" % $fexpr)
   else:
     fexpr.error("unsupported tacodegen of: $#" % $fexpr)

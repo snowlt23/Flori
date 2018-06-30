@@ -30,10 +30,11 @@ macro instantiateInternalType*(scope: FScope): untyped =
     )
 
 defineInternalType(voidtype, "void", 0)
-defineInternalType(booltype, "bool", 0)
+defineInternalType(booltype, "bool", 4)
 defineInternalType(intlittype, "intlit", 4)
 defineInternalType(floatlittype, "floatlit", 4)
 defineInternalType(strlittype, "strlit", 4)
+defineInternalType(undeftype, "undef", 0)
 defineInternalType(uniontype, "union", 0)
 var fntypeString*: IString
 var internalScope*: FScope
@@ -46,12 +47,25 @@ proc tmpsym*(): string =
   result = "tmpid" & $gCtx.tmpcount
   gCtx.tmpcount.inc
 
-proc unionsym*(syms: openArray[Symbol]): Symbol =
-  result = syms[0].scope.symbol(uniontypeident.idname, symbolUnion, uniontypeIdent)
-  result.obj.uniontypes = iarray(syms)
-
 proc getReturnType*(pd: ProcDecl): Symbol =
   pd.sym.fexpr.obj.internal.get.obj.returntype.get
+
+proc hasUnionType*(syms: seq[Symbol], s: Symbol): bool =
+  for sym in syms:
+    if sym.match(s):
+      return true
+  return false
+proc unionsym*(syms: openArray[Symbol]): Symbol =
+  if syms.len == 1:
+    result = syms[0]
+  else:
+    result = syms[0].scope.symbol(uniontypeident.idname, symbolUnion, uniontypeIdent)
+    var types = newSeq[Symbol]()
+    for sym in syms:
+      if types.hasUnionType(sym):
+        continue
+      types.add(sym)
+    result.obj.uniontypes = iarray(types)
 
 proc genManglingName*(name: string, types: seq[Symbol], generics: seq[Symbol]): string =
   name & "_" & types.mapIt($it).join("_") & "_" & generics.mapIt($it).join("_")
@@ -81,7 +95,7 @@ proc isEqualTypes*(types: seq[Symbol]): bool =
       return false
   return true
 
-proc typesize*(fexpr: FExpr): int =
-  if fexpr.obj.internal.isNone:
-    fexpr.error("$# type hasn't size." % $fexpr)
-  return fexpr.obj.internal.get.obj.internalsize
+proc typesize*(sym: Symbol): int =
+  if sym.kind == symbolLink:
+    return sym.wrapped.typesize
+  return sym.fexpr.internal.obj.internalsize
