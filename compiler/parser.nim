@@ -63,6 +63,17 @@ proc factor(ctx: var ParserContext): FExpr =
   elif tok.get.kind == tokenStrLit:
     ctx.nextToken()
     return fstrlit(tok.get.span, tok.get.strval)
+  elif tok.get.kind == tokenNewline:
+    ctx.nextToken()
+    return ctx.topexpr()
+  elif tok.get.kind == tokenComma:
+    tok.get.error("unexpected , Comma")
+  elif tok.get.kind == tokenRParen:
+    tok.get.error("unexpected ) RParen")
+  elif tok.get.kind == tokenLBlock:
+    tok.get.error("unexpected { LBlock")
+  elif tok.get.kind == tokenRBlock:
+    tok.get.error("unexpected } RBlock")
   else:
     return ctx.topexpr()
 
@@ -77,7 +88,7 @@ proc quoteexpr(ctx: var ParserContext): FExpr =
     return fquote(tok.get.span, $id.get)
   elif tok.isSome and tok.get.kind == tokenInfix:
     # prefix
-    tok.get.error("prefix operator unsupported in currently.")
+    tok.get.error("$# prefix operator unsupported in currently." % $tok.get)
   else:
     return ctx.factor()
 
@@ -110,22 +121,33 @@ proc ifexpr(ctx: var ParserContext): FExpr =
   let tok = ctx.getToken()
   if tok.isSome and $tok.get == "if":
     ctx.nextToken()
-    let ifcond = ctx.topexpr()
-    let ifbody = ctx.topexpr()
-    var elifbranches = newSeq[(FExpr, FExpr)]()
+    let ifbranch = ctx.topexpr()
+    if ifbranch.kind != fexprInfix or $ifbranch.call != ":":
+      ifbranch.error("if branch expect colon`:` token.")
+    var elifbranches = newSeq[FExpr]()
     var elsebody = fcall(tok.get.span, fident(tok.get.span, "discard"), [])
     while true:
       let nexttok = ctx.getToken()
-      if nexttok.isSome and $nexttok.get == "elif":
+      if nexttok.isSome and nexttok.get.kind == tokenNewline:
         ctx.nextToken()
-        elifbranches.add((ctx.topexpr(), ctx.topexpr()))
+        continue
+      elif nexttok.isSome and $nexttok.get == "elif":
+        ctx.nextToken()
+        let elifbranch = ctx.topexpr()
+        if elifbranch.kind != fexprInfix or $elifbranch.call != ":":
+          elifbranch.error("elif branch expect colon`:` token.")
+        elifbranches.add(elifbranch)
       elif nexttok.isSome and $nexttok.get == "else":
+        ctx.nextToken()
+        let colon = ctx.getToken()
+        if colon.isNone or $colon.get != ":":
+          nexttok.get.error("else branch expect colon`:` token.")
         ctx.nextToken()
         elsebody = ctx.topexpr()
         break
       else:
         break
-    return fif(tok.get.span, ifcond, ifbody, elifbranches, elsebody)
+    return fif(tok.get.span, ifbranch, elifbranches, elsebody)
   else:
     return ctx.callexpr()
 
@@ -133,7 +155,6 @@ defineInfixExpr(infix1, ifexpr, 1)
 defineInfixExpr(infix4, infix1, 4)
 defineInfixExpr(infix5, infix4, 5)
 defineInfixExpr(infix7, infix5, 7)
-defineInfixExpr(infix15, infix7, 15)
 
 proc blockexpr(ctx: var ParserContext): FExpr =
   let tok = ctx.getToken()
@@ -143,7 +164,9 @@ proc blockexpr(ctx: var ParserContext): FExpr =
     ctx.nextToken()
     var sons = newSeq[FExpr]()
     while true:
-      sons.add(ctx.infix15())
+      let son = ctx.infix7()
+      if not (son.kind == fexprBlock and son.sons.len == 0):
+        sons.add(son)
       let next = ctx.getToken()
       if next.isNone:
         ctx.error("require more token by block.")
@@ -151,10 +174,35 @@ proc blockexpr(ctx: var ParserContext): FExpr =
         ctx.nextToken()
         return fblock(tok.get.span, sons)
   else:
-    return ctx.infix15()
+    var exprs = newSeq[FExpr]()
+    while true:
+      let tok = ctx.getToken()
+      if tok.isNone:
+        break
+      if tok.get.kind == tokenNewline:
+        ctx.nextToken()
+        let next = ctx.getToken()
+        if next.isNone:
+          break
+        if next.get.kind == tokenLBlock:
+          let bexpr = ctx.blockexpr()
+          for b in bexpr.sons:
+            exprs.add(b)
+        break
+      elif tok.get.kind in {tokenInfix, tokenRParen, tokenRBlock, tokenComma}:
+        break
+      let son = ctx.infix7()
+      if son.kind == fexprBlock and son.sons.len == 0:
+        continue
+      exprs.add(son)
+    if exprs.len == 1:
+      return exprs[0]
+    else:
+      return fblock(tok.get.span, exprs)
+defineInfixExpr(infix15, blockexpr, 15)
 
 proc topexpr(ctx: var ParserContext): FExpr =
-  ctx.blockexpr()
+  ctx.infix15()
 
 proc parseFExpr*(filename: string, src: string): FExpr =
   var lexer = newLexerContext(filename, src)
@@ -165,7 +213,10 @@ proc parseToplevel*(filename: string, src: string): seq[FExpr] =
   var lexer = newLexerContext(filename, src)
   var parser = newParserContext(lexer.lex())
   while not parser.isEnd:
-    result.add(parser.topexpr())
+    let e = parser.topexpr()
+    if e.kind == fexprBlock and e.sons.len == 0:
+      continue
+    result.add(e)
 
 proc embed*(fexpr: var FExpr, span: Span, i: var int, args: openArray[FExpr]) =
   if fexpr.kind == fexprQuote and $fexpr.quoted == "embed":

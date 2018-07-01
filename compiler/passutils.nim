@@ -31,9 +31,9 @@ macro instantiateInternalType*(scope: FScope): untyped =
 
 defineInternalType(voidtype, "void", 0)
 defineInternalType(booltype, "bool", 4)
-defineInternalType(intlittype, "intlit", 4)
-defineInternalType(floatlittype, "floatlit", 4)
-defineInternalType(strlittype, "strlit", 4)
+defineInternalType(intlittype, "int", 4)
+defineInternalType(floatlittype, "float", 4)
+defineInternalType(strlittype, "cstring", 4)
 defineInternalType(undeftype, "undef", 0)
 defineInternalType(uniontype, "union", 0)
 var fntypeString*: IString
@@ -90,7 +90,7 @@ proc isEqualTypes*(types: seq[Symbol]): bool =
   for i in 1..<types.len:
     if $types[i] == "undef":
       continue
-    if not first.spec(types[i]):
+    if not first.match(types[i]):
       return false
   return true
 
@@ -125,24 +125,38 @@ proc typesize*(sym: Symbol): int =
   return sym.fexpr.internal.obj.internalsize
 
 proc linkinfer*(sym: var Symbol, by: Symbol): Option[string] =
-  if sym.kind != symbolLink: return none(string)
-  if sym.kind == symbolLink and by.kind == symbolLink:
-    sym.wrapped = by.wrapped
-    sym = by
+  if sym.kind == symbolLink and $sym == "undef":
+    sym.wrapped = by
     return none(string)
+  if by.kind == symbolLink and $by == "undef":
+    return none(string)
+  if sym.kind == symbolLink:
+    return sym.wrapped.linkinfer(by)
   if by.kind == symbolLink:
     return sym.linkinfer(by.wrapped)
-
-  if $sym.wrapped == "undef":
-    sym.wrapped = by
-  elif sym.wrapped.kind == symbolTypeGenerics and by.kind == symbolTypeGenerics:
-    if $sym.wrapped.name != $by.name:
-      return some("typemismatch $#[..]:$#[..]" % [$sym.wrapped.name, $by.name])
-    for i in 0..<sym.wrapped.types.len:
-      let opt = sym.wrapped.types.mget(i).linkinfer(by.types[i])
-      if opt.isSome:
-        return opt
-
+  if sym.kind == symbolUnion and by.kind == symbolType:
+    let atypes = toSeq(sym.uniontypes.items)
+    if not atypes.hasUnionType(by):
+      return some("union type mismatch $#:$#" % [$sym, $by])
+    sym = by
+    return none(string)
+  if sym.kind == symbolType and by.kind == symbolUnion:
+    let atypes = toSeq(by.uniontypes.items)
+    if not atypes.hasUnionType(sym):
+      return some("union type mismatch $#:$#" % [$sym, $by])
+    return none(string)
+  if sym.kind == symbolUnion and by.kind == symbolUnion:
+    var unify = newSeq[Symbol]()
+    let atypes = toSeq(sym.uniontypes.items)
+    for t in by.uniontypes:
+      if atypes.hasUnionType(t):
+        unify.add(t)
+    if unify.len == 0:
+      return some("union type mismatch $#:$#" % [$sym, $by])
+    sym = unionsym(unify)
+    return none(string)
+  if not sym.match(by):
+    return some("type mismatch $#:$#" % [$sym, $by])
   return none(string)
 proc linkinfer*(sym: var Option[Symbol], by: Symbol): Option[string] =
   if sym.isSome:

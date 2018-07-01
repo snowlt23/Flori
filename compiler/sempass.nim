@@ -7,7 +7,6 @@ import strutils, sequtils
 import tables
 
 proc internalPass*(scope: FScope, fexpr: var FExpr): bool =
-  # echo fexpr
   case fexpr.kind
   of fexprIdent:
     let internalopt = scope.getWords($fexpr)
@@ -100,12 +99,15 @@ proc callResolve*(scope: FScope, fexpr: var FExpr): bool =
       fexpr.typ = some(calltyp)
       for i, arg in fexpr.args.mpairs:
         scope.rootPass(arg)
-        let argtyp = argumentUnion(words, i)
+        var argtyp = argumentUnion(words, i)
         if argtyp.isNone:
           continue
-        let opt = arg.typ.linkinfer(argtyp.get)
-        if opt.isSome:
-          arg.error(opt.get & " in " & $fexpr)
+        let opt1 = argtyp.linkinfer(arg.typ.get)
+        if opt1.isSome:
+          arg.error(opt1.get & " in " & $fexpr)
+        let opt2 = arg.typ.linkinfer(argtyp.get)
+        if opt2.isSome:
+          arg.error(opt2.get & " in " & $fexpr)
   return true
 
 proc finalPass*(scope: FScope, fexpr: var FExpr): bool =

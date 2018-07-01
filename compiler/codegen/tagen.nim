@@ -30,9 +30,9 @@ proc convertIf*(ctx: var TAContext, fexpr: FExpr): TAAtom =
     ctx.add(initTACodeAVar(retsym, size, initTAAtomNone()))
 
   var conds = newSeq[(string, Option[FExpr], FExpr)]()
-  conds.add((ctx.tmplabel, some(fexpr.ifcond), fexpr.ifbody))
+  conds.add((ctx.tmplabel, some(fexpr.ifbranch.args[0]), fexpr.ifbranch.args[1]))
   for elifbranch in fexpr.elifbranches:
-    conds.add((ctx.tmplabel, some(elifbranch.cond), elifbranch.body))
+    conds.add((ctx.tmplabel, some(elifbranch.args[0]), elifbranch.args[1]))
   conds.add((ctx.tmplabel, none(FExpr), fexpr.elsebody))
 
   for c in conds:

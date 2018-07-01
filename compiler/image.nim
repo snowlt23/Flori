@@ -109,9 +109,8 @@ type
     of fexprBlock:
       sons*: IArray[FExpr]
     of fexprIf:
-      ifcond*: FExpr
-      ifbody*: FExpr
-      elifbranches*: IArray[tuple[cond: FExpr, body: FExpr]]
+      ifbranch*: FExpr
+      elifbranches*: IArray[FExpr]
       elsebody*: FExpr
     of fexprWhile:
       whilecond*: FExpr

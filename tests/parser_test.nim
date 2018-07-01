@@ -33,21 +33,30 @@ add5 =>
     check fexpr.kind == fexprInfix
     check $fexpr.call == "=>"
     check $fexpr.args[0] == "add5"
-    check fexpr.args[1].kind == fexprBlock
-    check $fexpr.args[1].sons[0] == "x + 5"
+    check fexpr.args[1].kind == fexprInfix
+    check $fexpr.args[1] == "x + 5"
   test "fib":
     let fexpr = parse("""
 fib =>
-  if n<2
+  if n<2:
     n
-  else
+  else:
     fib(n-1) + fib(n-2)
 """)
     check fexpr.kind == fexprInfix
     check $fexpr.call == "=>"
     check $fexpr.args[0] == "fib"
-    check fexpr.args[1].sons[0].kind == fexprIf
-    check $fexpr.args[1].sons[0].ifcond == "n < 2"
-    # check $fexpr.args[1].kind == fexprIf
-    # check $fexpr.args[1].ifcond == "n < 2"
-    # check $fexpr.args[1].ifbody == "n"
+    check fexpr.args[1].kind == fexprIf
+    check $fexpr.args[1].ifbranch.args[0] == "n < 2"
+    check $fexpr.args[1].ifbranch.args[1] == "n"
+  test "attributed word":
+    let fexpr = parse("""
+vec3 => $template $struct(x, y, z)
+  $typed(int, int, int)
+""")
+    check fexpr.kind == fexprInfix
+    check $fexpr.call == "=>"
+    check $fexpr.args[0] == "vec3"
+    check $fexpr.args[1].sons[0] == "$template"
+    check $fexpr.args[1].sons[1] == "$struct(x, y, z)"
+    check $fexpr.args[1].sons[2] == "$typed(int, int, int)"

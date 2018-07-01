@@ -40,6 +40,8 @@ proc initProcDeclGroup*(): ProcDeclGroup =
 proc match*(a, b: Symbol): bool =
   if a.kind == symbolGenerics:
     return true
+  elif b.kind == symbolGenerics:
+    return true
   elif a.kind == symbolTypeGenerics and b.kind == symbolTypeGenerics:
     if a.name != b.name: return false
     if a.types.len != b.types.len: return false
@@ -52,10 +54,19 @@ proc match*(a, b: Symbol): bool =
       if t.match(b):
         return true
     return false
+  elif b.kind == symbolUnion:
+    for t in b.uniontypes:
+      if t.match(a):
+        return true
+    return false
   elif a.kind == symbolRef and b.kind == symbolRef:
     return a.wrapped.match(b.wrapped)
   elif a.kind == symbolRef and b.kind == symbolVar:
     return a.wrapped.match(b.wrapped)
+  elif a.kind == symbolLink:
+    return a.wrapped.match(b)
+  elif b.kind == symbolLink:
+    return a.match(b.wrapped)
   elif b.kind == symbolVar:
     return a.match(b.wrapped)
   elif a.scope.name == b.scope.name and a.name == b.name:

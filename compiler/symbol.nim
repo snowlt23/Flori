@@ -16,7 +16,7 @@ proc types*(sym: Symbol): IArray[Symbol] =
   sym.obj.types
 proc uniontypes*(sym: Symbol): IArray[Symbol] =
   sym.obj.uniontypes
-proc wrapped*(sym: Symbol): Symbol =
+proc wrapped*(sym: Symbol): var Symbol =
   sym.obj.wrapped
 proc `wrapped=`*(sym: Symbol, s: Symbol) =
   sym.obj.wrapped = s

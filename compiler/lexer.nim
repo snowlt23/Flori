@@ -15,6 +15,7 @@ type
     tokenRParen
     tokenLBlock
     tokenRBlock
+    tokenNewline
   Token* = object
     span*: Span
     case kind*: TokenKind
@@ -34,6 +35,7 @@ type
     of tokenRParen: discard
     of tokenLBlock: discard
     of tokenRBlock: discard
+    of tokenNewline: discard
   LexerContext* = object
     src*: string
     filename*: string
@@ -67,6 +69,8 @@ proc `$`*(token: Token): string =
     "{"
   of tokenRBlock:
     "}"
+  of tokenNewline:
+    "\\n"
 
 proc newLexerContext*(filename: string, src: string): LexerContext =
   result.filename = filename
@@ -183,8 +187,14 @@ proc lex*(ctx: var LexerContext): seq[Token] =
           if curindent < indent.get:
             result.add(Token(span: ctx.span, kind: tokenLBlock))
           elif curindent > indent.get:
+            var lastnewline = none(Token)
+            if result[result.high].kind == tokenNewline:
+              lastnewline = some(result[result.high])
+              result.del(result.high)
             for i in 0..<(curindent - indent.get) div 2:
               result.add(Token(span: ctx.span, kind: tokenRBlock))
+            if lastnewline.isSome:
+              result.add(lastnewline.get)
           curindent = indent.get
         innewline = false
         continue
@@ -194,19 +204,10 @@ proc lex*(ctx: var LexerContext): seq[Token] =
 
     if ctx.skipSpaces():
       innewline = true
+      result.add(Token(span: ctx.span, kind: tokenNewline))
       continue
 
-    if ctx.curchar == ' ':
-      while not ctx.isEOF:
-        if ctx.curchar == ' ' and ctx.pos+1 < ctx.src.len and ctx.src[ctx.pos+1] == ' ':
-          result.add(Token(span: ctx.span, kind: tokenIdent))
-          ctx.inc
-          ctx.inc
-        elif ctx.curchar == ' ':
-          ctx.inc
-        else:
-          break
-    elif ctx.curchar == '`':
+    if ctx.curchar == '`':
       result.add(Token(span: ctx.span, kind: tokenQuote))
       ctx.inc
     elif ctx.curchar == ',':

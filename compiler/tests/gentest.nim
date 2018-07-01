@@ -8,13 +8,13 @@ import times
 
 let prelude = """
 `+ =>
-  $typed(intlit, intlit)
+  $typed(int, int)
   internalop("int_add")
 `- =>
-  $typed(intlit, intlit)
+  $typed(int, int)
   internalop("int_sub")
 `< =>
-  $typed(intlit, intlit)
+  $typed(int, int)
   internalop("int_lesser")
 """
 
