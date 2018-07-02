@@ -22,6 +22,13 @@ proc internalPass*(scope: FScope, fexpr: var FExpr): bool =
       return false
     else:
       return true
+  of fexprWhile:
+    let internalopt = scope.getWords("while")
+    if internalopt.len != 0 and internalopt[0].internalproc.isSome:
+      (internalopt[0].internalproc.get)(scope, fexpr)
+      return false
+    else:
+      return true
   of fexprCalls:
     let internalopt = scope.getWords($fexpr.call)
     if internalopt.len != 0 and internalopt[0].internalproc.isSome:

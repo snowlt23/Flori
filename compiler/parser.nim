@@ -117,6 +117,17 @@ proc callexpr(ctx: var ParserContext): FExpr =
   else:
     return call
 
+proc whileexpr(ctx: var ParserContext): FExpr =
+  let tok = ctx.getToken()
+  if tok.isSome and $tok.get == "while":
+    ctx.nextToken()
+    let whilebranch = ctx.topexpr()
+    if whilebranch.kind != fexprInfix or $whilebranch.call != ":":
+      whilebranch.error("while branch expect colon`:` token.")
+    return fwhile(tok.get.span, whilebranch)
+  else:
+    return ctx.callexpr()
+
 proc ifexpr(ctx: var ParserContext): FExpr =
   let tok = ctx.getToken()
   if tok.isSome and $tok.get == "if":
@@ -149,12 +160,18 @@ proc ifexpr(ctx: var ParserContext): FExpr =
         break
     return fif(tok.get.span, ifbranch, elifbranches, elsebody)
   else:
-    return ctx.callexpr()
+    return ctx.whileexpr()
 
 defineInfixExpr(infix1, ifexpr, 1)
-defineInfixExpr(infix4, infix1, 4)
+defineInfixExpr(infix2, infix1, 2)
+defineInfixExpr(infix3, infix2, 3)
+defineInfixExpr(infix4, infix3, 4)
 defineInfixExpr(infix5, infix4, 5)
-defineInfixExpr(infix7, infix5, 7)
+defineInfixExpr(infix6, infix5, 6)
+defineInfixExpr(infix7, infix6, 7)
+defineInfixExpr(infix8, infix7, 8)
+defineInfixExpr(infix12, infix8, 12)
+defineInfixExpr(infix14, infix12, 14)
 
 proc blockexpr(ctx: var ParserContext): FExpr =
   let tok = ctx.getToken()
@@ -164,7 +181,7 @@ proc blockexpr(ctx: var ParserContext): FExpr =
     ctx.nextToken()
     var sons = newSeq[FExpr]()
     while true:
-      let son = ctx.infix7()
+      let son = ctx.infix14()
       if not (son.kind == fexprBlock and son.sons.len == 0):
         sons.add(son)
       let next = ctx.getToken()
@@ -191,7 +208,7 @@ proc blockexpr(ctx: var ParserContext): FExpr =
         break
       elif tok.get.kind in {tokenInfix, tokenRParen, tokenRBlock, tokenComma}:
         break
-      let son = ctx.infix7()
+      let son = ctx.infix14()
       if son.kind == fexprBlock and son.sons.len == 0:
         continue
       exprs.add(son)

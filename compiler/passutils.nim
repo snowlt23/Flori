@@ -134,6 +134,10 @@ proc linkinfer*(sym: var Symbol, by: Symbol): Option[string] =
     return sym.wrapped.linkinfer(by)
   if by.kind == symbolLink:
     return sym.linkinfer(by.wrapped)
+  if sym.kind == symbolVar:
+    return sym.wrapped.linkinfer(by)
+  if by.kind == symbolVar:
+    return sym.linkinfer(by.wrapped)
   if sym.kind == symbolUnion and by.kind == symbolType:
     let atypes = toSeq(sym.uniontypes.items)
     if not atypes.hasUnionType(by):

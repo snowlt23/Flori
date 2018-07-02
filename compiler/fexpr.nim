@@ -74,8 +74,8 @@ proc fblock*(span: Span, sons: openArray[FExpr]): FExpr =
 
 proc fif*(span: Span, ifbranch: FExpr, elifbranches: openArray[FExpr], elsebody: FExpr): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprIf, ifbranch: ifbranch, elifbranches: iarray(elifbranches), elsebody: elsebody))
-proc fwhile*(span: Span, whilecond: FExpr, whilebody: FExpr): FExpr =
-  genFExpr(FExprObj(span: span, kind: fexprWhile, whilecond: whilecond, whilebody: whilebody))
+proc fwhile*(span: Span, whilebranch: FExpr): FExpr =
+  genFExpr(FExprObj(span: span, kind: fexprWhile, whilebranch: whilebranch))
 
 proc kind*(fexpr: FExpr): FExprKind = fexpr.obj.kind
 proc idname*(fexpr: FExpr): IString = fexpr.obj.idname
@@ -100,8 +100,7 @@ proc internal*(fexpr: FExpr): InternalMarker = fexpr.obj.internal.get
 proc ifbranch*(fexpr: FExpr): var FExpr = fexpr.obj.ifbranch
 proc elifbranches*(fexpr: FExpr): IArray[FExpr] = fexpr.obj.elifbranches
 proc elsebody*(fexpr: FExpr): var FExpr = fexpr.obj.elsebody
-proc whilecond*(fexpr: FExpr): var FExpr = fexpr.obj.whilecond
-proc whilebody*(fexpr: FExpr): var FExpr = fexpr.obj.whilebody
+proc whilebranch*(fexpr: FExpr): var FExpr = fexpr.obj.whilebranch
 
 proc genIndent*(indent: int): string =
   repeat(' ', indent)
@@ -145,7 +144,7 @@ proc toString*(fexpr: var FExprObj, indent: int, desc: bool, typ: bool): string 
     s &= "\n$#else: $#" % [genIndent(indent), toString(fexpr.elsebody, indent, desc, typ)]
     s
   of fexprWhile:
-    "while $# $#" % [toString(fexpr.whilecond, indent, desc, typ), toString(fexpr.whilebody, indent+2, desc, typ)]
+    "while $# $#" % [toString(fexpr.whilebranch.args[0], indent, desc, typ), toString(fexpr.whilebranch.args[1], indent+2, desc, typ)]
 proc toString*(fexpr: FExpr, indent: int, desc: bool, typ: bool): string = fexpr.obj.toString(indent, desc, typ)
 
 proc `$`*(fexpr: var FExprObj): string = fexpr.toString(0, false, false)

@@ -7,20 +7,23 @@ import strutils, sequtils
 
 proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom
 
-# proc convertWhile*(ctx: var TAContext, fexpr: FExpr): TAAtom =
-#   let whilel = ctx.tmplabel
-#   let bodyl = ctx.tmplabel
-#   let nextl = ctx.tmplabel
-#   ctx.addLabel(whilel)
-#   let cond = ctx.convertFExpr(fexpr[1][0])
-#   ctx.add(initTACodeAIf(cond, bodyl))
-#   ctx.add(initTACodeGoto(nextl))
-#   ctx.addLabel(bodyl)
-#   for b in fexpr[2]:
-#     discard ctx.convertFExpr(b)
-#   ctx.add(initTACodeGoto(whilel))
-#   ctx.addLabel(nextl)
-#   return initTAAtomNone()
+proc convertWhile*(ctx: var TAContext, fexpr: FExpr): TAAtom =
+  let whilel = ctx.tmplabel
+  let bodyl = ctx.tmplabel
+  let nextl = ctx.tmplabel
+  ctx.addLabel(whilel)
+  let cond = ctx.convertFExpr(fexpr.whilebranch.args[0])
+  ctx.add(initTACodeAIf(cond, bodyl))
+  ctx.add(initTACodeGoto(nextl))
+  ctx.addLabel(bodyl)
+  if fexpr.whilebranch.args[1].kind == fexprBlock:
+    for b in fexpr.whilebranch.args[1].sons:
+      discard ctx.convertFExpr(b)
+  else:
+    discard ctx.convertFExpr(fexpr.whilebranch.args[1])
+  ctx.add(initTACodeGoto(whilel))
+  ctx.addLabel(nextl)
+  return initTAAtomNone()
 
 proc convertIf*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   let retsym = ctx.tmpsym
@@ -63,12 +66,12 @@ proc convertIf*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   ctx.addLabel(nextl)
   return initTAAtomAVar(retsym)
 
-# proc convertSet*(ctx: var TAContext, fexpr: FExpr): TAAtom =
-#   let dst = ctx.convertFExpr(fexpr[1])
-#   if dst.kind != TAAtomKind.AVar:
-#     error(fexpr, "unsupported expression set `= in currently")
-#   ctx.add(initTACodeSet(dst.avar.name, ctx.convertFExpr(fexpr[2])))
-#   return initTAAtomNone()
+proc convertSet*(ctx: var TAContext, fexpr: FExpr): TAAtom =
+  let dst = ctx.convertFExpr(fexpr.args[0])
+  if dst.kind != TAAtomKind.AVar:
+    error(fexpr, "unsupported expression set `= in currently")
+  ctx.add(initTACodeSet(dst.avar.name, ctx.convertFExpr(fexpr.args[1])))
+  return initTAAtomNone()
 
 proc convertWord*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   if fexpr.internal.obj.internalop != internalNone:
@@ -104,6 +107,14 @@ proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom =
     return initTAAtomAVar($fexpr)
   elif fexpr.kind == fexprSymbol:
     return initTAAtomAVar(desc(fexpr))
+  elif fexpr.kind in fexprCalls and $fexpr.call == ":=":
+    let name = desc(fexpr.args[0])
+    let size = fexpr.args[1].gettype.typesize
+    let value = ctx.convertFExpr(fexpr.args[1])
+    ctx.add(initTACodeAVar(name, size, value))
+    return initTAAtomNone()
+  elif fexpr.kind in fexprCalls and $fexpr.call == "=":
+    return ctx.convertSet(fexpr)
   elif fexpr.kind in fexprCalls and fexpr.call.kind == fexprSymbol and fexpr.call.symbol.fexpr.obj.internal.isSome and fexpr.call.symbol.fexpr.internal.obj.internalop != internalNone:
     let op = fexpr.call.symbol.fexpr.obj.internal.get.obj.internalop
     let left = ctx.convertFExpr(fexpr.args[0])
@@ -134,5 +145,7 @@ proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom =
     return ctx.convertCall(fexpr)
   elif fexpr.kind == fexprIf:
     return ctx.convertIf(fexpr)
+  elif fexpr.kind == fexprWhile:
+    return ctx.convertWhile(fexpr)
   else:
     fexpr.error("unsupported tacodegen of: $#" % $fexpr)

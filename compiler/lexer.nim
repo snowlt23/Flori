@@ -120,7 +120,7 @@ proc getPriority*(ident: string): (int, bool) =
   elif ident.len >= 2 and ident[0] in {'!', '='} and ident[^1] in {'='}:
     (8, true)
   elif ident[^1] in {'=', ':'}:
-    (15, false)
+    (14, false)
   elif ident[0] in {'&', '|'}:
     (12, true)
   elif ident[0] in {'+', '-', '!'}:

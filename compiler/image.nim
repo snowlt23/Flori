@@ -113,8 +113,7 @@ type
       elifbranches*: IArray[FExpr]
       elsebody*: FExpr
     of fexprWhile:
-      whilecond*: FExpr
-      whilebody*: FExpr
+      whilebranch*: FExpr
   FExpr* = object
     index*: int
   ProcName* = object

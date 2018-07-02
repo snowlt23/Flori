@@ -172,9 +172,35 @@ proc semIf*(scope: FScope, fexpr: var FExpr) =
   else:
     resolveByVoid(fexpr)
 
-proc semWhile*(scope: FScope, fexpr: var FExpr) = discard
-proc semDef*(scope: FScope, fexpr: var FExpr) = discard
-proc semSet*(scope: FScope, fexpr: var FExpr) = discard
+proc semWhile*(scope: FScope, fexpr: var FExpr) =
+  scope.rootPass(fexpr.whilebranch.args.mget(0))
+  let whilebopt = fexpr.whilebranch.args[0].typ.linkinfer(booltypeSymbol)
+  if whilebopt.isSome:
+    fexpr.whilebranch.args[0].error(whilebopt.get & " in " & $fexpr.whilebranch.args[0])
+  let whilescope = scope.extendFScope()
+  whilescope.rootPass(fexpr.whilebranch.args.mget(1))
+  resolveByVoid(fexpr)
+
+proc semDef*(scope: FScope, fexpr: var FExpr) =
+  let defname = fexpr.args[0].idname
+  let sym = scope.symbol(defname, symbolDef, fexpr.args[0])
+  fexpr.args[0] = fsymbol(fexpr.args[0].span, sym)
+  scope.rootPass(fexpr.args.mget(1))
+  fexpr.args[0].symbol.fexpr.typ = some(fexpr.args[1].gettype)
+  scope.addDecl(defname, sym)
+  resolveByVoid(fexpr)
+
+proc semSet*(scope: FScope, fexpr: var FExpr) =
+  scope.rootPass(fexpr.args.mget(0))
+  scope.rootPass(fexpr.args.mget(1))
+  let opt1 = fexpr.args[0].typ.linkinfer(fexpr.args[1].gettype)
+  if opt1.isSome:
+    fexpr.error(opt1.get)
+  let opt2 = fexpr.args[1].typ.linkinfer(fexpr.args[0].gettype)
+  if opt2.isSome:
+    fexpr.error(opt2.get)
+  resolveByVoid(fexpr)
+
 proc semDot*(scope: FScope, fexpr: var FExpr) =
   fexpr = quoteFExpr(fexpr.span, "`embed(`embed)", [fexpr.args[1], fexpr.args[0]])
   scope.rootPass(fexpr)

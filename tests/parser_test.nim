@@ -48,7 +48,7 @@ fib =>
     check $fexpr.args[0] == "fib"
     check fexpr.args[1].kind == fexprIf
     check $fexpr.args[1].ifbranch.args[0] == "n < 2"
-    check $fexpr.args[1].ifbranch.args[1] == "n"
+    check $fexpr.args[1].ifbranch.args[1].sons[0] == "n"
   test "attributed word":
     let fexpr = parse("""
 vec3 => $template $struct(x, y, z)
