@@ -8,15 +8,23 @@ Flori is statically typed programming language without GC for system/application
 # Features
 
 - Statically typed.
-- Blazing fast and easy memory management by **Explicit Region**.
+- Concise syntax with type/argument inference.
+- AOT/JIT native code generation.
+  - x86
+  - x86_64 (in future)
+  - WASM (in future)
+  - ARM (in future)
+  - RISC-V (in future)
+- Easy cross compilation.
+- Blazing fast and easy memory management by **Explicit Region**. (no GC)
 - Flexible meta syntax, It's **F Expression**.
-- Native compile via C. (It's so fast and portable!)
-- Ultimate power for Metaprogramming.
-- Interactive development environment. (Common Lisp SLIME like)
+- Metaprogramming support. (user defined macro/syntax)
+- Interactive development with REPL and Editor.
 
 # Inspired languages
 
 - Nim
+- Standard ML
 - bone-lisp
 - xtlang
 - REBOL
@@ -27,39 +35,29 @@ Flori is statically typed programming language without GC for system/application
 
 ### Hello World
 ```
-import "core"
-default_region_settings()
+import core
 
-println("Hello World!")
+println("Hello World")
 ```
 
 ### Fibonacci
 ```
-import "core"
-default_region_settings()
+import core
 
-fn fib(n Int) Int {
-  if (n < 2) {
-    n
-  } else {
-    fib(n-1) + fib(n-2)
-  }
-}
-
+fib =>
+  if n<2: n
+  else: fib(n-1) + fib(n-2)
 println(fib(38))
 ```
 
 Other examples, please reference `Flori/examples` or `Flori/tests/floritests`.
 
 # Usage
-
-```sh
-$ flori c <filename>
-```
+**TODO**
 
 # Prebuilt Binaries
 
-[Releases](https://github.com/snowlt23/Flori/releases)
+~~[Releases](https://github.com/snowlt23/Flori/releases)~~ (image-compiler branch has still in development)
 
 # Compiler Instructions
 
@@ -67,8 +65,6 @@ $ flori c <filename>
 
 - Nim (0.18.0)
   - nimble
-- GCC (GNU C Compiler)
-- TCC (Tiny C Compiler)
 
 ```sh
 # Build
@@ -83,16 +79,13 @@ $ export PATH="$PATH:<flori-dir>/bin"
 $ nake test
 ```
 
-# TODO
+# Language Plan
 
-- Error Handling System
-- LiveReload
-- ImageDump
+- Compiler Tools for Editor/IDE
+- Continuation
 - Concurrency
 - Standard Library
-- Reduction Build Times
 - Disassembler, Debugger, Profiler
 - Region Profiler
 - Package Manager
-- IDE tool (Rabbit)
 - Self Hosting

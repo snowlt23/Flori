@@ -108,7 +108,7 @@ left9 => left(r) + "9"
 """)
   test "template struct":
     var f1 = evalTest("""
-vector => $template $struct(x, y, z)
+vector => $struct(x, y, z)
 """)
     check f1[0].names == "x y z"
     check f1[0].types == "T0 T1 T2"
@@ -118,3 +118,10 @@ vector => $template $struct(x, y, z)
     check f2[0].names == "a b"
     check f2[0].types == "vector vector"
     check $f2[0].internal.obj.returntype == "vector"
+  test "range":
+    var f = evalTest("""
+range => $struct(s: int, e: int)
+`.. => range(s, e)
+""")
+    check f[1].names == "s e"
+    check f[1].types == "int int"
