@@ -4,6 +4,8 @@ import compiler.codegen.tacode, compiler.codegen.tagen
 import compiler.codegen.x86code, compiler.codegen.x86tiling, compiler.codegen.x86gen, compiler.codegen.jit
 import compiler.codegen.taopt, compiler.codegen.liveness
 import unittest
+import os, osproc
+import strutils, sequtils
 
 let prelude = """
 `+ =>
@@ -29,16 +31,38 @@ template instImage(testname: string) =
       discard tactx.convertFExpr(f)
   evaltest(prelude)
 
+proc objdump*(bin: string): string =
+  writeFile("tmp.bin", bin)
+  let outp = execProcess("objdump -b binary -M intel -m i386 -D tmp.bin")
+  result = outp.split("\n")[6..^1].join("\n")
+  removeFile("tmp.bin")
+
 template jittest(): pointer =
   let jitbuf = initJitBuffer(1024)
   let p = toProc[pointer](jitbuf.getproc())
   var asmctx = newAsmContext(jitbuf)
   var x86ctx = tactx.optimize().x86Tiling().freqRegalloc(tactx.analyzeLiveness())
   asmctx.generateX86(x86ctx)
+  # echo x86ctx
+  # echo jitbuf.toBin.objdump
   p
 
 {.push stackTrace:off.}
-proc procffi*(p: pointer, n: int32): int32 =
+proc ffi*(p: pointer) =
+  asm """
+    movl %0, %%edx
+    call %%edx
+    ::"d"(`p`)
+  """
+proc ffiInt*(p: pointer): int32 =
+  asm """
+    movl %1, %%edx
+    call %%edx
+    movl %%eax, %0
+    :"=a"(`result`)
+    :"d"(`p`)
+  """
+proc ffiInt*(p: pointer, n: int32): int32 =
   asm """
     movl %1, %%ecx
     movl %2, %%edx
@@ -47,13 +71,21 @@ proc procffi*(p: pointer, n: int32): int32 =
     :"=a"(`result`)
     :"c"(`n`), "d"(`p`)
   """
+proc ffiCString*(p: pointer): cstring =
+  asm """
+    movl %0, %%edx
+    call %%edx
+    movl %%eax, %0
+    :"=a"(`result`)
+    :"d"(`p`)
+  """
 {.pop.}
 
 suite "codegen test":
   test "add5":
     instImage("add5")
     evaltest("add5 => x + 5")
-    check procffi(jittest(), 4) == 9
+    check ffiInt(jittest(), 4) == 9
   test "fib rec":
     instImage("fibrec")
     evaltest("""
@@ -61,7 +93,7 @@ fib =>
   if n<2: n
   else: fib(n-1) + fib(n-2)
 """)
-    check procffi(jittest(), 38) == 39088169
+    check ffiInt(jittest(), 38) == 39088169
   test "fib loop":
     instImage("fibloop")
     evaltest("""
@@ -77,4 +109,24 @@ fib =>
     i = i + 1
   c
 """)
-    check procffi(jittest(), 38) == 39088169
+    check ffiInt(jittest(), 38) == 39088169
+  test "strlit":
+    instImage("strlit")
+    evaltest("""
+returnstr => "YUKARI"
+""")
+    check $ffiCString(jittest()) == "YUKARI"
+  test "cffi":
+    instImage("cffi")
+    evaltest("""
+abs => $cffi("abs") $cdecl $dll("msvcrt") $typed(int) $returned(int)
+main => abs(x)
+""")
+    check ffiInt(jittest(), 9) == 9
+  test "cffi printf":
+    instImage("cffi")
+    evaltest("""
+printf => $cffi("printf") $cdecl $dll("msvcrt") $typed(cstring, int) $returned(void)
+main => printf("%d", 9)
+""")
+    ffi(jittest())

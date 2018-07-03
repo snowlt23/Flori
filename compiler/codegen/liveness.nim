@@ -51,6 +51,10 @@ proc useCount*(code: TACode, name: string): int =
     for arg in code.call.args:
       if arg.isUsed(name):
         result.inc
+  of TACodeKind.FFICall:
+    for arg in code.fficall.args:
+      if arg.isUsed(name):
+        result.inc
   of TACodeKind.AVar:
     if code.avar.value.isUsed(name):
       result.inc

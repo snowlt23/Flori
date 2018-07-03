@@ -214,6 +214,15 @@ proc pop*[B](b: var B, r: Reg32) =
 proc pop*[B](b: var B, r: Reg32, disp: int32) =
   b.opRegModDisp32(0x8F, 0, r, disp)
 
+proc call*[B](b: var B, r: Reg32) =
+  b.asmb(0xFF)
+  b.asmb(modrm(modReg, cast[Reg32](2), r))
+proc callDeref*[B](b: var B, r: Reg32) =
+  b.asmb(0xFF)
+  b.asmb(modrm(modRegReg, cast[Reg32](2), r))
+proc callFar*[B](b: var B, p: int32) =
+  b.asmb(0x9A)
+  b.asmd(p)
 proc callRel*[B](b: var B, rel: int32) =
   b.asmb(0xE8)
   b.asmd(rel - 5)
@@ -225,3 +234,13 @@ proc enter*[B](b: var B, i: int16, ib: int8) =
   b.asmb(uint8(ib))
 proc leave*[B](b: var B) =
   b.asmb(0xC9)
+
+proc strlit*[B](b: var B, s: string): int32 =
+  if isImm8(int32(s.len+2+1)):
+    b.jmp(int32(s.len+2+1))
+  else:
+    b.jmp(int32(s.len+5+1))
+  result = int32(b.len)
+  for c in s:
+    b.asmb(uint8(c))
+  b.asmb(0)

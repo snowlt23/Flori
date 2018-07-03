@@ -4,6 +4,7 @@ import tacode
 
 import options
 import strutils, sequtils
+import dynlib
 
 proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom
 
@@ -76,6 +77,8 @@ proc convertSet*(ctx: var TAContext, fexpr: FExpr): TAAtom =
 proc convertWord*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   if fexpr.internal.obj.internalop != internalNone:
     return initTAAtomNone()
+  if fexpr.internal.obj.cffi.isSome:
+    return initTAAtomNone()
 
   let fnlabel = desc(fexpr.args[0])
   let retsize = fexpr.internal.obj.returntype.typesize
@@ -103,6 +106,8 @@ proc convertCall*(ctx: var TAContext, fexpr: FExpr): TAAtom =
 proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   if fexpr.kind == fexprIntLit:
     return initTAAtomIntLit(fexpr.intval)
+  elif fexpr.kind == fexprStrLit:
+    return initTAAtomStrLit($fexpr.strval)
   elif fexpr.kind == fexprIdent:
     return initTAAtomAVar($fexpr)
   elif fexpr.kind == fexprSymbol:
@@ -138,6 +143,22 @@ proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom =
       return initTAAtomNone()
     else:
       return ctx.convertCall(fexpr)
+    return initTAAtomAVar(tmp)
+  elif fexpr.kind in fexprCalls and fexpr.call.kind == fexprSymbol and
+      fexpr.call.symbol.fexpr.internal.obj.cffi.isSome:
+    if fexpr.call.symbol.fexpr.internal.obj.dll.isNone:
+      fexpr.error("$cffi call needs dll name.")
+    let cname = $fexpr.call.symbol.fexpr.internal.obj.cffi.get
+    let dllname = $fexpr.call.symbol.fexpr.internal.obj.dll.get
+    let lib = loadLib(dllname)
+    let caddr = lib.symAddr(cname)
+    if caddr.isNil:
+      fexpr.error("undeclared \"$#\" cffi function in \"$#\"." % [cname, dllname])
+    # echo cast[proc (x: int32): int32 {.cdecl.}](caddr)(9)
+    let tmp = ctx.tmpsym
+    if fexpr.call.symbol.fexpr.internal.obj.callconv == convNone:
+      fexpr.call.symbol.fexpr.error("please specify ffi call convention. ($cdecl, $stdcall)")
+    ctx.add(initTACodeFFICall(tmp, $fexpr.call, some(cast[int](caddr)), fexpr.args.mapIt(ctx.convertFExpr(it)), false, fexpr.call.symbol.fexpr.internal.obj.callconv))
     return initTAAtomAVar(tmp)
   elif fexpr.kind in fexprCalls and $fexpr.call == "=>":
     return ctx.convertWord(fexpr)

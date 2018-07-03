@@ -35,8 +35,12 @@ proc add*(buf: var JitBuffer, x: uint8) =
   buf.extend()
   cast[ptr uint8](cast[int](buf.mem) + buf.len)[] = x
   buf.len += 1
+proc baseaddr*(buf: var JitBuffer): int =
+  cast[int](buf.mem)
 proc getproc*(buf: JitBuffer): JitProc =
   JitProc(buf: buf, pos: buf.len)
+
+proc baseaddr*(buf: var seq[uint8]): int = 0
 
 proc toProc*[F](prc: JitProc): F =
   cast[F](cast[int](prc.buf.mem) + prc.pos)

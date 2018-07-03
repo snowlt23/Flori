@@ -125,3 +125,9 @@ range => $struct(s: int, e: int)
 """)
     check f[1].names == "s e"
     check f[1].types == "int int"
+  test "cffi":
+    var f = evalTest("""
+printf => $cffi("printf") $typed(cstring, int) $returned(void) $dll("msvcrt.dll")
+""")
+    check f[0].names == ""
+    check f[0].types == "cstring int"

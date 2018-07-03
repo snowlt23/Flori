@@ -4,6 +4,12 @@ import tables
 import streams
 
 type
+  CallConvention* = enum
+    convNone
+    convCdecl
+    convStdcall
+
+type
   FExprError* = object of Exception
   Span* = object
     filename*: IString
@@ -34,6 +40,9 @@ type
   InternalMarkerObj* = object
     internalop*: InternalOp
     internalsize*: int
+    cffi*: Option[IString]
+    dll*: Option[IString]
+    callconv*: CallConvention
     isTemplate*: bool
     argnames*: Option[IArray[Symbol]]
     inferargnames*: IList[Symbol]

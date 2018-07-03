@@ -89,6 +89,14 @@ defTile tileX86Call:
     initX86CodeCall(code1.call.calllabel, code1.call.args.mapIt(toX86Atom(it)))
     initX86CodeMov(initX86AtomTemp(code1.call.name), initX86AtomReg(eax))
 
+defTile tileX86FFICall:
+  PATTERN:
+    TACodeKind.FFICall
+  CODE:
+    initX86CodeAVar(code1.fficall.name, 4, true) # FIXME:
+    initX86CodeFFICall(code1.fficall.calllabel, code1.fficall.address, code1.fficall.args.mapIt(toX86Atom(it)), code1.fficall.callconv)
+    initX86CodeMov(initX86AtomTemp(code1.fficall.name), initX86AtomReg(eax))
+
 defTile tileX86AVar:
   PATTERN:
     TACodeKind.AVar
@@ -209,6 +217,7 @@ defTileset x86Tilingset:
   tileX86Lesser
   tileX86Set
   tileX86Call
+  tileX86FFICall
   tileX86AVar
   tileX86Goto
   tileX86AIf

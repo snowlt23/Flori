@@ -5,12 +5,14 @@ import tables
 import options
 
 import variant
+import ../image
 import tacode, liveness, asm_x86
 
 defVariant X86Atom:
   Temp(name: string)
   Reg(reg: Reg32)
   IntLit(intval: int64)
+  StrLit(strval: string)
   EbpRel(rel: int)
   EspRel(rel: int)
 
@@ -30,6 +32,7 @@ defVariant X86Code:
   JmpZero(label: string)
   Jmp(label: string)
   Call(label: string, args: seq[X86Atom])
+  FFICall(label: string, address: Option[int], args: seq[X86Atom], callconv: CallConvention)
   Ret()
 
 type
@@ -62,6 +65,8 @@ proc toX86Atom*(atom: TAAtom): X86Atom =
     return initX86AtomTemp(atom.avar.name)
   of TAAtomKind.IntLit:
     return initX86AtomIntLit(atom.intlit.intval)
+  of TAAtomKind.StrLit:
+    return initX86AtomStrLit(atom.strlit.strval)
 
 proc `$`*(atom: X86Atom): string =
   case atom.kind
@@ -71,6 +76,8 @@ proc `$`*(atom: X86Atom): string =
     $atom.reg.reg
   of X86AtomKind.IntLit:
     $atom.intlit.intval
+  of X86AtomKind.StrLit:
+    "\"" & atom.strlit.strval & "\""
   of X86AtomKind.EbpRel:
     if atom.ebprel.rel < 0:
       "[ebp$#]" % $atom.ebprel.rel
@@ -114,6 +121,8 @@ proc `$`*(code: X86Code): string =
     "jmp $#" % code.jmp.label
   of X86CodeKind.Call:
     "call $#" % code.call.label
+  of X86CodeKind.FFICall:
+    "call $#" % $code.fficall.label
   of X86CodeKind.Ret:
     "ret"
 
@@ -166,6 +175,9 @@ proc replaceTemp*(code: var X86Code, tmpname: string, by: X86Atom) =
     code.cmp.right.replaceTemp(tmpname, by)
   of X86CodeKind.Call:
     for arg in code.call.args.mitems:
+      arg.replaceTemp(tmpname, by)
+  of X86CodeKind.FFICall:
+    for arg in code.fficall.args.mitems:
       arg.replaceTemp(tmpname, by)
   else:
     discard
@@ -225,6 +237,26 @@ proc expandIntLit*(fn: X86Fn): X86Fn =
   result = X86Fn(name: fn.name, args: fn.args, body: @[])
   for code in fn.body:
     result.expandIntLit(code)
+template expandStrLit*(fn: var X86Fn, code: X86Code, variant: untyped, init: untyped) =
+  if code.variant.left.kind != X86AtomKind.Reg and code.variant.right.kind == X86AtomKind.StrLit:
+    fn.body.add(initX86CodeMov(initX86AtomReg(eax), code.variant.right))
+    fn.body.add(init(code.variant.left, initX86AtomReg(eax)))
+  else:
+    fn.body.add(code)
+proc expandStrLit*(fn: var X86Fn, code: X86Code) =
+  case code.kind
+  of X86CodeKind.Add:
+    expandStrLit(fn, code, add, initX86CodeAdd)
+  of X86CodeKind.Sub:
+    expandStrLit(fn, code, sub, initX86CodeSub)
+  of X86CodeKind.Mov:
+    expandStrLit(fn, code, mov, initX86CodeMov)
+  else:
+    fn.body.add(code)
+proc expandStrLit*(fn: X86Fn): X86Fn =
+  result = X86Fn(name: fn.name, args: fn.args, body: @[])
+  for code in fn.body:
+    result.expandStrLit(code)
 
 proc expandCallNaive*(fn: var X86Fn, code: X86Code) =
   if code.kind == X86CodeKind.Call:
@@ -232,6 +264,15 @@ proc expandCallNaive*(fn: var X86Fn, code: X86Code) =
     for i in 1..code.call.args.len:
       let n = code.call.args.len - i
       fn.body.add(initX86CodePush(code.call.args[n]))
+      argssize += 4
+    fn.body.add(code)
+    if argssize != 0:
+      fn.body.add(initX86CodeAdd(initX86AtomReg(esp), initX86AtomIntLit(argssize)))
+  elif code.kind == X86CodeKind.FFICall: # FIXME: call convention
+    var argssize = 0
+    for i in 1..code.fficall.args.len:
+      let n = code.fficall.args.len - i
+      fn.body.add(initX86CodePush(code.fficall.args[n]))
       argssize += 4
     fn.body.add(code)
     if argssize != 0:
@@ -364,17 +405,17 @@ proc simpleRegalloc*(ctx: X86Context, liveness: Liveness): X86Context =
 
 type FreqRegInfo* = tuple[lifetime: int, count: int, candestroy: bool, atom: X86Atom]
 
-proc expandCallByRegmap*(fn: var X86Fn, code: X86Code, argregs: seq[X86Atom], destregs: seq[Reg32], liveness: Liveness) =
+proc expandCallByRegmap*(fn: var X86Fn, code: X86Code, args: seq[X86Atom], argregs: seq[X86Atom], destregs: seq[Reg32], liveness: Liveness) =
   var argssize = 0
   for r in destregs:
     fn.body.add(initX86CodePush(initX86AtomReg(r)))
-  for i in 1..code.call.args.len:
-    let n = code.call.args.len - i
+  for i in 1..args.len:
+    let n = args.len - i
     if argregs[n].kind == X86AtomKind.Reg:
       # fn.body.add(initX86CodePush(argregs[n]))
-      fn.body.add(initX86CodeMov(argregs[n], code.call.args[n]))
+      fn.body.add(initX86CodeMov(argregs[n], args[n]))
     elif argregs[n].kind == X86AtomKind.EbpRel:
-      fn.body.add(initX86CodePush(code.call.args[n]))
+      fn.body.add(initX86CodePush(args[n]))
       argssize += 4
     else:
       assert(false)
@@ -391,7 +432,13 @@ proc expandCallByRegmap*(fn: X86Fn, fnmap: Table[string, (seq[X86Atom], seq[Reg3
   for code in fn.body:
     if code.kind == X86CodeKind.Call:
       let (argregs, destregs) = fnmap[code.call.label]
-      result.expandCallByRegmap(code, argregs, destregs, liveness)
+      result.expandCallByRegmap(code, code.call.args, argregs, destregs, liveness)
+    elif code.kind == X86CodeKind.FFICall:
+      for arg in code.fficall.args.reversed():
+        result.body.add(initX86CodePush(arg))
+      result.body.add(code)
+      if code.fficall.callconv == convCdecl:
+        result.body.add(initX86CodeAdd(initX86AtomReg(esp), initX86AtomIntLit(code.fficall.args.len*4)))
     else:
       result.body.add(code)
 
@@ -457,6 +504,7 @@ proc freqRegalloc*(fn: X86Fn, fnmap: var Table[string, (seq[X86Atom], seq[Reg32]
 
   result = result.expandDoubleRef()
   result = result.expandIntLit()
+  result = result.expandStrLit()
   result = result.expandCallByRegmap(fnmap, liveness)
   if curvarpos != 0:
     result = result.expandEpilogue()

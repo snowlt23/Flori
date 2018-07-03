@@ -11,10 +11,6 @@ import os
 proc semFile*(filepath: string): Option[FScope]
 
 #
-# Parser
-#
-
-#
 # Pragmas
 #
 
@@ -36,6 +32,31 @@ proc semInternalOp*(scope: FScope, fexpr: var FExpr) =
     fexpr.typ = some(booltypeSymbol)
   else:
     fexpr.error("couldn't find internal operation: $#" % $op)
+
+proc semCFFI*(scope: FScope, fexpr: var FExpr) =
+  if scope.word.isNone:
+    fexpr.error("$cffi should be declaration in word.")
+  if fexpr.args.len != 1 or fexpr.args[0].kind != fexprStrLit:
+    fexpr.error("$cffi argument should be fstrlit.")
+  scope.word.get.internal.obj.cffi = some(fexpr.args[0].strval)
+  resolveByVoid(fexpr)
+proc semDLL*(scope: FScope, fexpr: var FExpr) =
+  if scope.word.isNone:
+    fexpr.error("$dll should be declaration in word.")
+  if fexpr.args.len != 1 or fexpr.args[0].kind != fexprStrLit:
+    fexpr.error("$dll argument should be fstrlit.")
+  scope.word.get.internal.obj.dll = some(fexpr.args[0].strval)
+  resolveByVoid(fexpr)
+proc semCdecl*(scope: FScope, fexpr: var FExpr) =
+  if scope.word.isNone:
+    fexpr.error("$dll should be declaration in word.")
+  scope.word.get.internal.obj.callconv = convCdecl
+  resolveByVoid(fexpr)
+proc semStdcall*(scope: FScope, fexpr: var FExpr) =
+  if scope.word.isNone:
+    fexpr.error("$dll should be declaration in word.")
+  scope.word.get.internal.obj.callconv = convStdcall
+  resolveByVoid(fexpr)
 
 #
 # Evaluater
@@ -61,10 +82,6 @@ proc semReturned*(scope: FScope, fexpr: var FExpr) =
     fexpr.args[0].error("undeclared $# type." % $fexpr.args[0])
   scope.word.get.internal.obj.returntype.wrapped = typ.get
   fexpr.typ = some(typ.get)
-proc semTemplate*(scope: FScope, fexpr: var FExpr) =
-  if scope.word.isNone:
-    fexpr.error("$template should be declaration in word.")
-  scope.word.get.internal.obj.isTemplate = true
 
 proc semWord*(scope: FScope, fexpr: var FExpr) =
   let fnscope = scope.extendFScope()
@@ -101,12 +118,6 @@ proc semWord*(scope: FScope, fexpr: var FExpr) =
       if argtype.kind == symbolLink and $argtype.wrapped == "undef":
         argtype.wrapped = fnscope.symbol("T" & $i, symbolGenerics, fident(fexpr.span, "T" & $i))
         i.inc
-    # if fexpr.internal.obj.isTemplate: # FIXME:
-    #   var i = 0
-    #   for argtype in argtypes:
-    #     if argtype.kind == symbolLink and $argtype.wrapped == "undef":
-    #       argtype.wrapped = fnscope.symbol("T" & $i, symbolGenerics, fident(fexpr.span, "T" & $i))
-    #       i.inc
     fexpr.internal.obj.argtypes = some(iarray(argtypes))
     fexpr.internal.obj.inferargtypes = ilistNil[Symbol]()
 
@@ -258,7 +269,6 @@ proc initInternalEval*(scope: FScope) =
   scope.addInternalEval("=>", semWord)
   scope.addInternalEval("$typed", semTyped)
   scope.addInternalEval("$returned", semReturned)
-  scope.addInternalEval("$template", semTemplate)
   scope.addInternalEval("$struct", semStruct)
   scope.addInternalEval("$field", semField)
 
@@ -270,6 +280,10 @@ proc initInternalEval*(scope: FScope) =
 
   # pragmas
   scope.addInternalEval("internalop", semInternalOp)
+  scope.addInternalEval("$cffi", semCFFI)
+  scope.addInternalEval("$dll", semDLL)
+  scope.addInternalEval("$cdecl", semCdecl)
+  scope.addInternalEval("$stdcall", semStdcall)
 
 proc initInternalScope*() =
   let scope = newFScope("internal", "internal")

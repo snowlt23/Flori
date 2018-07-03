@@ -2,6 +2,7 @@
 import x86code, asm_x86
 import tables
 import strutils
+import options
 
 type
   AsmContext*[B] = object
@@ -50,6 +51,8 @@ proc generateX86*[B](ctx: var AsmContext[B], code: X86Code) =
   case code.kind
   of X86CodeKind.Label:
     ctx.addLabel(code.label.name)
+  of X86CodeKind.AVar:
+    discard
   of X86CodeKind.Add:
     ctx.generateLeftRight(code, add, add)
   of X86CodeKind.Sub:
@@ -59,6 +62,10 @@ proc generateX86*[B](ctx: var AsmContext[B], code: X86Code) =
   of X86CodeKind.ADiv:
     discard
   of X86CodeKind.Mov:
+    if code.mov.left.kind == X86AtomKind.Reg and code.mov.right.kind == X86AtomKind.StrLit:
+      let saddr = ctx.buffer.strlit(code.mov.right.strlit.strval)
+      ctx.buffer.mov(code.mov.left.reg.reg, int32(ctx.buffer.baseaddr) + saddr)
+      return
     ctx.generateLeftRight(code, mov, mov)
   of X86CodeKind.Push:
     if code.push.value.kind == X86AtomKind.Reg:
@@ -71,6 +78,9 @@ proc generateX86*[B](ctx: var AsmContext[B], code: X86Code) =
       ctx.buffer.push(eax)
     elif code.push.value.kind == X86AtomKind.IntLit:
       ctx.buffer.push(int32(code.push.value.intlit.intval))
+    elif code.push.value.kind == X86AtomKind.StrLit:
+      let saddr = ctx.buffer.strlit(code.push.value.strlit.strval)
+      ctx.buffer.push(int32(ctx.buffer.baseaddr) + saddr)
     else:
       raise newException(Exception, "unsupported $# kind in x86.push" % [$code.push.value.kind])
   of X86CodeKind.Pop:
@@ -97,10 +107,14 @@ proc generateX86*[B](ctx: var AsmContext[B], code: X86Code) =
     ctx.buffer.jmp(ctx.getRel(code.jmp.label))
   of X86CodeKind.Call:
     ctx.buffer.callRel(ctx.getRel(code.call.label))
+  of X86CodeKind.FFICall:
+    if code.fficall.address.isSome:
+      ctx.buffer.mov(eax, int32(code.fficall.address.get))
+      ctx.buffer.call(eax)
+    else:
+      ctx.buffer.callRel(ctx.getRel(code.fficall.label))
   of X86CodeKind.Ret:
     ctx.buffer.ret()
-  else:
-    discard
 
 proc generateX86*[B](ctx: var AsmContext[B], x86ctx: X86Context) =
   var tmpctx = newAsmContext(newSeq[uint8]())

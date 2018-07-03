@@ -3,12 +3,14 @@ import tables
 import strutils, sequtils
 import options
 
+import ../image
 import variant
 
 defVariant TAAtom:
   None()
   AVar(name: string)
   IntLit(intval: int64)
+  StrLit(strval: string)
 
 defVariant TACode:
   Add(name: string, left: TAAtom, right: TAAtom)
@@ -20,6 +22,7 @@ defVariant TACode:
   Set(name: string, value: TAAtom)
   Label(name: string)
   Call(name: string, calllabel: string, args: seq[TAAtom], isPure: bool)
+  FFICall(name: string, calllabel: string, address: Option[int], args: seq[TAAtom], isPure: bool, callconv: CallConvention)
   AVar(name: string, size: int, value: TAAtom)
   Goto(gotolabel: string)
   AIf(cond: TAAtom, gotolabel: string)
@@ -70,6 +73,8 @@ proc hasDist*(code: TACode): bool =
     return true
   of TACodeKind.Call:
     return true
+  of TACodeKind.FFICall:
+    return true
   of TACodeKind.AVar:
     return true
   else:
@@ -93,6 +98,8 @@ proc getname*(code: TACode): string =
     return code.set.name
   of TACodeKind.Call:
     return code.call.name
+  of TACodeKind.FFICall:
+    return code.fficall.name
   of TACodeKind.AVar:
     return code.avar.name
   else:
@@ -141,6 +148,10 @@ proc getVarRefs*(code: TACode): seq[string] =
     for arg in code.call.args:
       if arg.kind == TAAtomKind.AVar:
         result.add(arg.avar.name)
+  of TACodeKind.FFICall:
+    for arg in code.fficall.args:
+      if arg.kind == TAAtomKind.AVar:
+        result.add(arg.avar.name)
   of TACodeKind.AVar:
     if code.avar.value.kind == TAAtomKind.AVAr:
       result.add(code.avar.value.avar.name)
@@ -178,6 +189,8 @@ proc `$`*(a: TAAtom): string =
     a.avar.name
   of TAAtomKind.IntLit:
     $a.intlit.intval
+  of TAAtomKind.StrLit:
+    "\"" & a.strlit.strval & "\""
 proc `$`*(code: TACode): string =
   case code.kind
   of TACodeKind.Add:
@@ -198,6 +211,8 @@ proc `$`*(code: TACode): string =
     "$#:" % code.label.name
   of TACodeKind.Call:
     "$# = $#($#)" % [code.call.name, code.call.calllabel, code.call.args.mapIt($it).join(", ")]
+  of TACodeKind.FFICall:
+    "$# = $#($#)" % [code.fficall.name, $code.fficall.calllabel, code.fficall.args.mapIt($it).join(", ")]
   of TACodeKind.AVar:
     "$# $# := $#" % [code.avar.name, sizerepr(code.avar.size), $code.avar.value]
   of TACodeKind.Goto:
@@ -246,6 +261,9 @@ iterator atoms*(ctx: var TAContext): var TAAtom =
       discard
     of TACodeKind.Call:
       for arg in code.call.args.mitems:
+        yield(arg)
+    of TACodeKind.FFICall:
+      for arg in code.fficall.args.mitems:
         yield(arg)
     of TACodeKind.AVar:
       yield(code.avar.value)
