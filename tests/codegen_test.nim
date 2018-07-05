@@ -29,6 +29,7 @@ template instImage(testname: string) =
     for f in result.mitems:
       scope.rootPass(f)
       discard tactx.convertFExpr(f)
+      tactx = tactx.optimize()
   evaltest(prelude)
 
 proc objdump*(bin: string): string =
@@ -41,8 +42,9 @@ template jittest(): pointer =
   let jitbuf = initJitBuffer(1024)
   let p = toProc[pointer](jitbuf.getproc())
   var asmctx = newAsmContext(jitbuf)
-  var x86ctx = tactx.optimize().x86Tiling().freqRegalloc(tactx.analyzeLiveness())
-  asmctx.generateX86(x86ctx)
+  let liveness = tactx.analyzeLiveness()
+  var (x86ctx, _) = tactx.x86Tiling().freqRegalloc(liveness, newX86Platform())
+  discard asmctx.generateX86(x86ctx, newX86Platform())
   # echo x86ctx
   # echo jitbuf.toBin.objdump
   p

@@ -8,36 +8,20 @@ proc exe*(s: string): string =
   else:
     s
 
-task "debug64", "build 64bit compiler":
+task "debug-build", "build compiler":
   if not existsDir("bin"):
     createDir("bin")
-  discard execShellCmd("nim c compiler/flori.nim")
+  discard execShellCmd("nim c --cpu:i386 compiler/flori")
   copyFile("compiler/flori".exe, "bin/flori".exe)
-
-task "buildrepl", "build 64bit repl":
-  if not existsDir("bin"):
-    createDir("bin")
-  discard execShellCmd("nim c -d:release -d:replError compiler/florirepl.nim")
-  copyFile("compiler/florirepl".exe, "bin/florirepl".exe)
-task "build64", "build 64bit compiler":
-  if not existsDir("bin"):
-    createDir("bin")
-  discard execShellCmd("nim c -d:release compiler/flori.nim")
-  copyFile("compiler/flori".exe, "bin/flori".exe)
-task "build32", "build 32bit compiler":
-  if not existsDir("bin"):
-    createDir("bin")
-  discard execShellCmd("nim c -d:release --cpu:i386 --passC:\"-m32\" --passL:\"-m32\" compiler/flori.nim")
-  copyFile("compiler/flori".exe, "bin/flori32".exe)
-
 task "build", "build compiler":
-  runTask "buildrepl"
-  runTask "build64"
-  runTask "build32"
+  if not existsDir("bin"):
+    createDir("bin")
+  discard execShellCmd("nim c -d:release --cpu:i386 compiler/flori")
+  copyFile("compiler/flori".exe, "bin/flori".exe)
 
 task "release", "packaging build binaries to zip":
   runTask "build"
   discard execShellCmd("7z a flori-v.zip bin core std ffi examples")
-  
+
 task "test", "":
-  discard execShellCmd("nim c -r tests/floritester.nim")
+  discard execShellCmd("nim c -r --cpu:i386 tests/basictester.nim")

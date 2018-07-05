@@ -22,7 +22,7 @@ defVariant TACode:
   Set(name: string, value: TAAtom)
   Label(name: string)
   Call(name: string, calllabel: string, args: seq[TAAtom], isPure: bool)
-  FFICall(name: string, calllabel: string, address: Option[int], args: seq[TAAtom], isPure: bool, callconv: CallConvention)
+  FFICall(name: string, calllabel: string, dll: Option[string], address: Option[int], args: seq[TAAtom], isPure: bool, callconv: CallConvention, internal: bool)
   AVar(name: string, size: int, value: TAAtom)
   Goto(gotolabel: string)
   AIf(cond: TAAtom, gotolabel: string)
@@ -34,6 +34,7 @@ type
     args*: seq[(string, int)]
     retsize*: int
     body*: seq[TACode]
+    generated*: bool
   TAContext* = object
     fns*: seq[TAFn]
     codes*: seq[TACode]

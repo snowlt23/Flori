@@ -4,6 +4,7 @@ import strutils, options, algorithm
 
 type
   ParseError* = object of Exception
+  MoreToken* = object of Exception
   ParserContext* = object
     tokens*: seq[Token]
     pos*: int
@@ -21,6 +22,8 @@ proc getToken*(ctx: var ParserContext, rel = 0): Option[Token] =
     some(ctx.tokens[ctx.pos+rel])
 proc nextToken*(ctx: var ParserContext) =
   ctx.pos += 1
+proc moreToken*(ctx: var ParserContext) =
+  raise newException(MoreToken, "require more token.")
 proc error*(token: Token, msg: string) =
   raise newException(ParseError, "$#($#:$#) " % [$token.span.filename, $token.span.line, $token.span.linepos] & msg)
 proc error*(ctx: ParserContext, msg: string) =
@@ -31,22 +34,27 @@ proc error*(ctx: ParserContext, msg: string) =
 
 template defineInfixExpr(name, call, pri) =
   proc name(ctx: var ParserContext): FExpr =
-    var f = ctx.call()
-    while true:
+    if ctx.getToken().get.kind == tokenInfix and ctx.getToken().get.priority == pri:
       let tok = ctx.getToken()
-      if tok.isNone:
-        break
-      if tok.get.kind == tokenInfix and tok.get.priority == pri:
-        ctx.nextToken()
-        f = finfix(tok.get.span, fident(tok.get.span, tok.get.infix), f, ctx.call())
-      else:
-        break
-    return f
+      ctx.nextToken()
+      return fprefix(tok.get.span, fident(tok.get.span, tok.get.infix), ctx.call())
+    else:
+      var f = ctx.call()
+      while true:
+        let tok = ctx.getToken()
+        if tok.isNone:
+          break
+        if tok.get.kind == tokenInfix and tok.get.priority == pri:
+          ctx.nextToken()
+          f = finfix(tok.get.span, fident(tok.get.span, tok.get.infix), f, ctx.call())
+        else:
+          break
+      return f
 
 proc factor(ctx: var ParserContext): FExpr =
   let tok = ctx.getToken
   if tok.isNone:
-    ctx.error("required more token.")
+    ctx.moreToken()
   if tok.get.kind == tokenLParen:
     ctx.nextToken()
     let f = ctx.topexpr()
@@ -83,11 +91,11 @@ proc quoteexpr(ctx: var ParserContext): FExpr =
     ctx.nextToken()
     let id = ctx.getToken()
     if id.isNone:
-      tok.get.error("required more token.")
+      ctx.moreToken()
     ctx.nextToken()
     return fquote(tok.get.span, $id.get)
   elif tok.isSome and tok.get.kind == tokenInfix:
-    # prefix
+    # prefix operator
     tok.get.error("$# prefix operator unsupported in currently." % $tok.get)
   else:
     return ctx.factor()
@@ -105,7 +113,7 @@ proc callexpr(ctx: var ParserContext): FExpr =
       args.add(ctx.topexpr())
       let next = ctx.getToken()
       if next.isNone:
-        ctx.error("required more token.")
+        ctx.moreToken()
       if next.get.kind == tokenComma:
         ctx.nextToken()
         continue
@@ -176,7 +184,7 @@ defineInfixExpr(infix14, infix12, 14)
 proc blockexpr(ctx: var ParserContext): FExpr =
   let tok = ctx.getToken()
   if tok.isNone:
-    ctx.error("required more token.")
+    ctx.moreToken()
   if tok.get.kind == tokenLBlock:
     ctx.nextToken()
     var sons = newSeq[FExpr]()
@@ -186,7 +194,7 @@ proc blockexpr(ctx: var ParserContext): FExpr =
         sons.add(son)
       let next = ctx.getToken()
       if next.isNone:
-        ctx.error("require more token by block.")
+        ctx.moreToken()
       if next.get.kind == tokenRBlock:
         ctx.nextToken()
         return fblock(tok.get.span, sons)
@@ -206,12 +214,20 @@ proc blockexpr(ctx: var ParserContext): FExpr =
           for b in bexpr.sons:
             exprs.add(b)
         break
-      elif tok.get.kind in {tokenInfix, tokenRParen, tokenRBlock, tokenComma}:
+      if tok.isNone:
+        break
+      if tok.get.kind in {tokenRParen, tokenRBlock, tokenComma}:
         break
       let son = ctx.infix14()
+      exprs.add(son)
       if son.kind == fexprBlock and son.sons.len == 0:
         continue
-      exprs.add(son)
+
+      let next = ctx.getToken()
+      if next.isNone:
+        break
+      if next.get.kind in {tokenInfix}:
+        break
     if exprs.len == 1:
       return exprs[0]
     else:

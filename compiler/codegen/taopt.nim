@@ -139,6 +139,8 @@ proc optElimDeadLabel*(ctx: TAContext): TAContext =
 proc optimize*(ctx: var TAContext): TAContext =
   result = newTAContext()
   for fn in ctx.fns:
+    if fn.generated:
+      continue
     var fnctx = newTAContext()
     fnctx.codes = fn.body
     var optimized = fnctx

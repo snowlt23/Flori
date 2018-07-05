@@ -57,6 +57,11 @@ proc semStdcall*(scope: FScope, fexpr: var FExpr) =
     fexpr.error("$dll should be declaration in word.")
   scope.word.get.internal.obj.callconv = convStdcall
   resolveByVoid(fexpr)
+proc semInternalFFI*(scope: FScope, fexpr: var FExpr) =
+  if scope.word.isNone:
+    fexpr.error("$dll should be declaration in word.")
+  scope.word.get.internal.obj.internalffi = true
+  resolveByVoid(fexpr)
 
 #
 # Evaluater
@@ -264,6 +269,14 @@ proc addInternalEval*(scope: FScope, n: string, p: InternalProcType) =
     internalproc: some(p),
     name: istring(n),
   ))
+proc relocInternalEval*(scope: FScope, n: string, p: InternalProcType) =
+  var cur = scope.procdecls
+  while true:
+    if cur.isNil:
+      break
+    if $cur.value.name == n:
+      cur.value.value.decls.value.internalproc = some(p)
+    cur = cur.next
 
 proc initInternalEval*(scope: FScope) =
   scope.addInternalEval("=>", semWord)
@@ -284,6 +297,28 @@ proc initInternalEval*(scope: FScope) =
   scope.addInternalEval("$dll", semDLL)
   scope.addInternalEval("$cdecl", semCdecl)
   scope.addInternalEval("$stdcall", semStdcall)
+  scope.addInternalEval("$internalffi", semInternalFFI)
+
+proc relocInternalEval*(scope: FScope) =
+  scope.relocInternalEval("=>", semWord)
+  scope.relocInternalEval("$typed", semTyped)
+  scope.relocInternalEval("$returned", semReturned)
+  scope.relocInternalEval("$struct", semStruct)
+  scope.relocInternalEval("$field", semField)
+
+  scope.relocInternalEval("if", semIf)
+  scope.relocInternalEval("while", semWhile)
+  scope.relocInternalEval(":=", semDef)
+  scope.relocInternalEval("=", semSet)
+  scope.relocInternalEval(".", semDot)
+
+  # pragmas
+  scope.relocInternalEval("internalop", semInternalOp)
+  scope.relocInternalEval("$cffi", semCFFI)
+  scope.relocInternalEval("$dll", semDLL)
+  scope.relocInternalEval("$cdecl", semCdecl)
+  scope.relocInternalEval("$stdcall", semStdcall)
+  scope.relocInternalEval("$internalffi", semInternalFFI)
 
 proc initInternalScope*() =
   let scope = newFScope("internal", "internal")
@@ -296,6 +331,8 @@ proc initRootScope*() =
   initInternalScope()
   rootScope.importFScope(internalScope.obj.name, internalScope)
   rootPass = processSemPass
+proc relocRootScope*() =
+  rootScope = FScope(index: 0)
 
 proc semModule*(name: IString, scope: FScope, fexprs: var seq[FExpr]) =
   let opt = scope.imports.find($name)

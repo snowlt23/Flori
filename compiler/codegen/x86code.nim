@@ -3,6 +3,7 @@ import strutils, sequtils
 import algorithm
 import tables
 import options
+import streams, marshal
 
 import variant
 import ../image
@@ -32,10 +33,11 @@ defVariant X86Code:
   JmpZero(label: string)
   Jmp(label: string)
   Call(label: string, args: seq[X86Atom])
-  FFICall(label: string, address: Option[int], args: seq[X86Atom], callconv: CallConvention)
+  FFICall(label: string, dll: Option[string], address: Option[int], args: seq[X86Atom], callconv: CallConvention, internal: bool)
   Ret()
 
 type
+  FreqRegInfo* = tuple[lifetime: int, count: int, candestroy: bool, atom: X86Atom]
   X86Fn* = object
     name*: string
     args*: seq[(string, int)]
@@ -44,6 +46,9 @@ type
     fns*: seq[X86Fn]
     codes*: seq[X86Code]
     tmpl*: int
+  X86Platform* = object
+    fnregtbl*: Table[string, (seq[X86Atom], seq[Reg32])]
+    fnpostbl*: Table[string, int]
 
 const refX86Atom* = {X86AtomKind.EbpRel, X86AtomKind.EspRel}
 
@@ -136,6 +141,8 @@ proc `$`*(ctx: X86Context): string =
 
 proc newX86Context*(): X86Context =
   X86Context(fns: @[], codes: @[])
+proc newX86Platform*(): X86Platform =
+  X86Platform(fnregtbl: initTable[string, (seq[X86Atom], seq[Reg32])](), fnpostbl: initTable[string, int]())
 
 proc collectNaiveStacklen*(fn: X86Fn): int =
   result = 0
@@ -403,8 +410,6 @@ proc simpleRegalloc*(ctx: X86Context, liveness: Liveness): X86Context =
 # Freq Regalloc
 #
 
-type FreqRegInfo* = tuple[lifetime: int, count: int, candestroy: bool, atom: X86Atom]
-
 proc expandCallByRegmap*(fn: var X86Fn, code: X86Code, args: seq[X86Atom], argregs: seq[X86Atom], destregs: seq[Reg32], liveness: Liveness) =
   var argssize = 0
   for r in destregs:
@@ -509,8 +514,24 @@ proc freqRegalloc*(fn: X86Fn, fnmap: var Table[string, (seq[X86Atom], seq[Reg32]
   if curvarpos != 0:
     result = result.expandEpilogue()
 
-proc freqRegalloc*(ctx: X86Context, liveness: Liveness): X86Context =
-  result = newX86Context()
+proc freqRegalloc*(ctx: X86Context, liveness: Liveness, platform: X86Platform): (X86Context, X86Platform) =
+  var retctx = newX86Context()
   var fnmap = initTable[string, (seq[X86Atom], seq[Reg32])]()
+  for key, value in platform.fnregtbl:
+    fnmap[key] = value
   for fn in ctx.fns:
-    result.fns.add(fn.freqRegalloc(fnmap, liveness))
+    retctx.fns.add(fn.freqRegalloc(fnmap, liveness))
+  result = (retctx, X86Platform(fnregtbl: fnmap, fnpostbl: platform.fnpostbl))
+
+#
+# Platform
+#
+
+proc write*(s: Stream, plat: X86Platform) =
+  let platstr = $$plat
+  s.write(platstr.len.int64)
+  s.write(platstr)
+proc read*(plat: var X86Platform, s: Stream) =
+  let ssize = s.readInt64()
+  let str = s.readStr(ssize.int)
+  plat = to[X86Platform](str)

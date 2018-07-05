@@ -9,7 +9,7 @@ import algorithm
 import image, symbol
 
 const fexprAtoms* = {fexprIdent..fexprStrLit}
-const fexprCalls* = {fexprInfix..fexprField}
+const fexprCalls* = {fexprPrefix..fexprField}
 
 proc `$`*(fexpr: FExpr): string
 
@@ -60,6 +60,8 @@ proc ffloatlit*(span: Span, x: float): FExpr =
 proc fstrlit*(span: Span, s: string): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprStrLit, strval: istring(s)))
 
+proc fprefix*(span: Span, call, value: FExpr): FExpr =
+  genFExpr(FExprObj(span: span, kind: fexprPrefix, callname: call, args: iarray([value])))
 proc finfix*(span: Span, call, left, right: FExpr): FExpr =
   genFExpr(FExprObj(span: span, kind: fexprInfix, callname: call, args: iarray([left, right])))
 proc fcall*(span: Span, call: FExpr, args: openArray[FExpr]): FExpr =
@@ -121,6 +123,8 @@ proc toString*(fexpr: var FExprObj, indent: int, desc: bool, typ: bool): string 
     $fexpr.floatval
   of fexprStrLit:
     "\"" & $fexpr.strval & "\""
+  of fexprPrefix:
+    toString(fexpr.callname, indent, desc, typ) & toString(fexpr.args[0], indent, desc, typ)
   of fexprInfix:
     toString(fexpr.args[0], indent, desc, typ) & " " & toString(fexpr.callname, indent, desc, typ) & " " & toString(fexpr.args[1], indent, desc, typ)
   of fexprCall:

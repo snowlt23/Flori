@@ -74,6 +74,7 @@ proc analyzeLiveness*(ctx: TAContext): Liveness =
   result = Liveness(variables: initTable[string, VarLive]())
 
   for fn in ctx.fns:
+    if fn.generated: continue
     # fn args liveness
     for i, arg in fn.args:
       let (argname, _) = arg

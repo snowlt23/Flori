@@ -3,6 +3,8 @@ import options
 import tables
 import streams
 
+import codegen.jit
+
 type
   CallConvention* = enum
     convNone
@@ -42,6 +44,7 @@ type
     internalsize*: int
     cffi*: Option[IString]
     dll*: Option[IString]
+    internalffi*: bool
     callconv*: CallConvention
     isTemplate*: bool
     argnames*: Option[IArray[Symbol]]
@@ -85,6 +88,7 @@ type
     fexprFloatLit
     fexprStrLit
 
+    fexprPrefix
     fexprInfix
     fexprCall
     fexprMethod
@@ -112,7 +116,7 @@ type
       floatval*: float64
     of fexprStrLit:
       strval*: IString
-    of fexprInfix, fexprCall, fexprMethod, fexprField:
+    of fexprPrefix, fexprInfix, fexprCall, fexprMethod, fexprField:
       callname*: FExpr
       args*: IArray[FExpr]
     of fexprBlock:
@@ -150,7 +154,8 @@ type
     procdecls*: IList[TupleTable[ProcDeclGroup]]
   FScope* = object
     index*: int
-  FImage* = object
+  FImage*[B] = object
+    buffer*: B
     fexprs*: seq[FExprObj]
     symbols*: seq[SymbolObj]
     scopes*: seq[FScopeObj]
@@ -161,10 +166,10 @@ type
     tmpcount*: int
     rootScope*: FScope
 
-proc newFImage*(): FImage =
-  FImage(fexprs: @[], symbols: @[], scopes: @[], mem: @[], importpaths: IList[IString](index: -1))
+proc newFImage*[B](jitbuf: B): FImage[B] =
+  FImage[B](buffer: jitbuf, fexprs: @[], symbols: @[], scopes: @[], mem: @[], importpaths: IList[IString](index: -1))
 
-var gImage* = newFImage()
+var gImage* = newFImage(initJitBuffer(1024*1024))
 var gCtx* = SemContext(expands: @[], tmpcount: 0)
 
 template rootScope*(): FScope = gCtx.rootScope
@@ -339,15 +344,17 @@ proc writeimage*(s: Stream, image: var FImage) =
   s.write(ssize.int64)
   s.write(memsize.int64)
   s.write(fs)
+  s.write(syms)
   s.write(ss)
   s.write(mem)
   s.write(image.importpaths)
-proc readimage*(s: Stream): FImage =
+  s.write(image.buffer)
+proc readimage*(s: Stream): FImage[JitBuffer] =
   let fsize = s.readInt64()
   let symsize = s.readInt64()
   let ssize = s.readInt64()
   let memsize = s.readInt64()
-  result = FImage(fexprs: newSeq[FExprObj](fsize div sizeof(FExprObj)), symbols: newSeq[SymbolObj](symsize div sizeof(SymbolObj)), scopes: newSeq[FScopeObj](ssize div sizeof(FScopeObj)), mem: newSeq[uint8](memsize))
+  result = FImage[JitBuffer](fexprs: newSeq[FExprObj](fsize div sizeof(FExprObj)), symbols: newSeq[SymbolObj](symsize div sizeof(SymbolObj)), scopes: newSeq[FScopeObj](ssize div sizeof(FScopeObj)), mem: newSeq[uint8](memsize))
   if result.fexprs.len != 0:
     discard s.readData(cast[pointer](addr(result.fexprs[0])), fsize.int)
   if result.symbols.len != 0:
@@ -357,12 +364,15 @@ proc readimage*(s: Stream): FImage =
   if result.mem.len != 0:
     discard s.readData(cast[pointer](addr(result.mem[0])), memsize.int)
   discard s.readData(cast[pointer](addr(result.importpaths)), sizeof(IList[IString]))
-proc saveimage*(filename: string) =
+  result.buffer = s.readJitBuffer()
+proc saveimage*[P](filename: string, platform: P) =
   let ss = newStringStream()
   ss.writeimage(gImage)
+  ss.write(platform)
   writeFile(filename, ss.data)
-proc loadimage*(filename: string) =
+proc loadimage*[P](filename: string): P =
   let ss = newStringStream(readFile(filename))
   gImage = ss.readimage()
   if gImage.scopes.len > 0:
     gCtx.rootScope = FScope(index: 0)
+  result.read(ss)

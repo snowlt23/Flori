@@ -94,7 +94,7 @@ defTile tileX86FFICall:
     TACodeKind.FFICall
   CODE:
     initX86CodeAVar(code1.fficall.name, 4, true) # FIXME:
-    initX86CodeFFICall(code1.fficall.calllabel, code1.fficall.address, code1.fficall.args.mapIt(toX86Atom(it)), code1.fficall.callconv)
+    initX86CodeFFICall(code1.fficall.calllabel, code1.fficall.dll, code1.fficall.address, code1.fficall.args.mapIt(toX86Atom(it)), code1.fficall.callconv, code1.fficall.internal)
     initX86CodeMov(initX86AtomTemp(code1.fficall.name), initX86AtomReg(eax))
 
 defTile tileX86AVar:
@@ -229,9 +229,10 @@ type TileTAFn* = object
 proc `[]`*(fn: TileTAFn, i: int): TACode = fn.codes[i]
 proc len*(fn: TileTAFn): int = fn.codes.len
 
-proc x86Tiling*(ctx: TAContext): X86Context =
+proc x86Tiling*(ctx: var TAContext): X86Context =
   result = newX86Context()
-  for fn in ctx.fns:
+  for fn in ctx.fns.mitems:
+    fn.generated = true
     var fnctx = newX86Context()
     var tilefn = TileTAFn(codes: fn.body, pos: 0)
     while tilefn.pos < tilefn.len:

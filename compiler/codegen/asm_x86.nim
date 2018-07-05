@@ -236,6 +236,7 @@ proc leave*[B](b: var B) =
   b.asmb(0xC9)
 
 proc strlit*[B](b: var B, s: string): int32 =
+  let s = s.replace("\\n", "\n")
   if isImm8(int32(s.len+2+1)):
     b.jmp(int32(s.len+2+1))
   else:

@@ -65,6 +65,7 @@ proc generateX86*[B](ctx: var AsmContext[B], code: X86Code) =
     if code.mov.left.kind == X86AtomKind.Reg and code.mov.right.kind == X86AtomKind.StrLit:
       let saddr = ctx.buffer.strlit(code.mov.right.strlit.strval)
       ctx.buffer.mov(code.mov.left.reg.reg, int32(ctx.buffer.baseaddr) + saddr)
+      ctx.buffer.addStrLitReloc(saddr, ctx.buffer.len-4)
       return
     ctx.generateLeftRight(code, mov, mov)
   of X86CodeKind.Push:
@@ -81,6 +82,7 @@ proc generateX86*[B](ctx: var AsmContext[B], code: X86Code) =
     elif code.push.value.kind == X86AtomKind.StrLit:
       let saddr = ctx.buffer.strlit(code.push.value.strlit.strval)
       ctx.buffer.push(int32(ctx.buffer.baseaddr) + saddr)
+      ctx.buffer.addStrLitReloc(saddr, ctx.buffer.len-4)
     else:
       raise newException(Exception, "unsupported $# kind in x86.push" % [$code.push.value.kind])
   of X86CodeKind.Pop:
@@ -110,14 +112,29 @@ proc generateX86*[B](ctx: var AsmContext[B], code: X86Code) =
   of X86CodeKind.FFICall:
     if code.fficall.address.isSome:
       ctx.buffer.mov(eax, int32(code.fficall.address.get))
+      if code.fficall.internal:
+        ctx.buffer.addInternalReloc(code.fficall.label, ctx.buffer.len-4)
+      else:
+        ctx.buffer.addDLLReloc(code.fficall.dll.get, code.fficall.label, ctx.buffer.len-4)
       ctx.buffer.call(eax)
     else:
       ctx.buffer.callRel(ctx.getRel(code.fficall.label))
   of X86CodeKind.Ret:
     ctx.buffer.ret()
 
-proc generateX86*[B](ctx: var AsmContext[B], x86ctx: X86Context) =
-  var tmpctx = newAsmContext(newSeq[uint8]())
+type
+  DummyBuffer* = object
+    len*: int
+proc add*(buf: var DummyBuffer, v: uint8) =
+  buf.len += 1
+proc baseaddr*(buf: var DummyBuffer): int = 0
+proc addDLLReloc*(buf: var DummyBuffer, dllname: string, fnname: string, address: int) = discard
+proc addInternalReloc*(buf: var DummyBuffer, fnname: string, address: int) = discard
+proc addStrLitReloc*(buf: var DummyBuffer, strpos: int32, address: int) = discard
+
+proc generateX86*[B](ctx: var AsmContext[B], x86ctx: X86Context, plat: X86Platform): X86Platform =
+  var tmpctx = newAsmContext(DummyBuffer(len: ctx.buffer.len))
+  tmpctx.labelpos = plat.fnpostbl
   for fn in x86ctx.fns:
     tmpctx.addLabel(fn.name)
     for code in fn.body:
@@ -131,3 +148,5 @@ proc generateX86*[B](ctx: var AsmContext[B], x86ctx: X86Context) =
   for fn in x86ctx.fns:
     for code in fn.body:
       ctx.generateX86(code)
+  result = plat
+  result.fnpostbl = tmpctx.labelpos
