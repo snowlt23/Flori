@@ -94,7 +94,7 @@ defTile tileX86FFICall:
     TACodeKind.FFICall
   CODE:
     initX86CodeAVar(code1.fficall.name, 4, true) # FIXME:
-    initX86CodeFFICall(code1.fficall.calllabel, code1.fficall.dll, code1.fficall.address, code1.fficall.args.mapIt(toX86Atom(it)), code1.fficall.callconv, code1.fficall.internal)
+    initX86CodeFFICall(code1.fficall.calllabel, code1.fficall.ffiname, code1.fficall.dll, code1.fficall.address, code1.fficall.args.mapIt(toX86Atom(it)), code1.fficall.callconv, code1.fficall.internal)
     initX86CodeMov(initX86AtomTemp(code1.fficall.name), initX86AtomReg(eax))
 
 defTile tileX86AVar:

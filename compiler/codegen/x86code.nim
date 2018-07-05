@@ -33,7 +33,7 @@ defVariant X86Code:
   JmpZero(label: string)
   Jmp(label: string)
   Call(label: string, args: seq[X86Atom])
-  FFICall(label: string, dll: Option[string], address: Option[int], args: seq[X86Atom], callconv: CallConvention, internal: bool)
+  FFICall(label: string, ffiname: string, dll: Option[string], address: Option[int], args: seq[X86Atom], callconv: CallConvention, internal: bool)
   Ret()
 
 type

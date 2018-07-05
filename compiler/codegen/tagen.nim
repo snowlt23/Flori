@@ -163,9 +163,9 @@ proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom =
     if fexpr.call.symbol.fexpr.internal.obj.callconv == convNone:
       fexpr.call.symbol.fexpr.error("please specify ffi call convention. ($cdecl, $stdcall)")
     if fexpr.call.symbol.fexpr.internal.obj.internalffi:
-      ctx.add(initTACodeFFICall(tmp, $fexpr.call, none(string), some(cast[int](caddr)), fexpr.args.mapIt(ctx.convertFExpr(it)), false, fexpr.call.symbol.fexpr.internal.obj.callconv, true))
+      ctx.add(initTACodeFFICall(tmp, $fexpr.call, cname, none(string), some(cast[int](caddr)), fexpr.args.mapIt(ctx.convertFExpr(it)), false, fexpr.call.symbol.fexpr.internal.obj.callconv, true))
     else:
-      ctx.add(initTACodeFFICall(tmp, $fexpr.call, some($fexpr.call.symbol.fexpr.internal.obj.dll.get), some(cast[int](caddr)), fexpr.args.mapIt(ctx.convertFExpr(it)), false, fexpr.call.symbol.fexpr.internal.obj.callconv, false))
+      ctx.add(initTACodeFFICall(tmp, $fexpr.call, cname, some($fexpr.call.symbol.fexpr.internal.obj.dll.get), some(cast[int](caddr)), fexpr.args.mapIt(ctx.convertFExpr(it)), false, fexpr.call.symbol.fexpr.internal.obj.callconv, false))
     return initTAAtomAVar(tmp)
   elif fexpr.kind in fexprCalls and $fexpr.call == "=>":
     return ctx.convertWord(fexpr)

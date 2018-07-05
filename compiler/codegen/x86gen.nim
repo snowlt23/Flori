@@ -115,7 +115,7 @@ proc generateX86*[B](ctx: var AsmContext[B], code: X86Code) =
       if code.fficall.internal:
         ctx.buffer.addInternalReloc(code.fficall.label, ctx.buffer.len-4)
       else:
-        ctx.buffer.addDLLReloc(code.fficall.dll.get, code.fficall.label, ctx.buffer.len-4)
+        ctx.buffer.addDLLReloc(code.fficall.dll.get, code.fficall.ffiname, ctx.buffer.len-4)
       ctx.buffer.call(eax)
     else:
       ctx.buffer.callRel(ctx.getRel(code.fficall.label))
