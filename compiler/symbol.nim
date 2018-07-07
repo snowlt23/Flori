@@ -45,11 +45,13 @@ proc varsym*(sym: Symbol): Symbol =
   result.obj.wrapped = sym
 
 proc isSpecSymbol*(sym: Symbol): bool =
-  if sym.kind == symbolType:
+  if sym.kind == symbolUnion:
+    return false
+  elif sym.kind == symbolType:
     return true
   elif sym.kind == symbolGenerics:
     return false
-  elif sym.kind in {symbolRef, symbolVar}:
+  elif sym.kind in {symbolLink, symbolRef, symbolVar}:
     return sym.wrapped.isSpecSymbol()
   elif sym.kind == symbolTypeGenerics:
     for t in sym.types:

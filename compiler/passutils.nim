@@ -34,6 +34,8 @@ defineInternalType(booltype, "bool", 4)
 defineInternalType(intlittype, "int", 4)
 defineInternalType(floatlittype, "float", 4)
 defineInternalType(strlittype, "cstring", 4)
+defineInternalType(pointertype, "pointer", 4)
+defineInternalType(ptrtype, "ptr", 4)
 defineInternalType(undeftype, "undef", 0)
 defineInternalType(uniontype, "union", 0)
 var fntypeString*: IString
@@ -42,6 +44,10 @@ var internalScope*: FScope
 proc initInternalPrimitive*(scope: FScope) =
   scope.instantiateInternalType()
   fntypeString = istring("fn")
+
+proc ptrtype*(sym: Symbol): Symbol =
+  result = sym.scope.symbol(ptrtypeIdent.idname, symbolTypeGenerics, ptrtypeIdent)
+  result.obj.types = iarray([sym])
 
 proc tmpsym*(): string =
   result = "tmpid" & $gCtx.tmpcount
@@ -98,10 +104,20 @@ proc getargtypes*(pd: ProcDecl): Option[IArray[Symbol]] =
   pd.sym.fexpr.internal.obj.argtypes
 proc getReturnType*(pd: ProcDecl): Symbol =
   pd.sym.fexpr.obj.internal.get.obj.returntype
+proc undecided*(pd: ProcDecl): bool =
+  pd.sym.fexpr.obj.internal.get.obj.undecided
 proc gettype*(f: FExpr): Symbol =
   if f.typ.isNone:
     f.error("expression hasn't type.")
   return f.typ.get
+
+proc hasCopy*(scope: FScope, dstvalue: Symbol, value: Symbol): bool =
+  for word in scope.getWords("copy"):
+    if word.getargtypes.isNone: continue
+    if word.getargtypes.get.len != 2: continue
+    if word.getargtypes.get[0].match(dstvalue) and word.getargtypes.get[1].match(value):
+      return true
+  return false
 
 proc filterWords*(words: openArray[ProcDecl], arglen: int): seq[ProcDecl] =
   result = @[]
@@ -112,6 +128,8 @@ proc argumentUnion*(words: openArray[ProcDecl], index: int): Option[Symbol] =
   var typs = newSeq[Symbol]()
   for word in words:
     if word.getargtypes.isNone:
+      continue
+    if word.undecided:
       continue
     typs.add(word.getargtypes.get[index])
   if typs.len == 0:

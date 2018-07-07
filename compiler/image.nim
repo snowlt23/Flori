@@ -39,7 +39,10 @@ type
     internalGreater
     internalLess
     internalSet
+    internalAddr
+    internalDeref
   InternalMarkerObj* = object
+    undecided*: bool
     internalop*: InternalOp
     internalsize*: int
     cffi*: Option[IString]
@@ -138,7 +141,6 @@ type
     internalproc*: Option[InternalProcType]
     name*: IString
     sym*: Symbol
-    undecided*: bool
   ProcDeclGroup* = object
     decls*: IList[ProcDecl]
   TupleTable*[T] = object

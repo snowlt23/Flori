@@ -35,6 +35,7 @@ template generateLeftRight*[B](ctx: var AsmContext[B], code: X86Code, variant: u
   elif code.variant.left.kind == X86AtomKind.Reg and code.variant.right.kind == X86AtomKind.IntLit:
     ctx.buffer.asmop(code.variant.left.reg.reg, int32(code.variant.right.intlit.intval))
   else:
+    echo code
     raise newException(Exception, "unsupported $#:$# pattern in x86" % [$code.variant.left.kind, $code.variant.right.kind])
 
 template generateValue*[B](ctx: var AsmContext[B], code: X86Code, variant: untyped, asmop: untyped) =
@@ -68,6 +69,16 @@ proc generateX86*[B](ctx: var AsmContext[B], code: X86Code) =
       ctx.buffer.addStrLitReloc(saddr, ctx.buffer.len-4)
       return
     ctx.generateLeftRight(code, mov, mov)
+  of X86CodeKind.Lea:
+    if code.lea.left.kind == X86AtomKind.Reg and code.lea.right.kind == X86AtomKind.Reg:
+      ctx.buffer.lea(code.lea.left.reg.reg, code.lea.right.reg.reg)
+    elif code.lea.left.kind == X86AtomKind.Reg and code.lea.right.kind == X86AtomKind.EbpRel:
+      ctx.buffer.lea(code.lea.left.reg.reg, ebp, int32(code.lea.right.ebprel.rel))
+    elif code.lea.left.kind == X86AtomKind.Reg and code.lea.right.kind == X86AtomKind.EspRel:
+      ctx.buffer.lea(code.lea.left.reg.reg, esp, int32(code.lea.right.esprel.rel))
+    else:
+      echo code
+      raise newException(Exception, "unsupported $#:$# pattern in x86" % [$code.lea.left.kind, $code.lea.right.kind])
   of X86CodeKind.Push:
     if code.push.value.kind == X86AtomKind.Reg:
       ctx.buffer.push(code.push.value.reg.reg)

@@ -7,7 +7,7 @@ import streams, marshal
 
 import variant
 import ../image
-import tacode, liveness, asm_x86
+import tacode, liveness, address, asm_x86
 
 defVariant X86Atom:
   Temp(name: string)
@@ -25,6 +25,7 @@ defVariant X86Code:
   Mul(right: X86Atom)
   ADiv(right: X86Atom)
   Mov(left: X86Atom, right: X86Atom)
+  Lea(left: X86Atom, right: X86Atom)
   Push(value: X86Atom)
   Pop(value: X86Atom)
   Cmp(left: X86Atom, right: X86Atom)
@@ -110,6 +111,8 @@ proc `$`*(code: X86Code): string =
     "div $#" % [$code.adiv.right]
   of X86CodeKind.Mov:
     "mov $#, $#" % [$code.mov.left, $code.mov.right]
+  of X86CodeKind.Lea:
+    "lea $#, [$#]" % [$code.lea.left, $code.lea.right]
   of X86CodeKind.Push:
     "push $#" % [$code.push.value]
   of X86CodeKind.Pop:
@@ -173,6 +176,9 @@ proc replaceTemp*(code: var X86Code, tmpname: string, by: X86Atom) =
   of X86CodeKind.Mov:
     code.mov.left.replaceTemp(tmpname, by)
     code.mov.right.replaceTemp(tmpname, by)
+  of X86CodeKind.Lea:
+    code.lea.left.replaceTemp(tmpname, by)
+    code.lea.right.replaceTemp(tmpname, by)
   of X86CodeKind.Push:
     code.push.value.replaceTemp(tmpname, by)
   of X86CodeKind.Pop:
@@ -215,6 +221,8 @@ proc expandDoubleRef*(fn: var X86Fn, code: X86Code) =
     expandLeftRight(fn, code, sub, initX86CodeSub)
   of X86CodeKind.Mov:
     expandLeftRight(fn, code, mov, initX86CodeMov)
+  of X86CodeKind.Lea:
+    expandLeftRight(fn, code, lea, initX86CodeLea)
   of X86CodeKind.Cmp:
     expandLeftRight(fn, code, cmp, initX86CodeCmp)
   else:
@@ -473,7 +481,7 @@ proc freqAllocReg*(tbl: var Table[string, FreqRegInfo], regmap: var Table[Reg32,
     curargpos += 4
     tbl[varname] = (lifetime, count, candestroy, initX86AtomEbpRel(curargpos+8))
 
-proc freqRegalloc*(fn: X86Fn, fnmap: var Table[string, (seq[X86Atom], seq[Reg32])], liveness: Liveness): X86Fn =
+proc freqRegalloc*(fn: X86Fn, fnmap: var Table[string, (seq[X86Atom], seq[Reg32])], liveness: Liveness, addrtable: AddressTable): X86Fn =
   result = X86Fn(name: fn.name, args: fn.args, body: @[])
 
   var variables = fn.collectVariables()
@@ -492,7 +500,12 @@ proc freqRegalloc*(fn: X86Fn, fnmap: var Table[string, (seq[X86Atom], seq[Reg32]
 
   for variable in variables:
     let (varname, varsize, iscall, i) = variable
-    freqAllocReg(allocatoms, regmap, curargpos, curvarpos, liveness, varname, true)
+    if addrtable[varname]:
+      curvarpos += 4
+      let (lifetime, count) = liveness.variables[varname]
+      allocatoms[varname] = (lifetime, count, true, initX86AtomEbpRel(-curvarpos))
+    else:
+      freqAllocReg(allocatoms, regmap, curargpos, curvarpos, liveness, varname, true)
 
   # prologue gen
   if curvarpos != 0:
@@ -514,13 +527,13 @@ proc freqRegalloc*(fn: X86Fn, fnmap: var Table[string, (seq[X86Atom], seq[Reg32]
   if curvarpos != 0:
     result = result.expandEpilogue()
 
-proc freqRegalloc*(ctx: X86Context, liveness: Liveness, platform: X86Platform): (X86Context, X86Platform) =
+proc freqRegalloc*(ctx: X86Context, liveness: Liveness, addrtable: AddressTable, platform: X86Platform): (X86Context, X86Platform) =
   var retctx = newX86Context()
   var fnmap = initTable[string, (seq[X86Atom], seq[Reg32])]()
   for key, value in platform.fnregtbl:
     fnmap[key] = value
   for fn in ctx.fns:
-    retctx.fns.add(fn.freqRegalloc(fnmap, liveness))
+    retctx.fns.add(fn.freqRegalloc(fnmap, liveness, addrtable))
   result = (retctx, X86Platform(fnregtbl: fnmap, fnpostbl: platform.fnpostbl))
 
 #

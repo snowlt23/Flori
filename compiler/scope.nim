@@ -8,6 +8,7 @@ import image, fexpr, symbol
 proc newFScope*(name: string, path: string): FScope =
   genFScope(FScopeObj(
     name: istring(name),
+    word: none(FExpr),
     top: FScope(index: -1),
     level: 0,
     imports: ilistNil[TupleTable[FScope]](),
@@ -17,6 +18,7 @@ proc newFScope*(name: string, path: string): FScope =
 proc extendFScope*(scope: FScope): FScope =
   genFScope(FScopeObj(
     name: scope.obj.name,
+    word: scope.obj.word,
     top: scope,
     level: scope.obj.level+1,
     imports: scope.obj.imports,

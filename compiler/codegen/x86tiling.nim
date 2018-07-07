@@ -81,6 +81,19 @@ defTile tileX86Set:
   CODE:
     initX86CodeMov(initX86AtomTemp(code1.set.name), toX86Atom(code1.set.value))
 
+defTile tileX86AAddr:
+  PATTERN:
+    TACodeKind.AAddr
+  CODE:
+    initX86CodeAVar(code1.aaddr.name, 4)
+    initX86CodeLea(initX86AtomTemp(code1.aaddr.name), toX86Atom(code1.aaddr.value))
+defTile tileX86Deref:
+  PATTERN:
+    TACodeKind.Deref
+  CODE:
+    initX86CodeAVar(code1.deref.name, 4)
+    initX86CodeMov(initX86AtomTemp(code1.deref.name), toX86Atom(code1.deref.value))
+
 defTile tileX86Call:
   PATTERN:
     TACodeKind.Call
@@ -96,6 +109,17 @@ defTile tileX86FFICall:
     initX86CodeAVar(code1.fficall.name, 4, true) # FIXME:
     initX86CodeFFICall(code1.fficall.calllabel, code1.fficall.ffiname, code1.fficall.dll, code1.fficall.address, code1.fficall.args.mapIt(toX86Atom(it)), code1.fficall.callconv, code1.fficall.internal)
     initX86CodeMov(initX86AtomTemp(code1.fficall.name), initX86AtomReg(eax))
+
+defTile tileX86Struct:
+  PATTERN:
+    TACodeKind.Struct
+  CODE:
+    initX86CodeAVar(code1.fficall.name, code1.size)
+defTile tileX86Field:
+  PATTERN:
+    TACodeKind.Field
+  CODE:
+    initX86CodeAVar(code1.field.name, code1.field.size)
 
 defTile tileX86AVar:
   PATTERN:
@@ -216,6 +240,8 @@ defTileset x86Tilingset:
   tileX86Greater
   tileX86Lesser
   tileX86Set
+  tileX86AAddr
+  tileX86Deref
   tileX86Call
   tileX86FFICall
   tileX86AVar

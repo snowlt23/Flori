@@ -30,6 +30,13 @@ proc semInternalOp*(scope: FScope, fexpr: var FExpr) =
   of "int_lesser":
     scope.word.get.internal.obj.internalop = internalLess
     fexpr.typ = some(booltypeSymbol)
+  of "addr":
+    scope.word.get.internal.obj.internalop = internalAddr
+    # fexpr.typ = some(ptrtype(scope.word.get.internal.obj.argtypes.get[0]))
+    fexpr.typ = some(pointertypeSymbol)
+  of "deref":
+    scope.word.get.internal.obj.internalop = internalDeref
+    fexpr.typ = some(scope.word.get.internal.obj.argtypes.get[0])
   else:
     fexpr.error("couldn't find internal operation: $#" % $op)
 
@@ -74,9 +81,10 @@ proc semTyped*(scope: FScope, fexpr: var FExpr) =
   var argtypes = newSeq[Symbol]()
   for arg in fexpr.args:
     let typ = scope.getDecl($arg)
-    if typ.isNone:
-      arg.error("undeclared $# type." % $arg)
-    argtypes.add(typ.get)
+    if typ.isSome:
+      argtypes.add(typ.get)
+    else:
+      argtypes.add(scope.symbol(arg.idname, symbolGenerics, arg))
   scope.word.get.internal.obj.argtypes = some(iarray(argtypes))
   resolveByVoid(fexpr)
 proc semReturned*(scope: FScope, fexpr: var FExpr) =
@@ -89,12 +97,15 @@ proc semReturned*(scope: FScope, fexpr: var FExpr) =
   fexpr.typ = some(typ.get)
 
 proc semWord*(scope: FScope, fexpr: var FExpr) =
+  # echo fexpr
   let fnscope = scope.extendFScope()
   fnscope.word = some(fexpr)
   fexpr.obj.internal = some(newInternalMarker())
 
   let name = if fexpr.args[0].kind == fexprIdent:
                fexpr.args[0].idname
+             elif fexpr.args[0].kind == fexprSymbol:
+               fexpr.args[0].symbol.name
              else:
                fexpr.args[0].quoted
   let sym = scope.symbol(name, symbolWord, fexpr)
@@ -103,10 +114,11 @@ proc semWord*(scope: FScope, fexpr: var FExpr) =
   fexpr.args[0] = fsym
   fexpr.scope = some(fnscope)
 
-  let pd = ProcDecl(name: name, sym: sym, undecided: true)
+  let pd = ProcDecl(name: name, sym: sym)
   scope.addWord(pd)
   fnscope.addWord(pd)
   fexpr.internal.obj.returntype = linksym(undeftypeSymbol)
+  fexpr.internal.obj.undecided = true
 
   fnscope.rootPass(fexpr.args.mget(1))
   let opt = fexpr.internal.obj.returntype.linkinfer(fexpr.args[1].gettype)
@@ -125,6 +137,7 @@ proc semWord*(scope: FScope, fexpr: var FExpr) =
         i.inc
     fexpr.internal.obj.argtypes = some(iarray(argtypes))
     fexpr.internal.obj.inferargtypes = ilistNil[Symbol]()
+  fexpr.internal.obj.undecided = false
 
 proc semStruct*(scope: FScope, fexpr: var FExpr) =
   if scope.word.isNone:
@@ -133,7 +146,7 @@ proc semStruct*(scope: FScope, fexpr: var FExpr) =
   let sym = scope.symbol(typename, symbolType, fexpr)
   scope.obj.top.addDecl(typename, sym)
 
-  for field in fexpr.args:
+  for field in fexpr.args.mitems:
     let (fieldname, fieldtyp) = if field.kind == fexprIdent:
                                   (field, linksym(undeftypeSymbol))
                                 else:
@@ -146,21 +159,29 @@ proc semStruct*(scope: FScope, fexpr: var FExpr) =
                                     field.args[1].error("undeclared $# type." % $field.args[1])
                                   (field.args[0], opt.get)
     let fieldtypf = fsymbol(field.span, fieldtyp)
-    scope.word.get.internal.obj.inferargnames.add(scope.symbol(fieldname.idname, symbolDef, fieldname))
+    let fieldsym = scope.symbol(fieldname.idname, symbolDef, fieldname)
+    if field.kind == fexprIdent:
+      field = fsymbol(field.span, fieldsym)
+    else:
+      field.args[0] = fsymbol(field.args[0].span, fieldsym)
+    scope.word.get.internal.obj.inferargnames.add(fieldsym)
     scope.word.get.internal.obj.inferargtypes.add(fieldtyp)
     var fieldword = quoteFExpr(fexpr.span, """
 `embed =>
   $typed(`embed)
-  $field(`embed)
-""", [fieldname, scope.word.get.args[0], fieldtypf])
+  $field(struc, `embed, `embed)
+""", [fieldname, scope.word.get.args[0], fieldname, fieldtypf])
     scope.obj.top.rootPass(fieldword)
   fexpr.typ = some(sym)
 proc semField*(scope: FScope, fexpr: var FExpr) =
   if scope.word.isNone:
     fexpr.error("$field should be declaration in word.")
-  if fexpr.args[0].kind != fexprSymbol:
-    fexpr.args[0].error("$field argument should be fsymbol.")
-  fexpr.typ = some(fexpr.args[0].symbol)
+  if fexpr.args.len != 3:
+    fexpr.error("expected: $field(struc, fieldname, fieldtype).")
+  if fexpr.args[2].kind != fexprSymbol:
+    fexpr.args[2].error("$field argument should be fsymbol.")
+  scope.rootPass(fexpr.args.mget(0))
+  fexpr.typ = some(fexpr.args[2].symbol)
 
 proc semIf*(scope: FScope, fexpr: var FExpr) =
   var rettypes = newSeq[Symbol]()
@@ -215,7 +236,11 @@ proc semSet*(scope: FScope, fexpr: var FExpr) =
   let opt2 = fexpr.args[1].typ.linkinfer(fexpr.args[0].gettype)
   if opt2.isSome:
     fexpr.error(opt2.get)
-  resolveByVoid(fexpr)
+  if scope.hasCopy(ptrtype(fexpr.args[0].gettype), fexpr.args[1].gettype):
+    fexpr = fexpr.span.quoteFExpr("copy(addr(`embed), `embed)", [fexpr.args[0], fexpr.args[1]])
+    scope.rootPass(fexpr)
+  else:
+    resolveByVoid(fexpr)
 
 proc semDot*(scope: FScope, fexpr: var FExpr) =
   fexpr = quoteFExpr(fexpr.span, "`embed(`embed)", [fexpr.args[1], fexpr.args[0]])

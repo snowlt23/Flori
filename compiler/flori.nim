@@ -2,9 +2,10 @@
 import docopt
 import os
 import strutils
+import os, osproc
 
 import fcore, passmacro, internalpass, internalffi
-import codegen.tacode, codegen.tagen, codegen.taopt, codegen.liveness
+import codegen.tacode, codegen.tagen, codegen.taopt, codegen.liveness, codegen.address
 import codegen.x86code, codegen.x86tiling, codegen.x86gen
 import codegen.jit
 
@@ -27,9 +28,17 @@ let prelude = """
 `-- => 0 - x
 `< => $typed(int, int)
   internalop("int_lesser")
-printf => $cffi("printf") $cdecl $dll("msvcrt") $typed(cstring, int) $returned(void)
-println => printf("%d\n", x)
+
+addr => $typed(a)
+  internalop("addr")
+
+printf_int => $cffi("printf") $cdecl $dll("msvcrt") $typed(cstring, int) $returned(void)
+printf_ptr => $cffi("printf") $cdecl $dll("msvcrt") $typed(cstring, pointer) $returned(void)
+
+println => printf_int("%d\n", x)
+print_int => printf_int("%d", x)
 print_str => $cffi("printf") $cdecl $dll("msvcrt") $typed(cstring) $returned(void)
+print_ptr => printf_ptr("%p", p)
 saveimage => $cffi("saveimage") $cdecl $internalffi $typed(cstring) $returned(void)
 loadimage => $cffi("loadimage") $cdecl $internalffi $typed(cstring) $returned(void)
 """
@@ -44,7 +53,6 @@ proc ffiCall*(p: pointer) =
 initRootScope()
 var plat = newX86Platform()
 
-import os, osproc
 proc objdump*(bin: string): string =
   writeFile("tmp.bin", bin)
   let outp = execProcess("objdump -b binary -M intel -m i386 -D tmp.bin")
@@ -64,64 +72,74 @@ proc initPlatform() =
   addInternalFFI("saveimage", saveimageX86)
   addInternalFFI("loadimage", loadimageX86)
 
+proc evalFlori*(scope: FScope, f: var FExpr) =
+  scope.rootPass(f)
+  var call = false
+  if not (f.kind == fexprInfix and $f.call == "=>"):
+    if $f.gettype == "void":
+      f = quoteFExpr(f.span, "main => `embed", [f])
+    else:
+      f = quoteFExpr(f.span, "main => println(`embed)", [f])
+    scope.rootPass(f)
+    call = true
+  let callp = toProc[pointer](gImage.buffer.getproc())
+
+  var tactx = newTAContext()
+  var asmctx = newAsmContext(gImage.buffer)
+  discard tactx.convertFExpr(f)
+  tactx = tactx.optimize()
+  let liveness = tactx.analyzeLiveness()
+  let addrtable = tactx.analyzeAddress()
+  var (x86ctx, x86plat) = tactx.x86Tiling().freqRegalloc(liveness, addrtable, plat)
+  plat = asmctx.generateX86(x86ctx, x86plat)
+
+  if call:
+    ffiCall(callp)
+
+proc evalFlori(scope: FScope, filename: string, src: string) =
+  var f = parseFExpr(filename, src)
+  scope.evalFlori(f)
+
 proc startREPL() =
   initPlatform()
   let scope = newFScope("<repl>", "<repl>")
   scope.importFScope(internalScope.obj.name, internalScope)
   var preludef = parseToplevel("<repl>", prelude)
   for f in preludef.mitems:
-    scope.rootPass(f)
-    var tactx = newTAContext()
-    var asmctx = newAsmContext(gImage.buffer)
-    discard tactx.convertFExpr(f)
-    tactx = tactx.optimize()
-    let liveness = tactx.analyzeLiveness()
-    var (x86ctx, x86plat) = tactx.x86Tiling().freqRegalloc(liveness, plat)
-    plat = asmctx.generateX86(x86ctx, x86plat)
+    scope.evalFlori(f)
 
+  var incont = false
   var s = ""
   while true:
-    stdout.write("> ")
+    if incont:
+      stdout.write("- ")
+    else:
+      stdout.write("> ")
     flushFile(stdout)
     var line = ""
-    var iscont = stdin.readLine(line)
-    if not iscont:
+    var hasline = stdin.readLine(line)
+    if not hasline:
       break
-    s &= line
+    s &= line & "\n"
+    if line.startsWith("  "):
+      continue
     try:
-      var f = parseFExpr("<repl>", s)
-      scope.rootPass(f)
-      var call = false
-      if not (f.kind == fexprInfix and $f.call == "=>"):
-        if $f.gettype == "void":
-          f = quoteFExpr(f.span, "main => `embed", [f])
-        else:
-          f = quoteFExpr(f.span, "main => println(`embed)", [f])
-        scope.rootPass(f)
-        call = true
-      let callp = toProc[pointer](gImage.buffer.getproc())
-
-      var tactx = newTAContext()
-      var asmctx = newAsmContext(gImage.buffer)
-      discard tactx.convertFExpr(f)
-      tactx = tactx.optimize()
-      let liveness = tactx.analyzeLiveness()
-      var (x86ctx, x86plat) = tactx.x86Tiling().freqRegalloc(liveness, plat)
-      plat = asmctx.generateX86(x86ctx, x86plat)
-
-      if call:
-        ffiCall(callp)
-
+      scope.evalFlori("<repl>", s)
       flushFile(stdout)
       s = ""
+      incont = false
     except MoreToken:
+      incont = true
       continue
     except LexerError:
-      echo getCurrentExceptionMsg()
+      s = ""
+      incont = false
     except ParseError:
-      echo getCurrentExceptionMsg()
-    except IOError:
-      break
+      s = ""
+      incont = false
+    except FExprError:
+      s = ""
+      incont = false
 
 proc main() =
   let args = docopt(doc, version = "Flori 0.2.0")

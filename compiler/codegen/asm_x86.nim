@@ -94,6 +94,9 @@ proc opRegRegDisp32*[B](b: var B, op: uint8, r1: Reg32, r2: Reg32, disp: int32) 
   b.asmb(modrm(modRegDisp32, r1, r2))
   # b.asmb(sib(scale1, cast[Reg32](0b100), r2))
   b.asmd(disp)
+proc opRegRegRef*[B](b: var B, op: uint8, r1: Reg32, r2: Reg32) =
+  b.asmb(op)
+  b.asmb(modrm(modRegReg, r1, r2))
 proc opReg*[B](b: var B, op: uint8, r: Reg32) =
   b.asmb(uint8(int(op) + int(r)))
 
@@ -105,6 +108,8 @@ proc mov*[B](b: var B, r: Reg32, i: int32) =
   b.opRegImm(0xB8, r, i)
 proc mov*[B](b: var B, r1: Reg32, r2: Reg32) =
   b.opRegReg(0x89, r1, r2)
+proc movRef*[B](b: var B, r1: Reg32, r2: Reg32) =
+  b.opRegRegRef(0x89, r1, r2)
 proc mov*[B](b: var B, r1: Reg32, disp: int32, r2: Reg32) =
   b.opRegDisp32Reg(0x89, r1, disp, r2)
 proc mov*[B](b: var B, r1: Reg32, r2: Reg32, disp: int32) =
@@ -169,6 +174,11 @@ proc cmp*[B](b: var B, r1: Reg32, disp: int32, i: int32) =
     b.asmb(uint8(i))
   else:
     b.asmd(i)
+
+proc lea*[B](b: var B, r1: Reg32, r2: Reg32) =
+  b.opRegRegRef(0x8D, r1, r2)
+proc lea*[B](b: var B, r1: Reg32, r2: Reg32, disp: int32) =
+  b.opRegRegDisp32(0x8D, r1, r2, disp)
 
 proc jg*[B](b: var B, rel: int32) =
   if isImm8(rel - 2):

@@ -20,9 +20,13 @@ defVariant TACode:
   Greater(name: string, left: TAAtom, right: TAAtom)
   Lesser(name: string, left: TAAtom, right: TAAtom)
   Set(name: string, value: TAAtom)
+  AAddr(name: string, value: TAAtom)
+  Deref(name: string, value: TAAtom)
   Label(name: string)
   Call(name: string, calllabel: string, args: seq[TAAtom], isPure: bool)
   FFICall(name: string, calllabel: string, ffiname: string, dll: Option[string], address: Option[int], args: seq[TAAtom], isPure: bool, callconv: CallConvention, internal: bool)
+  Struct(name: string, args: seq[TAAtom], size: int)
+  Field(name: string, struc: TAAtom, fieldname: string, pos: int, size: int)
   AVar(name: string, size: int, value: TAAtom)
   Goto(gotolabel: string)
   AIf(cond: TAAtom, gotolabel: string)
@@ -72,6 +76,10 @@ proc hasDist*(code: TACode): bool =
     return true
   of TACodeKind.Set:
     return true
+  of TACodeKind.AAddr:
+    return true
+  of TACodeKind.Deref:
+    return true
   of TACodeKind.Call:
     return true
   of TACodeKind.FFICall:
@@ -97,10 +105,18 @@ proc getname*(code: TACode): string =
     return code.lesser.name
   of TACodeKind.Set:
     return code.set.name
+  of TACodeKind.AAddr:
+    return code.aaddr.name
+  of TACodeKind.Deref:
+    return code.deref.name
   of TACodeKind.Call:
     return code.call.name
   of TACodeKind.FFICall:
     return code.fficall.name
+  of TACodeKind.Struct:
+    return code.struct.name
+  of TACodeKind.Field:
+    return code.field.name
   of TACodeKind.AVar:
     return code.avar.name
   else:
@@ -143,6 +159,12 @@ proc getVarRefs*(code: TACode): seq[string] =
     result.add(code.set.name)
     if code.set.value.kind == TAAtomKind.AVar:
       result.add(code.set.value.avar.name)
+  of TACodeKind.AAddr:
+    if code.aaddr.value.kind == TAAtomKind.AVar:
+      result.add(code.aaddr.value.avar.name)
+  of TACodeKind.Deref:
+    if code.deref.value.kind == TAAtomKind.AVar:
+      result.add(code.deref.value.avar.name)
   of TACodeKind.Label:
     discard
   of TACodeKind.Call:
@@ -153,6 +175,13 @@ proc getVarRefs*(code: TACode): seq[string] =
     for arg in code.fficall.args:
       if arg.kind == TAAtomKind.AVar:
         result.add(arg.avar.name)
+  of TACodeKind.Struct:
+    for arg in code.struct.args:
+      if arg.kind == TAAtomKind.AVar:
+        result.add(arg.avar.name)
+  of TACodeKind.Field:
+    if code.field.struc.kind == TAAtomKind.AVar:
+      result.add(code.field.struc.avar.name)
   of TACodeKind.AVar:
     if code.avar.value.kind == TAAtomKind.AVAr:
       result.add(code.avar.value.avar.name)
@@ -208,12 +237,20 @@ proc `$`*(code: TACode): string =
     "$# = $# < $#" % [code.lesser.name, $code.lesser.left, $code.lesser.right]
   of TACodeKind.Set:
     "$# = $#" % [code.set.name, $code.set.value]
+  of TACodeKind.AAddr:
+    "$# = addr($#)" % [code.aaddr.name, $code.aaddr.value]
+  of TACodeKind.Deref:
+    "$# = deref($#)" % [code.deref.name, $code.deref.value]
   of TACodeKind.Label:
     "$#:" % code.label.name
   of TACodeKind.Call:
     "$# = $#($#)" % [code.call.name, code.call.calllabel, code.call.args.mapIt($it).join(", ")]
   of TACodeKind.FFICall:
     "$# = $#($#)" % [code.fficall.name, $code.fficall.calllabel, code.fficall.args.mapIt($it).join(", ")]
+  of TACodeKind.Struct:
+    "$# = $struct($#)" % [code.struct.name, code.struct.args.mapIt($it).join(", ")]
+  of TACodeKind.Field:
+    "$# = $field($#, $#)" % [code.field.name, $code.field.struc, code.field.fieldname]
   of TACodeKind.AVar:
     "$# $# := $#" % [code.avar.name, sizerepr(code.avar.size), $code.avar.value]
   of TACodeKind.Goto:
@@ -258,6 +295,10 @@ iterator atoms*(ctx: var TAContext): var TAAtom =
       yield(code.lesser.right)
     of TACodeKind.Set:
       yield(code.set.value)
+    of TACodeKind.AAddr:
+      yield(code.aaddr.value)
+    of TACodeKind.Deref:
+      yield(code.deref.value)
     of TACodeKind.Label:
       discard
     of TACodeKind.Call:
@@ -266,6 +307,11 @@ iterator atoms*(ctx: var TAContext): var TAAtom =
     of TACodeKind.FFICall:
       for arg in code.fficall.args.mitems:
         yield(arg)
+    of TACodeKind.Struct:
+      for arg in code.struct.args.mitems:
+        yield(arg)
+    of TACodeKind.Field:
+      yield(code.field.struc)
     of TACodeKind.AVar:
       yield(code.avar.value)
     of TACodeKind.Goto:

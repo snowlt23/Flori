@@ -8,15 +8,19 @@ import os, osproc
 import strutils, sequtils
 
 let prelude = """
-`+ =>
-  $typed(int, int)
+`+ => $typed(int, int)
   internalop("int_add")
-`- =>
-  $typed(int, int)
+
+`- => $typed(int, int)
   internalop("int_sub")
-`< =>
-  $typed(int, int)
+
+`< => $typed(int, int)
   internalop("int_lesser")
+
+addr => $typed(undef)
+  internalop("addr")
+deref => $typed(undef)
+  internalop("deref")
 """
 
 template instImage(testname: string) =
@@ -43,8 +47,8 @@ template jittest(): pointer =
   let p = toProc[pointer](jitbuf.getproc())
   var asmctx = newAsmContext(jitbuf)
   let liveness = tactx.analyzeLiveness()
-  var (x86ctx, _) = tactx.x86Tiling().freqRegalloc(liveness, newX86Platform())
-  discard asmctx.generateX86(x86ctx, newX86Platform())
+  var (x86ctx, x86plat) = tactx.x86Tiling().freqRegalloc(liveness, newX86Platform())
+  discard asmctx.generateX86(x86ctx, x86plat)
   # echo x86ctx
   # echo jitbuf.toBin.objdump
   p

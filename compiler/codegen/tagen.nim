@@ -80,6 +80,8 @@ proc convertWord*(ctx: var TAContext, fexpr: FExpr): TAAtom =
     return initTAAtomNone()
   if fexpr.internal.obj.cffi.isSome:
     return initTAAtomNone()
+  if not toSeq(fexpr.internal.obj.argtypes.get.items).isSpecTypes:
+    return initTAAtomNone()
 
   let fnlabel = desc(fexpr.args[0])
   let retsize = fexpr.internal.obj.returntype.typesize
@@ -104,6 +106,36 @@ proc convertCall*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   ctx.add(initTACodeCall(tmp, fnlabel, args, false))
   return initTAAtomAVar(tmp)
 
+proc convertStruct*(ctx: var TAContext, fexpr: FExpr): TAAtom =
+  var structsize = 0
+  var args = newSeq[TAAtom]()
+  for field in fexpr.args:
+    if field.kind == fexprSymbol:
+      args.add(ctx.convertFExpr(field))
+      structsize += field.gettype.typesize
+    else:
+      args.add(ctx.convertFExpr(field.args[0]))
+      structsize += field.args[0].gettype.typesize
+  let tmp = ctx.tmpsym
+  ctx.add(initTACodeStruct(tmp, args, structsize))
+  return initTAAtomAVar(tmp)
+proc convertField*(ctx: var TAContext, fexpr: FExpr): TAAtom =
+  let fieldname = $fexpr.args[1]
+  var pos = 0
+  for field in fexpr.args[0].gettype.fexpr.args:
+    let fname = if field.kind == fexprSymbol:
+                  field
+                else:
+                  field.args[0]
+    if $fname == fieldname:
+      break
+    pos += fname.gettype.typesize
+  let struc = ctx.convertFExpr(fexpr.args[0])
+  let fieldtyp = fexpr.args[1].symbol
+  let tmp = ctx.tmpsym
+  ctx.add(initTACodeField(tmp, struc, fieldname, pos, fieldtyp.typesize))
+  return initTAAtomAVar(tmp)
+
 proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   if fexpr.kind == fexprIntLit:
     return initTAAtomIntLit(fexpr.intval)
@@ -123,9 +155,16 @@ proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom =
     return ctx.convertSet(fexpr)
   elif fexpr.kind in fexprCalls and fexpr.call.kind == fexprSymbol and fexpr.call.symbol.fexpr.obj.internal.isSome and fexpr.call.symbol.fexpr.internal.obj.internalop != internalNone:
     let op = fexpr.call.symbol.fexpr.obj.internal.get.obj.internalop
+    let tmp = ctx.tmpsym
+    if op == internalAddr:
+      ctx.add(initTACodeAAddr(tmp, ctx.convertFExpr(fexpr.args[0])))
+      return initTAAtomAVar(tmp)
+    elif op == internalDeref:
+      ctx.add(initTACodeDeref(tmp, ctx.convertFExpr(fexpr.args[0])))
+      return initTAAtomAVar(tmp)
+
     let left = ctx.convertFExpr(fexpr.args[0])
     let right = ctx.convertFExpr(fexpr.args[1])
-    let tmp = ctx.tmpsym
     case op
     of internalAdd:
       ctx.add(initTACodeAdd(tmp, left, right))
@@ -170,7 +209,15 @@ proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   elif fexpr.kind in fexprCalls and $fexpr.call == "=>":
     return ctx.convertWord(fexpr)
   elif fexpr.kind in fexprCalls:
-    return ctx.convertCall(fexpr)
+    case $fexpr.call
+    of "$typed", "$returned":
+      return initTAAtomNone()
+    of "$struct":
+      return ctx.convertStruct(fexpr)
+    of "$field":
+      return ctx.convertField(fexpr)
+    else:
+      return ctx.convertCall(fexpr)
   elif fexpr.kind == fexprIf:
     return ctx.convertIf(fexpr)
   elif fexpr.kind == fexprWhile:

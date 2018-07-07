@@ -32,9 +32,12 @@ proc error*(ctx: ParserContext, msg: string) =
   else:
     raise newException(ParseError, "$#($#:$#) " % [$ctx.tokens[^1].span.filename, $ctx.tokens[^1].span.line, $ctx.tokens[^1].span.linepos] & msg)
 
+proc isEndSymbol*(tok: Token): bool =
+  tok.kind in {tokenComma, tokenRParen, tokenRBlock} or $tok == "elif" or $tok == "else"
+
 template defineInfixExpr(name, call, pri) =
   proc name(ctx: var ParserContext): FExpr =
-    if ctx.getToken().get.kind == tokenInfix and ctx.getToken().get.priority == pri:
+    if ctx.getToken().isSome and ctx.getToken().get.kind == tokenInfix and ctx.getToken().get.priority == pri:
       let tok = ctx.getToken()
       ctx.nextToken()
       return fprefix(tok.get.span, fident(tok.get.span, tok.get.infix), ctx.call())
@@ -46,7 +49,10 @@ template defineInfixExpr(name, call, pri) =
           break
         if tok.get.kind == tokenInfix and tok.get.priority == pri:
           ctx.nextToken()
-          f = finfix(tok.get.span, fident(tok.get.span, tok.get.infix), f, ctx.call())
+          let right = ctx.call()
+          if right.kind == fexprBlock and right.sons.len == 0:
+            ctx.moreToken()
+          f = finfix(tok.get.span, fident(tok.get.span, tok.get.infix), f, right)
         else:
           break
       return f
@@ -74,14 +80,8 @@ proc factor(ctx: var ParserContext): FExpr =
   elif tok.get.kind == tokenNewline:
     ctx.nextToken()
     return ctx.topexpr()
-  elif tok.get.kind == tokenComma:
-    tok.get.error("unexpected , Comma")
-  elif tok.get.kind == tokenRParen:
-    tok.get.error("unexpected ) RParen")
-  elif tok.get.kind == tokenLBlock:
-    tok.get.error("unexpected { LBlock")
-  elif tok.get.kind == tokenRBlock:
-    tok.get.error("unexpected } RBlock")
+  elif tok.get.isEndSymbol:
+    tok.get.error("unexpected $# token." % $tok.get)
   else:
     return ctx.topexpr()
 
@@ -94,9 +94,6 @@ proc quoteexpr(ctx: var ParserContext): FExpr =
       ctx.moreToken()
     ctx.nextToken()
     return fquote(tok.get.span, $id.get)
-  elif tok.isSome and tok.get.kind == tokenInfix:
-    # prefix operator
-    tok.get.error("$# prefix operator unsupported in currently." % $tok.get)
   else:
     return ctx.factor()
 
@@ -147,6 +144,8 @@ proc ifexpr(ctx: var ParserContext): FExpr =
     var elsebody = fcall(tok.get.span, fident(tok.get.span, "discard"), [])
     while true:
       let nexttok = ctx.getToken()
+      if nexttok.isNone:
+        ctx.moreToken()
       if nexttok.isSome and nexttok.get.kind == tokenNewline:
         ctx.nextToken()
         continue
@@ -216,7 +215,7 @@ proc blockexpr(ctx: var ParserContext): FExpr =
         break
       if tok.isNone:
         break
-      if tok.get.kind in {tokenRParen, tokenRBlock, tokenComma}:
+      if tok.get.isEndSymbol:
         break
       let son = ctx.infix14()
       exprs.add(son)

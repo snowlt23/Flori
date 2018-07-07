@@ -148,7 +148,7 @@ proc toString*(fexpr: var FExprObj, indent: int, desc: bool, typ: bool): string 
     s &= "\n$#else: $#" % [genIndent(indent), toString(fexpr.elsebody, indent, desc, typ)]
     s
   of fexprWhile:
-    "while $# $#" % [toString(fexpr.whilebranch.args[0], indent, desc, typ), toString(fexpr.whilebranch.args[1], indent+2, desc, typ)]
+    "while $#: $#" % [toString(fexpr.whilebranch.args[0], indent, desc, typ), toString(fexpr.whilebranch.args[1], indent, desc, typ)]
 proc toString*(fexpr: FExpr, indent: int, desc: bool, typ: bool): string = fexpr.obj.toString(indent, desc, typ)
 
 proc `$`*(fexpr: var FExprObj): string = fexpr.toString(0, false, false)

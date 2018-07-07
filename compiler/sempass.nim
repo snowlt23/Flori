@@ -94,6 +94,10 @@ proc typeInfer*(scope: FScope, fexpr: var FExpr): bool =
   else:
     return true
 
+proc instantiateWord*(scope: FScope, fexpr: FExpr, argtypes: seq[Symbol]): FExpr {.discardable.} =
+  result = fexpr.span.quoteFExpr("`embed => `embed `embed", [fexpr.args[0], fcall(fexpr.span, fident(fexpr.span, "$typed"), argtypes.mapIt(fsymbol(fexpr.span, it))), fexpr.args[1]])
+  scope.rootPass(result)
+
 proc callResolve*(scope: FScope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
   if fexpr.kind in fexprCalls:
@@ -115,6 +119,8 @@ proc callResolve*(scope: FScope, fexpr: var FExpr): bool =
         let opt2 = arg.typ.linkinfer(argtyp.get)
         if opt2.isSome:
           arg.error(opt2.get & " in " & $fexpr)
+      # if fexpr.call.symbol.kind != symbolUnion and fexpr.args.mapIt(it.gettype).isSpecTypes and fexpr.call.symbol.fexpr.internal.obj.argtypes.isSome and not toSeq(fexpr.call.symbol.fexpr.internal.obj.argtypes.get.items).isSpecTypes:
+      #   fexpr.call.symbol.scope.instantiateWord(fexpr.call.symbol.fexpr, fexpr.args.mapIt(it.gettype))
   return true
 
 proc finalPass*(scope: FScope, fexpr: var FExpr): bool =
