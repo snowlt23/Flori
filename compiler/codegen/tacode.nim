@@ -38,26 +38,22 @@ type
     args*: seq[(string, int)]
     retsize*: int
     body*: seq[TACode]
-    generated*: bool
-  TAContext* = object
-    fns*: seq[TAFn]
-    codes*: seq[TACode]
     tmp*: int
     tmpl*: int
 
-proc newTAContext*(): TAContext =
-  TAContext(fns: @[], codes: @[])
-proc add*(ctx: var TAContext, code: TACode) =
-  ctx.codes.add(code)
-proc addLabel*(ctx: var TAContext, name: string) =
-  ctx.codes.add(initTACodeLabel(name))
-proc addFn*(ctx: var TAContext, fn: TAFn) =
-  ctx.fns.add(fn)
-proc tmpsym*(ctx: var TAContext, prefix = "t"): string =
-  result = prefix & $ctx.tmp
+proc newTAFn*(name: string, args: seq[(string, int)]): TAFn =
+  TAFn(fnname: name, args: args, retsize: 0, body: @[])
+proc emptyTAFn*(): TAFn =
+  newTAFn("", @[])
+proc add*(ctx: var TAFn, code: TACode) =
+  ctx.body.add(code)
+proc addLabel*(ctx: var TAFn, label: string) =
+  ctx.body.add(initTACodeLabel(label))
+proc tmpsym*(ctx: var TAFn, prefix = "t"): string =
+  result = ctx.fnname & "." & prefix & $ctx.tmp
   ctx.tmp.inc
-proc tmplabel*(ctx: var TAContext, prefix = "L"): string =
-  result = prefix & $ctx.tmpl
+proc tmplabel*(ctx: var TAFn, prefix = "L"): string =
+  result = ctx.fnname & "." & prefix & $ctx.tmpl
   ctx.tmpl.inc
 
 proc hasDist*(code: TACode): bool =
@@ -193,14 +189,14 @@ proc getVarRefs*(code: TACode): seq[string] =
   of TACodeKind.Ret:
     if code.ret.value.kind == TAAtomKind.AVAr:
       result.add(code.ret.value.avar.name)
-proc getVarRefs*(ctx: TAContext): seq[string] =
+proc getVarRefs*(fn: TAFn): seq[string] =
   result = @[]
-  for code in ctx.codes:
+  for code in fn.body:
     result &= code.getVarRefs()
 
-proc getLabels*(ctx: TAContext): Table[string, int] =
+proc getLabels*(fn: TAFn): Table[string, int] =
   result = initTable[string, int]()
-  for i, code in ctx.codes:
+  for i, code in fn.body:
     if code.kind == TACodeKind.Label:
       result[code.label.name] = i
 
@@ -261,19 +257,21 @@ proc `$`*(code: TACode): string =
     "ret $#\n" % $code.ret.value
 
 proc `$`*(fn: TAFn): string =
-  "fn $#($#) $#:\n  $#" % [fn.fnname, fn.args.map(proc (arg: (string, int)): string =
-                                                let (n, s) = arg
-                                                "$# $#" % [n, sizerepr(s)]
-  ).join(", "), sizerepr(fn.retsize), fn.body.mapIt($it).join("\n  ")]
+  result = "fn $#($#) $#:\n" % [
+    fn.fnname,
+    fn.args.map(proc (arg: (string, int)): string =
+                  let (n, s) = arg
+                  "$# $#" % [n, sizerepr(s)]).join(", "),
+    sizerepr(fn.retsize)
+  ]
+  for code in fn.body:
+    if code.kind == TACodeKind.Label:
+      result &= $code & "\n"
+    else:
+      result &= "  " & $code & "\n"
 
-proc `$`*(ctx: TAContext): string =
-  var sq = newSeq[string]()
-  for fn in ctx.fns:
-    sq.add($fn)
-  return sq.join("\n")
-
-iterator atoms*(ctx: var TAContext): var TAAtom =
-  for code in ctx.codes.mitems:
+iterator atoms*(fn: var TAFn): var TAAtom =
+  for code in fn.body.mitems:
     case code.kind
     of TACodeKind.Add:
       yield(code.add.left)

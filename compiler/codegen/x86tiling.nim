@@ -1,5 +1,5 @@
 
-import opselect
+import tilemacro
 import tacode, x86code, asm_x86
 import sequtils
 
@@ -255,12 +255,8 @@ type TileTAFn* = object
 proc `[]`*(fn: TileTAFn, i: int): TACode = fn.codes[i]
 proc len*(fn: TileTAFn): int = fn.codes.len
 
-proc x86Tiling*(ctx: var TAContext): X86Context =
-  result = newX86Context()
-  for fn in ctx.fns.mitems:
-    fn.generated = true
-    var fnctx = newX86Context()
-    var tilefn = TileTAFn(codes: fn.body, pos: 0)
-    while tilefn.pos < tilefn.len:
-      x86Tilingset(fnctx, tilefn)
-    result.fns.add(X86Fn(name: fn.fnname, args: fn.args, body: fnctx.codes))
+proc x86Tiling*(fn: TAFn): X86Fn =
+  result = newX86Fn(fn.fnname, fn.args)
+  var tilefn = TileTAFn(codes: fn.body, pos: 0)
+  while tilefn.pos < tilefn.len:
+    x86Tilingset(result, tilefn)

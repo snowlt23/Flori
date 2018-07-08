@@ -43,9 +43,6 @@ type
     name*: string
     args*: seq[(string, int)]
     body*: seq[X86Code]
-  X86Context* = object
-    fns*: seq[X86Fn]
-    codes*: seq[X86Code]
     tmpl*: int
   X86Platform* = object
     fnregtbl*: Table[string, (seq[X86Atom], seq[Reg32])]
@@ -55,12 +52,14 @@ const refX86Atom* = {X86AtomKind.EbpRel, X86AtomKind.EspRel}
 
 proc initX86CodeAVar*(name: string, size: int): X86Code = initX86CodeAVar(name, size, false)
 
-proc add*(ctx: var X86Context, code: X86Code) =
-  ctx.codes.add(code)
-proc addLabel*(ctx: var X86Context, labelname: string) =
-  ctx.codes.add(initX86CodeLabel(labelname))
-proc tmplabel*(ctx: var X86Context, prefix = "XL"): string =
-  result = prefix & $ctx.tmpl
+proc newX86Fn*(name: string, args: seq[(string, int)]): X86Fn =
+  X86Fn(name: name, args: args, body: @[])
+proc add*(ctx: var X86Fn, code: X86Code) =
+  ctx.body.add(code)
+proc addLabel*(ctx: var X86Fn, labelname: string) =
+  ctx.body.add(initX86CodeLabel(labelname))
+proc tmplabel*(ctx: var X86Fn, prefix = "XL"): string =
+  result = ctx.name & "." & prefix & $ctx.tmpl
   ctx.tmpl.inc
 
 proc toX86Atom*(atom: TAAtom): X86Atom =
@@ -135,15 +134,13 @@ proc `$`*(code: X86Code): string =
     "ret"
 
 proc `$`*(fn: X86Fn): string =
-  "fn $#:\n  $#" % [fn.name, fn.body.mapIt($it).join("\n  ")]
-proc `$`*(ctx: X86Context): string =
-  var sq = newSeq[string]()
-  for fn in ctx.fns:
-    sq.add($fn)
-  return sq.join("\n")
+  result = "fn $#:\n" % fn.name
+  for code in fn.body:
+    if code.kind == X86CodeKind.Label:
+      result &= $fn.body & "\n"
+    else:
+      result &= "  " & $fn.body & "\n"
 
-proc newX86Context*(): X86Context =
-  X86Context(fns: @[], codes: @[])
 proc newX86Platform*(): X86Platform =
   X86Platform(fnregtbl: initTable[string, (seq[X86Atom], seq[Reg32])](), fnpostbl: initTable[string, int]())
 
@@ -350,11 +347,6 @@ proc naiveRegalloc*(fn: X86Fn): X86Fn =
   result = result.expandCallNaive()
   result = result.expandEpilogue()
 
-proc naiveRegalloc*(ctx: X86Context): X86Context =
-  result = newX86Context()
-  for fn in ctx.fns:
-    result.fns.add(fn.naiveRegalloc())
-
 #
 # Simple Regalloc
 #
@@ -408,11 +400,6 @@ proc simpleRegalloc*(fn: X86Fn, liveness: Liveness): X86Fn =
   result = result.expandIntLit()
   result = result.expandCallNaive()
   result = result.expandEpilogue()
-
-proc simpleRegalloc*(ctx: X86Context, liveness: Liveness): X86Context =
-  result = newX86Context()
-  for fn in ctx.fns:
-    result.fns.add(fn.simpleRegalloc(liveness))
 
 #
 # Freq Regalloc
@@ -481,7 +468,7 @@ proc freqAllocReg*(tbl: var Table[string, FreqRegInfo], regmap: var Table[Reg32,
     curargpos += 4
     tbl[varname] = (lifetime, count, candestroy, initX86AtomEbpRel(curargpos+8))
 
-proc freqRegalloc*(fn: X86Fn, fnmap: var Table[string, (seq[X86Atom], seq[Reg32])], liveness: Liveness, addrtable: AddressTable): X86Fn =
+proc freqRegallocFn*(fn: X86Fn, liveness: Liveness, addrtable: AddressTable, plat: var X86Platform): X86Fn =
   result = X86Fn(name: fn.name, args: fn.args, body: @[])
 
   var variables = fn.collectVariables()
@@ -496,7 +483,7 @@ proc freqRegalloc*(fn: X86Fn, fnmap: var Table[string, (seq[X86Atom], seq[Reg32]
     let (argname, argsize) = arg
     freqAllocReg(allocatoms, regmap, curargpos, curvarpos, liveness, argname, false)
     fnregs.add(allocatoms[argname].atom)
-  fnmap[fn.name] = (fnregs, destregs)
+  plat.fnregtbl[fn.name] = (fnregs, destregs)
 
   for variable in variables:
     let (varname, varsize, iscall, i) = variable
@@ -523,18 +510,14 @@ proc freqRegalloc*(fn: X86Fn, fnmap: var Table[string, (seq[X86Atom], seq[Reg32]
   result = result.expandDoubleRef()
   result = result.expandIntLit()
   result = result.expandStrLit()
-  result = result.expandCallByRegmap(fnmap, liveness)
+  result = result.expandCallByRegmap(plat.fnregtbl, liveness)
   if curvarpos != 0:
     result = result.expandEpilogue()
 
-proc freqRegalloc*(ctx: X86Context, liveness: Liveness, addrtable: AddressTable, platform: X86Platform): (X86Context, X86Platform) =
-  var retctx = newX86Context()
-  var fnmap = initTable[string, (seq[X86Atom], seq[Reg32])]()
-  for key, value in platform.fnregtbl:
-    fnmap[key] = value
-  for fn in ctx.fns:
-    retctx.fns.add(fn.freqRegalloc(fnmap, liveness, addrtable))
-  result = (retctx, X86Platform(fnregtbl: fnmap, fnpostbl: platform.fnpostbl))
+proc freqRegalloc*(fn: X86Fn, liveness: Liveness, addrtable: AddressTable, plat: X86Platform): (X86Fn, X86Platform) =
+  var plat = plat
+  var retctx = fn.freqRegallocFn(liveness, addrtable, plat)
+  result = (retctx, plat)
 
 #
 # Platform

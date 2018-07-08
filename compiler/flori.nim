@@ -84,13 +84,13 @@ proc evalFlori*(scope: FScope, f: var FExpr) =
     call = true
   let callp = toProc[pointer](gImage.buffer.getproc())
 
-  var tactx = newTAContext()
+  var tafn = emptyTAFn()
   var asmctx = newAsmContext(gImage.buffer)
-  discard tactx.convertFExpr(f)
-  tactx = tactx.optimize()
-  let liveness = tactx.analyzeLiveness()
-  let addrtable = tactx.analyzeAddress()
-  var (x86ctx, x86plat) = tactx.x86Tiling().freqRegalloc(liveness, addrtable, plat)
+  discard tafn.convertFExpr(f)
+  tafn = tafn.optimize()
+  let liveness = tafn.analyzeLiveness()
+  let addrtable = tafn.analyzeAddress()
+  var (x86ctx, x86plat) = tafn.x86Tiling().freqRegalloc(liveness, addrtable, plat)
   plat = asmctx.generateX86(x86ctx, x86plat)
 
   if call:

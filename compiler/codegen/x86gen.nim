@@ -143,21 +143,18 @@ proc addDLLReloc*(buf: var DummyBuffer, dllname: string, fnname: string, address
 proc addInternalReloc*(buf: var DummyBuffer, fnname: string, address: int) = discard
 proc addStrLitReloc*(buf: var DummyBuffer, strpos: int32, address: int) = discard
 
-proc generateX86*[B](ctx: var AsmContext[B], x86ctx: X86Context, plat: X86Platform): X86Platform =
+proc generateX86*[B](ctx: var AsmContext[B], fn: X86Fn, plat: X86Platform): X86Platform =
   var tmpctx = newAsmContext(DummyBuffer(len: ctx.buffer.len))
   tmpctx.labelpos = plat.fnpostbl
-  for fn in x86ctx.fns:
-    tmpctx.addLabel(fn.name)
-    for code in fn.body:
-      if code.kind == X86CodeKind.Label:
-        tmpctx.addLabel(code.label.name)
-  for fn in x86ctx.fns:
-    tmpctx.addLabel(fn.name)
-    for code in fn.body:
-      tmpctx.generateX86(code)
+  tmpctx.addLabel(fn.name)
+  for code in fn.body:
+    if code.kind == X86CodeKind.Label:
+      tmpctx.addLabel(code.label.name)
+  tmpctx.addLabel(fn.name)
+  for code in fn.body:
+    tmpctx.generateX86(code)
   ctx.labelpos = tmpctx.labelpos
-  for fn in x86ctx.fns:
-    for code in fn.body:
-      ctx.generateX86(code)
+  for code in fn.body:
+    ctx.generateX86(code)
   result = plat
   result.fnpostbl = tmpctx.labelpos

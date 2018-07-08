@@ -7,9 +7,9 @@ import options
 import strutils, sequtils
 import dynlib
 
-proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom
+proc convertFExpr*(ctx: var TAFn, fexpr: FExpr): TAAtom
 
-proc convertWhile*(ctx: var TAContext, fexpr: FExpr): TAAtom =
+proc convertWhile*(ctx: var TAFn, fexpr: FExpr): TAAtom =
   let whilel = ctx.tmplabel
   let bodyl = ctx.tmplabel
   let nextl = ctx.tmplabel
@@ -27,7 +27,7 @@ proc convertWhile*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   ctx.addLabel(nextl)
   return initTAAtomNone()
 
-proc convertIf*(ctx: var TAContext, fexpr: FExpr): TAAtom =
+proc convertIf*(ctx: var TAFn, fexpr: FExpr): TAAtom =
   let retsym = ctx.tmpsym
   let nextl = ctx.tmplabel
   let size = fexpr.gettype.typesize
@@ -68,14 +68,14 @@ proc convertIf*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   ctx.addLabel(nextl)
   return initTAAtomAVar(retsym)
 
-proc convertSet*(ctx: var TAContext, fexpr: FExpr): TAAtom =
+proc convertSet*(ctx: var TAFn, fexpr: FExpr): TAAtom =
   let dst = ctx.convertFExpr(fexpr.args[0])
   if dst.kind != TAAtomKind.AVar:
     error(fexpr, "unsupported expression set `= in currently")
   ctx.add(initTACodeSet(dst.avar.name, ctx.convertFExpr(fexpr.args[1])))
   return initTAAtomNone()
 
-proc convertWord*(ctx: var TAContext, fexpr: FExpr): TAAtom =
+proc convertWord*(ctx: var TAFn, fexpr: FExpr): TAAtom =
   if fexpr.internal.obj.internalop != internalNone:
     return initTAAtomNone()
   if fexpr.internal.obj.cffi.isSome:
@@ -86,27 +86,28 @@ proc convertWord*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   let fnlabel = desc(fexpr.args[0])
   let retsize = fexpr.internal.obj.returntype.typesize
 
-  var fnctx = newTAContext()
   if fexpr.args[1].kind == fexprBlock:
     for i in 0..<fexpr.args[1].sons.len-1:
-      discard fnctx.convertFExpr(fexpr.args[1].sons[i])
-    fnctx.add(initTACodeRet(fnctx.convertFExpr(fexpr.args[1].sons[fexpr.args[1].sons.len-1])))
+      discard ctx.convertFExpr(fexpr.args[1].sons[i])
+    ctx.add(initTACodeRet(ctx.convertFExpr(fexpr.args[1].sons[fexpr.args[1].sons.len-1])))
   else:
-    fnctx.add(initTACodeRet(fnctx.convertFExpr(fexpr.args[1])))
+    ctx.add(initTACodeRet(ctx.convertFExpr(fexpr.args[1])))
   var args = newSeq[(string, int)]()
   for i in 0..<fexpr.internal.obj.argtypes.get.len:
     args.add((toString(fexpr.internal.obj.argnames.get[i], desc=true), fexpr.internal.obj.argtypes.get[i].typesize))
-  ctx.addFn(TAFn(fnname: fnlabel, args: args, retsize: retsize, body: fnctx.codes))
+  ctx.fnname = fnlabel
+  ctx.args = args
+  ctx.retsize = retsize
   return initTAAtomNone()
 
-proc convertCall*(ctx: var TAContext, fexpr: FExpr): TAAtom =
+proc convertCall*(ctx: var TAFn, fexpr: FExpr): TAAtom =
   let fnlabel = desc(fexpr.call)
   var args = fexpr.args.mapIt(ctx.convertFExpr(it))
   let tmp = ctx.tmpsym
   ctx.add(initTACodeCall(tmp, fnlabel, args, false))
   return initTAAtomAVar(tmp)
 
-proc convertStruct*(ctx: var TAContext, fexpr: FExpr): TAAtom =
+proc convertStruct*(ctx: var TAFn, fexpr: FExpr): TAAtom =
   var structsize = 0
   var args = newSeq[TAAtom]()
   for field in fexpr.args:
@@ -119,7 +120,7 @@ proc convertStruct*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   let tmp = ctx.tmpsym
   ctx.add(initTACodeStruct(tmp, args, structsize))
   return initTAAtomAVar(tmp)
-proc convertField*(ctx: var TAContext, fexpr: FExpr): TAAtom =
+proc convertField*(ctx: var TAFn, fexpr: FExpr): TAAtom =
   let fieldname = $fexpr.args[1]
   var pos = 0
   for field in fexpr.args[0].gettype.fexpr.args:
@@ -136,7 +137,7 @@ proc convertField*(ctx: var TAContext, fexpr: FExpr): TAAtom =
   ctx.add(initTACodeField(tmp, struc, fieldname, pos, fieldtyp.typesize))
   return initTAAtomAVar(tmp)
 
-proc convertFExpr*(ctx: var TAContext, fexpr: FExpr): TAAtom =
+proc convertFExpr*(ctx: var TAFn, fexpr: FExpr): TAAtom =
   if fexpr.kind == fexprIntLit:
     return initTAAtomIntLit(fexpr.intval)
   elif fexpr.kind == fexprStrLit:

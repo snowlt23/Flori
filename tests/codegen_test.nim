@@ -2,7 +2,7 @@
 import compiler.fcore, compiler.passmacro, compiler.internalpass
 import compiler.codegen.tacode, compiler.codegen.tagen
 import compiler.codegen.x86code, compiler.codegen.x86tiling, compiler.codegen.x86gen, compiler.codegen.jit
-import compiler.codegen.taopt, compiler.codegen.liveness
+import compiler.codegen.taopt, compiler.codegen.liveness, compiler.codegen.address
 import unittest
 import os, osproc
 import strutils, sequtils
@@ -25,15 +25,23 @@ deref => $typed(undef)
 
 template instImage(testname: string) =
   initRootScope()
-  var tactx {.inject.} = newTAContext()
   let scope = newFScope(testname, testname & ".flori")
   scope.importFScope(internalScope.obj.name, internalScope)
+  let jitbuf = initJitBuffer(1024)
   proc evaltest(src: string): seq[FExpr] {.discardable.} =
     result = parseToplevel(testname & ".flori", src)
     for f in result.mitems:
+      var asmctx = newAsmContext(jitbuf)
+      var tafn = emptyTAFn()
       scope.rootPass(f)
-      discard tactx.convertFExpr(f)
-      tactx = tactx.optimize()
+      discard tafn.convertFExpr(f)
+      tafn = tafn.optimize()
+      let liveness = tafn.analyzeLiveness()
+      let addrtable = tafn.analyzeAddress()
+      var (x86fn, x86plat) = tafn.x86Tiling().freqRegalloc(liveness, addrtable, newX86Platform())
+      discard asmctx.generateX86(x86fn, x86plat)
+  proc getptr(): pointer =
+    toProc[pointer](jitbuf.getproc())
   evaltest(prelude)
 
 proc objdump*(bin: string): string =
@@ -42,19 +50,8 @@ proc objdump*(bin: string): string =
   result = outp.split("\n")[6..^1].join("\n")
   removeFile("tmp.bin")
 
-template jittest(): pointer =
-  let jitbuf = initJitBuffer(1024)
-  let p = toProc[pointer](jitbuf.getproc())
-  var asmctx = newAsmContext(jitbuf)
-  let liveness = tactx.analyzeLiveness()
-  var (x86ctx, x86plat) = tactx.x86Tiling().freqRegalloc(liveness, newX86Platform())
-  discard asmctx.generateX86(x86ctx, x86plat)
-  # echo x86ctx
-  # echo jitbuf.toBin.objdump
-  p
-
 {.push stackTrace:off.}
-proc ffi*(p: pointer) =
+proc ffiCall*(p: pointer) =
   asm """
     movl %0, %%edx
     call %%edx
@@ -90,18 +87,21 @@ proc ffiCString*(p: pointer): cstring =
 suite "codegen test":
   test "add5":
     instImage("add5")
+    let p = getptr()
     evaltest("add5 => x + 5")
-    check ffiInt(jittest(), 4) == 9
+    check ffiInt(p, 4) == 9
   test "fib rec":
     instImage("fibrec")
+    let p = getptr()
     evaltest("""
 fib =>
   if n<2: n
   else: fib(n-1) + fib(n-2)
 """)
-    check ffiInt(jittest(), 38) == 39088169
+    check ffiInt(p, 38) == 39088169
   test "fib loop":
     instImage("fibloop")
+    let p = getptr()
     evaltest("""
 fib =>
   a := 0
@@ -115,24 +115,27 @@ fib =>
     i = i + 1
   c
 """)
-    check ffiInt(jittest(), 38) == 39088169
+    check ffiInt(p, 38) == 39088169
   test "strlit":
     instImage("strlit")
+    let p = getptr()
     evaltest("""
 returnstr => "YUKARI"
 """)
-    check $ffiCString(jittest()) == "YUKARI"
+    check $ffiCString(p) == "YUKARI"
   test "cffi":
     instImage("cffi")
+    let p = getptr()
     evaltest("""
 abs => $cffi("abs") $cdecl $dll("msvcrt") $typed(int) $returned(int)
 main => abs(x)
 """)
-    check ffiInt(jittest(), 9) == 9
+    check ffiInt(p, 9) == 9
   test "cffi printf":
     instImage("cffi")
+    let p = getptr()
     evaltest("""
 printf => $cffi("printf") $cdecl $dll("msvcrt") $typed(cstring, int) $returned(void)
 main => printf("%d", 9)
 """)
-    ffi(jittest())
+    ffiCall(p)

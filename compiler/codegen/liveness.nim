@@ -70,47 +70,44 @@ proc findBackwardGoto*(codes: seq[TACode], prevlabels: seq[string], x: int): Opt
     if codes[i].kind == TACodeKind.Goto and codes[i].goto.gotolabel in prevlabels:
       result = some(i)
 
-proc analyzeLiveness*(ctx: TAContext): Liveness =
+proc analyzeLiveness*(fn: TAFn): Liveness =
   result = Liveness(variables: initTable[string, VarLive]())
+  # fn args liveness
+  for i, arg in fn.args:
+    let (argname, _) = arg
+    if not result.variables.hasKey(argname):
+      result.variables[argname] = (i, 0)
+    result.variables[argname].lifetime = max(result.variables[argname].lifetime, i)
+    var prevlabels = newSeq[string]()
+    for j in i+1..<fn.body.len:
+      if fn.body[j].kind == TACodeKind.Label:
+        prevlabels.add(fn.body[j].label.name)
+        continue
+      let count = fn.body[j].useCount(argname)
+      if count != 0:
+        result.variables[argname].count += count
+        let nextopt = findBackwardGoto(fn.body, prevlabels, j)
+        if nextopt.isSome:
+          result.variables[argname].lifetime = max(result.variables[argname].lifetime, nextopt.get)
+        else:
+          result.variables[argname].lifetime = max(result.variables[argname].lifetime, j)
 
-  for fn in ctx.fns:
-    if fn.generated: continue
-    # fn args liveness
-    for i, arg in fn.args:
-      let (argname, _) = arg
-      if not result.variables.hasKey(argname):
-        result.variables[argname] = (i, 0)
-      result.variables[argname].lifetime = max(result.variables[argname].lifetime, i)
-      var prevlabels = newSeq[string]()
-      for j in i+1..<fn.body.len:
-        if fn.body[j].kind == TACodeKind.Label:
-          prevlabels.add(fn.body[j].label.name)
-          continue
-        let count = fn.body[j].useCount(argname)
-        if count != 0:
-          result.variables[argname].count += count
-          let nextopt = findBackwardGoto(fn.body, prevlabels, j)
-          if nextopt.isSome:
-            result.variables[argname].lifetime = max(result.variables[argname].lifetime, nextopt.get)
-          else:
-            result.variables[argname].lifetime = max(result.variables[argname].lifetime, j)
-
-    # fn variables liveness
-    for i in 0..<fn.body.len:
-      if not fn.body[i].hasDist: continue
-      if not result.variables.hasKey(fn.body[i].getname):
-        result.variables[fn.body[i].getname] = (i, 0)
-      result.variables[fn.body[i].getname].lifetime = max(result.variables[fn.body[i].getname].lifetime, i)
-      var prevlabels = newSeq[string]()
-      for j in i+1..<fn.body.len:
-        if fn.body[j].kind == TACodeKind.Label:
-          prevlabels.add(fn.body[j].label.name)
-          continue
-        let count = fn.body[j].useCount(fn.body[i].getname)
-        if count != 0:
-          result.variables[fn.body[i].getname].count += count
-          let nextopt = findBackwardGoto(fn.body, prevlabels, j)
-          if nextopt.isSome:
-            result.variables[fn.body[i].getname].lifetime = max(result.variables[fn.body[i].getname].lifetime, nextopt.get)
-          else:
-            result.variables[fn.body[i].getname].lifetime = max(result.variables[fn.body[i].getname].lifetime, j)
+  # fn variables liveness
+  for i in 0..<fn.body.len:
+    if not fn.body[i].hasDist: continue
+    if not result.variables.hasKey(fn.body[i].getname):
+      result.variables[fn.body[i].getname] = (i, 0)
+    result.variables[fn.body[i].getname].lifetime = max(result.variables[fn.body[i].getname].lifetime, i)
+    var prevlabels = newSeq[string]()
+    for j in i+1..<fn.body.len:
+      if fn.body[j].kind == TACodeKind.Label:
+        prevlabels.add(fn.body[j].label.name)
+        continue
+      let count = fn.body[j].useCount(fn.body[i].getname)
+      if count != 0:
+        result.variables[fn.body[i].getname].count += count
+        let nextopt = findBackwardGoto(fn.body, prevlabels, j)
+        if nextopt.isSome:
+          result.variables[fn.body[i].getname].lifetime = max(result.variables[fn.body[i].getname].lifetime, nextopt.get)
+        else:
+          result.variables[fn.body[i].getname].lifetime = max(result.variables[fn.body[i].getname].lifetime, j)
