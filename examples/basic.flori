@@ -1,0 +1,41 @@
+`+` => $infix $typed(int, int) $internal("int_add")
+`+.` => $infix $typed(float, float) $internal("float_add")
+
+fadd_sugg => $trigger(typetrig(`+`, float, float))
+  hint("can't use `+` operator as float add, should be use `+.` operator.")
+
+fib(n) =>
+  if n<2:
+    n
+  else:
+    fib(n-1) + fib(n-2)
+
+vector(a) => $codegen
+  oncequote:
+    vector_`a` => $struct(data: array(1024, `a`), len: int)
+    vector_`a`_len(v) => v.len
+    vector_`a`_push(v, e) => 
+  quote:
+    vector_`a`
+push(v, e) => $codegen
+  quote:
+    vector_`typeof(v)`_push(`v`, `e`)
+len(v) => $codegen
+  quote:
+    vector_`typeof(v)`_len(`v`)
+
+vector(a) => $template
+  vector(a) => $struct(data: array[1024, `a`], len: int)
+  len(v) => v.len
+  push(v, e) =>
+
+`..` => $infix $typed(int, int)
+
+iota(s, e) =>
+  v := vector(int)
+  for i in s..e:
+    push(v, i)
+  v
+
+disasm(fib)
+

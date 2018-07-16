@@ -1,9 +1,0 @@
-
-import "core"
-default_region_settings()
-
-fn main() {
-  v := vec[s"yukari", s"maki", s"akari"]
-}
-
-main()
