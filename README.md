@@ -7,8 +7,8 @@ Flori is statically typed programming language without GC for system/application
 
 # Features
 
-- Statically typed.
-- Concise syntax with type/argument inference.
+- Simple
+- Statically typed with type inference.
 - AOT/JIT native code generation.
   - x86
   - x86_64 (in future)
@@ -23,66 +23,55 @@ Flori is statically typed programming language without GC for system/application
 
 # Inspired languages
 
-- Nim
-- Standard ML
+- Golang
+- OCaml
 - bone-lisp
 - xtlang
-- REBOL
-- Clojure
 - Common Lisp
 
 # Examples
 
 ### Hello World
 ```
-import core
-
 println("Hello World")
 ```
 
 ### Fibonacci
 ```
-import core
-
 fib =>
   if n<2: n
   else: fib(n-1) + fib(n-2)
 println(fib(38))
 ```
 
-Other examples, please reference `Flori/examples` or `Flori/tests/floritests`.
-
 # Usage
 **TODO**
 
 # Prebuilt Binaries
 
-~~[Releases](https://github.com/snowlt23/Flori/releases)~~ (image-compiler branch has still in development)
+~~[Releases](https://github.com/snowlt23/Flori/releases)~~ (rewrite-compiler branch has still in development)
 
 # Compiler Instructions
 
 **Requirements**
 
-- Nim (0.18.0)
-  - nimble
+- gcc
+- make
 
 ```sh
-# Build
-$ nimble install nake
-$ nimble install docopt
-$ nake build
-$ export PATH="$PATH:<flori-dir>/bin"
+# build
+$ make
 ```
 
 ```sh
-# Test
-$ nake test
+# build
+$ make test
 ```
 
 # Language Plan
 
 - Compiler Tools for Editor/IDE
-- Continuation
+- Continuation (or Return Stack)
 - Concurrency
 - Standard Library
 - Disassembler, Debugger, Profiler

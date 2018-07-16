@@ -39,3 +39,12 @@ iota(s, e) =>
 
 disasm(fib)
 
+println(x) => $codegen
+  quote:
+    print(`typeof(x)`_tostring(`x`))
+    print("\n")
+
+println(fib(38)) # ok
+idprint(x) => println(x) # error
+intprint(x) => $typed(int) println(x) # ok
+
