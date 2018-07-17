@@ -11,5 +11,19 @@ unittest() {
   fi
 }
 
+lexertest() {
+  OUT=`echo $1 | ./lexertest.out`
+  OUT=`echo $OUT`
+  if [ "$OUT" = "$2" ] ; then
+    echo "[OK] lexer: $1"
+  else
+    echo "[ERROR] lexer: $1, expected $2, but got $OUT"
+    exit 1
+  fi
+}
+
 unittest "test/vector_test.c"
-unittest "test/token_test.c"
+
+lexertest "yukari" "TOKEN_IDENT"
+lexertest "yukari maki" "TOKEN_IDENT TOKEN_IDENT"
+lexertest "4 + 5" "TOKEN_INTLIT TOKEN_OP TOKEN_INTLIT"

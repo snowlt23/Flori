@@ -24,26 +24,42 @@ typedef struct {
 } lexer;
 
 %%enum tokenkind {
-  TOKEN_ADD,
-  TOKEN_SUB,
+  TOKEN_OP,
+  TOKEN_IDENT,
+  TOKEN_INTLIT,
 };
 
 typedef struct {
   tokenkind kind;
   union {
+    char* ident;
+    int intval;
   };
 } token;
 
+typedef struct {
+  vector* tokens;
+  int position;
+} tokenstream;
+
+// string.c
+char* string_copy(char* s);
+
 // vector.c
 vector* new_vector_cap(int cap);
-
 vector* new_vector();
 void vector_extend(vector* v);
 void* vector_get(vector* v, int index);
 void vector_set(vector* v, int index, void* elem);
 void vector_push(vector* v, void* elem);
 
+// token
+char* tokenkind_tostring(tokenkind kind);
+
 // lexer.c
 lexer* new_lexer(FILE* handle, char* filename);
+tokenstream* lex(lexer* lx);
+token* get_token(tokenstream* ts);
+token* next_token(tokenstream* ts);
 
 #endif

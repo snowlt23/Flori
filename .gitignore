@@ -6,3 +6,4 @@ bin/
 *.swp
 adhocctmp/
 tmp/
+tostring.c
