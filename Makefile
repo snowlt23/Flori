@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall
 
-FLORI_LIBS = string.o vector.o lexer.o tostring.o
+FLORI_LIBS = string.o vector.o lexer.o parser.o flori.h.o
 
 build: flori ;
 
@@ -9,22 +9,25 @@ bin:
 	@mkdir bin
 tmp:
 	@mkdir tmp
-build-adhocc:
-	@adhocc build adhoccfile.c
+adhocctmp/adhocc.out: adhoccfile.c
+	adhocc build adhoccfile.c
 
-flori.h: tmp build-adhocc
-	rm tostring.c
-	cat flori.h | adhocc > tmp/flori.h
-%.o: %.c tmp flori.h
-	@cp $< tmp/$(notdir $<)
+flori-header: flori.h tmp adhocctmp/adhocc.out
+	cat flori.h | adhocc tmp/flori.h.c > tmp/flori.h
+flori.h.o: flori-header
+	$(CC) $(CFLAGS) -c tmp/flori.h.c
+%.o: %.c tmp flori-header
+	cat $< | adhocc > tmp/$(notdir $<)
 	$(CC) $(CFLAGS) -c tmp/$(notdir $<)
 
-flori: bin $(FLORI_LIBS) flori.o flori.h
+flori: bin flori-header $(FLORI_LIBS) flori.o
 	$(CC) $(CFLAGS) -o bin/flori $(FLORI_LIBS) flori.o
-lexertest.out: $(FLORI_LIBS) test/lexer_test.o flori.h
+lexertest.out: flori-header $(FLORI_LIBS) test/lexer_test.o
 	$(CC) $(CFLAGS) -o lexertest.out $(FLORI_LIBS) lexer_test.o
+parsertest.out: flori-header $(FLORI_LIBS) test/parser_test.o
+	$(CC) $(CFLAGS) -o parsertest.out $(FLORI_LIBS) parser_test.o
 
-test: flori lexertest.out
+test: flori lexertest.out parsertest.out
 	./test.sh
 
 clean:

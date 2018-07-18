@@ -8,6 +8,14 @@ int main() {
   for (;;) {
     token* t = next_token(ts);
     if (t == NULL) break;
-    printf("%s ", tokenkind_tostring(t->kind));
+    if (t->kind == TOKEN_INTLIT) {
+      printf("%s:%d ", tokenkind_tostring(t->kind), t->intval);
+    } else if (t->kind == TOKEN_IDENT) {
+      printf("%s:%s ", tokenkind_tostring(t->kind), t->ident);
+    } else if (t->kind == TOKEN_OP) {
+      printf("%s:%s ", tokenkind_tostring(t->kind), t->ident);
+    } else {
+      printf("%s ", tokenkind_tostring(t->kind));
+    }
   }
 }

@@ -1,10 +1,4 @@
-FILE* tostringfile = NULL;
-
 %%hook enum {
-  if (tostringfile == NULL){
-    tostringfile = fopen("tostring.c", "a");
-  }
-
   skip_spaces();
   string* enumname = parse_ident();
   skip_spaces();
@@ -36,6 +30,6 @@ FILE* tostringfile = NULL;
   if (getc(stdin) != ';') error("expected ; token in %%%%enum");
 
   printf("typedef enum { %s } %s;\n", string_cstr(enumsrc), string_cstr(enumname));
-  fprintf(tostringfile, "#include \"flori.h\"\n");
-  fprintf(tostringfile, "char* %s_tostring(%s kind) { %s; return \"unknownkind\"; }\n", string_cstr(enumname), string_cstr(enumname), string_cstr(tostrsrc));
+  adprintf("#include \"flori.h\"\n");
+  adprintf("char* %s_tostring(%s kind) { %s; return \"unknownkind\"; }\n", string_cstr(enumname), string_cstr(enumname), string_cstr(tostrsrc));
 }

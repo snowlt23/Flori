@@ -33,6 +33,18 @@ token* new_token_op(char* id) {
   return t;
 }
 
+int op_priority(token* t) {
+  assert(t->kind == TOKEN_OP);
+  int slen = strlen(t->ident);
+  assert(slen >= 1);
+  if (t->ident[0] == '+' || t->ident[0] == '-') {
+    return 5;
+  } else {
+    assert(false);
+    return 16;
+  }
+}
+
 //
 // tokenstream
 //
