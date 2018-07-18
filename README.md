@@ -23,6 +23,7 @@ Flori is statically typed programming language without GC for system/application
 
 # Inspired languages
 
+- C
 - Golang
 - OCaml
 - bone-lisp
@@ -64,7 +65,7 @@ $ make
 ```
 
 ```sh
-# build
+# test
 $ make test
 ```
 
