@@ -33,6 +33,19 @@ parsertest() {
   fi
 }
 
+rettest() {
+  echo $1 | ./bin/flori > out.asm
+  nasm -felf64 out.asm
+  ld -o test.out out.o
+  ./test.out
+  RETCODE=$?
+  if [ $RETCODE = $2 ] ; then
+    echo "[OK] retcode: $1"
+  else
+    echo "[ERROR] retcode: $1, expected $2, but got $RETCODE"
+  fi
+}
+
 unittest "test/vector_test.c"
 
 lexertest "yukari" "TOKEN_IDENT:yukari"
@@ -41,3 +54,6 @@ lexertest "4 + 5" "TOKEN_INTLIT:4 TOKEN_OP:+ TOKEN_INTLIT:5"
 
 parsertest "9" "FEXPR_INTLIT"
 parsertest "11 + 22" "FEXPR_INFIX"
+
+rettest "64" 64
+rettest "4 + 5" 9

@@ -8,7 +8,6 @@ fexpr* new_fexpr(fexprkind kind) {
   f->kind = kind;
   return f;
 }
-
 fexpr* new_fident(char* id) {
   fexpr* f = new_fexpr(FEXPR_IDENT);
   f->ident = id;

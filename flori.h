@@ -88,4 +88,9 @@ char* fexprkind_tostring(fexprkind kind);
 // parser.c
 fexpr* parse_fexpr(tokenstream* ts);
 
+// codegen.c
+void init_codegen(FILE* handle);
+void codegen(fexpr* f);
+void codegen_main(fexpr* f);
+
 #endif
