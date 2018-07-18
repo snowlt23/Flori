@@ -10,8 +10,8 @@ Flori is statically typed programming language without GC for system/application
 - Simple
 - Statically typed with type inference.
 - AOT/JIT native code generation.
-  - x86
-  - x86_64 (in future)
+  - x86 (in future)
+  - x86_64 (WIP)
   - WASM (in future)
   - ARM (in future)
   - RISC-V (in future)
