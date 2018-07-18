@@ -43,6 +43,7 @@ rettest() {
     echo "[OK] retcode: $1"
   else
     echo "[ERROR] retcode: $1, expected $2, but got $RETCODE"
+    exit 1
   fi
 }
 
@@ -65,3 +66,6 @@ parsertest "10 / 5" "FEXPR_INFIX"
 
 rettest "64" 64
 rettest "4 + 5" 9
+rettest "10-5" 5
+rettest "4*5" 20
+rettest "10/5" 2

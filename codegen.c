@@ -26,10 +26,14 @@ void init_codegen(FILE* handle) {
   codegenhandle = handle;
 }
 
+bool cmp_infix(fexpr f, char* infix) {
+  return fexpr_ptr(f)->kind == FEXPR_INFIX && fexpr_ptr(fexpr_ptr(f)->call)->kind == FEXPR_IDENT && strcmp(istring_cstr(fexpr_ptr(fexpr_ptr(f)->call)->ident), infix) == 0;
+}
+
 void codegen(fexpr f) {
   if (fexpr_ptr(f)->kind == FEXPR_INTLIT) {
     emit_asm("push %d", fexpr_ptr(f)->intval);
-  } else if (fexpr_ptr(f)->kind == FEXPR_INFIX && fexpr_ptr(fexpr_ptr(f)->call)->kind == FEXPR_IDENT && strcmp(istring_cstr(fexpr_ptr(fexpr_ptr(f)->call)->ident), "+") == 0) {
+  } else if (cmp_infix(f, "+")) {
     fexpr left = iarray_fexpr_get(fexpr_ptr(f)->arguments, 0);
     fexpr right = iarray_fexpr_get(fexpr_ptr(f)->arguments, 1);
     codegen(left);
@@ -38,7 +42,7 @@ void codegen(fexpr f) {
     emit_asm("pop rax");
     emit_asm("add rax, rcx");
     emit_asm("push rax");
-  } else if (fexpr_ptr(f)->kind == FEXPR_INFIX && fexpr_ptr(fexpr_ptr(f)->call)->kind == FEXPR_IDENT && strcmp(istring_cstr(fexpr_ptr(fexpr_ptr(f)->call)->ident), "-") == 0) {
+  } else if (cmp_infix(f, "-")) {
     fexpr left = iarray_fexpr_get(fexpr_ptr(f)->arguments, 0);
     fexpr right = iarray_fexpr_get(fexpr_ptr(f)->arguments, 1);
     codegen(left);
@@ -46,6 +50,25 @@ void codegen(fexpr f) {
     emit_asm("pop rcx");
     emit_asm("pop rax");
     emit_asm("sub rax, rcx");
+    emit_asm("push rax");
+  } else if (cmp_infix(f, "*")) {
+    fexpr left = iarray_fexpr_get(fexpr_ptr(f)->arguments, 0);
+    fexpr right = iarray_fexpr_get(fexpr_ptr(f)->arguments, 1);
+    codegen(left);
+    codegen(right);
+    emit_asm("mov rdx, 0");
+    emit_asm("pop rcx");
+    emit_asm("pop rax");
+    emit_asm("mul rcx");
+    emit_asm("push rax");
+  } else if (cmp_infix(f, "/")) {
+    fexpr left = iarray_fexpr_get(fexpr_ptr(f)->arguments, 0);
+    fexpr right = iarray_fexpr_get(fexpr_ptr(f)->arguments, 1);
+    codegen(left);
+    codegen(right);
+    emit_asm("pop rcx");
+    emit_asm("pop rax");
+    emit_asm("div rcx");
     emit_asm("push rax");
   } else {
     assert(false);
