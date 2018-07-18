@@ -39,20 +39,26 @@ fexpr parse_factor(tokenstream* ts) {
   }
 }
 
-fexpr parse_infix5(tokenstream* ts) {
-  fexpr left = parse_factor(ts);
-  for (;;) {
-    token* t = get_token(ts);
-    if (t != NULL && t->kind == TOKEN_OP && op_priority(t) == 5) {
-      next_token(ts);
-      left = new_finfix(new_fident(t->ident), left, parse_factor(ts));
-    } else {
-      break;
-    }
+#define DEF_PARSE_INFIX(pri, call) \
+  fexpr parse_infix ## pri(tokenstream* ts) { \
+    fexpr left = call(ts); \
+    for (;;) { \
+      token* t = get_token(ts); \
+      if (t != NULL && t->kind == TOKEN_OP && op_priority(t) == pri) { \
+        next_token(ts); \
+        left = new_finfix(new_fident(t->ident), left, call(ts)); \
+      } else { \
+        break; \
+      } \
+    } \
+    return left; \
   }
-  return left;
-}
+
+DEF_PARSE_INFIX(4, parse_factor);
+DEF_PARSE_INFIX(5, parse_infix4);
+DEF_PARSE_INFIX(7, parse_infix5);
+DEF_PARSE_INFIX(15, parse_infix7);
 
 fexpr parse_fexpr(tokenstream* ts) {
-  return parse_infix5(ts);
+  return parse_infix15(ts);
 }

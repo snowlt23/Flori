@@ -51,12 +51,17 @@ unittest "test/vector_test.c"
 lexertest "yukari" "TOKEN_IDENT:yukari"
 lexertest "yukari maki" "TOKEN_IDENT:yukari TOKEN_IDENT:maki"
 lexertest "4 + 5" "TOKEN_INTLIT:4 TOKEN_OP:+ TOKEN_INTLIT:5"
+lexertest "(4 + 5)" "TOKEN_LPAREN TOKEN_INTLIT:4 TOKEN_OP:+ TOKEN_INTLIT:5 TOKEN_RPAREN"
+lexertest "(4 + 5) * 2" "TOKEN_LPAREN TOKEN_INTLIT:4 TOKEN_OP:+ TOKEN_INTLIT:5 TOKEN_RPAREN TOKEN_OP:* TOKEN_INTLIT:2"
 lexertest "main => 1" "TOKEN_IDENT:main TOKEN_OP:=> TOKEN_INTLIT:1"
 lexertest "main =>\n  1" "TOKEN_IDENT:main TOKEN_OP:=> TOKEN_LBLOCK TOKEN_INTLIT:1 TOKEN_RBLOCK"
 lexertest "main =>\n  1\n    2" "TOKEN_IDENT:main TOKEN_OP:=> TOKEN_LBLOCK TOKEN_INTLIT:1 TOKEN_LBLOCK TOKEN_INTLIT:2 TOKEN_RBLOCK TOKEN_RBLOCK"
 
 parsertest "9" "FEXPR_INTLIT"
 parsertest "11 + 22" "FEXPR_INFIX"
+parsertest "11 - 22" "FEXPR_INFIX"
+parsertest "4 * 5" "FEXPR_INFIX"
+parsertest "10 / 5" "FEXPR_INFIX"
 
 rettest "64" 64
 rettest "4 + 5" 9

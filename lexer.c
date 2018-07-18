@@ -37,8 +37,14 @@ int op_priority(token* t) {
   assert(t->kind == TOKEN_OP);
   int slen = strlen(t->ident);
   assert(slen >= 1);
-  if (t->ident[0] == '+' || t->ident[0] == '-') {
+  if (t->ident[slen-1] == '=') {
+    return 15;
+  } else if (t->ident[0] == '<' || t->ident[0] == '>') {
+    return 7;
+  } else if (t->ident[0] == '+' || t->ident[0] == '-') {
     return 5;
+  } else if (t->ident[0] == '*' || t->ident[0] == '/' || t->ident[0] == '%') {
+    return 4;
   } else {
     assert(false);
     return 16;
@@ -152,6 +158,10 @@ tokenstream* lex(lexer* lx) {
         idbuf[i] = c;
       }
       vector_push(tokens, (void*)new_token_ident(string_copy(idbuf)));
+    } else if (c == '(') {
+      vector_push(tokens, (void*)new_token(TOKEN_LPAREN));
+    } else if (c == ')') {
+      vector_push(tokens, (void*)new_token(TOKEN_RPAREN));
     } else if (c == ' ') {
       c = lexer_getc(lx);
       if (c == ' ') {
