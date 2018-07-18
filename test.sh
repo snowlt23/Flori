@@ -12,7 +12,7 @@ unittest() {
 }
 
 lexertest() {
-  OUT=`echo $1 | ./lexertest.out`
+  OUT=`printf "$1" | ./lexertest.out`
   OUT=`echo $OUT`
   if [ "$OUT" = "$2" ] ; then
     echo "[OK] lexer: $1"
@@ -23,7 +23,7 @@ lexertest() {
 }
 
 parsertest() {
-  OUT=`echo $1 | ./parsertest.out`
+  OUT=`printf "$1" | ./parsertest.out`
   OUT=`echo $OUT`
   if [ "$OUT" = "$2" ] ; then
     echo "[OK] parser: $1"
@@ -34,7 +34,7 @@ parsertest() {
 }
 
 rettest() {
-  echo $1 | ./bin/flori > out.asm
+  printf "$1" | ./bin/flori > out.asm
   nasm -felf64 out.asm
   ld -o test.out out.o
   ./test.out
@@ -51,6 +51,8 @@ unittest "test/vector_test.c"
 lexertest "yukari" "TOKEN_IDENT:yukari"
 lexertest "yukari maki" "TOKEN_IDENT:yukari TOKEN_IDENT:maki"
 lexertest "4 + 5" "TOKEN_INTLIT:4 TOKEN_OP:+ TOKEN_INTLIT:5"
+lexertest "main => 1" "TOKEN_IDENT:main TOKEN_OP:=> TOKEN_INTLIT:1"
+lexertest "main =>\n  1" "TOKEN_IDENT:main TOKEN_OP:=> TOKEN_LBLOCK TOKEN_INTLIT:1 TOKEN_RBLOCK"
 
 parsertest "9" "FEXPR_INTLIT"
 parsertest "11 + 22" "FEXPR_INFIX"

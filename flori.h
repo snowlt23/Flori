@@ -32,6 +32,10 @@ typedef struct {
   TOKEN_OP,
   TOKEN_IDENT,
   TOKEN_INTLIT,
+  TOKEN_INDENT,
+  TOKEN_NEWLINE,
+  TOKEN_LBLOCK,
+  TOKEN_RBLOCK,
 };
 
 typedef struct {
@@ -104,6 +108,7 @@ int op_priority(token* t);
 // lexer.c
 lexer* new_lexer(FILE* handle, char* filename);
 tokenstream* lex(lexer* lx);
+tokenstream* offside_rule(tokenstream* ts);
 token* get_token(tokenstream* ts);
 token* next_token(tokenstream* ts);
 

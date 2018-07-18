@@ -4,7 +4,7 @@
 
 int main() {
   lexer* lx = new_lexer(stdin, "stdin.flori");
-  tokenstream* ts = lex(lx);
+  tokenstream* ts = offside_rule(lex(lx));
   for (;;) {
     token* t = next_token(ts);
     if (t == NULL) break;

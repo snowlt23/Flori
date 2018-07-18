@@ -97,7 +97,7 @@ void lexer_ungetc(lexer* lx, char c) {
 //
 
 bool isoperator(char c) {
-  return c == '!' || c == '|' || c == '%' || c == '&' || c == '+' || c == '-' || c == '*' || c == '/' || c == '.' || c == ':';
+  return c == '!' || c == '|' || c == '%' || c == '&' || c == '+' || c == '-' || c == '*' || c == '/' || c == '.' || c == ':' || c == '=' || c == '<' || c == '>';
 }
 
 bool isidentfirst(char c) {
@@ -153,7 +153,14 @@ tokenstream* lex(lexer* lx) {
       }
       vector_push(tokens, (void*)new_token_ident(string_copy(idbuf)));
     } else if (c == ' ') {
+      c = lexer_getc(lx);
+      if (c == ' ') {
+        vector_push(tokens, (void*)new_token(TOKEN_INDENT));
+      } else {
+        lexer_ungetc(lx, c);
+      }
     } else if (c == '\n') {
+      vector_push(tokens, (void*)new_token(TOKEN_NEWLINE));
       lx->line++;
       lx->column = 1;
     } else {
@@ -161,5 +168,44 @@ tokenstream* lex(lexer* lx) {
     }
   }
   return new_tokenstream(tokens);
+}
+
+tokenstream* offside_rule(tokenstream* ts) {
+  vector* v = new_vector();
+
+  int currindent = 0;
+  bool isnewline = false;
+  for (;;) {
+    token* t = next_token(ts);
+    if (t == NULL) break;
+    if (t->kind == TOKEN_NEWLINE) {
+      isnewline = true;
+    } else if (t->kind == TOKEN_INDENT && isnewline) {
+      int indent = 1;
+      for (;;) {
+        token* nt = get_token(ts);
+        if (nt->kind != TOKEN_INDENT) break;
+        next_token(ts);
+        indent++;
+      }
+      if (indent > currindent) {
+        vector_push(v, new_token(TOKEN_LBLOCK));
+      } else if (indent < currindent) {
+        for (int i=0; i<currindent - indent; i++) {
+          vector_push(v, new_token(TOKEN_RBLOCK));
+        }
+      }
+      isnewline = false;
+      currindent = indent;
+    } else if (t->kind == TOKEN_INDENT) {
+    } else {
+      vector_push(v, (void*)t);
+    }
+  }
+  for (int i=0; i<currindent; i++) {
+    vector_push(v, new_token(TOKEN_RBLOCK));
+  }
+
+  return new_tokenstream(v);
 }
 
