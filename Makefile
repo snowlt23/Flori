@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall
 
-FLORI_LIBS = string.o vector.o lexer.o parser.o codegen.o flori.h.o
+FLORI_LIBS = string.o vector.o linmem.o lexer.o parser.o codegen.o flori.h.o
 
 build: flori ;
 

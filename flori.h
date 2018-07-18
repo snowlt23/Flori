@@ -11,6 +11,11 @@ typedef struct {
 } vector;
 
 typedef struct {
+  int index;
+  int len;
+} istring;
+
+typedef struct {
   char* filename;
   int line;
   int column;
@@ -49,17 +54,22 @@ typedef struct {
   FEXPR_INTLIT,
 };
 
-typedef struct _fexpr {
+typedef struct {
+  int index;
+  int len;
+} iarray_fexpr;
+
+%%fstruct fexpr fexpr_obj {
   fexprkind kind;
   union {
     struct {
-      struct _fexpr* call;
-      vector* arguments;
+      fexpr call;
+      iarray_fexpr arguments;
     };
-    char* ident;
+    istring ident;
     int intval;
   };
-} fexpr;
+};
 
 // string.c
 char* string_copy(char* s);
@@ -71,6 +81,21 @@ void vector_extend(vector* v);
 void* vector_get(vector* v, int index);
 void vector_set(vector* v, int index, void* elem);
 void vector_push(vector* v, void* elem);
+
+// linmem.c
+void init_linmem_cap(int size);
+void init_linmem();
+int linmem_alloc(int size);
+void* linmem_toptr(int pos);
+
+// istring
+istring new_istring(char* s);
+char* istring_cstr(istring is);
+
+// iarray_fexpr
+iarray_fexpr new_iarray_fexpr(int len);
+void iarray_fexpr_set(iarray_fexpr ia, int index, fexpr f);
+fexpr iarray_fexpr_get(iarray_fexpr ia, int index);
 
 // token
 char* tokenkind_tostring(tokenkind kind);
@@ -86,11 +111,11 @@ token* next_token(tokenstream* ts);
 char* fexprkind_tostring(fexprkind kind);
 
 // parser.c
-fexpr* parse_fexpr(tokenstream* ts);
+fexpr parse_fexpr(tokenstream* ts);
 
 // codegen.c
 void init_codegen(FILE* handle);
-void codegen(fexpr* f);
-void codegen_main(fexpr* f);
+void codegen(fexpr f);
+void codegen_main(fexpr f);
 
 #endif

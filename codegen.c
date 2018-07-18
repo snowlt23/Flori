@@ -26,21 +26,21 @@ void init_codegen(FILE* handle) {
   codegenhandle = handle;
 }
 
-void codegen(fexpr* f) {
-  if (f->kind == FEXPR_INTLIT) {
-    emit_asm("push %d", f->intval);
-  } else if (f->kind == FEXPR_INFIX && f->call->kind == FEXPR_IDENT && strcmp(f->call->ident, "+") == 0) {
-    fexpr* left = (fexpr*)vector_get(f->arguments, 0);
-    fexpr* right = (fexpr*)vector_get(f->arguments, 1);
+void codegen(fexpr f) {
+  if (fexpr_ptr(f)->kind == FEXPR_INTLIT) {
+    emit_asm("push %d", fexpr_ptr(f)->intval);
+  } else if (fexpr_ptr(f)->kind == FEXPR_INFIX && fexpr_ptr(fexpr_ptr(f)->call)->kind == FEXPR_IDENT && strcmp(istring_cstr(fexpr_ptr(fexpr_ptr(f)->call)->ident), "+") == 0) {
+    fexpr left = iarray_fexpr_get(fexpr_ptr(f)->arguments, 0);
+    fexpr right = iarray_fexpr_get(fexpr_ptr(f)->arguments, 1);
     codegen(left);
     codegen(right);
     emit_asm("pop rcx");
     emit_asm("pop rax");
     emit_asm("add rax, rcx");
     emit_asm("push rax");
-  } else if (f->kind == FEXPR_INFIX && f->call->kind == FEXPR_IDENT && strcmp(f->call->ident, "-") == 0) {
-    fexpr* left = (fexpr*)vector_get(f->arguments, 0);
-    fexpr* right = (fexpr*)vector_get(f->arguments, 1);
+  } else if (fexpr_ptr(f)->kind == FEXPR_INFIX && fexpr_ptr(fexpr_ptr(f)->call)->kind == FEXPR_IDENT && strcmp(istring_cstr(fexpr_ptr(fexpr_ptr(f)->call)->ident), "-") == 0) {
+    fexpr left = iarray_fexpr_get(fexpr_ptr(f)->arguments, 0);
+    fexpr right = iarray_fexpr_get(fexpr_ptr(f)->arguments, 1);
     codegen(left);
     codegen(right);
     emit_asm("pop rcx");
@@ -52,7 +52,7 @@ void codegen(fexpr* f) {
   }
 }
 
-void codegen_main(fexpr* f) {
+void codegen_main(fexpr f) {
   emit_asm("global _start");
   emit_label("_start");
   codegen(f);
