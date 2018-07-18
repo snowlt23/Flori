@@ -31,7 +31,12 @@ fexpr new_finfix(fexpr call, fexpr left, fexpr right) {
 
 fexpr parse_factor(tokenstream* ts) {
   token* t = get_token(ts);
-  if (t->kind == TOKEN_INTLIT) {
+  if (t->kind == TOKEN_LPAREN) {
+    next_token(ts);
+    fexpr f = parse_fexpr(ts);
+    if (next_token(ts)->kind != TOKEN_RPAREN) {fprintf(stderr, "unmatched lparen`(` to rparen`)`."); exit(1);} // FIXME: change to parse_error(...)
+    return f;
+  } else if (t->kind == TOKEN_INTLIT) {
     next_token(ts);
     return new_fintlit(t->intval);
   } else {
