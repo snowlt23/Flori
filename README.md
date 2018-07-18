@@ -18,7 +18,7 @@ Flori is statically typed programming language without GC for system/application
 - Easy cross compilation.
 - Blazing fast and easy memory management by **Explicit Region**. (no GC)
 - Flexible meta syntax, It's **F Expression**.
-- Metaprogramming support. (user defined macro/syntax)
+- Code-generation as a abstraction tool.
 - Interactive development with REPL and Editor.
 
 # Inspired languages
@@ -39,7 +39,7 @@ println("Hello World")
 
 ### Fibonacci
 ```
-fib =>
+fib(n) =>
   if n<2: n
   else: fib(n-1) + fib(n-2)
 println(fib(38))
