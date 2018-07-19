@@ -54,6 +54,7 @@ fexpr parse_call(tokenstream* ts) {
     fexpr farr[1024] = {};
     next_token(ts);
     if (get_token(ts) != NULL && get_token(ts)->kind == TOKEN_RPAREN) {
+      next_token(ts);
       fexpr fcall = new_fexpr(FEXPR_CALL);
       fexpr_ptr(fcall)->call = f;
       fexpr_ptr(fcall)->arguments = new_iarray_fexpr(0);
@@ -83,11 +84,12 @@ fexpr parse_call(tokenstream* ts) {
 }
 
 fexpr parse_block(tokenstream* ts) {
-  if (get_token(ts)->kind == TOKEN_LBLOCK) {
+  if (get_token(ts) != NULL && get_token(ts)->kind == TOKEN_LBLOCK) {
     fexpr f[1024] = {};
     next_token(ts);
     for (int i=0; ; i++) {
       assert(i < 1024);
+      assert(get_token(ts) != NULL);
       if (get_token(ts)->kind == TOKEN_RBLOCK) {
         next_token(ts);
         fexpr fblk = new_fexpr(FEXPR_BLOCK);

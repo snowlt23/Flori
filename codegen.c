@@ -126,6 +126,12 @@ void codegen(genctx* gen, fexpr f) {
     for (int i=0; i<fexpr_ptr(f)->sons.len; i++) {
       codegen(gen, iarray_fexpr_get(fexpr_ptr(f)->sons, i));
     }
+  } else if (fexpr_ptr(f)->kind == FEXPR_CALL && fexpr_ptr(fexpr_ptr(f)->call)->kind == FEXPR_IDENT) {
+    for (int i=0; i<fexpr_ptr(f)->arguments.len; i++) {
+      codegen(gen, iarray_fexpr_get(fexpr_ptr(f)->arguments, i));
+    }
+    emit_asm("call %s", istring_cstr(fexpr_ptr(fexpr_ptr(f)->call)->ident)); // FIXME: call stack
+    emit_asm("push rax");
   } else {
     assert(false);
   }

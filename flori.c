@@ -3,10 +3,13 @@
 
 int main() {
   init_linmem();
+  init_codegen(stdout);
   lexer* lx = new_lexer(stdin, "stdin.flori");
   tokenstream* ts = offside_rule(lex(lx));
-  fexpr f = parse_fexpr(ts);
-  init_codegen(stdout);
-  codegen_fn(f);
+  for (;;) {
+    if (get_token(ts) == NULL) break;
+    fexpr f = parse_fexpr(ts);
+    codegen_fn(f);
+  }
   codegen_startup();
 }

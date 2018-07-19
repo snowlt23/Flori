@@ -65,7 +65,9 @@ parsertest "11 - 22" "FEXPR_INFIX"
 parsertest "4 * 5" "FEXPR_INFIX"
 parsertest "10 / 5" "FEXPR_INFIX"
 parsertest "main =>\n  1" "FEXPR_INFIX"
+parsertest "num5()" "FEXPR_CALL"
 parsertest "add(4, 5)" "FEXPR_CALL"
+parsertest "num4() + num4()" "FEXPR_INFIX"
 
 rettest "main => 64" 64
 rettest "main => 4 + 5" 9
@@ -75,3 +77,4 @@ rettest "main => 10/5" 2
 rettest "main => 4 + 5 * 2" 14
 rettest "main => (4 + 5) * 2" 18
 rettest "main =>\n  nine := 9\n  nine + nine" 18
+rettest "num9 => 4 + 5\nmain => num9() + num9()" 18
