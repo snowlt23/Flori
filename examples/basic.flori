@@ -1,8 +1,10 @@
-`+` => $infix $typed(int, int) $internal("int_add")
-`+.` => $infix $typed(float, float) $internal("float_add")
 
-fadd_sugg => $trigger(typetrig(`+`, float, float))
-  hint("can't use `+` operator as float add, should be use `+.` operator.")
+int => $class
+  `+(a, b) => $internal("int_add")
+  `-(a, b) => $internal("int_sub")
+float => $class
+  `+.(a, b) => $internal("float_add")
+  `-.(a, b) => $internal("float_sub")
 
 fib(n) =>
   if n<2:
@@ -10,41 +12,36 @@ fib(n) =>
   else:
     fib(n-1) + fib(n-2)
 
-vector(a) => $codegen
-  oncequote:
-    vector_`a` => $struct(data: array(1024, `a`), len: int)
-    vector_`a`_len(v) => v.len
-    vector_`a`_push(v, e) => 
-  quote:
-    vector_`a`
-push(v, e) => $codegen
-  quote:
-    vector_`typeof(v)`_push(`v`, `e`)
-len(v) => $codegen
-  quote:
-    vector_`typeof(v)`_len(`v`)
+vector(a) => $class(p: ptr a, cap: int, len: int)
+  new_cap(cap) => vector.init(alloc(sizeof(a)*cap), cap, 0)
+  new() => vector.new_cap(256)
+  extend(self) =>
+  push(self) =>
+    self.extend()
+    v.p!v.len = e
+    v.len += 1
 
-vector(a) => $template
-  vector(a) => $struct(data: array[1024, ``a``], len: int)
-  len(v) => v.len
-  push(v, e) =>
+main =>
+  v := vector(int).new()
+  v.push(1)
+  v.push(2)
 
-`..` => $infix $typed(int, int)
+`..(s, e) =>
 
 iota(s, e) =>
-  v := vector(int)
+  v := vector(int).new()
   for i in s..e:
-    push(v, i)
+    v.push(i)
   v
 
-disasm(fib)
+tostr(x) => $protocol
 
-println(x) => $codegen
+println(x) => $macro
   quote:
-    print(`typeof(x)`_tostring(`x`))
+    print(tostr(`x))
     print("\n")
 
 println(fib(38)) # ok
 idprint(x) => println(x) # error
-intprint(x) => $typed(int) println(x) # ok
+intprint(x: int) => println(x) # ok
 

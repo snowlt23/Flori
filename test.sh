@@ -54,6 +54,7 @@ lexertest "yukari maki" "TOKEN_IDENT:yukari TOKEN_IDENT:maki"
 lexertest "4 + 5" "TOKEN_INTLIT:4 TOKEN_OP:+ TOKEN_INTLIT:5"
 lexertest "(4 + 5)" "TOKEN_LPAREN TOKEN_INTLIT:4 TOKEN_OP:+ TOKEN_INTLIT:5 TOKEN_RPAREN"
 lexertest "(4 + 5) * 2" "TOKEN_LPAREN TOKEN_INTLIT:4 TOKEN_OP:+ TOKEN_INTLIT:5 TOKEN_RPAREN TOKEN_OP:* TOKEN_INTLIT:2"
+lexertest "a, b, c" "TOKEN_IDENT:a TOKEN_COMMA TOKEN_IDENT:b TOKEN_COMMA TOKEN_IDENT:c"
 lexertest "main => 1" "TOKEN_IDENT:main TOKEN_OP:=> TOKEN_INTLIT:1"
 lexertest "main =>\n  1" "TOKEN_IDENT:main TOKEN_OP:=> TOKEN_LBLOCK TOKEN_INTLIT:1 TOKEN_RBLOCK"
 lexertest "main =>\n  1\n    2" "TOKEN_IDENT:main TOKEN_OP:=> TOKEN_LBLOCK TOKEN_INTLIT:1 TOKEN_LBLOCK TOKEN_INTLIT:2 TOKEN_RBLOCK TOKEN_RBLOCK"
@@ -64,6 +65,7 @@ parsertest "11 - 22" "FEXPR_INFIX"
 parsertest "4 * 5" "FEXPR_INFIX"
 parsertest "10 / 5" "FEXPR_INFIX"
 parsertest "main =>\n  1" "FEXPR_INFIX"
+parsertest "add(4, 5)" "FEXPR_CALL"
 
 rettest "main => 64" 64
 rettest "main => 4 + 5" 9

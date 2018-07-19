@@ -13,8 +13,7 @@ token* new_token(tokenkind kind) {
   token* t = malloc(sizeof(token));
   t->kind = kind;
   return t;
-}
-
+} 
 token* new_token_intlit(int x) {
   token* t = new_token(TOKEN_INTLIT);
   t->intval = x;
@@ -162,6 +161,8 @@ tokenstream* lex(lexer* lx) {
       vector_push(tokens, (void*)new_token(TOKEN_LPAREN));
     } else if (c == ')') {
       vector_push(tokens, (void*)new_token(TOKEN_RPAREN));
+    } else if (c == ',') {
+      vector_push(tokens, (void*)new_token(TOKEN_COMMA));
     } else if (c == ' ') {
       c = lexer_getc(lx);
       if (c == ' ') {

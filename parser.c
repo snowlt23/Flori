@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include "flori.h"
 
 fexpr new_fexpr(fexprkind kind) {
@@ -47,11 +48,46 @@ fexpr parse_factor(tokenstream* ts) {
   }
 }
 
+fexpr parse_call(tokenstream* ts) {
+  fexpr f = parse_factor(ts);
+  if (get_token(ts) != NULL && get_token(ts)->kind == TOKEN_LPAREN) {
+    fexpr farr[1024] = {};
+    next_token(ts);
+    if (get_token(ts) != NULL && get_token(ts)->kind == TOKEN_RPAREN) {
+      fexpr fcall = new_fexpr(FEXPR_CALL);
+      fexpr_ptr(fcall)->call = f;
+      fexpr_ptr(fcall)->arguments = new_iarray_fexpr(0);
+      return fcall;
+    }
+    farr[0] = parse_fexpr(ts);
+    for (int i=1; ; i++) {
+      assert(i < 1024);
+      if (get_token(ts) == NULL) {fprintf(stderr, "unmatched lparen`(` to rparen`)` in function call."); exit(1);} // FIXME: change to parse_error(...)
+      if (get_token(ts)->kind == TOKEN_RPAREN) {
+        next_token(ts);
+        fexpr fcall = new_fexpr(FEXPR_CALL);
+        fexpr_ptr(fcall)->call = f;
+        fexpr_ptr(fcall)->arguments = new_iarray_fexpr(i);
+        for (int j=0; j<i; j++) {
+          iarray_fexpr_set(fexpr_ptr(fcall)->arguments, j, farr[j]);
+        }
+        return fcall;
+      }
+      if (get_token(ts) == NULL || get_token(ts)->kind != TOKEN_COMMA) {fprintf(stderr, "expected comma`,` by function call."); exit(1);}
+      next_token(ts);
+      farr[i] = parse_fexpr(ts);
+    }
+  } else {
+    return f;
+  }
+}
+
 fexpr parse_block(tokenstream* ts) {
   if (get_token(ts)->kind == TOKEN_LBLOCK) {
     fexpr f[1024] = {};
     next_token(ts);
     for (int i=0; ; i++) {
+      assert(i < 1024);
       if (get_token(ts)->kind == TOKEN_RBLOCK) {
         next_token(ts);
         fexpr fblk = new_fexpr(FEXPR_BLOCK);
@@ -64,7 +100,7 @@ fexpr parse_block(tokenstream* ts) {
       f[i] = parse_fexpr(ts);
     }
   } else {
-    return parse_factor(ts);
+    return parse_call(ts);
   }
 }
 

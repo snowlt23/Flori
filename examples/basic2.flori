@@ -1,0 +1,16 @@
+`+(a: int, b: int) => $internal("int_add")
+`+(a: float, b: float) => $internal("float_add")
+
+fib(n: int) =>
+  if n<2:
+    n
+  else:
+    fib(n-1) + fib(n-2)
+
+vector(a) => $struct(p: ptr a, cap: int, len: int)
+
+new_vector_cap(a) =>
+  vector(a).init(alloc(sizeof(a)*cap), cap, 0)
+new_vector(a) =>
+  new_vector_cap(int, 256)
+
