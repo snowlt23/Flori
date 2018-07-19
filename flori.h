@@ -58,6 +58,7 @@ typedef struct {
   FEXPR_INFIX,
   FEXPR_IDENT,
   FEXPR_INTLIT,
+  FEXPR_BLOCK,
 };
 
 typedef struct {
@@ -72,10 +73,23 @@ typedef struct {
       fexpr call;
       iarray_fexpr arguments;
     };
+    struct {
+      iarray_fexpr sons;
+    };
     istring ident;
     int intval;
   };
 };
+
+typedef struct {
+  char* name;
+  int offset;
+} varpair;
+
+typedef struct {
+  vector* varmap;
+  int varpos;
+} genctx;
 
 // string.c
 char* string_copy(char* s);
@@ -121,8 +135,11 @@ char* fexprkind_tostring(fexprkind kind);
 fexpr parse_fexpr(tokenstream* ts);
 
 // codegen.c
+genctx* new_genctx();
 void init_codegen(FILE* handle);
-void codegen(fexpr f);
-void codegen_main(fexpr f);
+void codegen(genctx* gen, fexpr f);
+void codegen_fn(fexpr f);
+void codegen_startup();
+void assign_variable(genctx* gen, fexpr f);
 
 #endif

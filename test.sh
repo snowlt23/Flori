@@ -63,11 +63,13 @@ parsertest "11 + 22" "FEXPR_INFIX"
 parsertest "11 - 22" "FEXPR_INFIX"
 parsertest "4 * 5" "FEXPR_INFIX"
 parsertest "10 / 5" "FEXPR_INFIX"
+parsertest "main =>\n  1" "FEXPR_INFIX"
 
-rettest "64" 64
-rettest "4 + 5" 9
-rettest "10-5" 5
-rettest "4*5" 20
-rettest "10/5" 2
-rettest "4 + 5 * 2" 14
-rettest "(4 + 5) * 2" 18
+rettest "main => 64" 64
+rettest "main => 4 + 5" 9
+rettest "main => 10-5" 5
+rettest "main => 4*5" 20
+rettest "main => 10/5" 2
+rettest "main => 4 + 5 * 2" 14
+rettest "main => (4 + 5) * 2" 18
+rettest "main =>\n  nine := 9\n  nine + nine" 18

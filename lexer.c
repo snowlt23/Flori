@@ -37,7 +37,7 @@ int op_priority(token* t) {
   assert(t->kind == TOKEN_OP);
   int slen = strlen(t->ident);
   assert(slen >= 1);
-  if (t->ident[slen-1] == '=') {
+  if (t->ident[0] == '=' || t->ident[slen-1] == '=') {
     return 15;
   } else if (t->ident[0] == '<' || t->ident[0] == '>') {
     return 7;

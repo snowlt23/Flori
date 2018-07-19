@@ -36,11 +36,35 @@ fexpr parse_factor(tokenstream* ts) {
     fexpr f = parse_fexpr(ts);
     if (next_token(ts)->kind != TOKEN_RPAREN) {fprintf(stderr, "unmatched lparen`(` to rparen`)`."); exit(1);} // FIXME: change to parse_error(...)
     return f;
+  } else if (t->kind == TOKEN_IDENT) {
+    next_token(ts);
+    return new_fident(t->ident);
   } else if (t->kind == TOKEN_INTLIT) {
     next_token(ts);
     return new_fintlit(t->intval);
   } else {
     return parse_fexpr(ts);
+  }
+}
+
+fexpr parse_block(tokenstream* ts) {
+  if (get_token(ts)->kind == TOKEN_LBLOCK) {
+    fexpr f[1024] = {};
+    next_token(ts);
+    for (int i=0; ; i++) {
+      if (get_token(ts)->kind == TOKEN_RBLOCK) {
+        next_token(ts);
+        fexpr fblk = new_fexpr(FEXPR_BLOCK);
+        fexpr_ptr(fblk)->sons = new_iarray_fexpr(i);
+        for (int j=0; j<i; j++) {
+          iarray_fexpr_set(fexpr_ptr(fblk)->sons, j, f[j]);
+        }
+        return fblk;
+      }
+      f[i] = parse_fexpr(ts);
+    }
+  } else {
+    return parse_factor(ts);
   }
 }
 
@@ -59,7 +83,7 @@ fexpr parse_factor(tokenstream* ts) {
     return left; \
   }
 
-DEF_PARSE_INFIX(4, parse_factor);
+DEF_PARSE_INFIX(4, parse_block);
 DEF_PARSE_INFIX(5, parse_infix4);
 DEF_PARSE_INFIX(7, parse_infix5);
 DEF_PARSE_INFIX(15, parse_infix7);
