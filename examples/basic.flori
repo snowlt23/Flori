@@ -1,10 +1,5 @@
-
-int => $class
-  `+(a, b) => $internal("int_add")
-  `-(a, b) => $internal("int_sub")
-float => $class
-  `+.(a, b) => $internal("float_add")
-  `-.(a, b) => $internal("float_sub")
+`+`(a: int, b: int) => $internal("int_add")
+`+.`(a: float, b: float) => $internal("float_add")
 
 fib(n) =>
   if n<2:
@@ -12,12 +7,12 @@ fib(n) =>
   else:
     fib(n-1) + fib(n-2)
 
-vector(a) => $class(p: ptr a, cap: int, len: int)
-  new_cap(cap) => vector.init(alloc(sizeof(a)*cap), cap, 0)
-  new() => vector.new_cap(256)
-  extend(self) =>
-  push(self) =>
-    self.extend()
+vector(a) => $module
+  init(p, cap, len) => $struct(p: ptr a, cap: int, len: int)
+  new_cap(cap) => vector(a).init(alloc(sizeof(a)*cap), cap, 0)
+  new() => vector(a).new_cap(256)
+  push(v, e) =>
+    v.extend()
     v.p!v.len = e
     v.len += 1
 
@@ -26,7 +21,7 @@ main =>
   v.push(1)
   v.push(2)
 
-`..(s, e) =>
+`..`(s, e) => ...
 
 iota(s, e) =>
   v := vector(int).new()
@@ -34,14 +29,13 @@ iota(s, e) =>
     v.push(i)
   v
 
-tostr(x) => $protocol
+int_tostring(x) => ...
 
 println(x) => $macro
   quote:
-    print(tostr(`x))
-    print("\n")
+    print(`typeof(x)`_tostring(x), "\n")
 
 println(fib(38)) # ok
-idprint(x) => println(x) # error
+idprint(x) => println(x) # error, `x` type is undefined.
 intprint(x: int) => println(x) # ok
 
