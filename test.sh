@@ -78,3 +78,4 @@ rettest "main => 4 + 5 * 2" 14
 rettest "main => (4 + 5) * 2" 18
 rettest "main =>\n  nine := 9\n  nine + nine" 18
 rettest "num9 => 4 + 5\nmain => num9() + num9()" 18
+rettest "add(a, b) => a + b\nmain => add(5, 5)" 10

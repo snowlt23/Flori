@@ -131,6 +131,7 @@ void codegen(genctx* gen, fexpr f) {
       codegen(gen, iarray_fexpr_get(fexpr_ptr(f)->arguments, i));
     }
     emit_asm("call %s", istring_cstr(fexpr_ptr(fexpr_ptr(f)->call)->ident)); // FIXME: call stack
+    emit_asm("add rsp, %d", fexpr_ptr(f)->arguments.len*8);
     emit_asm("push rax");
   } else {
     assert(false);
@@ -142,11 +143,31 @@ void codegen_fn(fexpr f) {
   genctx* gen = new_genctx();
   fexpr left = iarray_fexpr_get(fexpr_ptr(f)->arguments, 0);
   fexpr right = iarray_fexpr_get(fexpr_ptr(f)->arguments, 1);
+  if (fexpr_ptr(left)->kind == FEXPR_CALL) {
+    char* fname = istring_cstr(fexpr_ptr(fexpr_ptr(left)->call)->ident);
+    emit_label(fname);
+    iarray_fexpr arguments = fexpr_ptr(left)->arguments;
+    for (int i=0; i<arguments.len; i++) {
+      fexpr arg = iarray_fexpr_get(arguments, i);
+      assert(fexpr_ptr(arg)->kind == FEXPR_IDENT);
+      assign_variable_position(gen, istring_cstr(fexpr_ptr(arg)->ident), 8);
+    }
+    emit_asm("push rbp");
+    emit_asm("mov rbp, rsp");
+    emit_asm("sub rsp, %d", gen->varpos);
+    for (int i=arguments.len-1; i>=0; i--) {
+      fexpr arg = iarray_fexpr_get(arguments, i);
+      int offset = get_variable_offset(gen, istring_cstr(fexpr_ptr(arg)->ident));
+      emit_asm("mov rax, [rbp+%d]", offset+8);
+      emit_asm("mov [rbp-%d], rax", offset);
+    }
+  } else {
+    emit_label(istring_cstr(fexpr_ptr(left)->ident));
+    emit_asm("push rbp");
+    emit_asm("mov rbp, rsp");
+    emit_asm("sub rsp, %d", gen->varpos);
+  }
   assign_variable(gen, right);
-  emit_label(istring_cstr(fexpr_ptr(left)->ident));
-  emit_asm("push rbp");
-  emit_asm("mov rbp, rsp");
-  emit_asm("sub rsp, %d", gen->varpos);
   codegen(gen, right);
   emit_asm("pop rax");
   emit_asm("mov rsp, rbp");

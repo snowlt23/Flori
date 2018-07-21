@@ -8,16 +8,21 @@ fib(n) =>
     fib(n-1) + fib(n-2)
 
 vector(a) => $module
-  init(p, cap, len) => $struct(p: ptr a, cap: int, len: int)
+  init => $struct(p: ptr a, cap: int, len: int)
   new_cap(cap) => vector(a).init(alloc(sizeof(a)*cap), cap, 0)
   new() => vector(a).new_cap(256)
   push(v, e) =>
     v.extend()
     v.p!v.len = e
     v.len += 1
+  tostring(v) =>
+    s := ""
+    for i in 0..<v.len:
+      s &= a.tostring(v!i)
+    s
 
 main =>
-  v := vector(int).new()
+  v := vector(int).new() # type -> vector(int).init
   v.push(1)
   v.push(2)
 
@@ -29,13 +34,43 @@ iota(s, e) =>
     v.push(i)
   v
 
-int_tostring(x) => ...
+int => $module
+  tostring(x) => ...
 
 println(x) => $macro
   quote:
-    print(`typeof(x)`_tostring(x), "\n")
+    print(`typeof(x)`.tostring(x), "\n")
 
 println(fib(38)) # ok
 idprint(x) => println(x) # error, `x` type is undefined.
 intprint(x: int) => println(x) # ok
+
+token => $module
+  $enum:
+    intlit(int)
+    add
+    sub
+  tostring(t)  =>
+    match t:
+      intlit(x):
+        int.tostring(x)
+      add:
+        "+"
+      sub:
+        "-"
+
+main =>
+  println(token.tostring(token.intlit(1)))
+main =>
+  $open token
+  println(tostring(intlit(1)))
+main =>
+  T => $alias token
+  println(T.tostring(T.intlit(1)))
+
+main =>
+  http := new_http_server()
+  loop:
+    co:
+      in_reg: http.serve()
 
