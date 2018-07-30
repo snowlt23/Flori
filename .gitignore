@@ -5,6 +5,7 @@ nimsuggest.log
 bin/
 floricache/
 jsdist/
+nakefile
 flori.exe
 flori
 florirepl.exe
@@ -23,3 +24,4 @@ voiceroids.txt
 *.fimg
 *.bin
 *.dll
+*.swp

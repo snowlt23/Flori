@@ -4,17 +4,33 @@ import marshal
 import dynlib
 import ../internalffi
 
-type
-  AllocationType = enum
-    allocMemCommit = 0x1000
-  Protect = enum
-    protectExecuteRW = 0x40
-  FreeType = enum
-    freeMemDecommit = 16384
+when defined(windows):
+  type
+    AllocationType = enum
+      allocMemCommit = 0x1000
+    Protect = enum
+      protectExecuteRW = 0x40
+    FreeType = enum
+      freeMemDecommit = 16384
+else:
+  type
+    Protect = enum
+      protectRead = 0x1
+      protectWrite = 0x2
+      protectExec = 0x4
+      protectExecuteRW = Protect(int(protectRead) or int(protectWrite) or int(protectExec))
+    MMapFlag = enum
+      mmapShared = 0x1
+      mmapPrivate = 0x2
+      mmapAnonymous = 0x20
+      mmap32bit = 0x40
 
 when defined(windows):
   proc VirtualAlloc(lpAddress: pointer, size: int, alloctype: AllocationType, protect: Protect): pointer {.importc, header: "windows.h", stdcall.}
   proc VirtualFree(lpAddress: pointer, size: int, freetype: FreeType): bool {.importc, header: "windows.h", stdcall.}
+else:
+  proc mmap(adr: pointer, size: int, protect: Protect, flags: int, fd: int, offset: int): pointer {.importc, header: "sys/mman.h", cdecl.}
+  proc munmap(adr: pointer, size: int): bool {.importc, header: "sys/mman.h", cdecl.}
 
 type
   RelocKind* = enum
@@ -43,12 +59,22 @@ type
 proc initJitBuffer*(size: int): JitBuffer =
   when defined(windows):
     let mem = cast[ptr uint8](VirtualAlloc(nil, size, allocMemCommit, protectExecuteRW))
+  else:
+    let mem = cast[ptr uint8](mmap(nil, size, protectExecuteRW, int(mmapPrivate) or int(mmap32bit) or int(mmapAnonymous), -1, 0))
+    if cast[int](mem) == -1:
+      raise newException(Exception, "error: couldn't allocate jit buffer in mmap.")
   JitBuffer(mem: mem, cap: size, len: 0, relocs: @[])
 proc extend*(buf: var JitBuffer) =
   if buf.len+1 >= buf.cap:
-    let newmem = VirtualAlloc(nil, buf.cap*2, allocMemCommit, protectExecuteRW)
+    when defined(windows):
+      let newmem = VirtualAlloc(nil, buf.cap*2, allocMemCommit, protectExecuteRW)
+    else:
+      let newmem = mmap(nil, buf.cap*2, protectExecuteRW, int(mmapPrivate) or int(mmap32bit) or int(mmapAnonymous), -1, 0)
     copyMem(newmem, buf.mem, buf.cap)
-    discard VirtualFree(buf.mem, buf.cap, freeMemDecommit)
+    when defined(windows):
+      discard VirtualFree(buf.mem, buf.cap, freeMemDecommit)
+    else:
+      discard munmap(buf.mem, buf.cap)
     buf.mem = newmem
     buf.cap *= 2
 proc add*(buf: var JitBuffer, x: uint8) =
