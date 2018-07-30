@@ -53,6 +53,7 @@ println(fib(38))
 Other examples, please reference `Flori/examples` or `Flori/tests/floritests`.
 
 # Usage
+
 **TODO**
 
 # Prebuilt Binaries
@@ -81,9 +82,13 @@ $ nake test
 
 # Language Plan
 
+- Image to Executable
+- Region typing
+- Statically region size analysis (dependency values of allocation)
 - Compiler Tools for Editor/IDE
-- Continuation
+- Continuation (or Return Stack)
 - Concurrency
+- Documentation tool
 - Standard Library
 - Disassembler, Debugger, Profiler
 - Region Profiler
