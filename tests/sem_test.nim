@@ -118,6 +118,12 @@ vector => $struct(x, y, z)
     check f2[0].names == "a b"
     check f2[0].types == "vector vector"
     check $f2[0].internal.obj.returntype == "vector"
+    var f3 = evalTest("""
+main => vector(1, 2, 3) + vector(4, 5, 6)
+""")
+    check f3[0].names == ""
+    check f3[0].types == ""
+    check $f3[0].internal.obj.returntype == "vector"
   test "range":
     var f = evalTest("""
 range => $struct(s: int, e: int)

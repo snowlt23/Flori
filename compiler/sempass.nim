@@ -105,11 +105,10 @@ proc callResolve*(scope: FScope, fexpr: var FExpr): bool =
       let words = scope.getWords($fexpr.call).filterWords(fexpr.args.len)
       if words.len == 0:
         fexpr.error("undeclared $# word" % $fexpr.call)
-      let calltyp = unionsym(words.mapIt(it.getReturnType()))
-      fexpr.call = fsymbol(fexpr.call.span, unionsym(words.mapIt(it.sym)))
-      fexpr.typ = some(calltyp)
+      var argtypes = newSeq[Symbol]()
       for i, arg in fexpr.args.mpairs:
         scope.rootPass(arg)
+        argtypes.add(arg.gettype)
         var argtyp = argumentUnion(words, i)
         if argtyp.isNone:
           continue
@@ -119,8 +118,13 @@ proc callResolve*(scope: FScope, fexpr: var FExpr): bool =
         let opt2 = arg.typ.linkinfer(argtyp.get)
         if opt2.isSome:
           arg.error(opt2.get & " in " & $fexpr)
-      # if fexpr.call.symbol.kind != symbolUnion and fexpr.args.mapIt(it.gettype).isSpecTypes and fexpr.call.symbol.fexpr.internal.obj.argtypes.isSome and not toSeq(fexpr.call.symbol.fexpr.internal.obj.argtypes.get.items).isSpecTypes:
-      #   fexpr.call.symbol.scope.instantiateWord(fexpr.call.symbol.fexpr, fexpr.args.mapIt(it.gettype))
+      let specwords = words.filterWords(argtypes)
+      let calltyp = unionsym(specwords.mapIt(it.getReturnType()))
+      fexpr.call = fsymbol(fexpr.call.span, unionsym(specwords.mapIt(it.sym)))
+      fexpr.typ = some(calltyp)
+      if fexpr.call.symbol.kind != symbolUnion and fexpr.args.mapIt(it.gettype).isSpecTypes and fexpr.call.symbol.fexpr.internal.obj.argtypes.isSome and not toSeq(fexpr.call.symbol.fexpr.internal.obj.argtypes.get.items).isSpecTypes:
+        let instance = fexpr.call.symbol.scope.instantiateWord(fexpr.call.symbol.fexpr, fexpr.args.mapIt(it.gettype))
+        fexpr.typ = some(instance.internal.obj.returntype)
   return true
 
 proc finalPass*(scope: FScope, fexpr: var FExpr): bool =

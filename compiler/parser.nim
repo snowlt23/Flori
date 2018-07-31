@@ -49,10 +49,13 @@ template defineInfixExpr(name, call, pri) =
           break
         if tok.get.kind == tokenInfix and tok.get.priority == pri:
           ctx.nextToken()
-          let right = ctx.call()
-          if right.kind == fexprBlock and right.sons.len == 0:
-            ctx.moreToken()
-          f = finfix(tok.get.span, fident(tok.get.span, tok.get.infix), f, right)
+          if tok.get.leftconc:
+            let right = ctx.call()
+            if right.kind == fexprBlock and right.sons.len == 0:
+              ctx.moreToken()
+            f = finfix(tok.get.span, fident(tok.get.span, tok.get.infix), f, right)
+          else:
+            f = finfix(tok.get.span, fident(tok.get.span, tok.get.infix), f, ctx.topexpr())
         else:
           break
       return f

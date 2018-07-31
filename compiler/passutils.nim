@@ -124,6 +124,20 @@ proc filterWords*(words: openArray[ProcDecl], arglen: int): seq[ProcDecl] =
   for word in words:
     if word.getargtypes.isNone or arglen == word.getargtypes.get.len or word.undecided:
       result.add(word)
+
+proc match*(a: seq[Symbol], b: seq[Symbol]): bool =
+  if a.len != b.len: return false
+  for i in 0..<a.len:
+    if not a[i].match(b[i]):
+      return false
+  return true
+
+proc filterWords*(words: openArray[ProcDecl], argtypes: seq[Symbol]): seq[ProcDecl] =
+  result = @[]
+  for word in words:
+    if word.getargtypes.isNone or toSeq(word.getargtypes.get.items).match(argtypes) or word.undecided:
+      result.add(word)
+
 proc argumentUnion*(words: openArray[ProcDecl], index: int): Option[Symbol] =
   var typs = newSeq[Symbol]()
   for word in words:

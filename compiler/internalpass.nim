@@ -147,6 +147,8 @@ proc semStruct*(scope: FScope, fexpr: var FExpr) =
   scope.obj.top.addDecl(typename, sym)
 
   for field in fexpr.args.mitems:
+    if field.kind == fexprSymbol:
+      continue
     let (fieldname, fieldtyp) = if field.kind == fexprIdent:
                                   (field, linksym(undeftypeSymbol))
                                 else:
