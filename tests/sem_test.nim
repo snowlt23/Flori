@@ -124,6 +124,10 @@ main => vector(1, 2, 3) + vector(4, 5, 6)
     check f3[0].names == ""
     check f3[0].types == ""
     check $f3[0].internal.obj.returntype == "vector"
+    expect FExprError:
+      var f4 = evalTest("""
+main => vector(1, 2, 3) + 4
+""")
   test "range":
     var f = evalTest("""
 range => $struct(s: int, e: int)

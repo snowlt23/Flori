@@ -119,6 +119,8 @@ proc callResolve*(scope: FScope, fexpr: var FExpr): bool =
         if opt2.isSome:
           arg.error(opt2.get & " in " & $fexpr)
       let specwords = words.filterWords(argtypes)
+      if specwords.len == 0:
+        fexpr.error("undeclared $#($#) word" % [$fexpr.call, argtypes.mapIt($it).join(", ")])
       let calltyp = unionsym(specwords.mapIt(it.getReturnType()))
       fexpr.call = fsymbol(fexpr.call.span, unionsym(specwords.mapIt(it.sym)))
       fexpr.typ = some(calltyp)
