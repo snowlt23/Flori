@@ -98,6 +98,8 @@ proc evalFlori*(scope: FScope, f: var FExpr) =
 
 proc evalFlori(scope: FScope, filename: string, src: string) =
   var f = parseFExpr(filename, src)
+  if f.kind == fexprBlock and f.sons.len == 0:
+    return
   scope.evalFlori(f)
 
 proc startREPL() =

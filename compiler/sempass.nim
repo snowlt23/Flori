@@ -44,7 +44,10 @@ proc blockPass*(scope: FScope, fexpr: var FExpr): bool =
   if fexpr.kind == fexprBlock:
     for son in fexpr.sons.mitems:
       scope.rootPass(son)
-    fexpr.typ = some(fexpr.sons[fexpr.sons.len-1].gettype)
+    if fexpr.sons.len == 0:
+      fexpr.typ = some(voidtypeSymbol)
+    else:
+      fexpr.typ = some(fexpr.sons[fexpr.sons.len-1].gettype)
   return true
 
 proc symbolResolve*(scope: FScope, fexpr: var FExpr): bool =
