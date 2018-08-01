@@ -6,6 +6,7 @@ import compiler.codegen.taopt, compiler.codegen.liveness, compiler.codegen.addre
 import unittest
 import os, osproc
 import strutils, sequtils
+import tables
 
 let prelude = """
 `+ => $typed(int, int)
@@ -28,20 +29,35 @@ template instImage(testname: string) =
   let scope = newFScope(testname, testname & ".flori")
   scope.importFScope(internalScope.obj.name, internalScope)
   let jitbuf = initJitBuffer(1024)
+  var plat = newX86Platform()
+  gCtx.notevals = @[]
   proc evaltest(src: string): seq[FExpr] {.discardable.} =
     result = parseToplevel(testname & ".flori", src)
     for f in result.mitems:
       var asmctx = newAsmContext(jitbuf)
       var tafn = emptyTAFn()
       scope.rootPass(f)
+
+      for f in gCtx.notevals:
+        var tafn = emptyTAFn()
+        discard tafn.convertFExpr(f)
+        tafn = tafn.optimize()
+        let liveness = tafn.analyzeLiveness()
+        let addrtable = tafn.analyzeAddress()
+        var (x86fn, x86plat) = tafn.x86Tiling().freqRegalloc(liveness, addrtable, plat)
+        plat = asmctx.generateX86(x86fn, x86plat)
+      gCtx.notevals = @[]
+
       discard tafn.convertFExpr(f)
       tafn = tafn.optimize()
       let liveness = tafn.analyzeLiveness()
       let addrtable = tafn.analyzeAddress()
-      var (x86fn, x86plat) = tafn.x86Tiling().freqRegalloc(liveness, addrtable, newX86Platform())
-      discard asmctx.generateX86(x86fn, x86plat)
+      var (x86fn, x86plat) = tafn.x86Tiling().freqRegalloc(liveness, addrtable, plat)
+      plat = asmctx.generateX86(x86fn, x86plat)
   proc getptr(): pointer =
     toProc[pointer](jitbuf.getproc())
+  proc objdump(): string =
+    objdump(jitbuf.toBin())
   evaltest(prelude)
 
 proc objdump*(bin: string): string =
@@ -139,3 +155,24 @@ printf => $cffi("printf") $cdecl $dll("msvcrt") $typed(cstring, int) $returned(v
 main => printf("%d", 9)
 """)
     ffiCall(p)
+  test "struct":
+    instImage("struct")
+    evaltest("""
+vector => $struct(x: int, y: int, z: int)
+""")
+    let p = getptr()
+    evaltest("""
+main => vector(1, 2, 3)
+""")
+    ffiCall(p)
+  test "struct field":
+    instImage("struct")
+    evaltest("""
+vector => $struct(x: int, y: int, z: int)
+""")
+    let p = getptr()
+    evaltest("""
+main => vector(1, 2, 3).y
+""")
+    check ffiInt(p) == 2
+

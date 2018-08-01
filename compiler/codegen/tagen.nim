@@ -78,6 +78,8 @@ proc convertSet*(ctx: var TAFn, fexpr: FExpr): TAAtom =
 proc convertWord*(ctx: var TAFn, fexpr: FExpr): TAAtom =
   if fexpr.internal.obj.internalop != internalNone:
     return initTAAtomNone()
+  if fexpr.internal.obj.isStruct:
+    return initTAAtomNone()
   if fexpr.internal.obj.cffi.isSome:
     return initTAAtomNone()
   if not toSeq(fexpr.internal.obj.argtypes.get.items).isSpecTypes:
@@ -101,29 +103,44 @@ proc convertWord*(ctx: var TAFn, fexpr: FExpr): TAAtom =
   return initTAAtomNone()
 
 proc convertCall*(ctx: var TAFn, fexpr: FExpr): TAAtom =
-  let fnlabel = desc(fexpr.call)
-  var args = fexpr.args.mapIt(ctx.convertFExpr(it))
   let tmp = ctx.tmpsym
-  ctx.add(initTACodeCall(tmp, fnlabel, args, false))
+  let fnlabel = desc(fexpr.call)
+  if fexpr.call.symbol.fexpr.internal.obj.isStruct:
+    ctx.add(initTACodeAVar(tmp, fexpr.gettype.typesize, initTAAtomNone()))
+    var pos = 0
+    for arg in fexpr.args:
+      let at = ctx.convertFExpr(arg)
+      let atmp = ctx.tmpsym
+      let stmp = ctx.tmpsym
+      ctx.add(initTACodeAAddr(atmp, initTAAtomAVar(tmp)))
+      ctx.add(initTACodeAdd(stmp, initTAAtomAVar(atmp), initTAAtomIntLit(pos)))
+      ctx.add(initTACodeDerefSet(initTAAtomAVar(stmp), at))
+      pos += 4
+  else:
+    var args = newSeq[TAAtom]()
+    for arg in fexpr.args:
+      let at = ctx.convertFExpr(arg)
+      let argtyp = if arg.gettype.kind == symbolLink:
+                     arg.gettype.wrapped
+                   else:
+                     arg.gettype
+      if argtyp.fexpr.internal.obj.isStruct:
+        let tmp = ctx.tmpsym
+        ctx.add(initTACodeAAddr(tmp, at))
+        args.add(initTAAtomAVar(tmp))
+      else:
+        args.add(at)
+    ctx.add(initTACodeCall(tmp, fnlabel, args, false))
   return initTAAtomAVar(tmp)
 
-proc convertStruct*(ctx: var TAFn, fexpr: FExpr): TAAtom =
-  var structsize = 0
-  var args = newSeq[TAAtom]()
-  for field in fexpr.args:
-    if field.kind == fexprSymbol:
-      args.add(ctx.convertFExpr(field))
-      structsize += field.gettype.typesize
-    else:
-      args.add(ctx.convertFExpr(field.args[0]))
-      structsize += field.args[0].gettype.typesize
-  let tmp = ctx.tmpsym
-  ctx.add(initTACodeStruct(tmp, args, structsize))
-  return initTAAtomAVar(tmp)
 proc convertField*(ctx: var TAFn, fexpr: FExpr): TAAtom =
   let fieldname = $fexpr.args[1]
   var pos = 0
-  for field in fexpr.args[0].gettype.fexpr.args:
+  let structyp = if fexpr.args[0].gettype.kind == symbolLink:
+                   fexpr.args[0].gettype.wrapped
+                 else:
+                   fexpr.args[0].gettype
+  for field in structyp.fexpr.args:
     let fname = if field.kind == fexprSymbol:
                   field
                 else:
@@ -132,10 +149,12 @@ proc convertField*(ctx: var TAFn, fexpr: FExpr): TAAtom =
       break
     pos += fname.gettype.typesize
   let struc = ctx.convertFExpr(fexpr.args[0])
-  let fieldtyp = fexpr.args[1].symbol
-  let tmp = ctx.tmpsym
-  ctx.add(initTACodeField(tmp, struc, fieldname, pos, fieldtyp.typesize))
-  return initTAAtomAVar(tmp)
+  let fieldtyp = fexpr.args[2].symbol
+  let stmp = ctx.tmpsym
+  let ftmp = ctx.tmpsym
+  ctx.add(initTACodeAdd(stmp, struc, initTAAtomIntLit(pos)))
+  ctx.add(initTACodeDeref(ftmp, initTAAtomAVar(stmp)))
+  return initTAAtomAVar(ftmp)
 
 proc convertFExpr*(ctx: var TAFn, fexpr: FExpr): TAAtom =
   if fexpr.kind == fexprIntLit:
@@ -213,8 +232,6 @@ proc convertFExpr*(ctx: var TAFn, fexpr: FExpr): TAAtom =
     case $fexpr.call
     of "$typed", "$returned":
       return initTAAtomNone()
-    of "$struct":
-      return ctx.convertStruct(fexpr)
     of "$field":
       return ctx.convertField(fexpr)
     else:

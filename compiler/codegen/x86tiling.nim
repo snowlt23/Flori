@@ -3,6 +3,16 @@ import tilemacro
 import tacode, x86code, asm_x86
 import sequtils
 
+type TileTAFn* = object
+  codes*: seq[TACode]
+  pos*: int
+  tmpcnt*: int
+proc `[]`*(fn: TileTAFn, i: int): TACode = fn.codes[i]
+proc len*(fn: TileTAFn): int = fn.codes.len
+proc tmpsym*(fn: var TileTAFn, prefix = "tt"): string =
+  result = prefix & $fn.tmpcnt
+  fn.tmpcnt.inc
+
 defTile tileX86Label:
   PATTERN:
     TACodeKind.Label
@@ -92,7 +102,12 @@ defTile tileX86Deref:
     TACodeKind.Deref
   CODE:
     initX86CodeAVar(code1.deref.name, 4)
-    initX86CodeMov(initX86AtomTemp(code1.deref.name), toX86Atom(code1.deref.value))
+    initX86CodeMovDerefR(initX86AtomTemp(code1.deref.name), toX86Atom(code1.deref.value))
+defTile tileX86DerefSet:
+  PATTERN:
+    TACodeKind.DerefSet
+  CODE:
+    initX86CodeMovDerefL(toX86Atom(code1.derefset.left), toX86Atom(code1.derefset.right))
 
 defTile tileX86Call:
   PATTERN:
@@ -109,17 +124,6 @@ defTile tileX86FFICall:
     initX86CodeAVar(code1.fficall.name, 4, true) # FIXME:
     initX86CodeFFICall(code1.fficall.calllabel, code1.fficall.ffiname, code1.fficall.dll, code1.fficall.address, code1.fficall.args.mapIt(toX86Atom(it)), code1.fficall.callconv, code1.fficall.internal)
     initX86CodeMov(initX86AtomTemp(code1.fficall.name), initX86AtomReg(eax))
-
-defTile tileX86Struct:
-  PATTERN:
-    TACodeKind.Struct
-  CODE:
-    initX86CodeAVar(code1.fficall.name, code1.size)
-defTile tileX86Field:
-  PATTERN:
-    TACodeKind.Field
-  CODE:
-    initX86CodeAVar(code1.field.name, code1.field.size)
 
 defTile tileX86AVar:
   PATTERN:
@@ -242,18 +246,13 @@ defTileset x86Tilingset:
   tileX86Set
   tileX86AAddr
   tileX86Deref
+  tileX86DerefSet
   tileX86Call
   tileX86FFICall
   tileX86AVar
   tileX86Goto
   tileX86AIf
   tileX86Ret
-
-type TileTAFn* = object
-  codes*: seq[TACode]
-  pos*: int
-proc `[]`*(fn: TileTAFn, i: int): TACode = fn.codes[i]
-proc len*(fn: TileTAFn): int = fn.codes.len
 
 proc x86Tiling*(fn: TAFn): X86Fn =
   result = newX86Fn(fn.fnname, fn.args)

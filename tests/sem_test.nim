@@ -86,7 +86,7 @@ myint => $struct(l: int, r: int)
 left => mi.l
 right => mi.r
 """)
-    check f1[0].names == "l r"
+    check f1[0].names == ""
     check f1[0].types == "int int"
     check f1[1].names == "mi"
     check f1[1].types == "myint"
@@ -110,7 +110,7 @@ left9 => left(r) + "9"
     var f1 = evalTest("""
 vector => $struct(x, y, z)
 """)
-    check f1[0].names == "x y z"
+    check f1[0].names == ""
     check f1[0].types == "T0 T1 T2"
     var f2 = evalTest("""
 `+ => vector(a.x + b.x, a.y + b.y, a.z + b.z)

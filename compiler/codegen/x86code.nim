@@ -26,6 +26,8 @@ defVariant X86Code:
   ADiv(right: X86Atom)
   Mov(left: X86Atom, right: X86Atom)
   Lea(left: X86Atom, right: X86Atom)
+  MovDerefR(left: X86Atom, right: X86Atom)
+  MovDerefL(left: X86Atom, right: X86Atom)
   Push(value: X86Atom)
   Pop(value: X86Atom)
   Cmp(left: X86Atom, right: X86Atom)
@@ -112,6 +114,10 @@ proc `$`*(code: X86Code): string =
     "mov $#, $#" % [$code.mov.left, $code.mov.right]
   of X86CodeKind.Lea:
     "lea $#, [$#]" % [$code.lea.left, $code.lea.right]
+  of X86CodeKind.MovDerefR:
+    "mov $#, [$#]" % [$code.movderefr.left, $code.movderefr.right]
+  of X86CodeKind.MovDerefL:
+    "mov [$#], $#" % [$code.movderefl.left, $code.movderefl.right]
   of X86CodeKind.Push:
     "push $#" % [$code.push.value]
   of X86CodeKind.Pop:
@@ -137,9 +143,9 @@ proc `$`*(fn: X86Fn): string =
   result = "fn $#:\n" % fn.name
   for code in fn.body:
     if code.kind == X86CodeKind.Label:
-      result &= $fn.body & "\n"
+      result &= $code & "\n"
     else:
-      result &= "  " & $fn.body & "\n"
+      result &= "  " & $code & "\n"
 
 proc newX86Platform*(): X86Platform =
   X86Platform(fnregtbl: initTable[string, (seq[X86Atom], seq[Reg32])](), fnpostbl: initTable[string, int]())
@@ -176,6 +182,12 @@ proc replaceTemp*(code: var X86Code, tmpname: string, by: X86Atom) =
   of X86CodeKind.Lea:
     code.lea.left.replaceTemp(tmpname, by)
     code.lea.right.replaceTemp(tmpname, by)
+  of X86CodeKind.MovDerefR:
+    code.movderefr.left.replaceTemp(tmpname, by)
+    code.movderefr.right.replaceTemp(tmpname, by)
+  of X86CodeKind.MovDerefL:
+    code.movderefl.left.replaceTemp(tmpname, by)
+    code.movderefl.right.replaceTemp(tmpname, by)
   of X86CodeKind.Push:
     code.push.value.replaceTemp(tmpname, by)
   of X86CodeKind.Pop:
@@ -243,6 +255,12 @@ proc expandIntLit*(fn: var X86Fn, code: X86Code) =
     expandIntLit(fn, code, sub, initX86CodeSub)
   of X86CodeKind.Mov:
     expandIntLit(fn, code, mov, initX86CodeMov)
+  of X86CodeKind.MovDerefL:
+    if code.movderefl.right.kind == X86AtomKind.IntLit:
+      fn.body.add(initX86CodeMov(initX86AtomReg(eax), code.movderefl.right))
+      fn.body.add(initX86CodeMovDerefL(code.movderefl.left, initX86AtomReg(eax)))
+    else:
+      fn.body.add(code)
   else:
     fn.body.add(code)
 proc expandIntLit*(fn: X86Fn): X86Fn =
@@ -487,8 +505,8 @@ proc freqRegallocFn*(fn: X86Fn, liveness: Liveness, addrtable: AddressTable, pla
 
   for variable in variables:
     let (varname, varsize, iscall, i) = variable
-    if addrtable[varname]:
-      curvarpos += 4
+    if varsize > 4 or addrtable[varname]:
+      curvarpos += varsize
       let (lifetime, count) = liveness.variables[varname]
       allocatoms[varname] = (lifetime, count, true, initX86AtomEbpRel(-curvarpos))
     else:

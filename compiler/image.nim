@@ -49,6 +49,7 @@ type
     dll*: Option[IString]
     internalffi*: bool
     callconv*: CallConvention
+    isStruct*: bool
     isTemplate*: bool
     argnames*: Option[IArray[Symbol]]
     inferargnames*: IList[Symbol]
@@ -166,13 +167,14 @@ type
   SemContext* = object
     expands*: seq[Span]
     tmpcount*: int
+    notevals*: seq[FExpr]
     rootScope*: FScope
 
 proc newFImage*[B](jitbuf: B): FImage[B] =
   FImage[B](buffer: jitbuf, fexprs: @[], symbols: @[], scopes: @[], mem: @[], importpaths: IList[IString](index: -1))
 
 var gImage* = newFImage(initJitBuffer(1024*1024))
-var gCtx* = SemContext(expands: @[], tmpcount: 0)
+var gCtx* = SemContext(expands: @[], tmpcount: 0, notevals: @[])
 
 template rootScope*(): FScope = gCtx.rootScope
 

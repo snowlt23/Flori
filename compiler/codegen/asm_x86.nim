@@ -108,8 +108,10 @@ proc mov*[B](b: var B, r: Reg32, i: int32) =
   b.opRegImm(0xB8, r, i)
 proc mov*[B](b: var B, r1: Reg32, r2: Reg32) =
   b.opRegReg(0x89, r1, r2)
-proc movRef*[B](b: var B, r1: Reg32, r2: Reg32) =
-  b.opRegRegRef(0x89, r1, r2)
+proc movRefR*[B](b: var B, r1: Reg32, r2: Reg32) =
+  b.opRegRegRef(0x8B, r1, r2)
+proc movRefL*[B](b: var B, r1: Reg32, r2: Reg32) =
+  b.opRegRegRef(0x89, r2, r1)
 proc mov*[B](b: var B, r1: Reg32, disp: int32, r2: Reg32) =
   b.opRegDisp32Reg(0x89, r1, disp, r2)
 proc mov*[B](b: var B, r1: Reg32, r2: Reg32, disp: int32) =

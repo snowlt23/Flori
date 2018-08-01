@@ -20,6 +20,7 @@ proc semInternalOp*(scope: FScope, fexpr: var FExpr) =
     fexpr.error("internalop argument should be strlit.")
   if scope.word.isNone:
     fexpr.error("internalop should be declaration in word.")
+  scope.word.get.internal.obj.argnames = some(iarray[Symbol]())
   case $op.strval
   of "int_add":
     scope.word.get.internal.obj.internalop = internalAdd
@@ -45,6 +46,7 @@ proc semCFFI*(scope: FScope, fexpr: var FExpr) =
     fexpr.error("$cffi should be declaration in word.")
   if fexpr.args.len != 1 or fexpr.args[0].kind != fexprStrLit:
     fexpr.error("$cffi argument should be fstrlit.")
+  scope.word.get.internal.obj.argnames = some(iarray[Symbol]())
   scope.word.get.internal.obj.cffi = some(fexpr.args[0].strval)
   resolveByVoid(fexpr)
 proc semDLL*(scope: FScope, fexpr: var FExpr) =
@@ -128,6 +130,13 @@ proc semWord*(scope: FScope, fexpr: var FExpr) =
   if fexpr.internal.obj.argnames.isNone:
     fexpr.internal.obj.argnames = some(iarray(toSeq(fexpr.internal.obj.inferargnames.items).reversed()))
     fexpr.internal.obj.inferargnames = ilistNil[Symbol]()
+    if fexpr.internal.obj.argtypes.isSome:
+      if fexpr.internal.obj.argnames.get.len != fexpr.internal.obj.argtypes.get.len:
+        fexpr.error("unmatched $$typed($#) to $$named($#)" % [fexpr.internal.obj.argtypes.get.mapIt($it).join(", "), fexpr.internal.obj.argnames.get.mapIt($it).join(", ")])
+      for i in 0..<fexpr.internal.obj.argnames.get.len:
+        let opt = fexpr.internal.obj.argnames.get[i].fexpr.typ.linkinfer(fexpr.internal.obj.argtypes.get[i])
+        if opt.isSome:
+          fexpr.error(opt.get)
   if fexpr.internal.obj.argtypes.isNone:
     var argtypes = toSeq(fexpr.internal.obj.inferargtypes.items).reversed()
     var i = 0
@@ -145,7 +154,9 @@ proc semStruct*(scope: FScope, fexpr: var FExpr) =
   let typename = scope.word.get.args[0].symbol.name
   let sym = scope.symbol(typename, symbolType, fexpr)
   scope.obj.top.addDecl(typename, sym)
+  scope.word.get.internal.obj.argnames = some(iarray[Symbol]())
 
+  var structsize = some(0)
   for field in fexpr.args.mitems:
     if field.kind == fexprSymbol:
       continue
@@ -164,8 +175,10 @@ proc semStruct*(scope: FScope, fexpr: var FExpr) =
     let fieldsym = scope.symbol(fieldname.idname, symbolDef, fieldname)
     if field.kind == fexprIdent:
       field = fsymbol(field.span, fieldsym)
+      field.typ = some(fieldtyp)
     else:
       field.args[0] = fsymbol(field.args[0].span, fieldsym)
+      field.args[0].typ = some(fieldtyp)
     scope.word.get.internal.obj.inferargnames.add(fieldsym)
     scope.word.get.internal.obj.inferargtypes.add(fieldtyp)
     var fieldword = quoteFExpr(fexpr.span, """
@@ -174,6 +187,16 @@ proc semStruct*(scope: FScope, fexpr: var FExpr) =
   $field(struc, `embed, `embed)
 """, [fieldname, scope.word.get.args[0], fieldname, fieldtypf])
     scope.obj.top.rootPass(fieldword)
+    gCtx.notevals.add(fieldword)
+    if field.kind != fexprIdent and structsize.isSome:
+      structsize = some(structsize.get + fieldtyp.typesize)
+    else:
+      structsize = none(int)
+  if structsize.isSome:
+    fexpr.obj.internal = some(newInternalMarker())
+    fexpr.internal.obj.internalsize = structsize.get
+  fexpr.internal.obj.isStruct = true
+  scope.word.get.internal.obj.isStruct = true
   fexpr.typ = some(sym)
 proc semField*(scope: FScope, fexpr: var FExpr) =
   if scope.word.isNone:

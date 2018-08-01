@@ -22,6 +22,7 @@ defVariant TACode:
   Set(name: string, value: TAAtom)
   AAddr(name: string, value: TAAtom)
   Deref(name: string, value: TAAtom)
+  DerefSet(left: TAAtom, right: TAAtom)
   Label(name: string)
   Call(name: string, calllabel: string, args: seq[TAAtom], isPure: bool)
   FFICall(name: string, calllabel: string, ffiname: string, dll: Option[string], address: Option[int], args: seq[TAAtom], isPure: bool, callconv: CallConvention, internal: bool)
@@ -75,6 +76,10 @@ proc hasDist*(code: TACode): bool =
   of TACodeKind.AAddr:
     return true
   of TACodeKind.Deref:
+    return true
+  of TACodeKind.DerefSet:
+    return false
+  of TACodeKind.Struct:
     return true
   of TACodeKind.Call:
     return true
@@ -161,6 +166,11 @@ proc getVarRefs*(code: TACode): seq[string] =
   of TACodeKind.Deref:
     if code.deref.value.kind == TAAtomKind.AVar:
       result.add(code.deref.value.avar.name)
+  of TACodeKind.DerefSet:
+    if code.derefset.left.kind == TAAtomKind.AVar:
+      result.add(code.derefset.left.avar.name)
+    if code.derefset.right.kind == TAAtomKind.AVar:
+      result.add(code.derefset.right.avar.name)
   of TACodeKind.Label:
     discard
   of TACodeKind.Call:
@@ -237,6 +247,8 @@ proc `$`*(code: TACode): string =
     "$# = addr($#)" % [code.aaddr.name, $code.aaddr.value]
   of TACodeKind.Deref:
     "$# = deref($#)" % [code.deref.name, $code.deref.value]
+  of TACodeKind.DerefSet:
+    "deref($#) = $#" % [$code.derefset.left, $code.derefset.right]
   of TACodeKind.Label:
     "$#:" % code.label.name
   of TACodeKind.Call:
@@ -244,9 +256,9 @@ proc `$`*(code: TACode): string =
   of TACodeKind.FFICall:
     "$# = $#($#)" % [code.fficall.name, $code.fficall.calllabel, code.fficall.args.mapIt($it).join(", ")]
   of TACodeKind.Struct:
-    "$# = $struct($#)" % [code.struct.name, code.struct.args.mapIt($it).join(", ")]
+    "$# = $$struct($#)" % [code.struct.name, code.struct.args.mapIt($it).join(", ")]
   of TACodeKind.Field:
-    "$# = $field($#, $#)" % [code.field.name, $code.field.struc, code.field.fieldname]
+    "$# = $$field($#, $#)" % [code.field.name, $code.field.struc, code.field.fieldname]
   of TACodeKind.AVar:
     "$# $# := $#" % [code.avar.name, sizerepr(code.avar.size), $code.avar.value]
   of TACodeKind.Goto:
@@ -297,6 +309,9 @@ iterator atoms*(fn: var TAFn): var TAAtom =
       yield(code.aaddr.value)
     of TACodeKind.Deref:
       yield(code.deref.value)
+    of TACodeKind.DerefSet:
+      yield(code.derefset.left)
+      yield(code.derefset.right)
     of TACodeKind.Label:
       discard
     of TACodeKind.Call:
