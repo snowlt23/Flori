@@ -74,6 +74,17 @@ proc initPlatform() =
 
 proc evalFlori*(scope: FScope, f: var FExpr) =
   scope.rootPass(f)
+
+  for f in gCtx.notevals:
+    var tafn = emptyTAFn()
+    var asmctx = newAsmContext(gImage.buffer)
+    discard tafn.convertFExpr(f)
+    tafn = tafn.optimize()
+    let liveness = tafn.analyzeLiveness()
+    let addrtable = tafn.analyzeAddress()
+    var (x86ctx, x86plat) = tafn.x86Tiling().freqRegalloc(liveness, addrtable, plat)
+    plat = asmctx.generateX86(x86ctx, x86plat)
+
   var call = false
   if not (f.kind == fexprInfix and $f.call == "=>"):
     if $f.gettype == "void":
@@ -104,6 +115,7 @@ proc evalFlori(scope: FScope, filename: string, src: string) =
 
 proc startREPL() =
   initPlatform()
+  gCtx.notevals = @[]
   let scope = newFScope("<repl>", "<repl>")
   scope.importFScope(internalScope.obj.name, internalScope)
   var preludef = parseToplevel("<repl>", prelude)

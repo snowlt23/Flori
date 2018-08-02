@@ -53,6 +53,7 @@ template instImage(testname: string) =
       let liveness = tafn.analyzeLiveness()
       let addrtable = tafn.analyzeAddress()
       var (x86fn, x86plat) = tafn.x86Tiling().freqRegalloc(liveness, addrtable, plat)
+      echo x86fn
       plat = asmctx.generateX86(x86fn, x86plat)
   proc getptr(): pointer =
     toProc[pointer](jitbuf.getproc())
@@ -173,6 +174,17 @@ vector => $struct(x: int, y: int, z: int)
     let p = getptr()
     evaltest("""
 main => vector(1, 2, 3).y
+""")
+    check ffiInt(p) == 2
+  test "struct ret":
+    instImage("struct")
+    evaltest("""
+vector => $struct(x: int, y: int, z: int)
+myvec => vector(1, 2, 3)
+""")
+    let p = getptr()
+    evaltest("""
+main => myvec().y
 """)
     check ffiInt(p) == 2
 
