@@ -1,3 +1,3 @@
 
-import image, lexer, parser, fexpr, symbol, scope, passutils
-export image, lexer, parser, fexpr, symbol, scope, passutils
+import linmem, image, lexer, parser, fexpr, symbol, scope, passutils
+export linmem, image, lexer, parser, fexpr, symbol, scope, passutils

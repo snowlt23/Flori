@@ -1,6 +1,7 @@
 
 import fcore, sempass
 import passmacro
+import codegen.jit
 
 import options
 import strutils, sequtils
@@ -382,7 +383,13 @@ proc initRootScope*() =
   rootScope.importFScope(internalScope.obj.name, internalScope)
   rootPass = processSemPass
 proc relocRootScope*() =
-  rootScope = FScope(index: 0)
+  rootScope = fscopeRoot()
+
+proc initFlori*(linmemsize = 1024*1024, jitsize = 1024*1024) =
+  initLinmem(linmemsize)
+  gImage = initFImage(initJitBuffer(jitsize))
+  gCtx = initSemContext()
+  initRootScope()
 
 proc semModule*(name: IString, scope: FScope, fexprs: var seq[FExpr]) =
   let opt = scope.imports.find($name)

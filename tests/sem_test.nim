@@ -4,7 +4,7 @@ import options
 import strutils, sequtils
 import compiler.fcore, compiler.internalpass, compiler.passmacro
 
-initRootScope()
+initFlori()
 let scope = newFScope("testmodule", "testmodule.flori")
 scope.importFScope(internalScope.obj.name, internalScope)
 proc evalTest*(src: string): seq[FExpr] =

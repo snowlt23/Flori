@@ -6,7 +6,7 @@ import terminal
 import deques
 import algorithm
 
-import image, symbol
+import linmem, image, symbol
 
 const fexprAtoms* = {fexprIdent..fexprStrLit}
 const fexprCalls* = {fexprPrefix..fexprField}

@@ -1,6 +1,8 @@
 
 import unittest
-import compiler.image, compiler.fexpr, compiler.lexer, compiler.parser
+import compiler.fcore, compiler.internalpass
+
+initFlori()
 
 proc parse(src: string): FExpr =
   parseFExpr("testmodule.flori", src)

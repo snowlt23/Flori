@@ -1,5 +1,5 @@
 
-import image
+import linmem, image
 
 import sequtils, strutils
 import options

@@ -1,7 +1,9 @@
 
-import compiler.image, compiler.lexer
 import unittest
 import strutils, sequtils
+import compiler.fcore, compiler.internalpass
+
+initFlori()
 
 proc lex(src: string): seq[Token] =
   lex("testmodule.flori", src)

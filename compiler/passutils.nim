@@ -1,5 +1,5 @@
 
-import image, parser, fexpr, symbol, scope
+import linmem, image, parser, fexpr, symbol, scope
 
 import options
 import strutils, sequtils

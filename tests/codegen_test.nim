@@ -25,7 +25,7 @@ deref => $typed(undef)
 """
 
 template instImage(testname: string) =
-  initRootScope()
+  initFlori()
   let scope = newFScope(testname, testname & ".flori")
   scope.importFScope(internalScope.obj.name, internalScope)
   let jitbuf = initJitBuffer(1024)
@@ -53,7 +53,6 @@ template instImage(testname: string) =
       let liveness = tafn.analyzeLiveness()
       let addrtable = tafn.analyzeAddress()
       var (x86fn, x86plat) = tafn.x86Tiling().freqRegalloc(liveness, addrtable, plat)
-      echo x86fn
       plat = asmctx.generateX86(x86fn, x86plat)
   proc getptr(): pointer =
     toProc[pointer](jitbuf.getproc())

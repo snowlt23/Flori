@@ -1,5 +1,5 @@
 
-import image, fexpr, lexer
+import linmem, image, fexpr, lexer
 import strutils, options, algorithm
 
 type
