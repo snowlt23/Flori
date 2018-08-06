@@ -1,6 +1,8 @@
 
 import ../fcore, ../passmacro, ../internalpass
-import ../codegen/vop
+import ../codegen/vop, ../codegen/vop_x86, ../codegen/reg_x86
+
+initFlori()
 
 let prelude = """
 `+ => $typed(int, int)
@@ -16,20 +18,19 @@ let prelude = """
 initRootScope()
 let scope = newFScope("testmodule", "testmodule.flori")
 scope.importFScope(internalScope.obj.name, internalScope)
-var vopctx = initVOPCtx()
+var vopfn = initVOPFn()
 proc evalTest*(src: string): seq[FExpr] =
   result = parseToplevel("testmodule.flori", src)
   for f in result.mitems:
     scope.rootPass(f)
-    discard vopctx.vop(f)
+    discard vopfn.vop(f)
 discard evalTest(prelude)
 
 let fexprs = evalTest("""
-if 4<5:
-  9
-else:
-  10
+4 + 5 + 6
+
+if 4<5: 9 else: 10
 """)
 
-echo vopctx
+echo vopfn.naiveRegalloc()
 

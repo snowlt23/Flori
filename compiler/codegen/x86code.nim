@@ -371,8 +371,8 @@ proc naiveRegalloc*(fn: X86Fn): X86Fn =
 
 proc simpleAllocReg*(regmap: var Table[Reg32, int], liveness: Liveness, varname: string, i: int): Option[Reg32] =
   for r in DataReg32:
-    if regmap[r] < liveness.variables[varname].lifetime:
-      regmap[r] = liveness.variables[varname].lifetime
+    if regmap[r] < liveness[varname].lifetime:
+      regmap[r] = liveness[varname].lifetime
       return some(r)
   return none(Reg32)
 
@@ -461,7 +461,7 @@ proc expandCallByRegmap*(fn: X86Fn, fnmap: Table[string, (seq[X86Atom], seq[Reg3
       result.body.add(code)
 
 proc freqAllocReg*(tbl: var Table[string, FreqRegInfo], regmap: var Table[Reg32, string], curargpos: var int, curvarpos: var int, liveness: Liveness, varname: string, candestroy: bool) =
-  let (lifetime, count) = liveness.variables[varname]
+  let (lifetime, count) = liveness[varname]
   for r in DataReg32:
     if regmap.hasKey(r):
       let reginfo = tbl[regmap[r]]
@@ -507,7 +507,7 @@ proc freqRegallocFn*(fn: X86Fn, liveness: Liveness, addrtable: AddressTable, pla
     let (varname, varsize, iscall, i) = variable
     if varsize > 4 or addrtable[varname]:
       curvarpos += varsize
-      let (lifetime, count) = liveness.variables[varname]
+      let (lifetime, count) = liveness[varname]
       allocatoms[varname] = (lifetime, count, true, initX86AtomEbpRel(-curvarpos))
     else:
       freqAllocReg(allocatoms, regmap, curargpos, curvarpos, liveness, varname, true)
