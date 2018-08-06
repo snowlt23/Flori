@@ -102,10 +102,24 @@ proc convertWord*(ctx: var TAFn, fexpr: FExpr): TAAtom =
   ctx.retsize = retsize
   return initTAAtomNone()
 
+proc copyValue*(ctx: var TAFn, fexpr: FExpr): TAAtom =
+  if fexpr
+
 proc convertCall*(ctx: var TAFn, fexpr: FExpr): TAAtom =
   let tmp = ctx.tmpsym
   let fnlabel = desc(fexpr.call)
   if fexpr.call.symbol.fexpr.internal.obj.isStruct:
+    ctx.add(initTACodeAVar(tmp, fexpr.gettype.typesize, initTAAtomNone()))
+    var pos = 0
+    for arg in fexpr.args:
+      let at = ctx.convertFExpr(arg)
+      let atmp = ctx.tmpsym
+      let stmp = ctx.tmpsym
+      ctx.add(initTACodeAAddr(atmp, initTAAtomAVar(tmp)))
+      ctx.add(initTACodeAdd(stmp, initTAAtomAVar(atmp), initTAAtomIntLit(pos)))
+      ctx.add(initTACodeDerefSet(initTAAtomAVar(stmp), at))
+      pos += 4
+  elif fexpr.gettype.fexpr.internal.obj.isStruct:
     ctx.add(initTACodeAVar(tmp, fexpr.gettype.typesize, initTAAtomNone()))
     var pos = 0
     for arg in fexpr.args:

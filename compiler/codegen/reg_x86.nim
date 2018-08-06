@@ -9,6 +9,42 @@ import vop, asm_x86, vop_x86
 #
 # naive register allocation
 #
+#
+proc expandRefInt*(fn: var VOPFn, vop: VOP) =
+  template expand(v, l, r) =
+    if l.kind == VOPAtomKind.EbpRel and r.kind == VOPAtomKind.IntLit:
+      fn.add(Mov(Reg(eax), r))
+      fn.add(v(l, Reg(eax)))
+    else:
+      fn.add(vop)
+  match vop:
+    Label(l):
+      fn.add(vop)
+    AVar(n, size):
+      fn.add(vop)
+    Mov(l, r):
+      expand(Mov, l, r)
+    MovDerefL(l, r):
+      expand(Mov, l, r)
+    MovDerefR(l, r):
+      expand(Mov, l, r)
+    Add(l, r):
+      expand(Add, l, r)
+    Sub(l, r):
+      expand(Sub, l, r)
+    Cmp(l, r):
+      expand(Cmp, l, r)
+    Je(l):
+      fn.add(vop)
+    Jl(l):
+      fn.add(vop)
+    Jmp(l):
+      fn.add(vop)
+
+proc expandRefInt*(fn: VOPFn): VOPFn =
+  result = initVOPFn()
+  for vop in fn.vops:
+    result.expandRefInt(vop)
 
 proc expandDoubleRef*(fn: var VOPFn, vop: VOP) =
   template expand(v, l, r) =
@@ -20,17 +56,23 @@ proc expandDoubleRef*(fn: var VOPFn, vop: VOP) =
   match vop:
     Label(l):
       fn.add(vop)
+    AVar(n, size):
+      fn.add(vop)
     Mov(l, r):
+      expand(Mov, l, r)
+    MovDerefL(l, r):
+      expand(Mov, l, r)
+    MovDerefR(l, r):
       expand(Mov, l, r)
     Add(l, r):
       expand(Add, l, r)
     Sub(l, r):
       expand(Sub, l, r)
-    Lesser(l, r):
-      expand(Lesser, l, r)
     Cmp(l, r):
       expand(Cmp, l, r)
     Je(l):
+      fn.add(vop)
+    Jl(l):
       fn.add(vop)
     Jmp(l):
       fn.add(vop)
@@ -55,17 +97,23 @@ proc naiveRegalloc*(fn: var VOPFn, temptbl: var Table[string, VOPAtom], stacksiz
   match vop:
     Label(l):
       fn.add(vop)
+    AVar(n, size):
+      fn.add(vop)
     Mov(l, r):
+      fn.add(Mov(reg(l), reg(r)))
+    MovDerefL(l, r):
+      fn.add(Mov(reg(l), reg(r)))
+    MovDerefR(l, r):
       fn.add(Mov(reg(l), reg(r)))
     Add(l, r):
       fn.add(Add(reg(l), reg(r)))
     Sub(l, r):
       fn.add(Sub(reg(l), reg(r)))
-    Lesser(l, r):
-      fn.add(Lesser(reg(l), reg(r)))
     Cmp(l, r):
       fn.add(Cmp(reg(l), reg(r)))
     Je(l):
+      fn.add(vop)
+    Jl(l):
       fn.add(vop)
     Jmp(l):
       fn.add(vop)
@@ -76,7 +124,7 @@ proc naiveRegalloc*(fn: VOPFn): VOPFn =
   var stacksize = 0
   for vop in fn.vops:
     result.naiveRegalloc(temptbl, stacksize, vop)
-  result = result.expandDoubleRef()
+  result = result.expandDoubleRef().expandRefInt()
 
 #
 # graph register allocation

@@ -24,8 +24,17 @@ macro `<-`*(t: untyped, e: untyped): untyped =
 template inst*(e) =
   ctx.add(e)
 
+macro instcall*(e: untyped): untyped =
+  var call = nnkCall.newTree(e[0])
+  call.add(ident"ctx")
+  for i in 1..<e.len:
+    call.add(e[i])
+  return call
+
 template label*(l) =
   ctx.add(Label(l))
+
+template vop*(f: FExpr): auto = ctx.vop(f)
 
 template vopret*(t) =
   return some(t)
@@ -78,5 +87,4 @@ macro labels*(ls: varargs[untyped]): untyped =
       let `l` = ctx.genlabel()
 
 template generate*(body) =
-  template vop(f: FExpr): VOPAtom = ctx.vop(f)
   body

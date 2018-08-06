@@ -1,8 +1,9 @@
 
 import compiler.fcore, compiler.passmacro, compiler.internalpass
-import compiler.codegen.tacode, compiler.codegen.tagen
-import compiler.codegen.x86code, compiler.codegen.x86tiling, compiler.codegen.x86gen, compiler.codegen.jit
-import compiler.codegen.taopt, compiler.codegen.liveness, compiler.codegen.address
+import compiler.codegen.jit
+import compiler.codegen.vop
+import compiler.codegen.vop_x86, compiler.codegen.reg_x86, compiler.codegen.gen_x86
+
 import unittest
 import os, osproc
 import strutils, sequtils
@@ -29,31 +30,16 @@ template instImage(testname: string) =
   let scope = newFScope(testname, testname & ".flori")
   scope.importFScope(internalScope.obj.name, internalScope)
   let jitbuf = initJitBuffer(1024)
-  var plat = newX86Platform()
-  gCtx.notevals = @[]
   proc evaltest(src: string): seq[FExpr] {.discardable.} =
     result = parseToplevel(testname & ".flori", src)
+    var fn = initVOPFn()
     for f in result.mitems:
-      var asmctx = newAsmContext(jitbuf)
-      var tafn = emptyTAFn()
+      # semantic
       scope.rootPass(f)
-
-      for f in gCtx.notevals:
-        var tafn = emptyTAFn()
-        discard tafn.convertFExpr(f)
-        tafn = tafn.optimize()
-        let liveness = tafn.analyzeLiveness()
-        let addrtable = tafn.analyzeAddress()
-        var (x86fn, x86plat) = tafn.x86Tiling().freqRegalloc(liveness, addrtable, plat)
-        plat = asmctx.generateX86(x86fn, x86plat)
-      gCtx.notevals = @[]
-
-      discard tafn.convertFExpr(f)
-      tafn = tafn.optimize()
-      let liveness = tafn.analyzeLiveness()
-      let addrtable = tafn.analyzeAddress()
-      var (x86fn, x86plat) = tafn.x86Tiling().freqRegalloc(liveness, addrtable, plat)
-      plat = asmctx.generateX86(x86fn, x86plat)
+      # codegen
+      discard fn.vop(f)
+    var asmctx = newAsmContext(jitbuf)
+    asmctx.generateX86(fn.naiveRegalloc())
   proc getptr(): pointer =
     toProc[pointer](jitbuf.getproc())
   proc objdump(): string =
@@ -101,6 +87,10 @@ proc ffiCString*(p: pointer): cstring =
 {.pop.}
 
 suite "codegen test":
+  test "basic":
+    instImage("basic")
+    evaltest("1 + 2")
+    echo objdump()
   test "add5":
     instImage("add5")
     let p = getptr()

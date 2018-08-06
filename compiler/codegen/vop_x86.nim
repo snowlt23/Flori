@@ -13,12 +13,15 @@ variantp VOPAtom:
 
 variantp VOP:
   Label(label: string)
+  AVar(varname: VOPAtom, varsize: int)
   Mov(ml: VOPAtom, mr: VOPAtom)
+  MovDerefL(mll: VOPAtom, mlr: VOPAtom)
+  MovDerefR(mrl: VOPAtom, mrr: VOPAtom)
   Add(al: VOPAtom, ar: VOPAtom)
   Sub(sl: VOPAtom, sr: VOPAtom)
-  Lesser(ll: VOPAtom, lr: VOPAtom)
   Cmp(cl: VOPAtom, cr: VOPAtom)
   Je(jelabel: string)
+  Jl(jllabel: string)
   Jmp(jmplabel: string)
 
 #
@@ -64,18 +67,24 @@ proc `$`*(vop: VOP): string =
   match vop:
     Label(l):
       "$#:" % l
+    AVar(n, size):
+      "var $#<$#>" % [$n, $size]
     Mov(l, r):
       "mov $#, $#" % [$l, $r]
+    MovDerefL(l, r):
+      "movderef [$#], $#" % [$l, $r]
+    MovDerefR(l, r):
+      "movderef $#, [$#]" % [$l, $r]
     Add(l, r):
       "add $#, $#" % [$l, $r]
     Sub(l, r):
       "sub $#, $#" % [$l, $r]
-    Lesser(l, r):
-      "lesser $#, $#" % [$l, $r]
     Cmp(l, r):
       "cmp $#, $#" % [$l, $r]
     Je(l):
       "je " & l
+    Jl(l):
+      "jl " & l
     Jmp(l):
       "jmp " & l
 
@@ -92,6 +101,31 @@ proc vop*(ctx: var VOPFn, f: FExpr): VOPAtom
 
 proc eqInternal*(f: FExpr, op: InternalOp): bool =
   f.kind in fexprCalls and f.call.kind == fexprSymbol and f.call.symbol.fexpr.internal.obj.internalop == op
+
+proc isStruct*(t: Symbol): bool =
+  t.fexpr.internal.obj.isStruct
+
+proc align*(size: int): int =
+  size + (4 - size mod 4)
+
+proc move*(ctx: var VOPFn, dst: VOPAtom, fexpr: FExpr) =
+  let t = if fexpr.gettype.kind == symbolLink:
+            fexpr.gettype.wrapped
+          else:
+            fexpr.gettype
+  if t.isStruct:
+    temps r1, r2
+    let value = vop(fexpr)
+    let movn = align(t.typesize) div 4
+    for i in 0..<movn:
+      inst Mov(r1, dst)
+      inst Add(r1, IntLit(i*4))
+      inst Mov(r2, value)
+      inst Add(r2, IntLit(i*4))
+      inst MovDerefR(r2, r2)
+      inst MovDerefL(r1, r2)
+  else:
+    inst Mov(dst, vop(fexpr))
 
 defineVOP vopInternalWord:
   pattern f.kind in fexprCalls and $f.call == "=>" and f.internal.obj.internalOp != internalNone
@@ -113,25 +147,36 @@ defineVOP vopAddInt:
 
 defineVOP vopLesser:
   pattern f.eqInternal(internalLess)
+  labels TL, FL, EL
   temps r
   generate:
-    inst Mov(r, vop(f.args[0]))
-    inst Lesser(r, vop(f.args[1]))
+    inst Cmp(vop(f.args[0]), vop(f.args[1]))
+    inst Jl(TL)
+    inst Jmp(FL)
+    label TL
+    inst Mov(r, IntLit(1))
+    inst Jmp(FL)
+    label FL
+    inst Mov(r, IntLit(0))
+    inst Jmp(EL)
+    label EL
     vopret r
 
 defineVOP vopIf:
   pattern f.kind == fexprIf
+  temps r
   labels FL, EL
   generate:
+    inst AVar(r, f.gettype.typesize)
     let cond = vop(f.ifbranch.args[0])
     inst Cmp(cond, IntLit(0))
     inst Je(FL)
-    discard vop(f.ifbranch.args[1])
+    instcall move(r, f.ifbranch.args[1])
     inst Jmp(EL)
     label FL
-    discard vop(f.elsebody)
+    instcall move(r, f.elsebody)
     label EL
-    vopnone
+    vopret r
     
 defineVOPSet:
   vopInternalWord
