@@ -2,7 +2,7 @@
 #include <stdint.h>
 
 typedef void* flori_fexpr;
-typedef int64_t flori_int;
+typedef long flori_int;
 
 flori_fexpr (*flori_new_fident)(char* s);
 flori_fexpr (*flori_new_fseq)();

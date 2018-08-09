@@ -10,7 +10,7 @@ import "core/vec"
 import "core/region"
 import "core/array"
 
-type String $[nodestruct] {
+type String {
   p RPtr[Char]
   len Int
   cap Int
@@ -24,7 +24,10 @@ fn string(cs CString) String $[importjs, patternjs "$1"] {
   if (cap < 20480) {
     cap = int(20480)
   }
-  s := init(String){alloc[Char](cap + 1); len; cap}
+  var s String
+  s.p = alloc[Char](cap+1)
+  s.len = len
+  s.cap = cap
   copy_memory(s.p.p, cast[Ptr[Char]](cs), len)
   unref(s.p.p +! len) = char(0)
   s

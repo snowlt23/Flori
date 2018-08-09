@@ -13,9 +13,11 @@ export ccodegen.codegenMangling
 const cachedir* = "floricache"
 
 proc compileWithGCC*(pass: CCodegenContext, dir: string, options: string, files = "") =
-  discard execShellCmd "gcc $#/flori_compiled.c $# $#" % [dir, files, options]
+  if execShellCmd("gcc $#/flori_compiled.c $# $#" % [dir, files, options]) != 0:
+    raise newException(IOError, "failed cc compilation")
 proc compileWithTCC*(pass: CCodegenContext, dir: string, options: string, files = "") =
-  discard execShellCmd "tcc $#/flori_compiled.c $# $#" % [dir, files, options]
+  if execShellCmd("tcc $#/flori_compiled.c $# $#" % [dir, files, options]) != 0:
+    raise newException(IOError, "failed cc compilation")
 
 proc dll*(s: string): string =
   when defined(windows):

@@ -12,10 +12,10 @@ fn print(cs CString) {
   printf("%s", cs)
 }
 fn print(x IntLit) {
-  printf("%lld", x)
+  printf("%ld", x)
 }
 fn print(x Int) {
-  printf("%lld", x)
+  printf("%ld", x)
 }
 fn print(x UInt8) {
   printf("%d", x)

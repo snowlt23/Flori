@@ -1,6 +1,7 @@
 
 nimcache/
 nimsuggest.log
+nakefile
 
 bin/
 floricache/

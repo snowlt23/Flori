@@ -30,15 +30,29 @@ when (is_windows) {
   fn virtual_alloc(lpaddr Pointer, size Int, alloctyp Int, protect Int) Pointer $[importc "VirtualAlloc", header "windows.h"]
   fn virtual_free(lpaddr Pointer, size Int, alloctyp Int) $[importc "VirtualFree", header "windows.h"]
 }
+when (not(is_windows)) {
+  fn PROT_READ() Int $[importc, header "sys/mman.h", patternc "PROT_READ"]
+  fn PROT_WRITE() Int $[importc, header "sys/mman.h", patternc "PROT_WRITE"]
+  fn MAP_SHARED() Int $[importc, header "sys/mman.h", patternc "MAP_SHARED"]
+  fn MAP_ANONYMOUS() Int $[importc, header "sys/mman.h", patternc "MAP_ANONYMOUS"]
+  fn mmap(addr Pointer, size Int, protect Int, flags Int, fd Int, offset Int) Pointer $[importc "mmap", header "sys/mman.h"]
+  fn munmap(addr Pointer, size Int) $[importc "munmap", header "sys/mman.h"]
+}
 
 fn sys_alloc(size Int) Ptr[UInt8] {
   when (is_windows) {
     cast[Ptr[UInt8]](virtual_alloc(null, size, MEM_COMMIT(), PAGE_READWRITE()))
   }
+  when (not(is_windows)) {
+    cast[Ptr[UInt8]](mmap(null, size, or(PROT_READ(), PROT_WRITE()), or(MAP_SHARED(), MAP_ANONYMOUS()), 0, 0))
+  }
 }
 fn sys_free(p Ptr[UInt8], size Int) {
   when (is_windows) {
     virtual_free(cast[Pointer](p), size, MEM_DECOMMIT())
+  }
+  when (not(is_windows)) {
+    munmap(cast[Pointer](p), size)
   }
 }
 
