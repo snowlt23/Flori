@@ -206,20 +206,6 @@ proc varfnResolve*(scope: Scope, fexpr: var FExpr): bool =
 
   return true
 
-#
-# ownership pass
-#
-
-proc moveEffectPass*(scope: Scope, fexpr: var FExpr): bool =
-  thruInternal(fexpr)
-  echo "unimplemented: moveEffectPass"
-  return true
-
-proc explicitDestruct*(scope: Scope, fexpr: var FExpr): bool =
-  thruInternal(fexpr)
-  echo "unimplemented: explicitDestruct"
-  return true
-
 proc finalPass*(scope: Scope, fexpr: var FExpr): bool =
   fexpr.isEvaluated = true
   return true

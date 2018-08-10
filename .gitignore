@@ -17,6 +17,7 @@ tests/floritester.exe
 tests/floritester
 tests/bin/
 
+*.swp
 *.exe
 *.pdb
 voiceroids.txt
