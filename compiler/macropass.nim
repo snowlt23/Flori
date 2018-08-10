@@ -84,6 +84,9 @@ proc isMatchMacro*(scope: Scope, args: FExpr, pd: ProcDecl): Option[seq[Matched]
     s.add(Matched(kind: matchType))
   return some(s)
 proc matchMacro*(scope: Scope, curscope: Scope, n: FExpr, args: FExpr, issyntax: bool, importscope = true): Option[(ProcDecl, seq[Matched])] =
+  if n.kind notin fexprNames:
+    return none((ProcDecl, seq[Matched]))
+
   if not scope.procdecls.hasKey(name(n)):
     if importscope:
       for scopename, s in scope.importscopes:

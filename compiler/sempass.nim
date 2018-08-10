@@ -18,6 +18,8 @@ proc internalPass*(scope: Scope, fexpr: var FExpr): bool =
       return false
     
     let fnident = fexpr[0]
+    if fnident.kind notin fexprAllNames:
+      return true
     let internalopt = scope.getFunc(procname(name(fnident), @[]))
     if internalopt.isSome and internalopt.get.pd.isInternal:
       if scope.getDecl(name("Void")).isSome:
@@ -141,6 +143,8 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
   if fexpr.isNormalFuncCall:
     let fnident = fexpr[0]
+    if fnident.kind notin fexprAllNames:
+      return true
     checkArgsHastype(fexpr[1])
     let argtypes = fexpr[1].mapIt(it.typ)
     let opt = scope.getFunc(procname(name(fnident), argtypes))
@@ -194,11 +198,9 @@ proc varfnResolve*(scope: Scope, fexpr: var FExpr): bool =
     if fexpr[0].kind == fexprIdent:
       let opt = scope.getDecl(name(fexpr[0]))
       if opt.isNone:
-        echo fexpr[1].mapIt(it.typ)
         fexpr.error("undeclared $#($#) function." % [$fexpr[0], fexpr[1].mapIt($it.typ).join(", ")])
     scope.rootPass(fexpr[0])
     if fexpr[0].typ.kind != symbolFuncType and not (fexpr[0].typ.kind == symbolVar and fexpr[0].typ.wrapped.kind == symbolFuncType):
-      echo fexpr[0].typ.kind
       fexpr[0].error("$# is not callable." % $fexpr[0])
     if fexpr[0].typ.kind == symbolVar:
       fexpr[0].typ = fexpr[0].typ.wrapped

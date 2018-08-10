@@ -10,6 +10,7 @@ import types
 
 const fexprAtoms* = {fexprIdent..fexprStrLit}
 const fexprNames* = {fexprIdent, fexprPrefix, fexprInfix}
+const fexprAllNames* = {fexprIdent, fexprPrefix, fexprInfix, fexprQuote, fexprSymbol}
 const fexprContainer* = {fexprSeq, fexprArray, fexprList, fexprBlock}
 
 proc `$`*(fexpr: FExpr): string

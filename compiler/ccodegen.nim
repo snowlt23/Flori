@@ -211,10 +211,17 @@ proc codegenDefn*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 proc codegenDeftypeStruct*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   ctx.typesrc &= "struct $# {\n" % codegenSymbol(fexpr.deftype.name.symbol)
   for field in fexpr.deftype.body:
-    ctx.typesrc &= ctx.codegenType(field[1].symbol)
-    ctx.typesrc &= " "
-    ctx.typesrc &= $field[0]
-    ctx.typesrc &= ";\n"
+    if field[1].symbol.kind == symbolFuncType:
+      ctx.typesrc &= "$# (*$#)($#);\n" % [
+        ctx.codegenType(field[1].symbol.rettype),
+        $field[0],
+        field[1].symbol.argtypes.mapIt(ctx.codegenType(it)).join(", ")
+      ]
+    else:
+      ctx.typesrc &= ctx.codegenType(field[1].symbol)
+      ctx.typesrc &= " "
+      ctx.typesrc &= $field[0]
+      ctx.typesrc &= ";\n"
   ctx.typesrc &= "};\n"
 
 proc codegenDeftypePattern*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
@@ -514,9 +521,17 @@ proc getCallTypes(fexpr: FExpr): seq[Symbol] =
 proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.len == 0:
     return
+
+  if fexpr[0].kind notin fexprAllNames:
+    src &= "(("
+    ctx.codegenFExpr(src, fexpr[0])
+    src &= ")("
+    for i, arg in ctx.codegenArgsWithIndex(src, fexpr[1]):
+      let fnargtype = fexpr[0].typ.argtypes[i]
+      ctx.codegenCallArg(src, arg, fnargtype)
+    src &= "))"
+    return
   
-  if fexpr[0].kind != fexprSymbol:
-    fexpr[0].error("$# isn't symbol." % $fexpr[0])
   let fn = fexpr[0].symbol.fexpr
   if fn.hasinternalPragma and not ctx.macrogen and fn.internalPragma.compiletime:
     return
@@ -646,11 +661,13 @@ proc codegenSingle*(ctx: CCodegenContext, sem: SemanticContext): string =
     result &= "#define FLORI_COMPILETIME\n"
   for d in sem.defines:
     result &= "#define $#\n" % d
+  result &= "int gArgc;\n"
+  result &= "char** gArgv;\n"
   for f in sem.globaltoplevels:
     ctx.codegenToplevel(src, f)
   src &= "\n"
   src &= "void flori_main() {\n"
   ctx.codegenBody(src, sem.globaltoplevels)
   src &= "}\n"
-  src &= "int main(int argc, char** argv) { flori_main(); }\n"
+  src &= "int main(int argc, char** argv) { gArgc = argc, gArgv = argv; flori_main(); }\n"
   result &= ctx.cheadsrc & "\n" & ctx.headersrc & "\n" & ctx.cdeclsrc & "\n" & ctx.typesrc & "\n" & ctx.fndeclsrc & "\n" & ctx.fnsrc & "\n" & src.exp

@@ -1,5 +1,6 @@
 
 import "core"
+import "core/pointer"
 import "std/env"
 
 when (is_windows) {
@@ -12,9 +13,29 @@ fn sleep(msec Int) {
   }
 }
 
+fn get_argc() Int $[importc, patternc "gArgc"]
+fn get_argv() Ptr[CString] $[importc, patternc "gArgv"]
+
 fn get_commandline() String {
   when (is_windows) {
     string(win_getcommandline())
+  } else {
+    s := s""
+    argc := get_argc()
+    argv := get_argv()
+    for (i : range(0, argc-1)) {
+      push(s, argv!i)
+      push(s, " ")
+    }
+    s
+  }
+}
+
+fn get_param(index Int) CString {
+  if (get_argc() <= index) {
+    cast[CString](0)
+  } else {
+    get_argv()!index
   }
 }
 
