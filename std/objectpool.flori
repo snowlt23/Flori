@@ -1,0 +1,42 @@
+
+import "core"
+
+type ObjectPool[T] {
+  objs Vec[T]
+}
+
+fn new_pool[T](defaultsize Int) ObjectPool[T] {
+  init(ObjectPool[T]) {
+    vec[T](defaultsize)
+  }
+}
+fn new_pool[T]() ObjectPool[T] {
+  new_pool[T](1024)
+}
+
+fn length[T](p ObjectPool[T]) Int {
+  length(p.objs)
+}
+
+fn push[T](p ref ObjectPool[T], value T) {
+  push(p.objs, value)
+}
+
+fn compaction[T](p ref ObjectPool[T]) {
+  vpos := 0
+  for (i : range(0, length(p.objs)-1)) {
+    if (islive(p.objs!i)) {
+      p.objs!vpos = p.objs!i
+      vpos += 1
+    }
+  }
+  p.objs.len = vpos
+}
+
+macro use_pool(p FList, body FBlock) FExpr $[syntax] {
+  quote {
+    `body
+    compaction(`p)
+  }
+}
+

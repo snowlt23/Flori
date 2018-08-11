@@ -1,0 +1,15 @@
+
+import "core"
+
+fn f(x Int): Fn[] Int {
+  fn () Int {
+    x
+  }
+}
+
+fn main() {
+  cls := f(5)
+  println(cls())
+}
+main()
+
