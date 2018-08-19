@@ -16,13 +16,21 @@ SEEK_SET := SEEK_SET()
 
 fn fprintf(f File, cs CString) $[importc "fprintf", header "stdio.h"]
 fn fopen(name CString, mode CString) File $[importc "fopen", header "stdio.h"]
+fn fgetc(f File) Char $[importc "fgetc", header "stdio.h"]
+fn fputc(c Char, f File) $[importc "fputc", header "stdio.h"]
 fn fclose(f File) $[importc "fclose", header "stdio.h"]
 fn fseek(f File, pos Int, flag Int) $[importc "fseek", header "stdio.h"]
 fn ftell(f File) Int $[importc "ftell", header "stdio.h"]
 fn fread(cs CString, x Int, size Int, f File) Int $[importc "fread", header "stdio.h"]
 
+when (not(is_windows)) {
+  fn remove(path CString) Bool $[importc "remove", header "stdio.h"]
+}
+
 fn stdin() File $[importc, header "stdio.h", patternc "stdin"]
 fn stdout() File $[importc, header "stdio.h", patternc "stdout"]
+
+EOF := cast[Char](-1)
 
 fn write(f File, cs CString) {
   fprintf(f, cs)
@@ -57,43 +65,35 @@ fn read_file(filename CString) String {
 fn copy_file(src CString, dest CString) Bool {
   when (is_windows) {
     win_copyfile(src, dest, false)
+  } else {
+    srcf := open_file(src, "r")
+    dstf := open_file(src, "w")
+    if (cast[Pointer](srcf) == null) {
+      false
+    } else {
+      c := fgetc(srcf)
+      while (c != EOF) {
+        fputc(c, dstf)
+      }
+      true
+    }
   }
 }
 
 fn create_dir(path CString) Bool {
   when (is_windows) {
     win_createdir(path, null)
+  } else {
+    # TODO:
+    true
   }
 }
 
 fn delete_file(path CString) Bool {
   when (is_windows) {
     win_deletefile(path)
-  }
-}
-
-fn is_exists_dir(path CString) Bool {
-  var pdata Win32FindData
-  handler := win_findfirstfile(path, getptr(pdata))
-  if (handler == INVALID_HANDLE_VALUE) {
-    false
   } else {
-    true
-  }
-}
-
-fn get_filelist(path CString) Vec[String] {
-  when (is_windows) {
-    ret := vec[String]()
-    var pdata Win32FindData
-    handle := win_findfirstfile(path, getptr(pdata))
-    while (win_findnextfile(handle, getptr(pdata))) {
-      if (not(win_isdir(pdata))) {
-        push(ret, string(pdata.cFileName))
-      }
-    }
-    win_findclose(handle)
-    ret
+    remove(path)
   }
 }
 

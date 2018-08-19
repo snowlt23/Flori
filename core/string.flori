@@ -33,7 +33,10 @@ fn string(cs CString) String $[importjs, patternjs "$1"] {
   s
 }
 fn string(len Int, cap Int) String $[importjs, patternjs "'\0'.repeat($1)"] {
-  s := init(String){alloc[Char](cap + 1); len; cap}
+  var s String
+  s.p = alloc[Char](cap + 1);
+  s.len = len
+  s.cap = cap;
   unref(s.p.p +! len) = char(0)
   s
 }
