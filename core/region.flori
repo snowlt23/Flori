@@ -9,6 +9,8 @@ type Region {
   data Ptr[UInt8]
   current Int
   size Int
+  ds Ptr[Ptr[Pointer]]
+  dscount Int
 }
 
 type WPtr[T] {
@@ -20,9 +22,15 @@ fn new_region(size Int) Region {
   r.data = cast[Ptr[UInt8]](unsafe_malloc(size))
   r.current = int(0)
   r.size = size
+  r.ds = cast[Ptr[Ptr[Pointer]]](unsafe_malloc(1024*sizeof[Ptr[Pointer]]())) # FIXME:
+  r.dscount = int(0)
   r
 }
 fn dealloc_region(r Region) {
+  for (i : range(0, r.dscount-1)) { 
+    unsafe_free(unref(unref(r.ds +! sizeof[Ptr[Pointer]]()*i)))
+  }
+  unsafe_free(cast[Pointer](r.ds))
   unsafe_free(cast[Pointer](r.data))
 }
 
@@ -51,6 +59,8 @@ fn alloc_with[T](r ref Region, len Int) WPtr[T] {
   sz := sizeof[T]() * len
   pp := alloc[Ptr[T]](r)
   unref(pp) = cast[Ptr[T]](unsafe_malloc(sz))
+  unref(r.ds +! sizeof[Ptr[Pointer]]()*r.dscount) = cast[Ptr[Pointer]](pp)
+  r.dscount += 1
   var wp WPtr[T]
   wp.p = pp
   wp
