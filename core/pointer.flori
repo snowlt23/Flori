@@ -5,7 +5,7 @@ type Pointer $[importc "void*", header nodeclc]
 type Ptr[T] $[importc, header nodeclc, patternc "#1*"]
 
 fn unsafe_malloc(size Int) Pointer $[importc "malloc", header "stdlib.h"]
-fn unsafe_realloc(ptr Pointer, size Int) $[importc "realloc", header "stdlib.h"]
+fn unsafe_realloc(ptr Pointer, size Int) Pointer $[importc "realloc", header "stdlib.h"]
 fn unsafe_free(ptr Pointer) $[importc "free", header "stdlib.h"]
 fn sizeof[T]() Int $[importc "sizeof", header nodeclc, patternc "sizeof(#1)"]
 fn unsafe_memcpy(dest Pointer, src Pointer, n Int) $[importc "memcpy", header "string.h"]

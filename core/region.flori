@@ -5,135 +5,80 @@ import "core/io"
 import "core/macros"
 import "core/syntax"
 
-type HeapRegion {
-  data Ptr[UInt8]
-  current Int
-  size Int
-}
-
 type Region {
   data Ptr[UInt8]
   current Int
   size Int
-  prev Ptr[Region]
 }
 
-type RPtr[T] {
-  p Ptr[T]
-  r Ptr[Region]
+type WPtr[T] {
+  p Ptr[Ptr[T]]
 }
 
-when (is_windows) {
-  fn MEM_COMMIT() Int $[importc, header "windows.h", patternc "MEM_COMMIT"]
-  fn MEM_DECOMMIT() Int $[importc, header "windows.h", patternc "MEM_DECOMMIT"]
-  fn PAGE_READWRITE() Int $[importc, header "windows.h", patternc "PAGE_READWRITE"]
-  fn virtual_alloc(lpaddr Pointer, size Int, alloctyp Int, protect Int) Pointer $[importc "VirtualAlloc", header "windows.h"]
-  fn virtual_free(lpaddr Pointer, size Int, alloctyp Int) $[importc "VirtualFree", header "windows.h"]
-} else {
-  fn PROT_READ() Int $[importc, header "sys/mman.h", patternc "PROT_READ"]
-  fn PROT_WRITE() Int $[importc, header "sys/mman.h", patternc "PROT_WRITE"]
-  fn MAP_SHARED() Int $[importc, header "sys/mman.h", patternc "MAP_SHARED"]
-  fn MAP_ANONYMOUS() Int $[importc, header "sys/mman.h", patternc "MAP_ANONYMOUS"]
-  fn mmap(addr Pointer, size Int, protect Int, flags Int, fd Int, offset Int) Pointer $[importc "mmap", header "sys/mman.h"]
-  fn munmap(addr Pointer, size Int) $[importc "munmap", header "sys/mman.h"]
+fn new_region(size Int) Region {
+  var r Region
+  r.data = cast[Ptr[UInt8]](unsafe_malloc(size))
+  r.current = int(0)
+  r.size = size
+  r
+}
+fn dealloc_region(r Region) {
+  unsafe_free(cast[Pointer](r.data))
 }
 
-fn sys_alloc(size Int) Ptr[UInt8] {
-  when (is_windows) {
-    cast[Ptr[UInt8]](virtual_alloc(null, size, MEM_COMMIT(), PAGE_READWRITE()))
-  } else {
-    cast[Ptr[UInt8]](mmap(null, size, or(PROT_READ(), PROT_WRITE()), or(MAP_SHARED(), MAP_ANONYMOUS()), 0, 0))
-  }
-}
-fn sys_free(p Ptr[UInt8], size Int) {
-  when (is_windows) {
-    virtual_free(cast[Pointer](p), size, MEM_DECOMMIT())
-  } else {
-    munmap(cast[Pointer](p), size)
-  }
-}
-
-fn new_heap_region(size Int) HeapRegion {
-  init(HeapRegion){
-    sys_alloc(size)
-    0
-    size
-  }
-}
-
-fn free_heap_region(hr HeapRegion) {
-  sys_free(hr.data, hr.size)
-}
-
-fn alloc_from_heap_region[T](r ref HeapRegion, len Int) Ptr[T] {
-  sz := sizeof[T]() * len
-  ret := cast[Ptr[T]](r.data +! r.current)
-  r.current += sz
-  ret
-}
-
-fn new_region(r ref HeapRegion, size Int) Region {
-  init(Region){
-    alloc_from_heap_region[UInt8](r, size)
-    0
-    size
-    unsafe_null[Region]()
-  }
-}
-fn dealloc_region(hr ref HeapRegion, r Region) {
-  if (r.prev != unsafe_null[Region]()) {
-    dealloc_region(hr, unref(r.prev))
-  }
-  hr.current -= r.size
-}
-
-fn extend(hr ref HeapRegion, r ref Region, allocsize Int) {
+fn extend(r ref Region, allocsize Int) {
   if (r.current + allocsize >= r.size) {
-    prevr := getref(r)
     newrsize := r.size*2
     while (allocsize >= newrsize) {
       newrsize = newrsize*2
     }
-    r = new_region(hr, newrsize*2)
-    r.prev = prevr
+    r.data = cast[Ptr[UInt8]](unsafe_realloc(cast[Pointer](r.data), newrsize))
   }
 }
 
-fn alloc[T](hr ref HeapRegion, r ref Region, len Int) RPtr[T] {
+fn alloc[T](r ref Region, len Int) Ptr[T] {
   sz := sizeof[T]() * len
-  extend(hr, r, sz)
+  extend(r, sz)
   ret := cast[Ptr[T]](r.data +! r.current)
   r.current += sz
-  init(RPtr[T]){ret; getref(r)}
+  ret
 }
-fn alloc[T](hr ref HeapRegion, r ref Region) RPtr[T] {
-  alloc[T](hr, r, 1)
+fn alloc[T](r ref Region) Ptr[T] {
+  alloc[T](r, 1)
 }
 
-fn realloc[T](hr ref HeapRegion, r ref Region, p RPtr[T], plen Int, newlen Int) RPtr[T] {
-  ret := alloc[T](hr, r, newlen)
-  copy_memory(ret.p, p.p, plen)
-  ret
+fn alloc_with[T](r ref Region, len Int) WPtr[T] {
+  sz := sizeof[T]() * len
+  pp := alloc[Ptr[T]](r)
+  unref(pp) = cast[Ptr[T]](unsafe_malloc(sz))
+  var wp WPtr[T]
+  wp.p = pp
+  wp
+}
+
+fn dealloc[T](p WPtr[T]) {
+  unsafe_free(cast[Pointer](unref(p.p)))
+}
+
+fn realloc[T](p WPtr[T], newlen Int) {
+  unref(cast[Ptr[Pointer]](p.p)) = unsafe_realloc(cast[Pointer](unref(p.p)), newlen)
+}
+
+fn to_ptr[T](p WPtr[T]) Ptr[T] {
+  unref(p.p)
 }
 
 #
 # context
 #
 
-var g_heap_region HeapRegion
 var g_current_region Region
 
-fn new_region(size Int) Region {
-  new_region(g_heap_region, size)
-}
-
-fn region_settings(heapsize Int, regsize Int) {
-  g_heap_region = new_heap_region(heapsize)
-  g_current_region = new_region(g_heap_region, regsize)
+fn region_settings(regsize Int) {
+  g_current_region = new_region(regsize)
 }
 fn default_region_settings() {
-  # region_settings(2147483647, 1048576)
-  region_settings(2147483647, 1048576*20)
+  region_settings(1048576)
 }
 
 # for compile time memory allocations.
@@ -144,44 +89,26 @@ ct_default_region_settings()
 
 # for compile time free heap region.
 fn ct_flori_destruct() $[exportc "ct_flori_destruct"] {
-  free_heap_region(g_heap_region)
+  dealloc_region(g_current_region)
 }
 macro elimregist() FExpr {
   ct_flori_destruct()
   quote {}
 }
 
-fn alloc[T](len Int) RPtr[T] {
-  alloc[T](g_heap_region, g_current_region, len)
+fn alloc[T](len Int) Ptr[T] {
+  alloc[T](g_current_region, len)
 }
-fn alloc[T]() RPtr[T] {
+fn alloc[T]() Ptr[T] {
   alloc[T](1)
 }
-fn realloc[T](p RPtr[T], plen Int, newlen Int) RPtr[T] {
-  realloc(g_heap_region, unref(p.r), p, plen, newlen)
+fn alloc_with[T](len Int) WPtr[T] {
+  alloc_with[T](g_current_region, len)
 }
 
 #
 # macros
 #
-
-# fn convert_to_copy(prevr FExpr, f FExpr) FExpr $[compiletime] {
-#   if (kind(f) == FEXPR_BLOCK) {
-#     newf := new_fblock()
-#     for e in f {
-#       push(newf, convert_to_copy(prevr, e))
-#     }
-#     newf
-#   } elif (kind(f) == FEXPR_SEQ && to_cs(get(f, 0)) == "=") {
-#     dst := get(f, 1)
-#     value := get(f, 2)
-#     quote {
-#       `dst = copy(`prevr, `value)
-#     }
-#   } else {
-#     f
-#   }
-# }
 
 macro in_region(size FExpr, body TBlock) FExpr $[syntax] {
   prevr := gensym()

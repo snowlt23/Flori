@@ -1,0 +1,47 @@
+
+import "core"
+
+type Region {
+  ds [Fn[]]
+}
+
+fn destruct(r Region) {
+  for (i : 0..<r.ds.len) {
+    (r.ds!i)()
+  }
+}
+
+fn vec[]() {
+  v := init(){}
+  d := fn () {
+    dealloc(v.p)
+  }
+  v.p = alloc_with[T](d)
+  v
+}
+
+fn destruct[T](v Vec[T]) {
+  
+}
+
+fn new_int() RPtr[Int] {
+  alloc[Int]() # <- HR
+}
+
+fn main() {
+  a := alloc[Int]() <- HR
+  in_region { # R1
+    x := alloc[Int]() # <- R1
+    y := new_int() # <- R1
+  }
+}
+main()
+
+fn main() {
+  n := readInt()
+  v := vec[Int]()
+  for (i : range(0, n-1)) { 
+    push(v, i)
+  }
+}
+
