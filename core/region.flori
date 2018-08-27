@@ -13,8 +13,13 @@ type Region {
   dscount Int
 }
 
+type RPtr[T] {
+  pr Ptr[Region]
+  offset Int
+}
+
 type WPtr[T] {
-  p Ptr[Ptr[T]]
+  p RPtr[Ptr[T]]
 }
 
 fn new_region(size Int) Region {
@@ -44,22 +49,29 @@ fn extend(r ref Region, allocsize Int) {
   }
 }
 
-fn alloc[T](r ref Region, len Int) Ptr[T] {
+fn alloc[T](r ref Region, len Int) RPtr[T] {
   sz := sizeof[T]() * len
   extend(r, sz)
   ret := cast[Ptr[T]](r.data +! r.current)
+  var rp RPtr[T]
+  rp.pr = getref(r)
+  rp.offset = r.current
   r.current += sz
-  ret
+  rp
 }
-fn alloc[T](r ref Region) Ptr[T] {
+fn alloc[T](r ref Region) RPtr[T] {
   alloc[T](r, 1)
+}
+
+fn to_ptr[T](rp RPtr[T]) Ptr[T] {
+  cast[Ptr[T]](unref(rp.pr).data +! rp.offset)
 }
 
 fn alloc_with[T](r ref Region, len Int) WPtr[T] {
   sz := sizeof[T]() * len
   pp := alloc[Ptr[T]](r)
-  unref(pp) = cast[Ptr[T]](unsafe_malloc(sz))
-  unref(r.ds +! sizeof[Ptr[Pointer]]()*r.dscount) = cast[Ptr[Pointer]](pp)
+  unref(to_ptr(pp)) = cast[Ptr[T]](unsafe_malloc(sz))
+  unref(r.ds +! sizeof[Ptr[Pointer]]()*r.dscount) = cast[Ptr[Pointer]](to_ptr(pp))
   r.dscount += 1
   var wp WPtr[T]
   wp.p = pp
@@ -71,11 +83,11 @@ fn dealloc[T](p WPtr[T]) {
 }
 
 fn realloc[T](p WPtr[T], newlen Int) {
-  unref(cast[Ptr[Pointer]](p.p)) = unsafe_realloc(cast[Pointer](unref(p.p)), newlen)
+  unref(cast[Ptr[Pointer]](to_ptr(p.p))) = unsafe_realloc(cast[Pointer](unref(to_ptr(p.p))), newlen)
 }
 
 fn to_ptr[T](p WPtr[T]) Ptr[T] {
-  unref(p.p)
+  unref(to_ptr(p.p))
 }
 
 #
@@ -106,10 +118,10 @@ macro elimregist() FExpr {
   quote {}
 }
 
-fn alloc[T](len Int) Ptr[T] {
+fn alloc[T](len Int) RPtr[T] {
   alloc[T](g_current_region, len)
 }
-fn alloc[T]() Ptr[T] {
+fn alloc[T]() RPtr[T] {
   alloc[T](1)
 }
 fn alloc_with[T](len Int) WPtr[T] {
