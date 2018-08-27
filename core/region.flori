@@ -10,6 +10,7 @@ type Region {
   current Int
   size Int
   ds Ptr[Ptr[Pointer]]
+  dscap Int
   dscount Int
 }
 
@@ -22,12 +23,13 @@ type WPtr[T] {
   p RPtr[Ptr[T]]
 }
 
-fn new_region(size Int) Region {
+fn new_region(size Int, dscap Int) Region {
   var r Region
   r.data = cast[Ptr[UInt8]](unsafe_malloc(size))
   r.current = int(0)
   r.size = size
-  r.ds = cast[Ptr[Ptr[Pointer]]](unsafe_malloc(1024*sizeof[Ptr[Pointer]]())) # FIXME:
+  r.ds = cast[Ptr[Ptr[Pointer]]](unsafe_malloc(dscap*sizeof[Ptr[Pointer]]()))
+  r.dscap = dscap
   r.dscount = int(0)
   r
 }
@@ -46,6 +48,10 @@ fn extend(r ref Region, allocsize Int) {
       newrsize = newrsize*2
     }
     r.data = cast[Ptr[UInt8]](unsafe_realloc(cast[Pointer](r.data), newrsize))
+  }
+  if (r.dscount + 1 >= r.dscap) {
+    newdscap := r.dscap*2
+    r.ds = cast[Ptr[Ptr[Pointer]]](unsafe_realloc(cast[Pointer](r.ds), newdscap*sizeof[Ptr[Pointer]]()))
   }
 }
 
@@ -96,11 +102,11 @@ fn to_ptr[T](p WPtr[T]) Ptr[T] {
 
 var g_current_region Region
 
-fn region_settings(regsize Int) {
-  g_current_region = new_region(regsize)
+fn region_settings(regsize Int, dscap Int) {
+  g_current_region = new_region(regsize, dscap)
 }
 fn default_region_settings() {
-  region_settings(1048576)
+  region_settings(1048576, 1024)
 }
 
 # for compile time memory allocations.
