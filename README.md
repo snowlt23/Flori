@@ -2,7 +2,6 @@
 # Flori
 
 **Warning**: This project is work in progress. (very early stage)  
-**Important**: Compiler is rewriting now, please look [image-compiler](https://github.com/snowlt23/Flori/tree/image-compiler) branch.
 
 Flori is statically typed programming language without GC for system/application programming.
 
