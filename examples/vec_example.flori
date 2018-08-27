@@ -1,6 +1,5 @@
 
 import "core"
-default_region_settings()
 
 type MyInt {
   x Int

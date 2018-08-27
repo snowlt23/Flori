@@ -2,7 +2,6 @@
 import "core"
 import "std/objectpool"
 import "tests/testutils"
-default_region_settings()
 
 expect("0\n")
 

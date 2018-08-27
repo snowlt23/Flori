@@ -3,8 +3,6 @@ import "core"
 import "core/pointer"
 import "tests/testutils"
 
-default_region_settings()
-
 expect("Hello Yukari! and Maki!\nHello Yukari! and Maki! and Akari!\n9\n9\n")
 
 fn main() {

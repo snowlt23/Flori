@@ -1,7 +1,6 @@
 
 import "core"
 import "std/fileio"
-default_region_settings()
 
 fn main() {
   if (copy_file("LICENSE", "bakLICENSE")) {

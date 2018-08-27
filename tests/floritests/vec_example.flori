@@ -3,8 +3,6 @@ import "core"
 import "core/pointer"
 import "tests/testutils"
 
-default_region_settings()
-
 expect("vec[MyInt:1, MyInt:2, MyInt:3]\n")
 
 type MyInt {

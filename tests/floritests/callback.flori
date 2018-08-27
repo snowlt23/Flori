@@ -3,8 +3,6 @@ import "core"
 import "core/pointer"
 import "tests/testutils"
 
-default_region_settings()
-
 expect("Hello Yukari!\n")
 
 type Store {

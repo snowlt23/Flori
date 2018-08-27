@@ -110,11 +110,7 @@ fn default_region_settings() {
 }
 
 # for compile time memory allocations.
-fn ct_default_region_settings() $[compiletime] {
-  default_region_settings()
-}
-ct_default_region_settings()
-
+default_region_settings()
 # for compile time free global region.
 fn ct_flori_destruct() $[exportc "ct_flori_destruct"] {
   dealloc_region(g_current_region)

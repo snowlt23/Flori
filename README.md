@@ -29,7 +29,6 @@ Flori is statically typed programming language without GC for system/application
 ### Hello World
 ```
 import "core"
-default_region_settings()
 
 println("Hello World!")
 ```
@@ -37,7 +36,6 @@ println("Hello World!")
 ### Fibonacci
 ```
 import "core"
-default_region_settings()
 
 fn fib(n Int) Int {
   if (n < 2) {

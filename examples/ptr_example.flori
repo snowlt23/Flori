@@ -1,5 +1,4 @@
 
 import "core"
-default_region_settings()
 
 p := alloc[Int](5)
