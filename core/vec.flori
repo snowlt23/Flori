@@ -13,11 +13,11 @@ type Vec[T] $[nodestruct] {
 }
 
 fn vec[T](len Int, cap Int) Vec[T] $[importjs, patternjs "new Array($1)"] {
-  var v Vec[T]
-  v.data = alloc_with[T](cap)
-  v.cap = cap
-  v.len = len
-  v
+  init(Vec[T]) {
+    alloc_with[T](cap)
+    cap
+    len
+  }
 }
 fn vec[T](len Int) Vec[T] {
   vec[T](len, len * 2)

@@ -769,17 +769,23 @@ proc semInit*(scope: Scope, fexpr: var FExpr) =
   scope.rootPass(fexpr[2])
 
   let argtypes = fexpr[2].mapIt(it.typ)
+  let fields = typesym.fexpr.deftype.body
+  if fields.len != argtypes.len:
+    fexpr.error("init $# expected $# arguments, but got $#" % [$typesym, $fields.len, $argtypes.len])
+  for i, b in fexpr[2]:
+    let fieldtyp = fields[i][1]
+    if not match(fieldtyp.symbol, b.typ).isMatch:
+      b.error("init field type mismatch: expected $#, but got $#" % [$fieldtyp, $b.typ])
 
-  for b in fexpr[2].mitems:
-    if scope.isCopyable(b.typ):
-      b = b.span.quoteFExpr("copy(`embed)", [b])
-      scope.rootPass(b)
-
-  fexpr.initexpr = InitExpr(fexpr: fexpr)
-  fexpr.initexpr.typpos = 1
-  fexpr.initexpr.bodypos = 2
-  fexpr.initexpr.typ = fsymbol(fexpr[1][0].span, typesym)
-  fexpr.internalMark = internalInit
+  var newfexpr = fblock(fexpr.span)
+  let tmpid = fident(fexpr.span, scope.ctx.genTmpName())
+  newfexpr.addSon(fexpr.span.quoteFExpr("var `embed `embed", [tmpid, fsymbol(fexpr.span, typesym)]))
+  for i, b in fexpr[2]:
+    let fieldname = fields[i][0]
+    newfexpr.addSon(b.span.quoteFExpr("`embed.`embed = `embed", [tmpid, fieldname, b]))
+  newfexpr.addSon(tmpid)
+  fexpr = newfexpr
+  scope.rootPass(fexpr)
 
 proc semImport*(scope: Scope, fexpr: var FExpr) =
   if fexpr.len != 2:

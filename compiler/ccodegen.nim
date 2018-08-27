@@ -333,12 +333,6 @@ proc codegenFieldAccess*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     src &= "."
   ctx.codegenFExpr(src, fexpr.fieldaccessexpr.fieldname)
 
-proc codegenInit*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  src &= "(" & ctx.codegenType(fexpr.initexpr.typ) & "){"
-  for i, arg in ctx.codegenArgsWithIndex(src, fexpr.initexpr.body):
-    ctx.codegenCallArg(src, arg, fexpr.typ.fexpr.deftype.body[i][1].symbol)
-  src &= "}"
-
 proc codegenCodegenDecl*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   ctx.cdeclsrc &= fexpr[1].strval
 proc codegenCodegenHead*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
@@ -397,9 +391,6 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
   of internalFieldAccess:
     if not topcodegen:
       ctx.codegenFieldAccess(src, fexpr)
-  of internalInit:
-    if not topcodegen:
-      ctx.codegenInit(src, fexpr)
   of internalImport, internalExport, internalReload:
     discard
   of internalCodegenDecl:

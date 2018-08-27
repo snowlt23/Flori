@@ -24,19 +24,21 @@ fn string(cs CString) String $[importjs, patternjs "$1"] {
   if (cap < 1024) {
     cap = int(1024)
   }
-  var s String
-  s.p = alloc_with[Char](cap+1)
-  s.len = len
-  s.cap = cap
+  s := init(String) {
+    alloc_with[Char](cap+1)
+    len
+    cap
+  }
   copy_memory(to_ptr(s.p), cast[Ptr[Char]](cs), len)
   unref(to_ptr(s.p) +! len) = char(0)
   s
 }
 fn string(len Int, cap Int) String $[importjs, patternjs "'\0'.repeat($1)"] {
-  var s String
-  s.p = alloc_with[Char](cap + 1)
-  s.len = len
-  s.cap = cap
+  s := init(String) {
+    alloc_with[Char](cap+1)
+    len
+    cap
+  }
   unref(to_ptr(s.p) +! len) = char(0)
   s
 }

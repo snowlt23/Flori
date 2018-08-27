@@ -137,7 +137,6 @@ type
     internalDef
     internalSet
     internalFieldAccess
-    internalInit
     internalImport
     internalExport
     internalReload

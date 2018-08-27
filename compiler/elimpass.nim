@@ -48,8 +48,6 @@ proc elimMarkingPass*(scope: Scope, fexpr: var FExpr): bool =
     scope.elimRoot(fexpr[2])
   elif fexpr.hasInternalMark and fexpr.internalMark == internalFieldAccess:
     scope.elimRoot(fexpr[1])
-  elif fexpr.hasInternalMark and fexpr.internalMark == internalInit:
-    scope.elimRoot(fexpr[2])
   elif fexpr.isFuncCall:
     if fexpr[0].hasTyp and fexpr[0].typ.kind == symbolFuncType:
       discard

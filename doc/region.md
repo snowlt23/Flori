@@ -37,6 +37,7 @@ Region isn't silver bullet (or gungnir) for memory management.
 Region has a little cons. (but important)
 
 - Region can't control dynamic lifetime allocations. (Region is lexical/dynamic scope memory management method.)
+- Space leak
 
 Simple example:
 
