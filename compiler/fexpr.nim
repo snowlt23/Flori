@@ -6,7 +6,7 @@ import terminal
 import deques
 import algorithm
 
-import types
+import linmem, image, symbol
 
 const fexprAtoms* = {fexprIdent..fexprStrLit}
 const fexprNames* = {fexprIdent, fexprPrefix, fexprInfix}
@@ -16,13 +16,13 @@ const fexprContainer* = {fexprSeq, fexprArray, fexprList, fexprBlock}
 proc `$`*(fexpr: FExpr): string
 
 proc hint*(span: Span, msg: string) =
-  let h = " $#($#:$#): " % [span.filename, $span.line, $span.linepos] & msg
+  let h = " $#($#:$#): " % [$span.filename, $span.line, $span.linepos] & msg
   styledEcho(fgGreen, "[Hint] ", resetStyle, h)
 proc error*(span: Span, msg: string) =
   for expand in gCtx.expands:
-    let e = "$#($#:$#): expand by" % [expand.filename, $expand.line, $expand.linepos]
+    let e = "$#($#:$#): expand by" % [$expand.filename, $expand.line, $expand.linepos]
     styledEcho(fgGreen, "[Expand] ", resetStyle, e)
-  let e = "$#($#:$#): " % [span.filename, $span.line, $span.linepos] & msg
+  let e = "$#($#:$#): " % [$span.filename, $span.line, $span.linepos] & msg
   styledEcho(fgRed, "[Error] ", resetStyle, e)
 
   when defined(replError):
@@ -44,34 +44,42 @@ template internalSpan*(): Span =
   const internalline = instantiationInfo().line
   Span(line: 0, linepos: 0, internal: (internalname, internalline))
 
-proc fident*(span: Span, name: Name): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprIdent, idname: name)
-proc fprefix*(span: Span, name: Name): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprPrefix, idname: name)
-proc finfix*(span: Span, name: Name, p: int, isleft: bool): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprInfix, idname: name, priority: p, isleft: isleft)
+proc fident*(span: Span, name: IString): FExpr =
+  genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprIdent, idname: name))
+proc fprefix*(span: Span, name: IString): FExpr =
+  genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprPrefix, idname: name))
+proc finfix*(span: Span, name: IString, p: int, isleft: bool): FExpr =
+  genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprInfix, idname: name, priority: p, isleft: isleft))
 proc fquote*(span: Span, q: FExpr): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprQuote, quoted: q)
+  genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprQuote, quoted: q))
 proc fsymbol*(span: Span, sym: Symbol): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprSymbol, symbol: sym)
+  genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprSymbol, symbol: sym))
 proc fintlit*(span: Span, x: int64): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprIntLit, intval: x)
+  genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprIntLit, intval: x))
 proc ffloatlit*(span: Span, x: float): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprFloatLit, floatval: x)
+  genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprFloatLit, floatval: x))
 proc fstrlit*(span: Span, s: string): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprStrLit, strval: s)
+  genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprStrLit, strval: s))
+proc fseq*(span: Span, sons: IArray[FExpr]): FExpr =
+  genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprSeq, sons: sons))
 proc fseq*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprSeq, sons: sons)
+  fseq(span, iarray(sons))
+proc farray*(span: Span, sons: IArray[FExpr]): FExpr =
+  genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprArray, sons: sons))
 proc farray*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprArray, sons: sons)
+  farray(span, iarray(sons))
+proc flist*(span: Span, sons: IArray[FExpr]): FExpr =
+  genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprList, sons: sons))
 proc flist*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprList, sons: sons)
+  flist(span, iarray(sons))
+proc fblock*(span: Span, sons: IArray[FExpr]): FExpr =
+  genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprBlock, sons: sons))
 proc fblock*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  FExpr(span: span, metadata: initTable[string, Metadata](), kind: fexprBlock, sons: sons)
-proc fcontainer*(span: Span, kind: FExprKind, sons = newSeq[FExpr]()): FExpr =
-  new result
+  fblock(span, iarray(sons))
+proc fcontainer*(span: Span, kind: FExprKind, sons: IArray[FExpr]): FExpr =
+  result = genFExpr(FExprObj())
   result.span = span
-  result.metadata = initTable[string, Metadata]()
+  result.metadata = newMetadataStore()
   result.kind = kind
   result.sons = sons
 
@@ -111,34 +119,14 @@ proc len*(fexpr: FExpr): int =
   else:
     return 0
 
-proc addSon*(fexpr: FExpr, f: FExpr) =
-  if fexpr.kind notin fexprContainer:
-    fexpr.error("$# isn't farray" % $fexpr.kind)
-  fexpr.sons.add(f)
-proc delSon*(fexpr: FExpr, i: int) =
-  fexpr.sons.del(i)
 proc `[]`*(fexpr: FExpr, i: int): var FExpr =
   case fexpr.kind
   of fexprContainer:
-    return fexpr.sons[i]
+    return fexpr.sons.mget(i)
   else:
     fexpr.error("$# isn't container" % $fexpr.kind)
 proc `[]`*(fexpr: FExpr, i: BackwardsIndex): var FExpr =
   fexpr[fexpr.len-int(i)]
-proc `[]`*(fexpr: FExpr, sl: Slice[int]): FExpr =
-  case fexpr.kind
-  of fexprSeq:
-    result = fseq(fexpr[sl.a].span, fexpr.sons[sl])
-  of fexprArray:
-    result = farray(fexpr[sl.a].span, fexpr.sons[sl])
-  of fexprList:
-    result = flist(fexpr[sl.a].span, fexpr.sons[sl])
-  of fexprBlock:
-    result = fblock(fexpr[sl.a].span, fexpr.sons[sl])
-  else:
-    fexpr.error("$# isn't container, couldn't use as slice." % $fexpr.kind)
-proc `[]`*(fexpr: FExpr, sl: HSlice[int, BackwardsIndex]): FExpr =
-  fexpr[sl.a..fexpr.len-int(sl.b)]
 proc `[]=`*(fexpr: FExpr, i: int, f: FExpr) =
   case fexpr.kind
   of fexprContainer:
@@ -201,23 +189,10 @@ proc desc*(fexpr: FExpr): string = fexpr.toString(0, true)
 
 proc getSrcExpr*(fexpr: FExpr): string =
   if fexpr.src.isSome:
-    fexpr.src.get
+    $fexpr.src.get
   else:
     $fexpr
     
-proc name*(fexpr: FExpr): Name =
-  case fexpr.kind
-  of fexprNames:
-    return name($fexpr)
-  of fexprQuote:
-    return name(fexpr.quoted)
-  of fexprSymbol:
-    return fexpr.symbol.name
-  else:
-    fexpr.error("$# is not name." % $fexpr)
-
-
-
 proc isParametricTypeExpr*(fexpr: FExpr, pos: int): bool =
   if fexpr.kind != fexprSeq: return false
   if fexpr.len <= pos+1: return false

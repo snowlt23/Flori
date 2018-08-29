@@ -1,27 +1,19 @@
 
 import "core"
 
-type Region {
-  ds [Fn[]]
+type Vec[T] {
+  p WPtr[T]
 }
 
-fn destruct(r Region) {
-  for (i : 0..<r.ds.len) {
-    (r.ds!i)()
-  }
+fn vec[T]() {
+  init(Vec[T]){alloc_with[T]()} # <- HR
 }
 
-fn vec[]() {
-  v := init(){}
-  d := fn () {
-    dealloc(v.p)
-  }
-  v.p = alloc_with[T](d)
-  v
+fn chg(a ref RPtr[Int]) { # <- R?
+  a = alloc[Int]() # <- a-R <= HR
 }
-
-fn destruct[T](v Vec[T]) {
-  
+fn chg2(a ref RPtr[Int], b RPtr[Int]) { # <- R?, R?
+  a = b # <- a-R <= b-R
 }
 
 fn new_int() RPtr[Int] {
@@ -29,16 +21,19 @@ fn new_int() RPtr[Int] {
 }
 
 fn main() {
-  a := alloc[Int]() <- HR
+  a := alloc[Int]() # <- HR
   in_region { # R1
     x := alloc[Int]() # <- R1
     y := new_int() # <- R1
+    a = y # illegal
+    chg(x) # correct
+    chg(a) # illegal
   }
 }
 main()
 
 fn main() {
-  n := readInt()
+  n := read_int()
   v := vec[Int]()
   for (i : range(0, n-1)) { 
     push(v, i)

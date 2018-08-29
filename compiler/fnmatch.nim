@@ -3,9 +3,9 @@ import tables
 import options
 import strutils, sequtils
 
-import types, fexpr, metadata
+import linmem, image, fexpr, symbol, localparser
 
-proc isCurrentScope*(n: Name): bool = $n == "flori_current_scope"
+proc isCurrentScope*(n: IString): bool = $n == "flori_current_scope"
 
 proc match*(a, b: Symbol): Matched =
   if b.kind == symbolGenerics:
@@ -36,18 +36,18 @@ proc match*(a, b: Symbol): Matched =
     return a.wrapped.match(b)
   elif a == b:
     return Matched(kind: matchType)
-  elif a.fexpr.hasConverters:
-    for conv in a.fexpr.converters.converters:
-      let opt = conv.defn.ret.symbol.match(b)
-      if opt.isMatch:
-        return Matched(kind: matchConvert, convsym: conv.defn.name.symbol)
-    return Matched(kind: matchNone)
   else:
+    for conv in a.fexpr.metadata.converters:
+      let ret = conv.getReturn()
+      if ret.isNone: continue
+      let opt = ret.get.symbol.match(b)
+      if opt.isMatch:
+        return Matched(kind: matchConvert, convsym: conv.getName().get.symbol)
     return Matched(kind: matchNone)
 
 proc match*(a: ProcName, b: ProcDecl): Option[seq[Matched]] =
-  if a.name != b.name: return none(seq[Matched])
-  if b.isInternal: return some(repeat(Matched(kind: matchType), a.argtypes.len))
+  if a.name != $b.name: return none(seq[Matched])
+  if b.internalproc.isSome: return some(repeat(Matched(kind: matchType), a.argtypes.len))
   if b.isSyntax: return some(repeat(Matched(kind: matchType), a.argtypes.len))
   if a.argtypes.len != b.argtypes.len: return none(seq[Matched])
   var s = newSeq[Matched]()
@@ -58,26 +58,23 @@ proc match*(a: ProcName, b: ProcDecl): Option[seq[Matched]] =
     s.add(opt)
   return some(s)
 
-proc getFunc*(scope: Scope, pd: ProcName, importscope = true): Option[tuple[pd: ProcDecl, matches: seq[Matched]]] =
-  if not scope.procdecls.hasKey(pd.name):
-    if importscope:
-      for scopename, s in scope.importscopes:
-        let opt = s.getFunc(pd, importscope = scopename.isCurrentScope())
-        if opt.isSome:
-          return opt
-      return none((ProcDecl, seq[Matched]))
-    else:
-      return none((ProcDecl, seq[Matched]))
+proc find*[T](lst: IList[TupleTable[T]], key: string): Option[T] =
+  for e in lst:
+    if e.name == key:
+      return some(e.value)
+  return none(T)
 
-  let group = scope.procdecls[pd.name]
-  for decl in group.decls:
-    let opt = pd.match(decl)
-    if opt.isSome:
-      return some((decl, opt.get))
+proc getFunc*(scope: Scope, pd: ProcName, importscope = true): Option[tuple[pd: ProcDecl, matches: seq[Matched]]] =
+  let group = scope.procdecls.find($pd.name)
+  if group.isSome:
+    for decl in group.get.decls:
+      let opt = pd.match(decl)
+      if opt.isSome:
+        return some((decl, opt.get))
 
   if importscope:
-    for scopename, s in scope.importscopes:
-      let opt = s.getFunc(pd, importscope = scopename.isCurrentScope())
+    for s in scope.imports:
+      let opt = s.value.getFunc(pd, importscope = s.name.isCurrentScope())
       if opt.isSome:
         return opt
     return none((ProcDecl, seq[Matched]))

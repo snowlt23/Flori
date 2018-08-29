@@ -1,3 +1,3 @@
 
-import types, parser, fexpr, scope, metadata, passutils, fnmatch
-export types, parser, fexpr, scope, metadata, passutils, fnmatch
+import linmem, image, symbol, parser, fexpr, scope, passutils, fnmatch
+export linmem, image, symbol, parser, fexpr, scope, passutils, fnmatch
