@@ -171,6 +171,13 @@ proc fexprNil*(): FExpr =
 proc isNil*(fexpr: FExpr): bool =
   fexpr.index == -1
 
+proc symbolNil*(): Symbol =
+  Symbol(index: -1)
+proc isNil*(sym: Symbol): bool =
+  sym.index == -1
+proc hasTyp*(fexpr: FExpr): bool =
+  not fexpr.metadata.typ.isNil
+
 proc scopeNil*(): Scope =
   Scope(index: -1)
 proc scopeRoot*(): Scope =
@@ -179,7 +186,7 @@ proc scopeRoot*(): Scope =
 template rootScope*(): Scope = gCtx.rootScope
 
 proc newMetadataStore*(): MetadataStore =
-  genMetadataStore(MetadataStoreObj(converters: ilistNil[FExpr]()))
+  genMetadataStore(MetadataStoreObj(typ: symbolNil(), converters: ilistNil[FExpr]()))
 
 #
 # Image

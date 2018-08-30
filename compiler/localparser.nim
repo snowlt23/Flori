@@ -5,7 +5,15 @@ import linmem, image, fexpr
 proc getName*(f: FExpr): Option[FExpr] =
   var pos = 1
   if f.len <= pos: return none(FExpr)
-  if f[pos].kind != fexprident: return none(FExpr)
+  if f[pos].kind != fexprIdent: return none(FExpr)
+  return some(f[pos])
+
+proc getGenerics*(f: FExpr): Option[FExpr] =
+  var pos = 1
+  if f.len <= pos: return none(FExpr)
+  if f[pos].kind != fexprIdent: return none(FExpr)
+  if f.len <= pos: return none(FExpr)
+  if f[pos].kind != fexprArray: return none(FExpr)
   return some(f[pos])
 
 proc getReturn*(f: FExpr): Option[FExpr] =

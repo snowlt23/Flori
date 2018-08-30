@@ -1,5 +1,5 @@
 
-import parser, types, fexpr, scope, metadata, fnmatch
+import linmem, image, parser, fexpr, scope, symbol, fnmatch, localparser
 
 import options
 import strutils, sequtils
@@ -21,8 +21,12 @@ proc isResolveRef*(fexpr: seq[FExpr]): bool =
     if son.kind != fexprSymbol: return false
   return true
 
-proc isGenerics*(defn: Defn): bool = not defn.generics.isSpecTypes
-proc isGenerics*(deftype: Deftype): bool = not deftype.generics.isSpecTypes
+proc isGenerics*(fexpr: FExpr): bool =
+  let opt = fexpr.getGenerics()
+  if opt.isSome:
+    not opt.get.isSpecTypes
+  else:
+    false
 
 proc isEqualTypes*(types: seq[Symbol]): bool =
   var first = types[0]
@@ -35,28 +39,28 @@ proc replaceByTypesym*(fexpr: var FExpr, sym: Symbol) =
   fexpr = fsymbol(fexpr.span, sym)
 
 proc voidtypeExpr*(span: Span): FExpr =
-  return fident(span, name("Void"))
+  return fident(span, istring("Void"))
 
 proc resolveByVoid*(scope: Scope, fexpr: FExpr) =
-  let opt = scope.getDecl(name("Void"))
+  let opt = scope.getDecl("Void")
   if opt.isNone:
     fexpr.error("undeclared Void type, please import prelude.")
-  fexpr.typ = opt.get
+  fexpr.metadata.typ = opt.get
 
 proc genCall*(name: FExpr, args: varargs[FExpr]): FExpr =
   fseq(name.span, @[name, flist(name.span, @args)])
 
-proc genTmpName*(ctx: SemanticContext): Name =
-  result = name("tmpid" & $ctx.tmpcount)
+proc genTmpName*(ctx: var SemContext): string =
+  result = "tmpid" & $ctx.tmpcount
   ctx.tmpcount.inc
 
-proc genManglingName*(name: Name, types: seq[Symbol]): Name =
-  name($name & "_" & types.mapIt($it).join("_"))
+proc genManglingName*(name: string, types: seq[Symbol]): string =
+  name & "_" & types.mapIt($it).join("_")
 
-proc expandStart*(scope: Scope, span: Span) =
-  scope.ctx.expands.add(span)
-proc expandEnd*(scope: Scope) =
-  scope.ctx.expands.del(scope.ctx.expands.high)
+proc expandStart*(ctx: var SemContext, span: Span) =
+  ctx.expands.add(span)
+proc expandEnd*(ctx: var SemContext) =
+  ctx.expands.del(ctx.expands.high)
 
 template expandBy*(scope: Scope, span: Span, body: untyped) =
   try:
@@ -66,19 +70,11 @@ template expandBy*(scope: Scope, span: Span, body: untyped) =
     scope.expandEnd()
 
 proc isCopyable*(scope: Scope, typ: Symbol): bool =
-  scope.getFunc(procname(name("copy"), @[typ])).isSome
-proc isResource*(scope: Scope, typ: Symbol): bool =
-  if typ.fexpr.internalPragma.resource:
-    return true
-  if typ.fexpr.hasDefn:
-    for b in typ.fexpr.defn.body:
-      if scope.isResource(b[1].symbol):
-        return true
-  return false
+  scope.getFunc(procname("copy", @[typ])).isSome
 proc isDestructable*(scope: Scope, typ: Symbol): bool =
-  scope.getFunc(procname(name("destruct"), @[typ])).isSome
+  scope.getFunc(procname("destruct", @[typ])).isSome
 proc isSetter*(scope: Scope, dstvalue: Symbol, dstindex: Symbol, value: Symbol): bool =
-  scope.getFunc(procname(name("!!"), @[dstvalue, dstindex, value])).isSome
+  scope.getFunc(procname("!!", @[dstvalue, dstindex, value])).isSome
 
 proc checkArgsHastype*(args: FExpr) =
   for arg in args:
@@ -86,11 +82,12 @@ proc checkArgsHastype*(args: FExpr) =
       arg.error("$# hasn't type." % $arg)
       
 proc genConvertedCall*(args: FExpr, matches: seq[Matched]): FExpr =
-  result = flist(args.span)
   args.assert(args.len == matches.len)
+  var lst = newSeq[FExpr]()
   for i in 0..<args.len:
     case matches[i].kind
     of matchConvert:
-      result.addSon(args[i].span.quoteFExpr("`embed(`embed)", [fsymbol(args[i].span, matches[i].convsym), args[i]]))
+      lst.add(args[i].span.quoteFExpr("`embed(`embed)", [fsymbol(args[i].span, matches[i].convsym), args[i]]))
     else:
-      result.addSon(args[i])
+      lst.add(args[i])
+  return flist(args.span, lst)

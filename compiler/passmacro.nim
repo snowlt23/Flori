@@ -1,5 +1,5 @@
 
-import types, fexpr, scope, metadata
+import types, fexpr, scope
 
 import macros
 import strutils, sequtils
