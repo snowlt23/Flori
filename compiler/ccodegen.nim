@@ -79,13 +79,13 @@ proc codegenTypePattern*(ctx: CCodegenContext, pattern: string, types: seq[Symbo
     result = result.replace("##" & $(i+1), codegenSymbol(typ))
     result = result.replace("#" & $(i+1), ctx.codegenType(typ))
 proc codegenTypeImportc*(ctx: CCodegenContext, sym: Symbol): string =
-  if sym.fexpr.internalPragma.header.isSome and not ctx.headers.hasKey(sym.fexpr.internalPragma.header.get):
-    ctx.headers[sym.fexpr.internalPragma.header.get] = true
-    ctx.headersrc &= "#include \"$#\"\n" % sym.fexpr.internalPragma.header.get
-  if sym.fexpr.internalPragma.patternc.isSome:
-    ctx.codegenTypePattern(sym.fexpr.internalPragma.patternc.get, sym.types)
+  if sym.fexpr.metadata.header.isSome and not ctx.headers.hasKey($sym.fexpr.metadata.header.get):
+    ctx.headers[$sym.fexpr.metadata.header.get] = true
+    ctx.headersrc &= "#include \"$#\"\n" % $sym.fexpr.metadata.header.get
+  if sym.fexpr.metadata.patternc.isSome:
+    ctx.codegenTypePattern($sym.fexpr.metadata.patternc.get, toSeq(sym.types.items))
   else:
-    sym.fexpr.internalPragma.importc.get
+    $sym.fexpr.metadata.importc.get
 
 proc codegenType*(ctx: CCodegenContext, sym: Symbol, share = false): string =
   if sym.kind == symbolVar:
@@ -95,10 +95,10 @@ proc codegenType*(ctx: CCodegenContext, sym: Symbol, share = false): string =
   elif sym.kind == symbolFuncType:
     return "$# (*)($#)" % [ctx.codegenType(sym.rettype, share), sym.argtypes.mapIt(ctx.codegenType(it, share)).join(", ")]
 
-  if sym.fexpr.hasInternalPragma and sym.fexpr.internalPragma.importc.isSome:
+  if sym.fexpr.metadata.importc.isSome:
     return ctx.codegenTypeImportc(sym)
   result = ""
-  if sym.fexpr.isCStruct:
+  if sym.fexpr.metadata.isCStruct:
     result &= "struct "
   result &= codegenSymbol(sym)
 proc codegenType*(ctx: CCodegenContext, fexpr: FExpr): string =
@@ -109,8 +109,8 @@ proc codegenType*(ctx: CCodegenContext, fexpr: FExpr): string =
 proc codegenMangling*(sym: Symbol, generics: seq[Symbol], types: seq[Symbol], internal = false): string =
   if internal:
     result = $sym.name & "G" & generics.mapIt(codegenSymbol(it)).join("_") & "G" & "_" & types.mapIt(codegenSymbol(it)).join("_")
-  elif sym.fexpr.hasInternalPragma and sym.fexpr.internalPragma.exportc.isSome:
-    result = sym.fexpr.internalPragma.exportc.get
+  elif sym.fexpr.metadata.exportc.isSome:
+    result = $sym.fexpr.metadata.exportc.get
   else:
     result = codegenSymbol(sym) & "G" & generics.mapIt(codegenSymbol(it)).join("_") & "G" & "_" & types.mapIt(codegenSymbol(it)).join("_")
 
@@ -129,7 +129,7 @@ iterator codegenArgsWithIndex*(ctx: CCodegenContext, src: var SrcExpr, args: FEx
       src &= ", "
       yield(i, args[i])
 
-proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: seq[FExpr], ret: string = nil, rettype: Symbol = nil) =
+proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: seq[FExpr], ret: string = nil, rettype = symbolNil()) =
   if body.len == 0:
     return
   if body.len >= 2:
@@ -149,20 +149,20 @@ proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: seq[FExpr], ret:
     src &= ret
   if newsrc.exp != "":
     src &= newsrc.exp & ";\n"
-proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: FExpr, ret: string = nil, rettype: Symbol = nil) =
+proc codegenBody*(ctx: CCodegenContext, src: var SrcExpr, body: FExpr, ret: string = nil, rettype = symbolNil()) =
   ctx.codegenBody(src, toSeq(body.items), ret, rettype)
 
 proc codegenDefnDecl*(ctx: CCodegeNContext, src: var SrcExpr, fexpr: FExpr, namepre = "", namepost = "") =
-  src &= ctx.codegenType(fexpr.defn.ret)
+  src &= ctx.codegenType(fexpr.getReturn().get)
   src &= " "
   src &= namepre
-  if fexpr.internalPragma.exportc.isSome:
-    src &= fexpr.internalPragma.exportc.get
+  if fexpr.metadata.exportc.isSome:
+    src &= $fexpr.metadata.exportc.get
   else:
-    src &= codegenMangling(fexpr.defn.name.symbol, fexpr.defn.generics.mapIt(it.symbol), fexpr.defn.args.mapIt(it[1].symbol))
+    src &= codegenMangling(fexpr.getName().get.symbol, fexpr.getGenerics().get.mapIt(it.symbol), fexpr.getArguments().get.mapIt(it[1].symbol))
   src &= namepost
   src &= "("
-  for arg in ctx.codegenArgs(src, fexpr.defn.args):
+  for arg in ctx.codegenArgs(src, fexpr.getArguments().get):
     if arg[1].symbol.kind == symbolFuncType:
       src &= "$# (*$#)($#)" % [
         ctx.codegenType(arg[1].symbol.rettype),
@@ -176,41 +176,39 @@ proc codegenDefnDecl*(ctx: CCodegeNContext, src: var SrcExpr, fexpr: FExpr, name
   src &= ")"
   
 proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  if fexpr.internalPragma.inline:
-    return
-
   var decl = initSrcExpr()
   ctx.codegenDefnDecl(decl, fexpr)
   ctx.fndeclsrc &= decl.exp & ";\n"
 
   src &= decl
   src &= " {\n"
-  if fexpr.defn.body.len != 0:
-    if fexpr.defn.body[^1].typ.isVoidType:
-      ctx.codegenBody(src, fexpr.defn.body)
+  let body = fexpr.getFnBody().get
+  if body.len != 0:
+    if body[^1].metadata.typ.isVoidType:
+      ctx.codegenBody(src, body)
     else:
-      ctx.codegenBody(src, fexpr.defn.body, ret = "return ", fexpr.defn.ret.symbol)
+      ctx.codegenBody(src, body, ret = "return ", fexpr.getReturn().get.symbol)
   src &= "}\n"
 
 proc codegenMacroWrapper*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  let mangling = codegenMangling(fexpr.defn.name.symbol, fexpr.defn.generics.mapIt(it.symbol), fexpr.defn.args.mapIt(it[1].symbol))
+  let mangling = codegenMangling(fexpr.getName().get.symbol, fexpr.getGenerics().get.mapIt(it.symbol), fexpr.getArguments().get.mapIt(it[1].symbol))
   src &= "flori_fexpr $#_macro(flori_fexpr fexpr) {\n" % mangling
   src &= "return " & mangling & "("
-  for i, arg in ctx.codegenArgsWithIndex(src, fexpr.defn.args):
+  for i, arg in ctx.codegenArgsWithIndex(src, fexpr.getArguments().get):
     src &= "flori_access(fexpr, $#)" % $i
   src &= ");\n"
   src &= "}\n"
 
 proc codegenDefn*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  if fexpr.hasInternalPragma and fexpr.internalPragma.importc.isNone:
-    if fexpr.defn.generics.isSpecTypes:
+  if fexpr.metadata.importc.isNone:
+    if fexpr.getGenerics().get.isSpecTypes:
       ctx.codegenDefnInstance(src, fexpr)
       if $fexpr[0] == "macro":
         ctx.codegenMacroWrapper(src, fexpr)
         
 proc codegenDeftypeStruct*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  ctx.typesrc &= "struct $# {\n" % codegenSymbol(fexpr.deftype.name.symbol)
-  for field in fexpr.deftype.body:
+  ctx.typesrc &= "struct $# {\n" % codegenSymbol(fexpr.getName().get.symbol)
+  for field in fexpr.getTypeBody().get:
     if field[1].symbol.kind == symbolFuncType:
       ctx.typesrc &= "$# (*$#)($#);\n" % [
         ctx.codegenType(field[1].symbol.rettype),
@@ -225,15 +223,15 @@ proc codegenDeftypeStruct*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr)
   ctx.typesrc &= "};\n"
 
 proc codegenDeftypePattern*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  if fexpr.internalPragma.declc.isSome:
-    ctx.typesrc &= ctx.codegenTypePattern(fexpr.internalPragma.declc.get, fexpr.deftype.name.symbol.types)
+  if fexpr.metadata.declc.isSome:
+    ctx.typesrc &= ctx.codegenTypePattern($fexpr.metadata.declc.get, toSeq(fexpr.getName().get.symbol.types.items))
     ctx.typesrc &= "\n"
   
 proc codegenDeftype*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  if fexpr.deftype.isGenerics:
+  if fexpr.isGenerics:
     return
   
-  if fexpr.internalPragma.importc.isSome:
+  if fexpr.metadata.importc.isSome:
     ctx.codegenDeftypePattern(src, fexpr)
   else:
     ctx.codegenDeftypeStruct(src, fexpr)
@@ -241,50 +239,51 @@ proc codegenDeftype*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   let tmpret = ctx.gentmpsym()
 
-  if not fexpr.typ.isVoidType: # temporary return variable declaration.
-    src.prev &= ctx.codegenType(fexpr.typ) & " " & tmpret & ";\n"
-  let ret = if not fexpr.typ.isVoidType:
+  if not fexpr.metadata.typ.isVoidType: # temporary return variable declaration.
+    src.prev &= ctx.codegenType(fexpr.metadata.typ) & " " & tmpret & ";\n"
+  let ret = if not fexpr.metadata.typ.isVoidType:
               tmpret & " = "
             else:
               nil
 
-  let elifbranch = fexpr.internalIfExpr.elifbranch
+  let branches = fexpr.getIfBranches()
 
   var ifcondsrc = initSrcExpr()
   var ifbodysrc = initSrcExpr()
-  ctx.codegenCallArg(ifcondsrc, elifbranch[0].cond, if elifbranch[0].cond.typ.kind == symbolRef: elifbranch[0].cond.typ.wrapped else: elifbranch[0].cond.typ)
-  ctx.codegenBody(ifbodysrc, elifbranch[0].body, ret)
+  ctx.codegenCallArg(ifcondsrc, branches[0].cond.get, if branches[0].cond.get.metadata.typ.kind == symbolRef: branches[0].cond.get.metadata.typ.wrapped else: branches[0].cond.get.metadata.typ)
+  ctx.codegenBody(ifbodysrc, branches[0].body, ret)
   var elsecnt = 1
   src.prev &= ifcondsrc.prev
   src.prev &= "if (" & ifcondsrc.exp & ") {\n"
   src.addPrev(ifbodysrc)
   src.prev &= "} else {"
 
-  for branch in elifbranch[1..^1]:
-    var elifcondsrc = initSrcExpr()
-    var elifbodysrc = initSrcExpr()
-    ctx.codegenCallArg(elifcondsrc, branch.cond, if branch.cond.typ.kind == symbolRef: branch.cond.typ.wrapped else: branch.cond.typ)
-    ctx.codegenBody(elifbodysrc, branch.body, ret)
-    src.prev &= elifcondsrc.prev
-    src.prev &= "if (" & elifcondsrc.exp & ") {\n"
-    src.addPrev(elifbodysrc)
-    src.prev &= "} else {"
-    elsecnt += 1
-
-  var elsebodysrc = initSrcExpr()
-  ctx.codegenBody(elsebodysrc, fexpr.internalIfExpr.elsebranch, ret)
-  src.addPrev(elsebodysrc)
-  src.prev &= "}".repeat(elsecnt)
+  for branch in branches[1..^1]:
+    if branch.cond.isSome:
+      var elifcondsrc = initSrcExpr()
+      var elifbodysrc = initSrcExpr()
+      ctx.codegenCallArg(elifcondsrc, branch.cond.get, if branch.cond.get.metadata.typ.kind == symbolRef: branch.cond.get.metadata.typ.wrapped else: branch.cond.get.metadata.typ)
+      ctx.codegenBody(elifbodysrc, branch.body, ret)
+      src.prev &= elifcondsrc.prev
+      src.prev &= "if (" & elifcondsrc.exp & ") {\n"
+      src.addPrev(elifbodysrc)
+      src.prev &= "} else {"
+      elsecnt += 1
+    else:
+      var elsebodysrc = initSrcExpr()
+      ctx.codegenBody(elsebodysrc, branch.body, ret)
+      src.addPrev(elsebodysrc)
+      src.prev &= "}".repeat(elsecnt)
 
   # return temporary variable.
-  if not fexpr.typ.isVoidType:
+  if not fexpr.metadata.typ.isVoidType:
     src &= tmpret
 
 proc codegenWhile*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "while ("
-  ctx.codegenFExpr(src, fexpr.whileexpr.cond[0])
+  ctx.codegenFExpr(src, fexpr[1])
   src &= ") {\n"
-  ctx.codegenBody(src, fexpr.whileexpr.body)
+  ctx.codegenBody(src, fexpr[2])
   src &= "}"
   
 proc codegenVar*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
@@ -300,38 +299,38 @@ proc codegenConst*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "\n"
   
 proc codegenDef*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  src &= ctx.codegenType(fexpr.defexpr.value.typ)
+  src &= ctx.codegenType(fexpr[2].metadata.typ)
   src &= " "
-  src &= codegenSymbol(if fexpr.defexpr.name.kind == fexprSymbol: fexpr.defexpr.name else: fexpr.defexpr.name[0])
+  src &= codegenSymbol(if fexpr[1].kind == fexprSymbol: fexpr[1] else: fexpr[1][0])
   src &= " = "
-  ctx.codegenFExpr(src, fexpr.defexpr.value)
+  ctx.codegenFExpr(src, fexpr[2])
 
 proc codegenDefDecl*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  let t = ctx.codegenType(fexpr.defexpr.value.typ)
-  let n = codegenSymbol(if fexpr.defexpr.name.kind == fexprSymbol: fexpr.defexpr.name else: fexpr.defexpr.name[0])
+  let t = ctx.codegenType(fexpr[2].metadata.typ)
+  let n = codegenSymbol(if fexpr[1].kind == fexprSymbol: fexpr[1] else: fexpr[1][0])
   src &= "$# $#;\n" % [t, n]
 proc codegenDefValue*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  src &= codegenSymbol(if fexpr.defexpr.name.kind == fexprSymbol: fexpr.defexpr.name else: fexpr.defexpr.name[0])
+  src &= codegenSymbol(if fexpr[1].kind == fexprSymbol: fexpr[1] else: fexpr[1][0])
   src &= " = "
-  ctx.codegenFExpr(src, fexpr.defexpr.value)
+  ctx.codegenFExpr(src, fexpr[2])
 
 proc codegenSet*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  let dsttyp = fexpr.setexpr.dst.typ
-  if dsttyp.isRef and not fexpr.setexpr.value.typ.isRef:
+  let dsttyp = fexpr[1].metadata.typ
+  if dsttyp.isRef and not fexpr[2].metadata.typ.isRef:
     src &= "*"
-  ctx.codegenFExpr(src, fexpr.setexpr.dst)
+  ctx.codegenFExpr(src, fexpr[1])
   src &= " = "
-  ctx.codegenCallArg(src, fexpr.setexpr.value, dsttyp)
+  ctx.codegenCallArg(src, fexpr[2], dsttyp)
 
 proc codegenFieldAccess*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  ctx.codegenFExpr(src, fexpr.fieldaccessexpr.value)
-  if fexpr.fieldaccessexpr.value.typ.kind == symbolRef:
+  ctx.codegenFExpr(src, fexpr[1])
+  if fexpr[1].metadata.typ.kind == symbolRef:
     src &= "->"
-  elif fexpr.fieldaccessexpr.value.typ.kind == symbolVar and fexpr.fieldaccessexpr.value.typ.wrapped.kind == symbolRef:
+  elif fexpr[1].metadata.typ.kind == symbolVar and fexpr[1].metadata.typ.wrapped.kind == symbolRef:
     src &= "->"
   else:
     src &= "."
-  ctx.codegenFExpr(src, fexpr.fieldaccessexpr.fieldname)
+  ctx.codegenFExpr(src, fexpr[2])
 
 proc codegenCodegenDecl*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   ctx.cdeclsrc &= fexpr[1].strval
@@ -344,14 +343,12 @@ proc codegenBlock*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "\n}\n"
 
 proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topcodegen: bool) =
-  if fexpr.hasInternalPragma and not ctx.macrogen and fexpr.internalPragma.compiletime:
-    return
-  if fexpr.hasInternalPragma and ctx.macrogen and fexpr.internalPragma.nocompiletime:
-    return
-  if not (fexpr.hasInternalPragma and fexpr.internalPragma.exportc.isSome) and fexpr.isEliminated:
+  if (not fexpr.metadata.exportc.isSome) and fexpr.metadata.isEliminated:
     return
   
-  case fexpr.internalMark
+  case fexpr.metadata.internal
+  of internalNone:
+    discard
   of internalDefn:
     if topcodegen:
       ctx.codegenDefn(src, fexpr)
@@ -370,18 +367,18 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
     if not topcodegen:
       ctx.codegenWhile(src, fexpr)
   of internalVar:
-    if topcodegen and fexpr.isToplevel:
+    if topcodegen and fexpr.metadata.isToplevel:
       ctx.codegenVar(src, fexpr)
       src &= ";\n"
-    elif not topcodegen and not fexpr.isToplevel:
+    elif not topcodegen and not fexpr.metadata.isToplevel:
       ctx.codegenVar(src, fexpr)
   of internalConst:
     if topcodegen:
       ctx.codegenConst(src, fexpr)
   of internalDef:
-    if topcodegen and fexpr.isToplevel:
+    if topcodegen and fexpr.metadata.isToplevel:
       ctx.codegenDefDecl(src, fexpr)
-    elif not topcodegen and fexpr.isToplevel:
+    elif not topcodegen and fexpr.metadata.isToplevel:
       ctx.codegenDefValue(src, fexpr)
     else:
       ctx.codegenDef(src, fexpr)
@@ -404,110 +401,114 @@ proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topc
       ctx.codegenBlock(src, fexpr)
 
 proc codegenCallArg*(ctx: CCodegenContext, src: var SrcExpr, arg: FExpr, fnargtype: Symbol) =
-  if arg.typ.isRef and fnargtype.isRef:
+  if arg.metadata.typ.isRef and fnargtype.isRef:
     ctx.codegenFExpr(src, arg)
-  elif arg.typ.kind == symbolVar and fnargtype.isRef:
+  elif arg.metadata.typ.kind == symbolVar and fnargtype.isRef:
     src &= "&"
     ctx.codegenFExpr(src, arg)
-  elif arg.typ.isRef and not fnargtype.isRef:
+  elif arg.metadata.typ.isRef and not fnargtype.isRef:
     src &= "*"
     ctx.codegenFExpr(src, arg)
   else:
     ctx.codegenFExpr(src, arg)
 
 proc codegenPatArg*(ctx: CCodegenContext, src: var SrcExpr, arg: FExpr, fnargtype: Symbol) =
-  if arg.typ.kind == symbolVar and fnargtype.kind == symbolRef:
+  if arg.metadata.typ.kind == symbolVar and fnargtype.kind == symbolRef:
     src &= "&"
     ctx.codegenFExpr(src, arg)
-  elif arg.typ.kind == symbolRef and fnargtype.kind != symbolRef:
+  elif arg.metadata.typ.kind == symbolRef and fnargtype.kind != symbolRef:
     src &= "*"
     ctx.codegenFExpr(src, arg)
   else:
     ctx.codegenFExpr(src, arg)
 
-proc codegenPatternArgs*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, fnargtypes: seq[Symbol], ret: Symbol, pattern: var string) =
+proc codegenPatternArgs*(ctx: CCodegenContext, src: var SrcExpr, sons: seq[FExpr], fnargtypes: seq[Symbol], ret: Symbol, pattern: var string) =
   pattern = pattern.replace("$#0", ctx.codegenType(ret))
-  for i, arg in fexpr.sons.reversed():
+  for i, arg in sons.reversed():
     var comp = initSrcExpr()
-    ctx.codegenPatArg(comp, arg, fnargtypes[fexpr.len-i-1])
+    ctx.codegenPatArg(comp, arg, fnargtypes[sons.len-i-1])
     src.prev &= comp.prev
-    pattern = pattern.replace("$#" & $(fexpr.len-i), ctx.codegenType(arg.typ))
-    pattern = pattern.replace("$" & $(fexpr.len-i), comp.exp)
+    pattern = pattern.replace("$#" & $(sons.len-i), ctx.codegenType(arg.metadata.typ))
+    pattern = pattern.replace("$" & $(sons.len-i), comp.exp)
+
+proc codegenPatternArgs*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, fnargtypes: seq[Symbol], ret: Symbol, pattern: var string) =
+  codegenPatternArgs(ctx, src, toSeq(fexpr.sons.items), fnargtypes, ret, pattern)
 
 proc codegenPatternCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, pattern: string, fn: FExpr) =
   var pattern = pattern
-  var argtypes = fexpr[0].symbol.fexpr.defn.args.mapIt(it[1].symbol)
+  var argtypes = fexpr[0].symbol.fexpr.getArguments().get.mapIt(it[1].symbol)
   if fexpr.isGenericsFuncCall:
     for i, g in fexpr[1]:
       pattern = pattern.replace("#" & $(i+1), ctx.codegenType(g))
-    ctx.codegenPatternArgs(src, fexpr[2], argtypes, fexpr.typ, pattern)
+    ctx.codegenPatternArgs(src, fexpr[2], argtypes, fexpr.metadata.typ, pattern)
   else:
     if fexpr.isNormalFuncCall:
-      ctx.codegenPatternArgs(src, fexpr[1], argtypes, fexpr.typ, pattern)
+      ctx.codegenPatternArgs(src, fexpr[1], argtypes, fexpr.metadata.typ, pattern)
     elif fexpr.isInfixFuncCall:
-      ctx.codegenPatternArgs(src, fexpr[1..^1], argtypes, fexpr.typ, pattern)
+      ctx.codegenPatternArgs(src, toSeq(fexpr.items)[1..^1], argtypes, fexpr.metadata.typ, pattern)
     else:
       fexpr.error("unsupported c function call syntax.")
   src &= pattern
 
-proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =  
+proc codegenCCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   let fn = fexpr[0].symbol.fexpr
-  let fname = fn.internalPragma.importc.get
+  let fname = $fn.metadata.importc.get
   
-  if fn.internalPragma.header.isSome and not ctx.headers.hasKey(fn.internalPragma.header.get):
-    ctx.headers[fn.internalPragma.header.get] = true
-    ctx.headersrc &= "#include \"$#\"\n" % fn.internalPragma.header.get
+  if fn.metadata.header.isSome and not ctx.headers.hasKey($fn.metadata.header.get):
+    ctx.headers[$fn.metadata.header.get] = true
+    ctx.headersrc &= "#include \"$#\"\n" % $fn.metadata.header.get
 
-  if fn.internalPragma.declc.isSome:
+  if fn.metadata.declc.isSome:
     var psrc = initSrcExpr()
-    ctx.codegenPatternCCall(psrc, fexpr, fn.internalPragma.declc.get, fn)
+    ctx.codegenPatternCCall(psrc, fexpr, $fn.metadata.declc.get, fn)
     src &= psrc.exp
   
-  if fn.internalPragma.infixc:
+  let args = fexpr[0].symbol.fexpr.getArguments().get
+  if fn.metadata.infixc:
     if fexpr.len == 3:
       src &= "("
-      ctx.codegenCallArg(src, fexpr[1], fexpr[0].symbol.fexpr.defn.args[0][1].symbol)
+      ctx.codegenCallArg(src, fexpr[1], args[0][1].symbol)
       src &= " "
       src &= fname
       src &= " "
-      ctx.codegenCallArg(src, fexpr[2], fexpr[0].symbol.fexpr.defn.args[1][1].symbol)
+      ctx.codegenCallArg(src, fexpr[2], args[1][1].symbol)
       src &= ")"
     elif fexpr[1].len == 2:
       src &= "("
-      ctx.codegenCallArg(src, fexpr[1][0], fexpr[0].symbol.fexpr.defn.args[0][1].symbol)
+      ctx.codegenCallArg(src, fexpr[1][0], args[0][1].symbol)
       src &= " "
       src &= fname
       src &= " "
-      ctx.codegenCallArg(src, fexpr[1][1], fexpr[0].symbol.fexpr.defn.args[1][1].symbol)
+      ctx.codegenCallArg(src, fexpr[1][1], args[1][1].symbol)
       src &= ")"
     else:
       fexpr.error("$# is not infix expression." % $fexpr)
-  elif fn.internalPragma.patternc.isSome:
-    ctx.codegenPatternCCall(src, fexpr, fn.internalPragma.patternc.get, fn)
+  elif fn.metadata.patternc.isSome:
+    ctx.codegenPatternCCall(src, fexpr, $fn.metadata.patternc.get, fn)
   elif fexpr.isInfixFuncCall:
     src &= fname
     src &= "("
-    ctx.codegenCallArg(src, fexpr[1], fexpr[0].symbol.fexpr.defn.args[0][1].symbol)
+    ctx.codegenCallArg(src, fexpr[1], args[0][1].symbol)
     src &= ", "
-    ctx.codegenCallArg(src, fexpr[2], fexpr[0].symbol.fexpr.defn.args[1][1].symbol)
+    ctx.codegenCallArg(src, fexpr[2], args[1][1].symbol)
     src &= ")"
   else:
     src &= fname
     src &= "("
     for i, arg in ctx.codegenArgsWithIndex(src, fexpr[1]):
-      ctx.codegenCallArg(src, arg, fexpr[0].symbol.fexpr.defn.args[i][1].symbol)
+      ctx.codegenCallArg(src, arg, args[i][1].symbol)
     src &= ")"
     
 proc getCallGenerics(fexpr: FExpr): seq[Symbol] =
   if fexpr[0].symbol.kind == symbolFuncType:
     @[]
   else:
-    fexpr[0].symbol.fexpr.defn.generics.mapIt(it.symbol)
+    fexpr[0].symbol.fexpr.getGenerics().get.mapIt(it.symbol)
 proc getCallTypes(fexpr: FExpr): seq[Symbol] =
   if fexpr[0].symbol.kind == symbolFuncType:
-    fexpr[0].symbol.argtypes
+    toSeq(fexpr[0].symbol.argtypes.items)
   else:
-    fexpr[0].symbol.fexpr.defn.args.mapIt(it[1].symbol)
+    fexpr[0].symbol.fexpr.getArguments().get.mapIt(it[1].symbol)
   
 proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   if fexpr.len == 0:
@@ -518,64 +519,58 @@ proc codegenCall*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     ctx.codegenFExpr(src, fexpr[0])
     src &= ")("
     for i, arg in ctx.codegenArgsWithIndex(src, fexpr[1]):
-      let fnargtype = fexpr[0].typ.argtypes[i]
+      let fnargtype = fexpr[0].metadata.typ.argtypes[i]
       ctx.codegenCallArg(src, arg, fnargtype)
     src &= "))"
     return
   
   let fn = fexpr[0].symbol.fexpr
-  if fn.hasinternalPragma and not ctx.macrogen and fn.internalPragma.compiletime:
-    return
-  elif fn.hasinternalPragma and fn.internalPragma.importc.isSome:
+  if fn.metadata.importc.isSome:
     ctx.codegenCCall(src, fexpr)
   else: # normal call
     if fexpr.isNormalFuncCall:
       src &= codegenMangling(fexpr[0].symbol, fexpr.getCallGenerics(), fexpr.getCallTypes())
       src &= "("
       for i, arg in ctx.codegenArgsWithIndex(src, fexpr[1]):
-        let fnargtype = fexpr[0].symbol.fexpr.defn.args[i][1].symbol
+        let fnargtype = fexpr[0].symbol.fexpr.getArguments().get[i][1].symbol
         ctx.codegenCallArg(src, arg, fnargtype)
       src &= ")"
     elif fexpr.isGenericsFuncCall:
       src &= codegenMangling(fexpr[0].symbol, fexpr.getCallGenerics(), fexpr.getCallTypes())
       src &= "("
       for i, arg in ctx.codegenArgsWithIndex(src, fexpr[2]):
-        let fnargtype = fexpr[0].symbol.fexpr.defn.args[i][1].symbol
+        let fnargtype = fexpr[0].symbol.fexpr.getArguments().get[i][1].symbol
         ctx.codegenCallArg(src, arg, fnargtype)
       src &= ")"
     elif fexpr.isInfixFuncCall: # infix call
       src &= codegenMangling(fexpr[0].symbol, fexpr.getCallGenerics(), fexpr.getCallTypes()) # FIXME: support generics
       src &= "("
-      ctx.codegenCallArg(src, fexpr[1], fexpr[0].symbol.fexpr.defn.args[0][1].symbol)
+      ctx.codegenCallArg(src, fexpr[1], fexpr[0].symbol.fexpr.getArguments().get[0][1].symbol)
       src &= ", "
-      ctx.codegenCallArg(src, fexpr[2], fexpr[0].symbol.fexpr.defn.args[1][1].symbol)
+      ctx.codegenCallArg(src, fexpr[2], fexpr[0].symbol.fexpr.getArguments().get[1][1].symbol)
       src &= ")"
-    elif fexpr[0].hasTyp and fexpr[0].typ.kind == symbolFuncType:
+    elif fexpr[0].hasTyp and fexpr[0].metadata.typ.kind == symbolFuncType:
       src &= "(("
       src &= codegenVarfnSymbol(fexpr[0].symbol)
       src &= ")("
       for i, arg in ctx.codegenArgsWithIndex(src, fexpr[1]):
-        let fnargtype = fexpr[0].typ.argtypes[i]
+        let fnargtype = fexpr[0].metadata.typ.argtypes[i]
         ctx.codegenCallArg(src, arg, fnargtype)
       src &= "))"
     else:
       fexpr.error("unsupported function call syntax.")
 
 proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  if fexpr.hasRuntime and not ctx.macrogen:
-    ctx.codegenFExpr(src, fexpr.runtime)
-    return
-  
   case fexpr.kind
   of fexprIdent:
     src &= $fexpr
   of fexprSymbol:
     if fexpr.symbol.kind == symbolFunc:
-      src &= codegenMangling(fexpr.symbol, @[], fexpr.typ.argtypes) # FIXME:
-    elif fexpr.typ.kind == symbolFuncType:
+      src &= codegenMangling(fexpr.symbol, @[], toSeq(fexpr.metadata.typ.argtypes.items)) # FIXME:
+    elif fexpr.metadata.typ.kind == symbolFuncType:
       src &= codegenVarfnSymbol(fexpr.symbol)
-    elif fexpr.typ.kind == symbolIntLit:
-      src &= $fexpr.typ.intval
+    elif fexpr.metadata.typ.kind == symbolIntLit:
+      src &= $fexpr.metadata.typ.intval
     else:
       src &= codegenSymbol(fexpr)
   of fexprIntLit:
@@ -597,16 +592,16 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
       src &= "{}"
       return
     
-    if fexpr[^1].typ.isVoidType:
+    if fexpr[^1].metadata.typ.isVoidType:
       ctx.codegenBody(src, toSeq(fexpr.items))
     else:
       let tmp = ctx.gentmpsym()
       var blocksrc = initSrcExpr()
-      ctx.codegenBody(blocksrc, toSeq(fexpr.items), ret = ctx.codegenType(fexpr[^1].typ) & " " & tmp & " = ")
+      ctx.codegenBody(blocksrc, toSeq(fexpr.items), ret = ctx.codegenType(fexpr[^1].metadata.typ) & " " & tmp & " = ")
       src.addPrev(blocksrc)
       src &= tmp
   of fexprSeq:
-    if fexpr.hasinternalMark:
+    if fexpr.metadata.internal != internalNone:
       ctx.codegenInternal(src, fexpr, topcodegen = false)
     else:
       ctx.codegenCall(src, fexpr)
@@ -614,13 +609,10 @@ proc codegenFExpr*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     fexpr.error("$# is unsupported expression in eval." % $fexpr.kind)
 
 proc codegenToplevel*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  if fexpr.hasinternalMark:
+  if fexpr.metadata.internal != internalNone:
     ctx.codegenInternal(src, fexpr, topcodegen = true)
   elif fexpr.kind == fexprBlock:
     for son in fexpr:
-      if son.isGenerated:
-        continue
-      son.isToplevel = true
       ctx.codegenToplevel(src, son)
 
 proc collectDependFn*(s: var seq[Symbol], fexpr: FExpr) =
@@ -631,9 +623,8 @@ proc collectDependFn*(s: var seq[Symbol], fexpr: FExpr) =
       collectDependFn(s, f)
       
 proc codegenDynFn*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  fexpr.assert(fexpr.hasDefn)
   var depends = newSeq[Symbol]()
-  collectDependFn(depends, fexpr.defn.body)
+  collectDependFn(depends, fexpr.getFnBody().get)
   for d in depends:
     ctx.codegenDefnDecl(src, d.fexpr, "(*", ")")
     src &= ";\n"
@@ -643,7 +634,7 @@ proc codegenDynFn*(ctx: CCodegenContext, fexpr: FExpr): string =
   ctx.codegenDynFn(src, fexpr)
   ctx.cheadsrc & "\n" & ctx.headersrc & "\n" & ctx.cdeclsrc & "\n" & ctx.typesrc & "\n" & src.exp
   
-proc codegenSingle*(ctx: CCodegenContext, sem: SemanticContext): string =
+proc codegenSingle*(ctx: CCodegenContext, sem: SemContext): string =
   result = ""
   var src = initSrcExpr()
   if ctx.macrogen:

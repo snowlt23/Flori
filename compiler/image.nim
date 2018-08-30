@@ -18,10 +18,37 @@ type
     linepos*: int
     pos*: int
     isinternal*: bool
+  InternalKind* = enum
+    internalNone
+    internalDefn
+    internalMacro
+    internalDeftype
+    internalTypedef
+    internalIf
+    internalWhile
+    internalVar
+    internalConst
+    internalDef
+    internalSet
+    internalFieldAccess
+    internalImport
+    internalExport
+    internalReload
+    internalCodegenDecl
+    internalCodegenHead
+    internalBlock
   MetadataStoreObj* = object
+    internal*: InternalKind
+    header*: Option[IString]
+    patternc*: Option[IString]
+    importc*: Option[IString]
+    exportc*: Option[IString]
+    declc*: Option[IString]
+    infixc*: bool
     typ*: Symbol
     constvalue*: FExpr
     converters*: IList[FExpr]
+    isCStruct*: bool
     isEvaluated*: bool
     isToplevel*: bool
     isEliminated*: bool
@@ -149,6 +176,8 @@ type
     tmpcount*: int
     notevals*: seq[FExpr]
     rootScope*: Scope
+    defines*: seq[string]
+    globaltoplevels*: seq[FExpr]
 
 implInternal(MetadataStore, MetadataStoreObj)
 implInternal(Symbol, SymbolObj)
@@ -158,7 +187,7 @@ implInternal(FExpr, FExprObj)
 proc initFImage*(): FImage =
   FImage()
 proc initSemContext*(): SemContext =
-  SemContext(expands: @[], tmpcount: 0, notevals: @[])
+  SemContext(expands: @[], tmpcount: 0, notevals: @[], defines: @[], globaltoplevels: @[])
 
 var gImage*: FImage
 var gCtx*: SemContext
@@ -186,7 +215,7 @@ proc scopeRoot*(): Scope =
 template rootScope*(): Scope = gCtx.rootScope
 
 proc newMetadataStore*(): MetadataStore =
-  genMetadataStore(MetadataStoreObj(typ: symbolNil(), converters: ilistNil[FExpr]()))
+  genMetadataStore(MetadataStoreObj(internal: internalNone, typ: symbolNil(), converters: ilistNil[FExpr]()))
 
 #
 # Image

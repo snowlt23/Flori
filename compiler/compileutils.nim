@@ -1,5 +1,5 @@
 
-import parser, types, fexpr, scope, metadata
+import parser, types, fexpr, scope
 import ccodegen, elimpass
 import macroffi
 
