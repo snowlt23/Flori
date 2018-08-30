@@ -60,28 +60,31 @@ proc ffloatlit*(span: Span, x: float): FExpr =
   genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprFloatLit, floatval: x))
 proc fstrlit*(span: Span, s: string): FExpr =
   genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprStrLit, strval: s))
-proc fseq*(span: Span, sons: IArray[FExpr]): FExpr =
+proc fseq*(span: Span, sons: IList[FExpr]): FExpr =
   genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprSeq, sons: sons))
 proc fseq*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  fseq(span, iarray(sons))
-proc farray*(span: Span, sons: IArray[FExpr]): FExpr =
+  fseq(span, ilist(sons))
+proc farray*(span: Span, sons: IList[FExpr]): FExpr =
   genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprArray, sons: sons))
 proc farray*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  farray(span, iarray(sons))
-proc flist*(span: Span, sons: IArray[FExpr]): FExpr =
+  farray(span, ilist(sons))
+proc flist*(span: Span, sons: IList[FExpr]): FExpr =
   genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprList, sons: sons))
 proc flist*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  flist(span, iarray(sons))
-proc fblock*(span: Span, sons: IArray[FExpr]): FExpr =
+  flist(span, ilist(sons))
+proc fblock*(span: Span, sons: IList[FExpr]): FExpr =
   genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprBlock, sons: sons))
 proc fblock*(span: Span, sons = newSeq[FExpr]()): FExpr =
-  fblock(span, iarray(sons))
-proc fcontainer*(span: Span, kind: FExprKind, sons: IArray[FExpr]): FExpr =
+  fblock(span, ilist(sons))
+proc fcontainer*(span: Span, kind: FExprKind, sons: IList[FExpr]): FExpr =
   result = genFExpr(FExprObj())
   result.span = span
   result.metadata = newMetadataStore()
   result.kind = kind
   result.sons = sons
+
+proc addSon*(f: FExpr, son: FExpr) =
+  f.obj.sons.add(son)
 
 iterator items*(fexpr: FExpr): FExpr =
   case fexpr.kind
@@ -122,7 +125,7 @@ proc len*(fexpr: FExpr): int =
 proc `[]`*(fexpr: FExpr, i: int): var FExpr =
   case fexpr.kind
   of fexprContainer:
-    return fexpr.sons.mget(i)
+    return fexpr.sons[i]
   else:
     fexpr.error("$# isn't container" % $fexpr.kind)
 proc `[]`*(fexpr: FExpr, i: BackwardsIndex): var FExpr =
@@ -199,3 +202,13 @@ proc isParametricTypeExpr*(fexpr: FExpr, pos: int): bool =
   return (fexpr[pos].kind == fexprIdent or fexpr[pos].kind == fexprQuote or fexpr[pos].kind == fexprSymbol) and fexpr[pos+1].kind == fexprArray
 proc isPragmaPrefix*(fexpr: FExpr): bool =
   fexpr.kind == fexprPrefix and $fexpr == "$"
+
+proc copy*(fexpr: FExpr): FExpr =
+  if fexpr.kind in fexprContainer:
+    result = fcontainer(fexpr.span, fexpr.kind, ilistNil[FExpr]())
+    result.metadata = fexpr.metadata
+    for son in fexpr:
+      result.addSon(son.copy)
+  else:
+    result = fexpr
+

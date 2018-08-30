@@ -1,19 +1,20 @@
 
+import options
 import fexpr_core
 import passmacro
 
-var elimRoot*: proc(scope: Scope, fexpr: var FExpr) = nil
+var elimRoot*: proc(scope: Scope, fexpr: FExpr) = nil
 
-proc elimToplevelPass*(scope: Scope, fexpr: var FExpr): bool =
-  if fexpr.isElimEvaluated:
+proc elimToplevelPass*(scope: Scope, fexpr: FExpr): bool =
+  if fexpr.metadata.isElimEvaluated:
     return false
-  fexpr.isElimEvaluated = true
-  if fexpr.hasInternalMark and fexpr.internalMark == internalDefn:
-    fexpr.isEliminated = true
+  fexpr.metadata.isElimEvaluated = true
+  if fexpr.metadata.internal == internalDefn:
+    fexpr.metadata.isEliminated = true
     return false
-  elif fexpr.hasInternalMark and fexpr.internalMark == internalMacro:
-    fexpr.isEliminated = false
-    scope.elimRoot(fexpr.defn.body)
+  elif fexpr.metadata.internal == internalMacro:
+    fexpr.metadata.isEliminated = false
+    scope.elimRoot(fexpr.fnBody)
     return false
     
   case fexpr.kind
@@ -32,39 +33,40 @@ proc elimToplevelPass*(scope: Scope, fexpr: var FExpr): bool =
   else:
     return true
 
-proc elimMarkingPass*(scope: Scope, fexpr: var FExpr): bool =
-  if fexpr.hasInternalMark and fexpr.internalMark == internalWhile:
+proc elimMarkingPass*(scope: Scope, fexpr: FExpr): bool =
+  if fexpr.metadata.internal == internalWhile:
     scope.elimRoot(fexpr[1])
     scope.elimRoot(fexpr[2])
-  elif fexpr.hasInternalMark and fexpr.internalMark == internalIf:
-    for b in fexpr.internalIfexpr.elifbranch.mitems:
-      scope.elimRoot(b.cond)
+  elif fexpr.metadata.internal == internalIf:
+    let branches = fexpr.getIfBranches()
+    for b in branches:
+      if b.cond.isSome:
+        scope.elimRoot(b.cond.get)
       scope.elimRoot(b.body)
-      scope.elimRoot(fexpr.internalIfexpr.elsebranch)
-  elif fexpr.hasInternalMark and fexpr.internalMark == internalDef:
+  elif fexpr.metadata.internal == internalDef:
     scope.elimRoot(fexpr[2])
-  elif fexpr.hasInternalMark and fexpr.internalMark == internalSet:
+  elif fexpr.metadata.internal == internalSet:
     scope.elimRoot(fexpr[1])
     scope.elimRoot(fexpr[2])
-  elif fexpr.hasInternalMark and fexpr.internalMark == internalFieldAccess:
+  elif fexpr.metadata.internal == internalFieldAccess:
     scope.elimRoot(fexpr[1])
   elif fexpr.isFuncCall:
-    if fexpr[0].hasTyp and fexpr[0].typ.kind == symbolFuncType:
+    if fexpr[0].hasTyp and fexpr[0].metadata.typ.kind == symbolFuncType:
       discard
     elif fexpr[0].kind == fexprSymbol:
-      fexpr[0].symbol.fexpr.isEliminated = false
-      scope.elimRoot(fexpr[0].symbol.fexpr.defn.body)
+      fexpr[0].symbol.fexpr.metadata.isEliminated = false
+      scope.elimRoot(fexpr[0].symbol.fexpr.fnBody)
   elif fexpr.kind == fexprSymbol and fexpr.symbol.kind == symbolFunc:
-    fexpr.symbol.fexpr.isEliminated = false
-    scope.elimRoot(fexpr.symbol.fexpr.defn.body)
+    fexpr.symbol.fexpr.metadata.isEliminated = false
+    scope.elimRoot(fexpr.symbol.fexpr.fnBody)
   return true
 
-definePass processElimPass, elimRoot, (Scope, var FExpr):
+definePass processElimPass, elimRoot, (Scope, FExpr):
   elimToplevelPass
   elimMarkingPass
 
-proc resetElim*(scope: Scope, fexpr: var FExpr) =
-  fexpr.isElimEvaluated = false
+proc resetElim*(scope: Scope, fexpr: FExpr) =
+  fexpr.metadata.isElimEvaluated = false
   if fexpr.kind in fexprContainer:
     for son in fexpr.mitems:
       scope.resetElim(son)

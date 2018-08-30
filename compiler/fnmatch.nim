@@ -38,11 +38,10 @@ proc match*(a, b: Symbol): Matched =
     return Matched(kind: matchType)
   else:
     for conv in a.fexpr.metadata.converters:
-      let ret = conv.getReturn()
-      if ret.isNone: continue
-      let opt = ret.get.symbol.match(b)
+      let ret = conv.fnReturn()
+      let opt = ret.symbol.match(b)
       if opt.isMatch:
-        return Matched(kind: matchConvert, convsym: conv.getName().get.symbol)
+        return Matched(kind: matchConvert, convsym: conv.fnName.symbol)
     return Matched(kind: matchNone)
 
 proc match*(a: ProcName, b: ProcDecl): Option[seq[Matched]] =

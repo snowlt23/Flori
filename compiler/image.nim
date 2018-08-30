@@ -2,6 +2,7 @@
 import options
 import tables
 import streams
+import dynlib
 
 import linmem
 
@@ -38,6 +39,7 @@ type
     internalCodegenHead
     internalBlock
   MetadataStoreObj* = object
+    scope*: Scope
     internal*: InternalKind
     header*: Option[IString]
     patternc*: Option[IString]
@@ -51,6 +53,7 @@ type
     isCStruct*: bool
     isEvaluated*: bool
     isToplevel*: bool
+    isElimEvaluated*: bool
     isEliminated*: bool
   SymbolKind* = enum
     symbolDef
@@ -137,7 +140,7 @@ type
     of fexprStrLit:
       strval*: string
     of fexprSeq, fexprArray, fexprList, fexprBlock:
-      sons*: IArray[FExpr]
+      sons*: IList[FExpr]
 
   MacroProc* = object
     importname*: IString
@@ -178,6 +181,9 @@ type
     rootScope*: Scope
     defines*: seq[string]
     globaltoplevels*: seq[FExpr]
+    moptions*: string
+    macrolib*: LibHandle
+    macroprocs*: seq[MacroProc]
 
 implInternal(MetadataStore, MetadataStoreObj)
 implInternal(Symbol, SymbolObj)

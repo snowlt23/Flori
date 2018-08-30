@@ -55,10 +55,10 @@ proc expandSymbol*(scope: Scope, sym: Symbol): Symbol =
   elif sym.kind == symbolRef:
     result = scope.refsym(scope.expandSymbol(sym.wrapped))
   elif sym.kind == symbolFuncType:
-    result = scope.symbol(name("Fn"), symbolFuncType, sym.fexpr)
-    result.argtypes = @[]
-    for t in sym.argtypes:
-      result.argtypes.add(scope.expandSymbol(t))
+    result = scope.symbol(istring("Fn"), symbolFuncType, sym.fexpr)
+    result.argtypes = iarray[Symbol](sym.argtypes.len)
+    for i, t in sym.argtypes:
+      result.argtypes[i] = scope.expandSymbol(t)
     result.rettype = scope.expandSymbol(sym.rettype)
   elif sym.kind == symbolGenerics:
     if sym.instance.isNone:
@@ -68,7 +68,7 @@ proc expandSymbol*(scope: Scope, sym: Symbol): Symbol =
     var extypes = newSeq[Symbol]()
     for t in sym.types:
       extypes.add(scope.expandSymbol(t))
-    result = scope.expandDeftype(sym.fexpr, extypes).symbol
+    result = scope.expandDeftype(sym.obj.fexpr, extypes).symbol
   else:
     result = sym
 
@@ -95,79 +95,73 @@ proc expandTemplate*(scope: Scope, fexpr: FExpr, generics: FExpr, genericstypes:
     replaceIdent(result, g, fsymbol(g.span, genericstypes[i]))
       
 proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr =
-  fexpr.assert(fexpr.hasDeftype)
-  
-  let manglingname = name(codegenMangling(fexpr.deftype.name.symbol, argtypes, @[], internal = true))
-  let specopt = fexpr.internalScope.top.getDecl(manglingname)
+  let manglingname = istring(codegenMangling(fexpr.fnName.symbol, argtypes, @[], internal = true))
+  let specopt = fexpr.metadata.scope.top.getDecl($manglingname)
   if specopt.isSome:
     let fsym = fsymbol(fexpr.span, specopt.get)
     return fsym
 
-  var expanded = fexpr.internalScope.expandTemplate(fexpr, fexpr.deftype.generics, argtypes)
-  expanded.isParsed = true
-  expanded.isEvaluated = false
-  let tsym = expanded.internalScope.symbol(expanded.deftype.name.symbol.name, symbolTypeGenerics, expanded)
-  tsym.types = argtypes
+  var expanded = fexpr.metadata.scope.expandTemplate(fexpr, fexpr.fnGenerics, argtypes)
+  let tsym = expanded.metadata.scope.symbol(expanded.fnName.symbol.name, symbolTypeGenerics, expanded)
+  tsym.types = iarray(argtypes)
   let fsym = fsymbol(expanded.span, tsym)
-  expanded.deftype.name = fsym
+  expanded[1] = fsym
 
-  discard expanded.internalScope.top.addDecl(manglingname, tsym)
+  discard expanded.metadata.scope.top.addDecl(manglingname, tsym)
 
-  let exscope = expanded.internalScope.extendScope()
-  if scope.importscopes.hasKey(name("flori_current_scope")):
-    exscope.importScope(name("flori_current_scope"), scope.importscopes[name("flori_current_scope")])
+  let exscope = expanded.metadata.scope.extendScope()
+  let scopeopt = scope.imports.find("flori_current_scope")
+  if scopeopt.isSome:
+    exscope.importScope(istring("flori_current_scope"), scopeopt.get)
   else:
-    exscope.importScope(name("flori_current_scope"), scope.top)
+    exscope.importScope(istring("flori_current_scope"), scope.top)
   exscope.rootPass(expanded)
-  scope.ctx.globaltoplevels.add(expanded)
+  gCtx.globaltoplevels.add(expanded)
   
   return fsym
     
 proc expandDefn*(scope: Scope, fexpr: var FExpr, genericstypes: seq[Symbol], argtypes: seq[Symbol]): FExpr =
-  fexpr.assert(fexpr.hasDefn)
-  fexpr.assert(fexpr.defn.args.len == argtypes.len)
-
-  let generics = fexpr.defn.generics.copy
+  let generics = fexpr.fnGenerics.copy
   for i, gtype in genericstypes:
     if not applyInstance(generics[i].symbol, gtype):
       generics[i].error("generics not match: $#, $#" % [$generics[i].symbol.instance.get, $gtype])
   for i, argtype in argtypes:
-    if not applyInstance(fexpr.defn.args[i][1].symbol, argtype):
-      fexpr.defn.args[i][1].error("argtype not match: $#, $#" % [$fexpr.defn.args[i][1].symbol.instance.get, $argtype])
+    let args = fexpr.fnArguments
+    if not applyInstance(args[i][1].symbol, argtype):
+      args[i][1].error("argtype not match: $#, $#" % [$args[i][1].symbol.instance.get, $argtype])
   generics.expandGenerics()
   
-  var expanded = scope.expandTemplate(fexpr, fexpr.defn.generics, generics.mapIt(it.symbol))
-  expanded.isParsed = true
-  expanded.isEvaluated = false
-  scope.expandArgtypes(expanded.defn.args)
-  expanded.defn.ret.symbol = scope.expandSymbol(expanded.defn.ret.symbol)
-  for g in fexpr.defn.generics:
+  var expanded = scope.expandTemplate(fexpr, fexpr.fnGenerics, generics.mapIt(it.symbol))
+  scope.expandArgtypes(expanded.fnArguments)
+  expanded.fnReturn.symbol = scope.expandSymbol(expanded.fnReturn.symbol)
+  for g in fexpr.fnGenerics:
     g.symbol.instance = none(Symbol)
     
   let genericstypes = generics.mapIt(it.symbol)
-  let specopt = expanded.internalScope.getSpecFunc(procname(name(expanded.defn.name), argtypes, genericstypes))
+  let specopt = expanded.metadata.scope.getSpecFunc(procname($expanded.fnName, argtypes, genericstypes))
   if specopt.isSome:
     let fsym = fsymbol(expanded.span, specopt.get.sym)
     return fsym
   
-  let exscope = expanded.internalScope.extendScope()
-  if scope.importscopes.hasKey(name("flori_current_scope")):
-    exscope.importScope(name("flori_current_scope"), scope.importscopes[name("flori_current_scope")])
+  let exscope = expanded.metadata.scope.extendScope()
+  let scopeopt = scope.imports.find("flori_current_scope")
+  if scopeopt.isSome:
+    exscope.importScope(istring("flori_current_scope"), scopeopt.get)
   else:
-    exscope.importScope(name("flori_current_scope"), scope.top)
+    exscope.importScope(istring("flori_current_scope"), scope.top)
   exscope.rootPass(expanded)
-  exscope.importscopes.del(name("flori_current_scope"))
-  expanded.assert(expanded.defn.name.kind == fexprSymbol)
+  # exscope.importscopes.del(name("flori_current_scope"))
+  expanded.assert(expanded.fnName.kind == fexprSymbol)
 
-  scope.ctx.globaltoplevels.add(expanded)
+  gCtx.globaltoplevels.add(expanded)
   
-  return expanded.defn.name
+  return expanded.fnName
 
 proc expandMacrofn*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr =
   result = expandDefn(scope, fexpr, @[], argtypes)
-  let mp = MacroProc(importname: codegenMangling(result.symbol, result.symbol.fexpr.defn.generics.mapIt(it.symbol), result.symbol.fexpr.defn.args.mapIt(it[1].symbol)) & "_macro")
+  let mp = MacroProc(importname: istring(codegenMangling(result.symbol, result.symbol.fexpr.fnGenerics.mapIt(it.symbol), result.symbol.fexpr.fnArguments.mapIt(it[1].symbol)) & "_macro"))
   result.symbol.macroproc = mp
   result.symbol.kind = symbolMacro
   
-  scope.ctx.macroprocs.add(mp)
-  scope.ctx.reloadMacroLibrary(scope.top)
+  gCtx.macroprocs.add(mp)
+  gCtx.reloadMacroLibrary(scope.top)

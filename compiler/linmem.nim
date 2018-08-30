@@ -151,6 +151,10 @@ proc isNil*[T](lst: IList[T]): bool =
   lst.index == -1
 proc add*[T](lst: var IList[T], value: T) =
   lst = ilist(value, lst)
+proc ilist*[T](arr: openArray[T]): IList[T] =
+  result = ilistNil[T]()
+  for e in arr:
+    result.add(e)
 iterator items*[T](lst: IList[T]): T =
   var cur = lst
   while true:
@@ -174,8 +178,28 @@ iterator pairs*[T](lst: IList[T]): (int, T) =
     yield(i, cur.value)
     cur = cur.next
     i.inc
+iterator mpairs*[T](lst: IList[T]): (int, var T) =
+  var cur = lst
+  var i = 0
+  while true:
+    if cur.isNil:
+      break
+    yield(i, cur.value)
+    cur = cur.next
+    i.inc
 proc len*[T](lst: IList[T]): int =
   result = 0
   for e in lst:
     result.inc
+proc `[]`*[T](lst: IList[T], idx: int): var T =
+  for i, e in lst.mpairs:
+    if i == idx:
+      return e
+  assert(false)
+proc `[]=`*[T](lst: IList[T], idx: int, value: T) =
+  for i, e in lst.mpairs:
+    if i == idx:
+      e = value
+      return
+  assert(false)
 

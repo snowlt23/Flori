@@ -2,74 +2,23 @@
 import options
 import linmem, image, fexpr
 
-proc getName*(f: FExpr): Option[FExpr] =
-  var pos = 1
-  if f.len <= pos: return none(FExpr)
-  if f[pos].kind != fexprIdent: return none(FExpr)
-  return some(f[pos])
+template defineLocal(name, pos) =
+  proc name*(f: FExpr): var FExpr =
+    f[pos]
+  proc `name =`*(f: FExpr, v: FExpr) =
+    f[pos] = v
 
-proc getGenerics*(f: FExpr): Option[FExpr] =
-  var pos = 1
-  if f.len <= pos: return none(FExpr)
-  if f[pos].kind != fexprIdent: return none(FExpr)
-  if f.len <= pos: return none(FExpr)
-  if f[pos].kind != fexprArray: return none(FExpr)
-  return some(f[pos])
+defineLocal(fnName, 1)
+defineLocal(fnGenerics, 2)
+defineLocal(fnArguments, 3)
+defineLocal(fnPragma, 5)
+defineLocal(fnReturn, 6)
+defineLocal(fnBody, 7)
 
-proc getArguments*(f: FExpr): Option[FExpr] =
-  var pos = 1
-  if f.len <= pos: return none(FExpr)
-  if f[pos].kind != fexprident: return none(FExpr)
-  pos.inc
-  if f.len <= pos: return none(FExpr)
-  if f[pos].kind == fexprArray: pos.inc
-  if f.len <= pos: return none(FExpr)
-  if f[pos].kind != fexprList: return none(FExpr)
-  return some(f[pos])
-
-proc getReturn*(f: FExpr): Option[FExpr] =
-  var pos = 1
-  if f.len <= pos: return none(FExpr)
-  if f[pos].kind != fexprident: return none(FExpr)
-  pos.inc
-  if f.len <= pos: return none(FExpr)
-  if f[pos].kind == fexprArray: pos.inc
-  if f.len <= pos: return none(FExpr)
-  if f[pos].kind != fexprList: return none(FExpr)
-  pos.inc
-  if f.len <= pos: return none(FExpr)
-  return some(f[pos])
-
-proc getFnBody*(f: FExpr): Option[FExpr] =
-  var pos = 1
-  if f.len <= pos: return none(FExpr)
-  if f[pos].kind != fexprident: return none(FExpr)
-  pos.inc
-  if f.len <= pos: return none(FExpr)
-  if f[pos].kind == fexprArray: pos.inc
-  if f.len <= pos: return none(FExpr)
-  if f[pos].kind != fexprList: return none(FExpr)
-  pos.inc
-  if f.len <= pos: return none(FExpr)
-  if f[pos].kind == fexprPrefix: pos.inc
-  if f.len <= pos: return none(FExpr)
-  if f[pos].kind == fexprArray: pos.inc
-  if f.len <= pos: return none(FExpr)
-  return some(f[pos])
-
-proc getTypeBody*(f: FExpr): Option[FExpr] =
-  var pos = 1
-  if f.len <= pos: return none(FExpr)
-  if f[pos].kind != fexprident: return none(FExpr)
-  pos.inc
-  if f.len <= pos: return none(FExpr)
-  if f[pos].kind == fexprArray: pos.inc
-  if f.len <= pos: return none(FExpr)
-  if f[pos].kind == fexprPrefix: pos.inc
-  if f.len <= pos: return none(FExpr)
-  if f[pos].kind == fexprArray: pos.inc
-  if f.len <= pos: return none(FExpr)
-  return some(f[pos])
+defineLocal(typeName, 1)
+defineLocal(typeGenerics, 2)
+defineLocal(typePragma, 4)
+defineLocal(typeBody, 5)
 
 proc getIfBranches*(f: FExpr): seq[tuple[cond: Option[FExpr], body: FExpr]] =
   result = @[]

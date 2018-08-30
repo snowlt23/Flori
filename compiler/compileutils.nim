@@ -1,5 +1,5 @@
 
-import parser, types, fexpr, scope
+import parser, linmem, image, fexpr, scope
 import ccodegen, elimpass
 import macroffi
 
@@ -32,11 +32,11 @@ proc exe*(s: string): string =
 
 const macrolib* = cachedir / "flori_macrolib".dll
 
-proc compileMacroLibrary*(semctx: SemanticContext, scope: Scope) =
+proc compileMacroLibrary*(semctx: var SemContext, scope: Scope) =
   # for top in semctx.globaltoplevels.mitems:
   #   top.internalScope.resetElim(top)
   for top in semctx.globaltoplevels.mitems:
-    top.internalScope.processElimPass(top)
+    top.metadata.scope.processElimPass(top)
   let genctx = newCCodegenContext(macrogen = true)
   if not existsDir(cachedir):
     createDir(cachedir)
@@ -71,7 +71,7 @@ proc setupFFI*(handle: LibHandle) =
   ffi "flori_get_type", ffiGetType
   ffi "flori_get_srcexpr", ffiGetSrcExpr
 
-proc reloadMacroLibrary*(semctx: SemanticContext, scope: Scope) =
+proc reloadMacroLibrary*(semctx: var SemContext, scope: Scope) =
   if semctx.macrolib != nil:
     let floridest = cast[proc () {.cdecl.}](semctx.macrolib.symAddr("ct_flori_destruct"))
     if not floridest.isNil:
@@ -82,7 +82,7 @@ proc reloadMacroLibrary*(semctx: SemanticContext, scope: Scope) =
   if semctx.macrolib.isNil:
     raise newException(IOError, "couldn't load flori macro library.")
   semctx.macrolib.setupFFI()
-  for mp in semctx.macroprocs:
-    mp.call = cast[proc (f: FExpr): FExpr {.cdecl.}](semctx.macrolib.checkedSymAddr(mp.importname))
+  for mp in semctx.macroprocs.mitems:
+    mp.call = cast[proc (f: FExpr): FExpr {.cdecl.}](semctx.macrolib.checkedSymAddr($mp.importname))
   let florimain = cast[proc () {.cdecl.}](semctx.macrolib.checkedSymAddr("flori_main"))
   florimain()

@@ -1,5 +1,5 @@
 
-import types, fexpr, scope
+import linmem, image, fexpr, scope
 
 import macros
 import strutils, sequtils

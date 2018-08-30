@@ -1,5 +1,5 @@
 
-import types, fexpr, parser, metadata, scope
+import linmem, image, fexpr, parser, scope
 import passutils
 
 import strutils, sequtils
@@ -7,10 +7,10 @@ import options
 import tables
 
 proc ffiSpan*(): Span =
-  Span(filename: "expanded", line: 0, linepos: 0, pos: 0)
+  Span(filename: istring("expanded"), line: 0, linepos: 0, pos: 0)
 
 proc ffiNewFIdent*(ident: cstring): FExpr {.cdecl.} =
-  fident(ffiSpan(), name($ident))
+  fident(ffiSpan(), istring($ident))
 proc ffiNewFSeq*(): FExpr {.cdecl.} =
   fseq(ffiSpan())
 proc ffiNewFArray*(): FExpr {.cdecl.} =
@@ -54,10 +54,10 @@ proc ffiIntval*(fexpr: FExpr): int64 {.cdecl.} =
 proc ffiStrval*(fexpr: FExpr): cstring {.cdecl.} =
   cstring($fexpr.strval)
 proc ffiGensym*(): FExpr {.cdecl.} =
-  return fident(ffiSpan(), gCtx.genTmpName())
+  return fident(ffiSpan(), istring(gCtx.genTmpName()))
 proc ffiGetType*(fexpr: FExpr): FExpr {.cdecl.} =
   if not fexpr.hasTyp:
     fexpr.error("fexpr hasn't type.")
-  return fsymbol(ffiSpan(), fexpr.typ)
+  return fsymbol(ffiSpan(), fexpr.metadata.typ)
 proc ffiGetSrcExpr*(fexpr: FExpr): cstring {.cdecl.} =
   cstring(fexpr.getSrcExpr)
