@@ -157,6 +157,7 @@ type
     sym*: Symbol
     argtypes*: IArray[Symbol]
     generics*: IArray[Symbol]
+    returntype*: Symbol
     internalproc*: Option[InternalProcType]
     isSyntax*: bool
     isMacro*: bool
