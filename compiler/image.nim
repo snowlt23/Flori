@@ -51,6 +51,7 @@ type
     constvalue*: FExpr
     converters*: IList[FExpr]
     isCStruct*: bool
+    isSyntax*: bool
     isEvaluated*: bool
     isToplevel*: bool
     isElimEvaluated*: bool
@@ -197,6 +198,9 @@ proc initSemContext*(): SemContext =
 
 var gImage*: FImage
 var gCtx*: SemContext
+
+proc hasDefn*(f: FExpr): bool =
+  f.metadata.internal in {internalDefn, internalMacro}
 
 proc isMatch*(m: Matched): bool =
   m.kind != matchNone

@@ -24,5 +24,5 @@ macro definePass*(passname: untyped, rootname: untyped, argtypes: untyped, passe
   result[6] = procbody
 
 template thruInternal*(fexpr: FExpr) =
-  if fexpr.hasInternalMark:
+  if fexpr.metadata.internal != internalNone:
     return true

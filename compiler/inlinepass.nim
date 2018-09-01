@@ -1,5 +1,5 @@
 
-import parser, types, fexpr, scope, metadata
+import linmem, image, parser, fexpr, scope, localparser
 import passutils
 
 import options
@@ -17,7 +17,7 @@ proc replaceIdent*(fexpr: FExpr, ident: FExpr, by: FExpr): FExpr =
   
   case fexpr.kind
   of fexprContainer:
-    let cont = fcontainer(fexpr.span, fexpr.kind)
+    let cont = fcontainer(fexpr.span, fexpr.kind, ilistNil[FExpr]())
     cont.metadata = fexpr.metadata
     for son in fexpr:
       cont.addSon(replaceIdent(son, ident, by))
@@ -44,13 +44,12 @@ proc expandInlineFunc*(scope: Scope, fexpr: var FExpr) =
                fexpr[2]
              else:
                fseq(fexpr.span, @[fexpr[1], fexpr[2]])
-  var f: FExpr
-  f.deepCopy(fn.defn.body)
+  var f = fn.fnBody.copy
   fexpr = f
-  for i, arg in fn.defn.args:
+  for i, arg in fn.fnArguments:
     fexpr = fexpr.replaceIdent(arg[0], args[i])
     
   var varnames = newSeq[FExpr]()
   collectVarnames(varnames, fexpr)
   for varname in varnames:
-    fexpr = fexpr.replaceIdent(varname, fident(varname.span, scope.ctx.genTmpName()))
+    fexpr = fexpr.replaceIdent(varname, fident(varname.span, istring(gCtx.genTmpName())))

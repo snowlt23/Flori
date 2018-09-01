@@ -60,10 +60,10 @@ proc expandEnd*(ctx: var SemContext) =
 
 template expandBy*(scope: Scope, span: Span, body: untyped) =
   try:
-    scope.expandStart(span)
+    gCtx.expandStart(span)
     body
   finally:
-    scope.expandEnd()
+    gCtx.expandEnd()
 
 proc isCopyable*(scope: Scope, typ: Symbol): bool =
   scope.getFunc(procname("copy", @[typ])).isSome
