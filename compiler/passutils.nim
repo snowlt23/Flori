@@ -22,7 +22,7 @@ proc isResolveRef*(fexpr: seq[FExpr]): bool =
   return true
 
 proc isGenerics*(fexpr: FExpr): bool =
-  fexpr.fnGenerics.isSpecTypes
+  not fexpr.fnGenerics.isSpecTypes
 
 proc isEqualTypes*(types: seq[Symbol]): bool =
   var first = types[0]

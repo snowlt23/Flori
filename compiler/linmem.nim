@@ -5,7 +5,7 @@ import patty
 var linmem*: seq[uint8]
 
 proc initLinmem*(size: int) =
-  linmem = newSeq[uint8](size)
+  linmem = newSeq[uint8]()
 
 template defineInternal*(name) =
   type name* = object
@@ -39,7 +39,7 @@ macro expandFields*(t: typed, typ: typed): untyped =
           result.expandField(t, fieldname, fieldtyp)
     else:
       error("unexpected kind " & $field.kind, field)
-  # kecho result.repr
+  # echo result.repr
 
 template implInternal*(name, typ) =
   proc `alloc name`*(): name =
@@ -145,16 +145,44 @@ proc value*[T](lst: IList[T]): var T =
 proc next*[T](lst: IList[T]): var IList[T] =
   let p = cast[ptr IListObj[T]](addr(linmem[lst.index]))
   p[].next
+proc `next=`*[T](lst: IList[T], n: IList[T]) =
+  let p = cast[ptr IListObj[T]](addr(linmem[lst.index]))
+  p[].next = n
 proc ilistNil*[T](): IList[T] =
   IList[T](index: -1)
 proc isNil*[T](lst: IList[T]): bool =
   lst.index == -1
 proc add*[T](lst: var IList[T], value: T) =
   lst = ilist(value, lst)
+proc last*[T](lst: var IList[T]): var IList[T] =
+  if lst.isNil:
+    return lst
+  var cur = lst
+  while true:
+    if cur.next.isNil:
+      return cur.next
+    cur = cur.next
+  assert(false)
+proc `last=`*[T](lst: var IList[T], n: IList[T]) =
+  if lst.isNil:
+    lst = n
+    return
+  var cur = lst
+  while true:
+    if cur.next.isNil:
+      cur.next = n
+      return
+    cur = cur.next
+  assert(false)
+proc reverse*[T](lst: IList[T]): IList[T] =
+  result = ilistNil[T]()
+  for e in lst:
+    result.add(e)
 proc ilist*[T](arr: openArray[T]): IList[T] =
   result = ilistNil[T]()
   for e in arr:
     result.add(e)
+  result = result.reverse()
 iterator items*[T](lst: IList[T]): T =
   var cur = lst
   while true:
@@ -192,11 +220,13 @@ proc len*[T](lst: IList[T]): int =
   for e in lst:
     result.inc
 proc `[]`*[T](lst: IList[T], idx: int): var T =
+  assert(idx < lst.len)
   for i, e in lst.mpairs:
     if i == idx:
       return e
   assert(false)
 proc `[]=`*[T](lst: IList[T], idx: int, value: T) =
+  assert(idx < lst.len)
   for i, e in lst.mpairs:
     if i == idx:
       e = value

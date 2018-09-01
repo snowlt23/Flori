@@ -60,6 +60,7 @@ type
     isToplevel*: bool
     isElimEvaluated*: bool
     isEliminated*: bool
+    isConverted*: bool
   SymbolKind* = enum
     symbolDef
     symbolArg
@@ -228,11 +229,19 @@ proc scopeNil*(): Scope =
   Scope(index: -1)
 proc scopeRoot*(): Scope =
   Scope(index: 0)
+proc `==`*(a, b: Scope): bool =
+  a.obj.name == b.obj.name and a.obj.level == b.obj.level
 
 template rootScope*(): Scope = gCtx.rootScope
 
 proc newMetadataStore*(): MetadataStore =
   genMetadataStore(MetadataStoreObj(internal: internalNone, typ: symbolNil(), converters: ilistNil[FExpr]()))
+
+proc hasConvert*(matches: openArray[Matched]): bool =
+  for m in matches:
+    if m.kind == matchConvert:
+      return true
+  return false
 
 #
 # Image

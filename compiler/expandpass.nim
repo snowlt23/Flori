@@ -9,6 +9,7 @@ import tables
 proc expandDefnPass*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
   
+  echo fexpr
   if fexpr.isNormalFuncCall and fexpr[0].kind in fexprAllNames and fexpr[0].symbol.fexpr.hasDefn:
     scope.expandBy(fexpr.span):
       let fnsym = fexpr[0]

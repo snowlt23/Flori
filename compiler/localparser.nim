@@ -11,8 +11,8 @@ template defineLocal(name, pos) =
 defineLocal(fnName, 1)
 defineLocal(fnGenerics, 2)
 defineLocal(fnArguments, 3)
-defineLocal(fnPragma, 5)
-defineLocal(fnReturn, 6)
+defineLocal(fnReturn, 4)
+defineLocal(fnPragma, 6)
 defineLocal(fnBody, 7)
 
 defineLocal(typeName, 1)

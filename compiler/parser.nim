@@ -303,7 +303,7 @@ proc rewriteToCall*(fexpr: FExpr): FExpr =
         if f.len == 1:
           stack.add(f[0])
         else:
-          stack.add(fseq(fexpr[i].span, f))
+          stack.add(fseq(son.span, f))
     for infix in infixstack.reversed():
       stack.add(infix)
     var pos = 0

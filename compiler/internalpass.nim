@@ -143,7 +143,7 @@ proc semImportc*(scope: Scope, fexpr: var FExpr) =
     fexpr[2].metadata.importc = some(name)
 
 proc semHeader*(scope: Scope, fexpr: var FExpr) =
-  if fexpr.len == 3:
+  if fexpr.kind in fexprContainer and fexpr.len == 3:
     if $fexpr[1] == "nodeclc":
       fexpr[2].metadata.header = none(IString)
     elif fexpr[1].kind == fexprStrLit:
@@ -155,7 +155,7 @@ proc semHeader*(scope: Scope, fexpr: var FExpr) =
     fexpr.error("usage: `header \"headername.h\"`")
 
 proc semExportc*(scope: Scope, fexpr: var FExpr) =
-  if fexpr.kind == fexprIdent:
+  if fexpr.kind in fexprContainer and fexpr.kind == fexprIdent:
     let name = istring($fexpr[2][1])
     fexpr[2].metadata.exportc = some(name)
   else:
@@ -165,7 +165,7 @@ proc semExportc*(scope: Scope, fexpr: var FExpr) =
     fexpr[2].metadata.exportc = some(name)
     
 proc semDeclc*(scope: Scope, fexpr: var FExpr) =
-  if fexpr.len == 3:
+  if fexpr.kind in fexprContainer and fexpr.len == 3:
     if fexpr[1].kind == fexprStrLit:
       fexpr[2].metadata.declc = some(fexpr[1].strval)
     else:
@@ -174,7 +174,7 @@ proc semDeclc*(scope: Scope, fexpr: var FExpr) =
     fexpr.error("usage: `declc \"#1($1)\"``")
 
 proc semPatternc*(scope: Scope, fexpr: var FExpr) =
-  if fexpr.len == 3:
+  if fexpr.kind in fexprContainer and fexpr.len == 3:
     if $fexpr[1] == "infixc":
       fexpr[2].metadata.infixc = true
     elif fexpr[1].kind == fexprStrLit:
@@ -189,15 +189,15 @@ proc semPatternc*(scope: Scope, fexpr: var FExpr) =
 #
 
 proc semImportjs*(scope: Scope, fexpr: var FExpr) =
-  if fexpr.len == 1 or fexpr[1].kind != fexprStrLit:
-    let name = istring($fexpr[1][1])
+  if fexpr.kind in fexprContainer and fexpr.len == 1 or fexpr[1].kind != fexprStrLit and fexpr[1].kind in fexprContainer:
+    let name = istring($fexpr[1].fnName)
     fexpr[1].metadata.importjs = some(name)
   else:
     let name = fexpr[1].strval
     fexpr[2].metadata.importjs = some(name)
 
 proc semExportjs*(scope: Scope, fexpr: var FExpr) =
-  if fexpr.kind == fexprIdent:
+  if fexpr.kind in fexprContainer and fexpr.kind == fexprIdent:
     let name = istring($fexpr[2][1])
     fexpr[2].metadata.exportjs = some(name)
   else:
@@ -207,7 +207,7 @@ proc semExportjs*(scope: Scope, fexpr: var FExpr) =
     fexpr[2].metadata.exportjs = some(name)
 
 proc semPatternjs*(scope: Scope, fexpr: var FExpr) =
-  if fexpr.len == 3:
+  if fexpr.kind in fexprContainer and fexpr.len == 3:
     if $fexpr[1] == "infixjs":
       fexpr[2].metadata.infixjs = true
     elif fexpr[1].kind == fexprStrLit:
@@ -273,9 +273,10 @@ proc declArgtypes*(scope: Scope, originscope: Scope, fexpr: FExpr): seq[Symbol] 
       result.add(arg[1].symbol)
     else:
       if arg.len != 2:
-        let args = flist(arg.span, toSeq(arg.items)[1..^1])
-        arg = fseq(arg.span, @[arg[0], args])
+        let argtyp = fseq(arg.span, toSeq(arg.items)[1..^1])
+        arg = fseq(arg.span, @[arg[0], argtyp])
       let typesym = scope.semType(arg[1])
+      arg[0] = fsymbol(arg[0].span, scope.symbol(istring(name(arg[0])), symbolDef, arg[0]))
       arg[1] = fsymbol(arg[1].span, typesym)
       result.add(typesym)
         
@@ -292,17 +293,17 @@ proc semFunc*(scope: Scope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): (
                   symbolInfix
                 else:
                   defsym
-  let sym = scope.symbol(istring($fexpr.fnName), symkind, fexpr)
+  let sym = scope.symbol(istring(name(fexpr.fnName)), symkind, fexpr)
 
   if decl:
-    let pd = ProcDecl(name: istring($fexpr.fnName), argtypes: iarray(argtypes), generics: iarray(generics), returntype: rettype, sym: sym)
+    let pd = ProcDecl(name: istring(name(fexpr.fnName)), argtypes: iarray(argtypes), generics: iarray(generics), returntype: rettype, sym: sym)
     discard scope.addFunc(pd)
     discard fnscope.addFunc(pd)
 
-  if fexpr.isGenerics:
-    return (fnscope, generics, argtypes, rettype, sym)
   let fsym = fsymbol(fexpr[0].span, sym)
   fexpr.fnName = fsym
+  if fexpr.isGenerics:
+    return (fnscope, generics, argtypes, rettype, sym)
 
   for i, arg in fexpr.fnArguments:
     let argtsym = scope.symbol(istring($arg[0]), symbolArg, arg[0])
@@ -319,6 +320,7 @@ proc semFunc*(scope: Scope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): (
     fnscope.rootPass(fexpr.fnBody)
     if fexpr.fnBody.len != 0:
       if not fexpr.fnBody.metadata.typ.spec(rettype):
+        echo fexpr
         fexpr.fnBody.error("function expect $# return type, actually $#" % [$rettype, $fexpr.fnBody.metadata.typ])
   
   return (fnscope, generics, argtypes, rettype, sym)
@@ -396,9 +398,9 @@ proc semDeftype*(scope: Scope, fexpr: var FExpr) =
   if fexpr.isGenerics:
     return
   
-  semPragma(scope, fexpr, fexpr.fnPragma)
+  semPragma(scope, fexpr, fexpr.typePragma)
   let typescope = scope.extendScope()
-  for field in fexpr.fnBody.mitems:
+  for field in fexpr.typeBody.mitems:
     if field.len < 2:
       field.error("$# isn't field declaration." % $field)
     let args = flist(field.span, toSeq(field.items)[1..^1])
@@ -502,8 +504,7 @@ proc semConst*(scope: Scope, name: var FExpr, value: var FExpr) =
     name.error("redefinition $# const." % $name)
   
 proc semDef*(scope: Scope, fexpr: var FExpr) =
-  if fexpr[1].kind == fexprSeq:
-    if fexpr[1].len != 2: fexpr.error("require def prefix")
+  if fexpr[1].kind == fexprSeq and fexpr[1].len != 3:
     let defmode = fexpr[1][0]
     if $defmode == "const":
       semConst(scope, fexpr[1][1], fexpr[2])
@@ -538,7 +539,7 @@ proc semDef*(scope: Scope, fexpr: var FExpr) =
   scope.resolveByVoid(fexpr)
 
   let varsym = scope.symbol(istring($name), symbolDef, fexpr[1])
-  fexpr[1].metadata.typ = fexpr[2].metadata.typ.scope.varsym(fexpr[1].metadata.typ)
+  fexpr[1].metadata.typ = scope.varsym(fexpr[2].metadata.typ)
   fexpr[1].metadata.scope = scope
   let status = scope.addDecl(istring($name), varsym)
   if not status:

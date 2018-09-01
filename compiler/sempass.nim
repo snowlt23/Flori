@@ -147,7 +147,7 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
       return true
     checkArgsHastype(fexpr[1])
     let argtypes = fexpr[1].mapIt(it.metadata.typ)
-    let opt = scope.getFunc(procname($fnident, argtypes))
+    let opt = scope.getFunc(procname(name(fnident), argtypes))
     if opt.isSome:
       fexpr[0] = fsymbol(fexpr[0].span, opt.get.pd.sym)
       fexpr.metadata.typ = opt.get.pd.returntype
@@ -164,7 +164,7 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
       if g.kind == fexprSymbol and g.symbol.isSpecSymbol:
         continue
       g = fsymbol(g.span, scope.semType(g))
-    let opt = scope.getFunc(procname($fnident, argtypes))
+    let opt = scope.getFunc(procname(name(fnident), argtypes))
     if opt.isSome:
       fexpr[0] = fsymbol(fexpr[0].span, opt.get.pd.sym)
       fexpr.metadata.typ = opt.get.pd.returntype
@@ -177,7 +177,7 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
     let args = flist(fexpr.span, @[fexpr[1], fexpr[2]])
     checkArgsHastype(args)
     let argtypes = @[fexpr[1].metadata.typ, fexpr[2].metadata.typ]
-    let opt = scope.getFunc(procname($fnident, argtypes))
+    let opt = scope.getFunc(procname(name(fnident), argtypes))
     if opt.isSome:
       fexpr[0] = fsymbol(fexpr[0].span, opt.get.pd.sym)
       fexpr.metadata.typ = opt.get.pd.returntype
@@ -194,7 +194,7 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
 proc varfnResolve*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
 
-  if fexpr.kind == fexprSeq and fexpr.len == 2 and fexpr[0].kind != fexprSymbol and fexpr[1].kind == fexprList:
+  if fexpr.kind == fexprSeq and fexpr.len == 2 and fexpr[0].kind != fexprSymbol and fexpr[1].kind == fexprList and fexpr[0].hasTyp:
     if fexpr[0].kind == fexprIdent:
       let opt = scope.getDecl($fexpr[0])
       if opt.isNone:

@@ -38,7 +38,7 @@ proc match*(a, b: Symbol): Matched =
     return Matched(kind: matchType)
   else:
     for conv in a.fexpr.metadata.converters:
-      let ret = conv.fnReturn()
+      let ret = conv.fnReturn
       let opt = ret.symbol.match(b)
       if opt.isMatch:
         return Matched(kind: matchConvert, convsym: conv.fnName.symbol)
@@ -65,11 +65,18 @@ proc find*[T](lst: IList[TupleTable[T]], key: string): Option[T] =
 
 proc getFunc*(scope: Scope, pd: ProcName, importscope = true): Option[tuple[pd: ProcDecl, matches: seq[Matched]]] =
   let group = scope.procdecls.find($pd.name)
+  var first = none((ProcDecl, seq[Matched]))
   if group.isSome:
     for decl in group.get.decls:
       let opt = pd.match(decl)
       if opt.isSome:
-        return some((decl, opt.get))
+        if not opt.get.hasConvert:
+          return some((decl, opt.get))
+        if first.isNone:
+          first = some((decl, opt.get))
+  
+  if first.isSome:
+    return first
 
   if importscope:
     for s in scope.imports:

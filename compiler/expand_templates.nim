@@ -130,13 +130,15 @@ proc expandDefn*(scope: Scope, fexpr: var FExpr, genericstypes: seq[Symbol], arg
     if not applyInstance(args[i][1].symbol, argtype):
       args[i][1].error("argtype not match: $#, $#" % [$args[i][1].symbol.instance.get, $argtype])
   generics.expandGenerics()
-  
-  var expanded = scope.expandTemplate(fexpr, fexpr.fnGenerics, generics.mapIt(it.symbol))
+
+  var expanded = scope.expandTemplate(fexpr, generics, generics.mapIt(it.symbol))
+  expanded.fnGenerics = generics
   scope.expandArgtypes(expanded.fnArguments)
   expanded.fnReturn.symbol = scope.expandSymbol(expanded.fnReturn.symbol)
+  expanded.fnName.symbol = expanded.fnName.symbol.scope.symbol(expanded.fnName.symbol.name, expanded.fnName.symbol.kind, expanded)
   for g in fexpr.fnGenerics:
     g.symbol.instance = none(Symbol)
-    
+
   let genericstypes = generics.mapIt(it.symbol)
   let specopt = expanded.metadata.scope.getSpecFunc(procname($expanded.fnName, argtypes, genericstypes))
   if specopt.isSome:

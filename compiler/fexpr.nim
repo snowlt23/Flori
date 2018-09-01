@@ -84,7 +84,7 @@ proc fcontainer*(span: Span, kind: FExprKind, sons: IList[FExpr]): FExpr =
   result.sons = sons
 
 proc addSon*(f: FExpr, son: FExpr) =
-  f.obj.sons.add(son)
+  f.obj.sons.last = ilist(son, ilistNil[FExpr]())
 
 iterator items*(fexpr: FExpr): FExpr =
   case fexpr.kind
@@ -209,6 +209,15 @@ proc copy*(fexpr: FExpr): FExpr =
     result.metadata = fexpr.metadata
     for son in fexpr:
       result.addSon(son.copy)
+  elif fexpr.kind == fexprSymbol:
+    result = fsymbol(fexpr.span, fexpr.symbol)
+    result.metadata = fexpr.metadata
   else:
     result = fexpr
+
+proc name*(fexpr: FExpr): string =
+  if fexpr.kind == fexprQuote:
+    name(fexpr.quoted)
+  else:
+    $fexpr
 
