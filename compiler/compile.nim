@@ -1,7 +1,8 @@
 
-import parser, types, fexpr, scope
+import parser, linmem, image, fexpr, scope
 import passdef, internalpass, elimpass
-import ccodegen, jscodegen
+# import ccodegen, jscodegen
+import ccodegen
 import compileutils
 
 import os
@@ -71,20 +72,20 @@ proc ccoptions*(args: Table[string, Value]): CCOptions =
   result.defines = @(args["-d"])
 
 proc compileFloriC*(options: CCOptions) =
-  let semctx = newSemanticContext(options.moptions, options.defines)
+  discard newSemContext(options.moptions, options.defines)
   let genctx = newCCodegenContext()
   bench "eval":
     if not existsFile(options.filepath):
       quit "flori: Please exists flori file."
-    discard semctx.semFile(options.filepath)
-    for top in semctx.globaltoplevels.mitems:
-      top.internalScope.resetElim(top)
-    for top in semctx.globaltoplevels.mitems:
-      top.internalScope.processElimPass(top)
+    discard gCtx.semFile(options.filepath)
+    for top in gCtx.globaltoplevels.mitems:
+      top.metadata.scope.resetElim(top)
+    for top in gCtx.globaltoplevels.mitems:
+      top.metadata.scope.processElimPass(top)
   bench "codegen":
     if not existsDir(cachedir):
       createDir(cachedir)
-    let src = genctx.codegenSingle(semctx).replace("#include \"floriffi.h\"\n")
+    let src = genctx.codegenSingle(gCtx).replace("#include \"floriffi.h\"\n")
     if options.srccomment:
       let origsrc = readFile(options.filepath)
       writeFile(cachedir / "flori_compiled.c", "/*\n" & origsrc & "\n*/\n" & src)
@@ -97,21 +98,21 @@ proc compileFloriC*(options: CCOptions) =
     of ccTCC:
       genctx.compileWithTCC(cachedir, genTCCOptions(options))
       
-proc compileFloriJS*(options: CCOptions, sourcemap: bool) =
-  let semctx = newSemanticContext(options.moptions)
-  bench "eval":
-    discard semctx.semFile(options.filepath)
-    for top in semctx.globaltoplevels.mitems:
-      top.internalScope.resetElim(top)
-      top.internalScope.processElimPass(top)
-  let genctx = newJSCodegenContext(semctx)
-  bench "codegen":
-    if not existsDir(cachedir):
-      createDir(cachedir)
-    let src = genctx.codegenSingle(semctx).replace("#include \"floriffi.h\"\n")
-    if sourcemap:
-      let mapprefix = "\n//# sourceMappingURL=data:application/json;base64,"
-      writeFile(cachedir / "flori_compiled.js", src & mapprefix & genctx.generateSourcemap(options.output & ".js"))
-    else:
-      writeFile(cachedir / "flori_compiled.js", src)
-  copyFile(cachedir / "flori_compiled.js", options.output & ".js")
+# proc compileFloriJS*(options: CCOptions, sourcemap: bool) =
+#   let semctx = newSemanticContext(options.moptions)
+#   bench "eval":
+#     discard semctx.semFile(options.filepath)
+#     for top in semctx.globaltoplevels.mitems:
+#       top.internalScope.resetElim(top)
+#       top.internalScope.processElimPass(top)
+#   let genctx = newJSCodegenContext(semctx)
+#   bench "codegen":
+#     if not existsDir(cachedir):
+#       createDir(cachedir)
+#     let src = genctx.codegenSingle(semctx).replace("#include \"floriffi.h\"\n")
+#     if sourcemap:
+#       let mapprefix = "\n//# sourceMappingURL=data:application/json;base64,"
+#       writeFile(cachedir / "flori_compiled.js", src & mapprefix & genctx.generateSourcemap(options.output & ".js"))
+#     else:
+#       writeFile(cachedir / "flori_compiled.js", src)
+#   copyFile(cachedir / "flori_compiled.js", options.output & ".js")

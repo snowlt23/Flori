@@ -47,6 +47,10 @@ type
     exportc*: Option[IString]
     declc*: Option[IString]
     infixc*: bool
+    patternjs*: Option[IString]
+    importjs*: Option[IString]
+    exportjs*: Option[IString]
+    infixjs*: bool
     typ*: Symbol
     constvalue*: FExpr
     converters*: IList[FExpr]
@@ -139,7 +143,7 @@ type
     of fexprFloatLit:
       floatval*: float64
     of fexprStrLit:
-      strval*: string
+      strval*: IString
     of fexprSeq, fexprArray, fexprList, fexprBlock:
       sons*: IList[FExpr]
 
@@ -181,6 +185,8 @@ type
     tmpcount*: int
     notevals*: seq[FExpr]
     rootScope*: Scope
+    modules*: IList[TupleTable[Scope]]
+    importpaths*: IArray[IString]
     defines*: seq[string]
     globaltoplevels*: seq[FExpr]
     moptions*: string
@@ -195,7 +201,7 @@ implInternal(FExpr, FExprObj)
 proc initFImage*(): FImage =
   FImage()
 proc initSemContext*(): SemContext =
-  SemContext(expands: @[], tmpcount: 0, notevals: @[], defines: @[], globaltoplevels: @[])
+  SemContext(expands: @[], tmpcount: 0, notevals: @[], defines: @[], globaltoplevels: @[], modules: ilistNil[TupleTable[Scope]]())
 
 var gImage*: FImage
 var gCtx*: SemContext

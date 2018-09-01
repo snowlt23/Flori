@@ -244,7 +244,7 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
         continue
       s &= context.curchar
       context.inc
-    return fstrlit(span, s)
+    return fstrlit(span, istring(s))
   else:
     let span = context.span()
     var ident = ""

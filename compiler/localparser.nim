@@ -20,19 +20,19 @@ defineLocal(typeGenerics, 2)
 defineLocal(typePragma, 4)
 defineLocal(typeBody, 5)
 
-proc getIfBranches*(f: FExpr): seq[tuple[cond: Option[FExpr], body: FExpr]] =
+proc getIfBranches*(f: FExpr): seq[tuple[cond: Option[int], body: int]] =
   result = @[]
   var pos = 0
   while true:
     if f.len <= pos: break
     if $f[pos] == "if":
-      result.add((some(f[pos+1]), f[pos+2]))
+      result.add((some(pos+1), pos+2))
       pos += 3
     elif $f[pos] == "elif":
-      result.add((some(f[pos+1]), f[pos+2]))
+      result.add((some(pos+1), pos+2))
       pos += 3
     elif $f[pos] == "else":
-      result.add((none(FExpr), f[pos+2]))
+      result.add((none(int), pos+2))
       pos += 2
     else:
       f[pos].error("unexpected expression in if")

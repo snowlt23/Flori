@@ -32,7 +32,8 @@ proc main() =
   if args["c"]:
     compileFloriC(ccoptions(args))
   elif args["js"]:
-    let usesourcemap = bool(args["--sourcemap"])
-    compileFloriJS(ccoptions(args), usesourcemap)
+    quit "jscodegen is under maintained"
+    # let usesourcemap = bool(args["--sourcemap"])
+    # compileFloriJS(ccoptions(args), usesourcemap)
 
 main()

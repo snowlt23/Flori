@@ -41,8 +41,8 @@ proc elimMarkingPass*(scope: Scope, fexpr: FExpr): bool =
     let branches = fexpr.getIfBranches()
     for b in branches:
       if b.cond.isSome:
-        scope.elimRoot(b.cond.get)
-      scope.elimRoot(b.body)
+        scope.elimRoot(fexpr[b.cond.get])
+      scope.elimRoot(fexpr[b.body])
   elif fexpr.metadata.internal == internalDef:
     scope.elimRoot(fexpr[2])
   elif fexpr.metadata.internal == internalSet:

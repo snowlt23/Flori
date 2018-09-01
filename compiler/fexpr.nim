@@ -42,7 +42,7 @@ proc error*(fexpr: FExpr, msg: string) = fexpr.span.error(msg)
 template internalSpan*(): Span =
   const internalname = instantiationInfo().filename
   const internalline = instantiationInfo().line
-  Span(line: 0, linepos: 0, internal: (internalname, internalline))
+  Span(filename: istring(internalname), line: internalline, linepos: 0, pos: 0, isinternal: true)
 
 proc fident*(span: Span, name: IString): FExpr =
   genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprIdent, idname: name))
@@ -58,7 +58,7 @@ proc fintlit*(span: Span, x: int64): FExpr =
   genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprIntLit, intval: x))
 proc ffloatlit*(span: Span, x: float): FExpr =
   genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprFloatLit, floatval: x))
-proc fstrlit*(span: Span, s: string): FExpr =
+proc fstrlit*(span: Span, s: IString): FExpr =
   genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprStrLit, strval: s))
 proc fseq*(span: Span, sons: IList[FExpr]): FExpr =
   genFExpr(FExprObj(span: span, metadata: newMetadataStore(), kind: fexprSeq, sons: sons))
@@ -164,7 +164,7 @@ proc toString*(fexpr: FExpr, indent: int, desc: bool): string =
   of fexprFloatLit:
     $fexpr.floatval
   of fexprStrLit:
-    "\"" & fexpr.strval & "\""
+    "\"" & $fexpr.strval & "\""
   of fexprSeq:
     if fexpr.isNormalFuncCall:
       fexpr[0].toString(indent, desc) & fexpr[1].toString(indent, desc)

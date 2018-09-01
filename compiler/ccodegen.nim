@@ -250,8 +250,8 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 
   var ifcondsrc = initSrcExpr()
   var ifbodysrc = initSrcExpr()
-  ctx.codegenCallArg(ifcondsrc, branches[0].cond.get, if branches[0].cond.get.metadata.typ.kind == symbolRef: branches[0].cond.get.metadata.typ.wrapped else: branches[0].cond.get.metadata.typ)
-  ctx.codegenBody(ifbodysrc, branches[0].body, ret)
+  ctx.codegenCallArg(ifcondsrc, fexpr[branches[0].cond.get], if fexpr[branches[0].cond.get].metadata.typ.kind == symbolRef: fexpr[branches[0].cond.get].metadata.typ.wrapped else: fexpr[branches[0].cond.get].metadata.typ)
+  ctx.codegenBody(ifbodysrc, fexpr[branches[0].body], ret)
   var elsecnt = 1
   src.prev &= ifcondsrc.prev
   src.prev &= "if (" & ifcondsrc.exp & ") {\n"
@@ -262,8 +262,8 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     if branch.cond.isSome:
       var elifcondsrc = initSrcExpr()
       var elifbodysrc = initSrcExpr()
-      ctx.codegenCallArg(elifcondsrc, branch.cond.get, if branch.cond.get.metadata.typ.kind == symbolRef: branch.cond.get.metadata.typ.wrapped else: branch.cond.get.metadata.typ)
-      ctx.codegenBody(elifbodysrc, branch.body, ret)
+      ctx.codegenCallArg(elifcondsrc, fexpr[branch.cond.get], if fexpr[branch.cond.get].metadata.typ.kind == symbolRef: fexpr[branch.cond.get].metadata.typ.wrapped else: fexpr[branch.cond.get].metadata.typ)
+      ctx.codegenBody(elifbodysrc, fexpr[branch.body], ret)
       src.prev &= elifcondsrc.prev
       src.prev &= "if (" & elifcondsrc.exp & ") {\n"
       src.addPrev(elifbodysrc)
@@ -271,7 +271,7 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
       elsecnt += 1
     else:
       var elsebodysrc = initSrcExpr()
-      ctx.codegenBody(elsebodysrc, branch.body, ret)
+      ctx.codegenBody(elsebodysrc, fexpr[branch.body], ret)
       src.addPrev(elsebodysrc)
       src.prev &= "}".repeat(elsecnt)
 
@@ -333,9 +333,9 @@ proc codegenFieldAccess*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   ctx.codegenFExpr(src, fexpr[2])
 
 proc codegenCodegenDecl*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  ctx.cdeclsrc &= fexpr[1].strval
+  ctx.cdeclsrc &= $fexpr[1].strval
 proc codegenCodegenHead*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
-  ctx.cheadsrc &= fexpr[1].strval
+  ctx.cheadsrc &= $fexpr[1].strval
 
 proc codegenBlock*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   src &= "{\n"
