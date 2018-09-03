@@ -180,6 +180,7 @@ proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
   ctx.codegenDefnDecl(decl, fexpr)
   ctx.fndeclsrc &= decl.exp & ";\n"
 
+  # echo fexpr
   src &= decl
   src &= " {\n"
   let body = fexpr.fnBody
@@ -248,17 +249,8 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 
   let branches = fexpr.getIfBranches()
 
-  var ifcondsrc = initSrcExpr()
-  var ifbodysrc = initSrcExpr()
-  ctx.codegenCallArg(ifcondsrc, fexpr[branches[0].cond.get], if fexpr[branches[0].cond.get].metadata.typ.kind == symbolRef: fexpr[branches[0].cond.get].metadata.typ.wrapped else: fexpr[branches[0].cond.get].metadata.typ)
-  ctx.codegenBody(ifbodysrc, fexpr[branches[0].body], ret)
-  var elsecnt = 1
-  src.prev &= ifcondsrc.prev
-  src.prev &= "if (" & ifcondsrc.exp & ") {\n"
-  src.addPrev(ifbodysrc)
-  src.prev &= "} else {"
-
-  for branch in branches[1..^1]:
+  var elsecnt = 0
+  for branch in branches:
     if branch.cond.isSome:
       var elifcondsrc = initSrcExpr()
       var elifbodysrc = initSrcExpr()
@@ -273,8 +265,7 @@ proc codegenIf*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
       var elsebodysrc = initSrcExpr()
       ctx.codegenBody(elsebodysrc, fexpr[branch.body], ret)
       src.addPrev(elsebodysrc)
-      src.prev &= "}".repeat(elsecnt)
-
+  src.prev &= "}".repeat(elsecnt)
   # return temporary variable.
   if not fexpr.metadata.typ.isVoidType:
     src &= tmpret

@@ -149,7 +149,7 @@ proc addFunc*(scope: Scope, decl: ProcDecl): bool =
     if g.name == decl.name:
       g.value.decls.add(decl)
       return true
-  return false
+  assert(false)
 proc addSpecFunc*(scope: Scope, decl: ProcDecl) =
   let opt = scope.procdecls.find($decl.name)
   if opt.isNone:

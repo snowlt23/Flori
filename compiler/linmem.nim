@@ -47,8 +47,10 @@ template implInternal*(name, typ) =
     for i in 0..<sizeof(typ):
       linmem.add(0)
   proc obj*(x: name): var typ =
+    assert(x.index != -1)
     cast[ptr typ](addr(linmem[x.index]))[]
   proc `obj=`*(x: name, value: typ) =
+    assert(x.index != -1)
     cast[ptr typ](addr(linmem[x.index]))[] = value
   proc `gen name`*(f: typ): name =
     result = `alloc name`()
@@ -93,7 +95,7 @@ proc `==`*(a: IString, b: string): bool =
 
 proc iarray*[T](len: int): IArray[T] =
   result = IArray[T](index: linmem.len, len: len)
-  for i in 0..<len * sizeof(T):
+  for i in 0..<(len * sizeof(T)):
     linmem.add(0)
 proc checkBounds*[T](arr: IArray[T], i: int) =
   when not defined(release):
@@ -127,27 +129,24 @@ iterator mpairs*[T](arr: IArray[T]): (int, var T) =
   for i in 0..<arr.len:
     yield(i, arr.mget(i))
 
-proc ilist*[T](value: T, next: IList[T]): IList[T] =
-  result = IList[T](index: linmem.len)
-
-  for i in 0..<sizeof(IListObj[T]):
-    linmem.add(0)
-
-  let p = cast[ptr IListObj[T]](addr(linmem[result.index]))
-  p[].value = value
-  p[].next = next
 proc obj*[T](lst: IList[T]): var IListObj[T] =
+  assert(lst.index != -1)
   let p = cast[ptr IListObj[T]](addr(linmem[lst.index]))
   p[]
 proc value*[T](lst: IList[T]): var T =
-  let p = cast[ptr IListObj[T]](addr(linmem[lst.index]))
-  p[].value
+  lst.obj.value
+proc `value=`*[T](lst: IList[T], v: T) =
+  lst.obj.value = v
 proc next*[T](lst: IList[T]): var IList[T] =
-  let p = cast[ptr IListObj[T]](addr(linmem[lst.index]))
-  p[].next
+  lst.obj.next
 proc `next=`*[T](lst: IList[T], n: IList[T]) =
-  let p = cast[ptr IListObj[T]](addr(linmem[lst.index]))
-  p[].next = n
+  lst.obj.next = n
+proc ilist*[T](value: T, next: IList[T]): IList[T] =
+  result = IList[T](index: linmem.len)
+  for i in 0..<sizeof(IListObj[T]): # FIXME:
+    linmem.add(0)
+  result.value = value
+  result.next = next
 proc ilistNil*[T](): IList[T] =
   IList[T](index: -1)
 proc isNil*[T](lst: IList[T]): bool =

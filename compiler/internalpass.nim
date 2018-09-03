@@ -220,6 +220,9 @@ proc semPatternjs*(scope: Scope, fexpr: var FExpr) =
 #
 # General pragmas
 #
+#
+proc semCompiletime*(scope: Scope, fexpr: var FExpr) =
+  fexpr[1].metadata.compiletime = true
     
 proc semConverter*(scope: Scope, fexpr: var FExpr) =
   if fexpr[1].fnArguments.len != 1:
@@ -297,14 +300,21 @@ proc semFunc*(scope: Scope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): (
 
   if decl:
     let pd = ProcDecl(name: istring(name(fexpr.fnName)), argtypes: iarray(argtypes), generics: iarray(generics), returntype: rettype, sym: sym)
-    discard scope.addFunc(pd)
-    discard fnscope.addFunc(pd)
+    if fexpr.metadata.isExpanded:
+      scope.top.addSpecFunc(pd)
+      fnscope.addSpecFunc(pd)
+    else:
+      discard scope.addFunc(pd)
+      discard fnscope.addFunc(pd)
 
   let fsym = fsymbol(fexpr[0].span, sym)
   fexpr.fnName = fsym
+  semPragma(scope, fexpr, fexpr.fnPragma)
+  fexpr.metadata.scope = fnscope
   if fexpr.isGenerics:
     return (fnscope, generics, argtypes, rettype, sym)
 
+  echo fexpr
   for i, arg in fexpr.fnArguments:
     let argtsym = scope.symbol(istring($arg[0]), symbolArg, arg[0])
     if not fnscope.addDecl(istring($arg[0]), argtsym):
@@ -312,16 +322,14 @@ proc semFunc*(scope: Scope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): (
     arg[0] = fsymbol(arg[0].span, argtsym)
     arg[0].symbol.fexpr.metadata.typ = argtypes[i]
     arg[1] = fsymbol(arg[0].span, argtypes[i])
-  fexpr.metadata.scope= fnscope
+  fexpr.metadata.scope = fnscope
   # scope.resolveByVoid(fexpr)
 
-  semPragma(scope, fexpr, fexpr.fnPragma)
-  if fexpr.fnGenerics.isSpecTypes:
-    fnscope.rootPass(fexpr.fnBody)
-    if fexpr.fnBody.len != 0:
-      if not fexpr.fnBody.metadata.typ.spec(rettype):
-        echo fexpr
-        fexpr.fnBody.error("function expect $# return type, actually $#" % [$rettype, $fexpr.fnBody.metadata.typ])
+  # semPragma(scope, fexpr, fexpr.fnPragma)
+  fnscope.rootPass(fexpr.fnBody)
+  if fexpr.fnBody.len != 0:
+    if not fexpr.fnBody.metadata.typ.spec(rettype):
+      fexpr.fnBody.error("function expect $# return type, actually $#" % [$rettype, $fexpr.fnBody.metadata.typ])
   
   return (fnscope, generics, argtypes, rettype, sym)
 
@@ -343,7 +351,7 @@ proc semSyntax*(scope: Scope, fexpr: var FExpr) =
   
   let (fnscope, generics, argtypes, rettype, sym) = semFunc(scope, fexpr, symbolSyntax, false)
 
-  let mp = MacroProc(importname: istring(codegenMangling(sym, @[], argtypes))) # FIXME: support generics
+  let mp = genMacroProc(MacroProcObj(importname: istring(codegenMangling(sym, @[], argtypes)))) # FIXME: support generics
   let pd = ProcDecl(isSyntax: true, macroproc: mp, name: istring($fexpr.fnName), argtypes: iarray(argtypes), generics: iarray(generics), returntype: rettype, sym: sym)
   if not scope.addFunc(pd):
     fexpr.error("redefinition $# macro." % $fexpr.fnName)
@@ -364,7 +372,7 @@ proc semMacro*(scope: Scope, fexpr: var FExpr) =
   fexpr.metadata.internal = internalMacro
   let (fnscope, generics, argtypes, rettype, sym) = semFunc(scope, fexpr, symbolMacro, false)
 
-  let mp = MacroProc(importname: istring(codegenMangling(sym, @[], argtypes) & "_macro")) # FIXME: support generics
+  let mp = genMacroProc(MacroProcObj(importname: istring(codegenMangling(sym, @[], argtypes) & "_macro"))) # FIXME: support generics
   sym.macroproc = mp
   let pd = ProcDecl(isMacro: true, macroproc: mp, name: istring($fexpr.fnName), argtypes: iarray(argtypes), generics: iarray(generics), returntype: rettype, sym: sym)
   let status = scope.addFunc(pd)
@@ -378,8 +386,8 @@ proc semMacro*(scope: Scope, fexpr: var FExpr) =
     gCtx.reloadMacroLibrary(scope.top)
   gCtx.globaltoplevels.del(delpos)
   
-  if not fexpr.metadata.isToplevel:
-    gCtx.globaltoplevels.add(fexpr)
+  # if not fexpr.metadata.isToplevel:
+  #   gCtx.globaltoplevels.add(fexpr)
     
 proc semDeftype*(scope: Scope, fexpr: var FExpr) =
   fexpr = expandDeftype(fexpr)
@@ -394,17 +402,17 @@ proc semDeftype*(scope: Scope, fexpr: var FExpr) =
     
   let fsym = fsymbol(fexpr[0].span, sym)
   fexpr.fnName = fsym
+  semPragma(scope, fexpr, fexpr.typePragma)
 
   if fexpr.isGenerics:
     return
   
-  semPragma(scope, fexpr, fexpr.typePragma)
   let typescope = scope.extendScope()
   for field in fexpr.typeBody.mitems:
     if field.len < 2:
       field.error("$# isn't field declaration." % $field)
-    let args = flist(field.span, toSeq(field.items)[1..^1])
-    field = fseq(field.span, @[field[0], args])
+    let ftyp = fseq(field.span, toSeq(field.items)[1..^1])
+    field = fseq(field.span, @[field[0], ftyp])
     let s = typescope.semType(field[1])
     field[1].replaceByTypesym(s)
   fexpr.metadata.scope = typescope
@@ -434,8 +442,8 @@ proc semIf*(scope: Scope, fexpr: var FExpr) =
     let bscope = scope.extendScope()
     if branch.cond.isSome:
       bscope.rootPass(fexpr[branch.cond.get])
-    if not fexpr[branch.cond.get].metadata.typ.isBoolType:
-      fexpr[branch.cond.get].error("if expression cond type should be Bool.")
+      if not fexpr[branch.cond.get].metadata.typ.isBoolType:
+        fexpr[branch.cond.get].error("if expression cond type should be Bool.")
     bscope.rootPass(fexpr[branch.body])
     if fexpr[branch.body].len != 0:
       branchtypes.add(fexpr[branch.body][^1].metadata.typ)
@@ -792,6 +800,7 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(istring("exportjs"), semExportjs)
   scope.addInternalEval(istring("patternjs"), semPatternjs)
   # general pragmas
+  scope.addInternalEval(istring("compiletime"), semCompiletime)
   scope.addInternalEval(istring("converter"), semConverter)
 
 proc initInternalScope*(ctx: var SemContext) =

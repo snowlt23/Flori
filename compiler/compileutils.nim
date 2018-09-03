@@ -82,7 +82,7 @@ proc reloadMacroLibrary*(semctx: var SemContext, scope: Scope) =
   if semctx.macrolib.isNil:
     raise newException(IOError, "couldn't load flori macro library.")
   semctx.macrolib.setupFFI()
-  for mp in semctx.macroprocs.mitems:
+  for mp in semctx.macroprocs:
     mp.call = cast[proc (f: FExpr): FExpr {.cdecl.}](semctx.macrolib.checkedSymAddr($mp.importname))
   let florimain = cast[proc () {.cdecl.}](semctx.macrolib.checkedSymAddr("flori_main"))
   florimain()

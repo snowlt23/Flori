@@ -7,6 +7,7 @@ import dynlib
 import linmem
 
 defineInternal(MetadataStore)
+defineInternal(MacroProc)
 defineInternal(Symbol)
 defineInternal(Scope)
 defineInternal(FExpr)
@@ -52,11 +53,13 @@ type
     exportjs*: Option[IString]
     infixjs*: bool
     typ*: Symbol
+    compiletime*: bool
     constvalue*: FExpr
     converters*: IList[FExpr]
     isCStruct*: bool
     isSyntax*: bool
     isEvaluated*: bool
+    isExpanded*: bool
     isToplevel*: bool
     isElimEvaluated*: bool
     isEliminated*: bool
@@ -148,7 +151,7 @@ type
     of fexprSeq, fexprArray, fexprList, fexprBlock:
       sons*: IList[FExpr]
 
-  MacroProc* = object
+  MacroProcObj* = object
     importname*: IString
     call*: proc (fexpr: FExpr): FExpr {.cdecl.}
 
@@ -195,6 +198,7 @@ type
     macroprocs*: seq[MacroProc]
 
 implInternal(MetadataStore, MetadataStoreObj)
+implInternal(MacroProc, MacroProcObj)
 implInternal(Symbol, SymbolObj)
 implInternal(Scope, ScopeObj)
 implInternal(FExpr, FExprObj)

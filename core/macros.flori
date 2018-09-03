@@ -1,7 +1,7 @@
 
 import "core/prelude"
 
-type FExpr $[nodestruct, importc "flori_fexpr", header "floriffi.h"]
+type FExpr $[importc "flori_fexpr", header "floriffi.h"]
 type FSeq $[importc "flori_fexpr", header "floriffi.h"]
 type FArray $[importc "flori_fexpr", header "floriffi.h"]
 type FList $[importc "flori_fexpr", header "floriffi.h"]

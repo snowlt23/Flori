@@ -32,7 +32,7 @@ proc getIfBranches*(f: FExpr): seq[tuple[cond: Option[int], body: int]] =
       result.add((some(pos+1), pos+2))
       pos += 3
     elif $f[pos] == "else":
-      result.add((none(int), pos+2))
+      result.add((none(int), pos+1))
       pos += 2
     else:
       f[pos].error("unexpected expression in if")

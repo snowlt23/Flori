@@ -140,7 +140,7 @@ proc expandDefn*(scope: Scope, fexpr: var FExpr, genericstypes: seq[Symbol], arg
     g.symbol.instance = none(Symbol)
 
   let genericstypes = generics.mapIt(it.symbol)
-  let specopt = expanded.metadata.scope.getSpecFunc(procname($expanded.fnName, argtypes, genericstypes))
+  let specopt = expanded.metadata.scope.getSpecFunc(procname(name(expanded.fnName), argtypes, genericstypes))
   if specopt.isSome:
     let fsym = fsymbol(expanded.span, specopt.get.sym)
     return fsym
@@ -151,6 +151,8 @@ proc expandDefn*(scope: Scope, fexpr: var FExpr, genericstypes: seq[Symbol], arg
     exscope.importScope(istring("flori_current_scope"), scopeopt.get)
   else:
     exscope.importScope(istring("flori_current_scope"), scope.top)
+  expanded.metadata.isEvaluated = false
+  expanded.metadata.isExpanded = true
   exscope.rootPass(expanded)
   # exscope.importscopes.del(name("flori_current_scope"))
   expanded.assert(expanded.fnName.kind == fexprSymbol)
@@ -161,7 +163,7 @@ proc expandDefn*(scope: Scope, fexpr: var FExpr, genericstypes: seq[Symbol], arg
 
 proc expandMacrofn*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr =
   result = expandDefn(scope, fexpr, @[], argtypes)
-  let mp = MacroProc(importname: istring(codegenMangling(result.symbol, result.symbol.fexpr.fnGenerics.mapIt(it.symbol), result.symbol.fexpr.fnArguments.mapIt(it[1].symbol)) & "_macro"))
+  let mp = genMacroProc(MacroProcObj(importname: istring(codegenMangling(result.symbol, result.symbol.fexpr.fnGenerics.mapIt(it.symbol), result.symbol.fexpr.fnArguments.mapIt(it[1].symbol)) & "_macro")))
   result.symbol.macroproc = mp
   result.symbol.kind = symbolMacro
   

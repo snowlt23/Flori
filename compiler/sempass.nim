@@ -26,10 +26,10 @@ proc internalPass*(scope: Scope, fexpr: var FExpr): bool =
         scope.resolveByVoid(fexpr)
       fexpr.metadata.isEvaluated = true
       (internalopt.get.pd.internalproc.get)(scope, fexpr)
-      return true
+      return false
     elif internalopt.isSome and internalopt.get.pd.isSyntax:
       scope.expandBy(fexpr.span):
-        var expanded = internalopt.get.pd.macroproc.call(fexpr)
+        var expanded = (internalopt.get.pd.macroproc.call)(fexpr)
         scope.rootPass(expanded)
         fexpr = expanded
       return false
@@ -129,6 +129,13 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr): bool =
     else:
       scope.resolveByVoid(fexpr)
     return true
+  of fexprArray:
+    if fexpr.len != 0:
+      fexpr[0].assert(fexpr[0].hasTyp)
+      fexpr.metadata.typ = fexpr[0].metadata.typ
+    else:
+      scope.resolveByVoid(fexpr)
+    return true
   of fexprBlock:
     if fexpr.len != 0:
       fexpr[^1].assert(fexpr[^1].hasTyp)
@@ -170,6 +177,8 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
       fexpr.metadata.typ = opt.get.pd.returntype
       fexpr[2] = genConvertedCall(fexpr[2], opt.get.matches)
       scope.rootPass(fexpr[2])
+    else:
+      fexpr.error("undeclared $#$#($#) function" % [$fnident, $generics, argtypes.mapIt($it).join(", ")])
 
     return true
   elif fexpr.isInfixFuncCall:
@@ -186,6 +195,8 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
       fexpr[2] = converted[1]
       scope.rootPass(fexpr[1])
       scope.rootPass(fexpr[2])
+    else:
+      fexpr.error("undeclared $# $# $# function" % [$args[0].metadata.typ, $fnident, $args[1].metadata.typ])
       
     return true
   else:
@@ -209,6 +220,9 @@ proc varfnResolve*(scope: Scope, fexpr: var FExpr): bool =
   return true
 
 proc finalPass*(scope: Scope, fexpr: var FExpr): bool =
+  when not defined(release):
+    if not fexpr.hasTyp:
+      fexpr.error("$# undecided expression type." % $fexpr)
   fexpr.metadata.isEvaluated = true
   return true
     
