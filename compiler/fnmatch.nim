@@ -68,6 +68,7 @@ proc getFunc*(scope: Scope, pd: ProcName, importscope = true): Option[tuple[pd: 
   var first = none((ProcDecl, seq[Matched]))
   if group.isSome:
     for decl in group.get.decls:
+      if decl.sym.fexpr.metadata.isExpanded: continue
       let opt = pd.match(decl)
       if opt.isSome:
         if not opt.get.hasConvert:
@@ -83,6 +84,8 @@ proc getFunc*(scope: Scope, pd: ProcName, importscope = true): Option[tuple[pd: 
       let opt = s.value.getFunc(pd, importscope = s.name.isCurrentScope())
       if opt.isSome:
         return opt
-    return none((ProcDecl, seq[Matched]))
+
+  if not scope.isTop:
+    return scope.parent.getFunc(pd, importscope)
   else:
     return none((ProcDecl, seq[Matched]))

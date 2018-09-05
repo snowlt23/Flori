@@ -9,7 +9,7 @@ proc initLinmem*(size: int) =
 
 template defineInternal*(name) =
   type name* = object
-    index: int
+    index*: int
 
 proc expandField(stmt: var NimNode, t: NimNode, fieldname: Nimnode, fieldtyp: NimNode) =
   let assignname = ident($fieldname & "=")
@@ -55,6 +55,8 @@ template implInternal*(name, typ) =
   proc `gen name`*(f: typ): name =
     result = `alloc name`()
     result.obj = f
+  proc lcopy*(x: name): name =
+    `gen name`(x.obj)
   expandFields(name, typ)
 
 proc linmemBinary*(): string =

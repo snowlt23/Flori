@@ -336,6 +336,8 @@ proc codegenBlock*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 proc codegenInternal*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr, topcodegen: bool) =
   if (not fexpr.metadata.exportc.isSome) and fexpr.metadata.isEliminated:
     return
+  if (not ctx.macrogen) and fexpr.metadata.compiletime:
+    return
   
   case fexpr.metadata.internal
   of internalNone:

@@ -206,12 +206,12 @@ proc isPragmaPrefix*(fexpr: FExpr): bool =
 proc copy*(fexpr: FExpr): FExpr =
   if fexpr.kind in fexprContainer:
     result = fcontainer(fexpr.span, fexpr.kind, ilistNil[FExpr]())
-    result.metadata = fexpr.metadata
+    result.metadata = fexpr.metadata.lcopy
     for son in fexpr:
       result.addSon(son.copy)
   elif fexpr.kind == fexprSymbol:
     result = fsymbol(fexpr.span, fexpr.symbol)
-    result.metadata = fexpr.metadata
+    result.metadata = fexpr.metadata.lcopy
   else:
     result = fexpr
 

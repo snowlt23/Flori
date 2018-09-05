@@ -177,7 +177,7 @@ type
     value*: T
   ScopeObj* = object
     name*: IString
-    top*: Scope
+    parent*: Scope
     level*: int
     imports*: IList[TupleTable[Scope]]
     exports*: IList[TupleTable[Scope]]
@@ -235,6 +235,15 @@ proc scopeRoot*(): Scope =
   Scope(index: 0)
 proc `==`*(a, b: Scope): bool =
   a.obj.name == b.obj.name and a.obj.level == b.obj.level
+proc isTop*(s: Scope): bool =
+  s == s.parent
+proc top*(s: Scope): Scope =
+  var cur = s
+  while true:
+    if cur.isTop:
+      return cur
+    cur = cur.parent
+  assert(false)
 
 template rootScope*(): Scope = gCtx.rootScope
 

@@ -8,7 +8,7 @@ import linmem, image, fexpr, symbol, fnmatch
 proc newScope*(name: IString, path: string): Scope =
   result = genScope(ScopeObj())
   result.name = name
-  result.top = result
+  result.parent = result
   result.level = 0
   result.decls = ilistNil[TupleTable[Symbol]]()
   result.procdecls = ilistNil[TupleTable[ProcDeclGroup]]()
@@ -18,12 +18,12 @@ proc newScope*(name: IString, path: string): Scope =
 proc extendScope*(scope: Scope): Scope =
   result = genScope(ScopeObj())
   result.name = scope.name
-  result.top = scope.top
+  result.parent = scope
   result.level = scope.level + 1
-  result.decls = scope.decls
-  result.procdecls = scope.procdecls
-  result.imports = scope.imports
-  result.exports = scope.exports
+  result.decls = ilistNil[TupleTable[Symbol]]()
+  result.procdecls = ilistNil[TupleTable[ProcDeclGroup]]()
+  result.imports = ilistNil[TupleTable[Scope]]()
+  result.exports = ilistNil[TupleTable[Scope]]()
 
 proc procname*(name: string, argtypes: seq[Symbol], generics = newSeq[Symbol]()): ProcName =
   ProcName(name: name, argtypes: argtypes, generics: generics)
@@ -73,12 +73,15 @@ proc getDecl*(scope: Scope, n: string, importscope = true): Option[Symbol] =
   let opt = scope.decls.find(n)
   if opt.isSome:
     return opt
+
   if importscope:
     for s in scope.imports:
       let opt = s.value.getDecl(n, importscope = s.name.isCurrentScope())
       if opt.isSome:
         return opt
-    return none(Symbol)
+
+  if not scope.isTop:
+    return scope.parent.getDecl(n, importscope)
   else:
     return none(Symbol)
 proc getFnDecl*(scope: Scope, n: string): Option[Symbol] =
@@ -112,7 +115,9 @@ proc getSpecType*(scope: Scope, n: string, types: seq[Symbol], importscope = tru
       let opt = s.value.getSpecType(n, types, importscope = s.name.isCurrentScope())
       if opt.isSome:
         return opt
-    return none(Symbol)
+
+  if not scope.isTop:
+    return scope.parent.getSpecType(n, types, importscope)
   else:
     return none(Symbol)
 
@@ -129,7 +134,9 @@ proc getSpecFunc*(scope: Scope, pd: ProcName, importscope = true): Option[ProcDe
       let opt = s.value.getSpecFunc(pd, importscope = s.name.isCurrentScope())
       if opt.isSome:
         return opt
-    return none(ProcDecl)
+
+  if not scope.isTop:
+    return scope.parent.getSpecFunc(pd, importscope)
   else:
     return none(ProcDecl)
 

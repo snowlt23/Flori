@@ -10,7 +10,7 @@ syntax for(fexpr FExpr) FExpr {
   elem := fexpr!1!0!1
   value := fexpr!1!0!2
   body := fexpr!2
-
+  
   quote {
     block {
       items(`value, `elem, `body)
@@ -146,9 +146,10 @@ syntax static(fexpr FExpr) FExpr {
 
 iterator items(fexpr TExpr[FExpr]) {
   tmp := gensym()
+  f := to_fexpr(fexpr)
   quote {
     for (`tmp : range(0, length(`fexpr)-1)) {
-      `element := `fexpr!`tmp
+      `element := `f!`tmp
       `yield
     }
   }
@@ -229,9 +230,10 @@ iterator items(fexpr TExpr[FExpr]) {
 # FIXME: converter for macro
 macro const_eval(x TExpr[IntLit]) FExpr {
   tmp := gensym()
+  fx := to_fexpr(x)
   quote {
     syntax `tmp(fexpr FExpr) FExpr {
-      new_fintlit(`x)
+      new_fintlit(`fx)
     }
     `tmp()
   }
@@ -239,9 +241,10 @@ macro const_eval(x TExpr[IntLit]) FExpr {
 
 macro const_eval(x TExpr[Int]) FExpr {
   tmp := gensym()
+  fx := to_fexpr(x)
   quote {
     syntax `tmp(fexpr FExpr) FExpr {
-      new_fintlit(`x)
+      new_fintlit(`fx)
     }
     `tmp()
   }
@@ -249,9 +252,10 @@ macro const_eval(x TExpr[Int]) FExpr {
 
 macro const_eval(s TExpr[CString]) FExpr {
   tmp := gensym()
+  fs := to_fexpr(s)
   quote {
     syntax `tmp(fexpr FExpr) FExpr {
-      new_fstrlit(`s)
+      new_fstrlit(`fs)
     }
     `tmp()
   }

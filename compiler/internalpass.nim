@@ -302,10 +302,10 @@ proc semFunc*(scope: Scope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): (
     let pd = ProcDecl(name: istring(name(fexpr.fnName)), argtypes: iarray(argtypes), generics: iarray(generics), returntype: rettype, sym: sym)
     if fexpr.metadata.isExpanded:
       scope.top.addSpecFunc(pd)
-      fnscope.addSpecFunc(pd)
+      fnscope.top.addSpecFunc(pd)
     else:
-      discard scope.addFunc(pd)
-      discard fnscope.addFunc(pd)
+      discard scope.top.addFunc(pd)
+      discard fnscope.top.addFunc(pd)
 
   let fsym = fsymbol(fexpr[0].span, sym)
   fexpr.fnName = fsym
@@ -314,10 +314,11 @@ proc semFunc*(scope: Scope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): (
   if fexpr.isGenerics:
     return (fnscope, generics, argtypes, rettype, sym)
 
-  echo fexpr
   for i, arg in fexpr.fnArguments:
     let argtsym = scope.symbol(istring($arg[0]), symbolArg, arg[0])
     if not fnscope.addDecl(istring($arg[0]), argtsym):
+      for d in fnscope.decls:
+        echo d.name
       arg[0].error("redefinition $# argument." % $arg[0])
     arg[0] = fsymbol(arg[0].span, argtsym)
     arg[0].symbol.fexpr.metadata.typ = argtypes[i]
@@ -329,6 +330,7 @@ proc semFunc*(scope: Scope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): (
   fnscope.rootPass(fexpr.fnBody)
   if fexpr.fnBody.len != 0:
     if not fexpr.fnBody.metadata.typ.spec(rettype):
+      echo fexpr.fnBody[^1], ":", fexpr.fnBody[^1].metadata.typ
       fexpr.fnBody.error("function expect $# return type, actually $#" % [$rettype, $fexpr.fnBody.metadata.typ])
   
   return (fnscope, generics, argtypes, rettype, sym)
@@ -375,7 +377,7 @@ proc semMacro*(scope: Scope, fexpr: var FExpr) =
   let mp = genMacroProc(MacroProcObj(importname: istring(codegenMangling(sym, @[], argtypes) & "_macro"))) # FIXME: support generics
   sym.macroproc = mp
   let pd = ProcDecl(isMacro: true, macroproc: mp, name: istring($fexpr.fnName), argtypes: iarray(argtypes), generics: iarray(generics), returntype: rettype, sym: sym)
-  let status = scope.addFunc(pd)
+  let status = scope.top.addFunc(pd)
   if not status:
     fexpr.error("redefinition $# macro." % $fexpr.fnName)
 

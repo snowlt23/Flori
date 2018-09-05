@@ -106,7 +106,10 @@ proc matchMacro*(scope: Scope, curscope: Scope, n: FExpr, args: var seq[FExpr], 
       if match.isSome:
         return match
 
-  return none((ProcDecl, seq[Matched]))
+  if not scope.isTop:
+    return scope.parent.matchMacro(curscope, n, args, issyntax, importscope)
+  else:
+    return none((ProcDecl, seq[Matched]))
 
 proc isFExprName*(name: string): bool =
   case name

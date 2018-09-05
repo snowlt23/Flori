@@ -160,6 +160,8 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
       fexpr.metadata.typ = opt.get.pd.returntype
       fexpr[1] = genConvertedCall(fexpr[1], opt.get.matches)
       scope.rootPass(fexpr[1])
+    else:
+      fexpr.error("undeclared $#($#) function" % [$fnident, argtypes.mapIt($it).join(", ")])
 
     return true
   elif fexpr.isGenericsFuncCall:
