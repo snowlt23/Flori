@@ -294,6 +294,8 @@ proc semFunc*(scope: Scope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): (
                   defsym
                 elif fexpr.fnName.kind == fexprQuote:
                   symbolInfix
+                elif fexpr.fnName.kind == fexprSymbol:
+                  fexpr.fnName.symbol.kind
                 else:
                   defsym
   let sym = scope.symbol(istring(name(fexpr.fnName)), symkind, fexpr)
@@ -388,18 +390,18 @@ proc semMacro*(scope: Scope, fexpr: var FExpr) =
     gCtx.reloadMacroLibrary(scope.top)
   gCtx.globaltoplevels.del(delpos)
   
-  # if not fexpr.metadata.isToplevel:
-  #   gCtx.globaltoplevels.add(fexpr)
+  if not fexpr.metadata.isToplevel:
+    gCtx.globaltoplevels.add(fexpr)
     
 proc semDeftype*(scope: Scope, fexpr: var FExpr) =
   fexpr = expandDeftype(fexpr)
   fexpr.metadata.internal = internalDeftype
 
-  let typename = istring($fexpr.fnName)
-  let sym = scope.symbol(typename, if fexpr.fnGenerics.len != 0: symbolTypeGenerics else: symbolType, fexpr)
-  if fexpr.fnGenerics.len != 0 and fexpr.fnGenerics.isSpecTypes:
+  let typename = istring(name(fexpr.typeName))
+  let sym = scope.symbol(typename, if fexpr.typeGenerics.len != 0: symbolTypeGenerics else: symbolType, fexpr)
+  if fexpr.fnGenerics.len != 0 and fexpr.typeGenerics.isSpecTypes:
     sym.types = iarray(fexpr.fnGenerics.mapIt(it.symbol))
-  if not scope.addDecl(typename, sym):
+  if not fexpr.metadata.isExpanded and not scope.addDecl(typename, sym):
     fexpr.error("redefinition $# type." % $typename)
     
   let fsym = fsymbol(fexpr[0].span, sym)

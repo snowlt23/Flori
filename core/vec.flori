@@ -6,7 +6,7 @@ import "core/syntax"
 import "core/macros"
 import "core/region"
 
-type Vec[T] $[nodestruct] {
+type Vec[T] {
   data WPtr[T]
   cap Int
   len Int
@@ -56,7 +56,7 @@ fn extend[T](v ref Vec[T]) {
   v.cap = v.cap*2
 }
 
-fn push[T](v ref Vec[T], value T) $[nodestruct, importjs, patternjs "$1.push($2)"] {
+fn push[T](v ref Vec[T], value T) $[importjs, patternjs "$1.push($2)"] {
   if (v.cap < v.len+1) {
     extend(v)
   }

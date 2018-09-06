@@ -5,7 +5,8 @@ import unittest
 import strutils
 import terminal
 
-import compiler/types, compiler/fexpr, compiler/parser
+import compiler/fexpr_core
+import basictester
 
 proc checkOutput*(filename: string, expectoutput: string) =
   let cout = execProcess("compiler/flori c -otests/bin/$# $#" % [filename.splitFile().name, filename])
@@ -24,7 +25,7 @@ proc parseExpectOutput*(filename: string): string =
   let tops = parseToplevel(filename, readFile(filename))
   for t in tops:
     if t.kind == fexprSeq and t.len == 2 and $t[0] == "expect" and t[1].kind == fexprList and t[1].len == 1 and t[1][0].kind == fexprStrLit:
-      return t[1][0].strval.replace("\\n", "\n")
+      return ($t[1][0].strval).replace("\\n", "\n")
   return nil
 proc execFloriTest*(filename: string) =
   if not existsFile(filename):
@@ -46,6 +47,7 @@ proc setupFloriCompiler*() =
 
 proc main() =
   setupFloriCompiler()
+  initLinmem(1024)
   for florifile in walkDirRec("tests/floritests"):
     execFloriTest(florifile)
   

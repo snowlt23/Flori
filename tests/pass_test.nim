@@ -1,7 +1,6 @@
 
 import unittest
-import compiler.parser, compiler.types, compiler.fexpr, compiler.scope, compiler.metadata
-import compiler.passdef, compiler.internalpass
+import compiler/fexpr_core, compiler.internalpass
 
 let prelude = """
 type Void $[importc "void", header nodeclc]

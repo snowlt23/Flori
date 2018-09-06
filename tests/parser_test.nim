@@ -1,8 +1,9 @@
 
 import unittest
-import compiler.types, compiler.fexpr, compiler.parser
+import compiler/fexpr_core
 
 suite "F expression parser test":
+  initLinmem(1024)
   test "atom":
     let fexprs = parseToplevel("test.flori", """
     9

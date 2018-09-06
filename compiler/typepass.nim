@@ -46,6 +46,8 @@ proc parseTypeExpr*(fexpr: FExpr, pos: var int): ParsedType =
 proc semType*(scope: Scope, fexpr: FExpr): Symbol =
   if fexpr.kind == fexprSymbol:
     return fexpr.symbol
+  if fexpr.kind == fexprSeq and fexpr.len == 1 and fexpr[0].kind == fexprSymbol:
+    return fexpr[0].symbol
   var pos = 0
   let parsed = parseTypeExpr(fexpr, pos)
 
@@ -62,7 +64,7 @@ proc semType*(scope: Scope, fexpr: FExpr): Symbol =
     sym.rettype = scope.semType(parsed.ret)
     return sym
   
-  let opt = scope.getDecl($parsed.typ)
+  let opt = scope.getDecl(name(parsed.typ))
   if opt.isNone:
     parsed.typ.error("undeclared $# type." % $parsed.typ)
   if opt.get.fexpr.metadata.internal == internalConst:

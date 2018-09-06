@@ -218,6 +218,8 @@ proc copy*(fexpr: FExpr): FExpr =
 proc name*(fexpr: FExpr): string =
   if fexpr.kind == fexprQuote:
     name(fexpr.quoted)
+  elif fexpr.kind == fexprSymbol:
+    $fexpr.symbol.name
   else:
     $fexpr
 

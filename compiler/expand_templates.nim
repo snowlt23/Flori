@@ -101,11 +101,11 @@ proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExp
     let fsym = fsymbol(fexpr.span, specopt.get)
     return fsym
 
-  var expanded = fexpr.metadata.scope.expandTemplate(fexpr, fexpr.fnGenerics, argtypes)
-  let tsym = expanded.metadata.scope.symbol(expanded.fnName.symbol.name, symbolTypeGenerics, expanded)
+  var expanded = fexpr.metadata.scope.expandTemplate(fexpr, fexpr.typeGenerics, argtypes)
+  let tsym = expanded.metadata.scope.symbol(expanded.typeName.symbol.name, symbolTypeGenerics, expanded)
   tsym.types = iarray(argtypes)
   let fsym = fsymbol(expanded.span, tsym)
-  expanded[1] = fsym
+  expanded.typeName = fsym
 
   discard expanded.metadata.scope.top.addDecl(manglingname, tsym)
 
@@ -115,6 +115,8 @@ proc expandDeftype*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExp
     exscope.importScope(istring("flori_current_scope"), scopeopt.get)
   else:
     exscope.importScope(istring("flori_current_scope"), scope.top)
+  expanded.metadata.isEvaluated = false
+  expanded.metadata.isExpanded = true
   exscope.rootPass(expanded)
   gCtx.globaltoplevels.add(expanded)
   
@@ -131,7 +133,7 @@ proc expandDefn*(scope: Scope, fexpr: var FExpr, genericstypes: seq[Symbol], arg
       args[i][1].error("argtype not match: $#, $#" % [$args[i][1].symbol.instance.get, $argtype])
   generics.expandGenerics()
 
-  var expanded = scope.expandTemplate(fexpr, generics, generics.mapIt(it.symbol))
+  var expanded = scope.expandTemplate(fexpr, fexpr.fnGenerics, generics.mapIt(it.symbol))
   expanded.fnGenerics = generics
   scope.expandArgtypes(expanded.fnArguments)
   expanded.fnReturn.symbol = scope.expandSymbol(expanded.fnReturn.symbol)

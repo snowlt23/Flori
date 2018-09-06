@@ -50,8 +50,15 @@ proc genTmpName*(ctx: var SemContext): string =
   result = "tmpid" & $ctx.tmpcount
   ctx.tmpcount.inc
 
+proc genManglingSymbol*(sym: Symbol): string =
+  if sym.kind == symbolTypeGenerics:
+    result = $sym.name
+    for t in sym.types:
+      result &= "_" & genManglingSymbol(t)
+  else:
+    result = $sym
 proc genManglingName*(name: string, types: seq[Symbol]): string =
-  name & "_" & types.mapIt($it).join("_")
+  name & "_" & types.mapIt(genManglingSymbol(it)).join("_")
 
 proc expandStart*(ctx: var SemContext, span: Span) =
   ctx.expands.add(span)

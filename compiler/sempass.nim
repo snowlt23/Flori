@@ -30,6 +30,8 @@ proc internalPass*(scope: Scope, fexpr: var FExpr): bool =
     elif internalopt.isSome and internalopt.get.pd.isSyntax:
       scope.expandBy(fexpr.span):
         var expanded = (internalopt.get.pd.macroproc.call)(fexpr)
+        if fexpr.metadata.isToplevel:
+          expanded.metadata.isToplevel = true
         scope.rootPass(expanded)
         fexpr = expanded
       return false
@@ -40,12 +42,20 @@ proc internalPass*(scope: Scope, fexpr: var FExpr): bool =
 
 proc toplevelPass*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
+  if fexpr.isGenericsFuncCall:
+    for son in fexpr[2].mitems:
+      scope.rootPass(son)
+    return true
+
   case fexpr.kind
   of fexprArray, fexprList:
     for son in fexpr.mitems:
       scope.rootPass(son)
     return true
   of fexprBlock:
+    if fexpr.metadata.isToplevel:
+      for son in fexpr.mitems:
+        son.metadata.isToplevel = true
     for son in fexpr.mitems:
       scope.rootPass(son)
     return true

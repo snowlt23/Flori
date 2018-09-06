@@ -140,30 +140,30 @@ macro in_region(size FExpr, body TBlock) FExpr $[syntax] {
   if (to_cs(get_type(body)) == "Void") {
     quote {
       `prevr := g_current_region
-      g_current_region = new_region(g_heap_region, `size)
+      g_current_region = new_region(`size, 1024)
       `body
-      dealloc_region(g_heap_region, g_current_region)
+      dealloc_region(g_current_region)
       g_current_region = `prevr
     }
   } elif (to_cs(get_type(body)) == "FExpr") {
     quote {
       `prevr := g_current_region
-      g_current_region = new_region(g_heap_region, `size)
+      g_current_region = new_region(`size, 1024)
       `ret := `body
-      dealloc_region(g_heap_region, g_current_region)
+      dealloc_region(g_current_region)
       g_current_region = `prevr
       `ret
     }
   } else {
     quote {
       `prevr := g_current_region
-      g_current_region = new_region(g_heap_region, `size)
+      g_current_region = new_region(`size, 1024)
       
       `ret := `body
       `tmpr := g_current_region
       g_current_region = `prevr
       `ret = copy(`ret)
-      dealloc_region(g_heap_region, `tmpr)
+      dealloc_region(g_current_region)
       `ret
     }
   }
