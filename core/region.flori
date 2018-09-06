@@ -5,7 +5,7 @@ import "core/io"
 import "core/macros"
 import "core/syntax"
 
-type Region {
+type RegionObj {
   data Ptr[UInt8]
   current Int
   size Int
@@ -14,8 +14,12 @@ type Region {
   dscount Int
 }
 
+type Region {
+  p Ptr[RegionObj]
+}
+
 type RPtr[T] {
-  pr Ptr[Region]
+  r Region
   offset Int
 }
 
@@ -24,45 +28,45 @@ type WPtr[T] {
 }
 
 fn new_region(size Int, dscap Int) Region {
-  init(Region) {
-    cast[Ptr[UInt8]](unsafe_malloc(size))
-    int(0)
-    size
-    cast[Ptr[Ptr[Pointer]]](unsafe_malloc(dscap*sizeof[Ptr[Pointer]]()))
-    dscap
-    int(0)
-  }
+  r := init(Region){cast[Ptr[RegionObj]](unsafe_malloc(sizeof[RegionObj]()))}
+  unref(r.p).data = cast[Ptr[UInt8]](unsafe_malloc(size))
+  unref(r.p).current = int(0)
+  unref(r.p).size = size
+  unref(r.p).ds = cast[Ptr[Ptr[Pointer]]](unsafe_malloc(dscap*sizeof[Ptr[Pointer]]()))
+  unref(r.p).dscap = dscap
+  unref(r.p).dscount = int(0)
+  r
 }
 fn dealloc_region(r Region) {
-  for (i : range(0, r.dscount-1)) { 
-    unsafe_free(unref(unref(r.ds +! sizeof[Ptr[Pointer]]()*i)))
+  for (i : range(0, unref(r.p).dscount-1)) { 
+    unsafe_free(unref(unref(unref(r.p).ds +! sizeof[Ptr[Pointer]]()*i)))
   }
-  unsafe_free(cast[Pointer](r.ds))
-  unsafe_free(cast[Pointer](r.data))
+  unsafe_free(cast[Pointer](unref(r.p).ds))
+  unsafe_free(cast[Pointer](unref(r.p).data))
 }
 
 fn extend(r ref Region, allocsize Int) {
-  if (r.current + allocsize >= r.size) {
-    newrsize := r.size*2
+  if (unref(r.p).current + allocsize >= unref(r.p).size) {
+    newrsize := unref(r.p).size*2
     while (allocsize >= newrsize) {
       newrsize = newrsize*2
     }
-    r.data = cast[Ptr[UInt8]](unsafe_realloc(cast[Pointer](r.data), newrsize))
+    unref(r.p).data = cast[Ptr[UInt8]](unsafe_realloc(cast[Pointer](unref(r.p).data), newrsize))
   }
-  if (r.dscount + 1 >= r.dscap) {
-    newdscap := r.dscap*2
-    r.ds = cast[Ptr[Ptr[Pointer]]](unsafe_realloc(cast[Pointer](r.ds), newdscap*sizeof[Ptr[Pointer]]()))
+  if (unref(r.p).dscount + 1 >= unref(r.p).dscap) {
+    newdscap := unref(r.p).dscap*2
+    unref(r.p).ds = cast[Ptr[Ptr[Pointer]]](unsafe_realloc(cast[Pointer](unref(r.p).ds), newdscap*sizeof[Ptr[Pointer]]()))
   }
 }
 
 fn alloc[T](r ref Region, len Int) RPtr[T] {
   sz := sizeof[T]() * len
   extend(r, sz)
-  ret := cast[Ptr[T]](r.data +! r.current)
+  ret := cast[Ptr[T]](unref(r.p).data +! unref(r.p).current)
   var rp RPtr[T]
-  rp.pr = getref(r)
-  rp.offset = r.current
-  r.current += sz
+  rp.r = r
+  rp.offset = unref(r.p).current
+  unref(r.p).current += sz
   rp
 }
 fn alloc[T](r ref Region) RPtr[T] {
@@ -70,15 +74,15 @@ fn alloc[T](r ref Region) RPtr[T] {
 }
 
 fn to_ptr[T](rp RPtr[T]) Ptr[T] {
-  cast[Ptr[T]](unref(rp.pr).data +! rp.offset)
+  cast[Ptr[T]](unref(rp.r.p).data +! rp.offset)
 }
 
 fn alloc_with[T](r ref Region, len Int) WPtr[T] {
   sz := sizeof[T]() * len
   pp := alloc[Ptr[T]](r)
   unref(to_ptr(pp)) = cast[Ptr[T]](unsafe_malloc(sz))
-  unref(r.ds +! sizeof[Ptr[Pointer]]()*r.dscount) = cast[Ptr[Pointer]](to_ptr(pp))
-  r.dscount += 1
+  unref(unref(r.p).ds +! sizeof[Ptr[Pointer]]()*unref(r.p).dscount) = cast[Ptr[Pointer]](to_ptr(pp))
+  unref(r.p).dscount += 1
   init(WPtr[T]){pp}
 }
 
@@ -163,7 +167,7 @@ macro in_region(size FExpr, body TBlock) FExpr $[syntax] {
       `tmpr := g_current_region
       g_current_region = `prevr
       `ret = copy(`ret)
-      dealloc_region(g_current_region)
+      dealloc_region(`tmpr)
       `ret
     }
   }
