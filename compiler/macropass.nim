@@ -157,10 +157,14 @@ proc expandMacro*(scope: Scope, fexpr: var FExpr): bool =
         if not pd.sym.fexpr.fnGenerics.isSpecTypes:
           fexpr[0] = expandMacrofn(scope, pd.sym.obj.fexpr, scope.getMacroArgs(pd, args))
           var expanded = (fexpr[0].symbol.macroproc.call)(fargs)
+          if fexpr.metadata.isToplevel:
+            expanded.metadata.isToplevel = true
           scope.rootPass(expanded)
           fexpr = expanded
         else:
           var expanded = (pd.macroproc.call)(fargs)
+          if fexpr.metadata.isToplevel:
+            expanded.metadata.isToplevel = true
           scope.rootPass(expanded)
           fexpr = expanded
         return false
@@ -175,10 +179,14 @@ proc expandMacro*(scope: Scope, fexpr: var FExpr): bool =
         if not pd.sym.fexpr.fnGenerics.isSpecTypes:
           fexpr[0] = expandMacrofn(scope, pd.sym.obj.fexpr, scope.getMacroArgs(pd, args))
           var expanded = (fexpr[0].symbol.macroproc.call)(fargs)
+          if fexpr.metadata.isToplevel:
+            expanded.metadata.isToplevel = true
           scope.rootPass(expanded)
           fexpr = expanded
         else:
           var expanded = (pd.macroproc.call)(fargs)
+          if fexpr.metadata.isToplevel:
+            expanded.metadata.isToplevel = true
           scope.rootPass(expanded)
           fexpr = expanded
         return false

@@ -43,6 +43,7 @@ fn dealloc_region(r Region) {
   }
   unsafe_free(cast[Pointer](unref(r.p).ds))
   unsafe_free(cast[Pointer](unref(r.p).data))
+  unsafe_free(cast[Pointer](r.p))
 }
 
 fn extend(r ref Region, allocsize Int) {

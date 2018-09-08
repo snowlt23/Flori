@@ -4,6 +4,7 @@ import linmem, image, parser, fexpr, scope, symbol, fnmatch, localparser
 import options
 import strutils, sequtils
 import tables
+import times
 
 proc isIncludeRef*(argtypes: seq[Symbol]): bool =
   for argt in argtypes:
