@@ -248,7 +248,32 @@ proc top*(s: Scope): Scope =
 template rootScope*(): Scope = gCtx.rootScope
 
 proc newMetadataStore*(): MetadataStore =
-  genMetadataStore(MetadataStoreObj(internal: internalNone, typ: symbolNil(), converters: ilistNil[FExpr]()))
+  genMetadataStore(MetadataStoreObj(
+    scope: scopeNil(),
+    internal: internalNone,
+    header: none(IString),
+    patternc: none(IString),
+    importc: none(IString),
+    exportc: none(IString),
+    declc: none(IString),
+    infixc: false,
+    patternjs: none(IString),
+    importjs: none(IString),
+    exportjs: none(IString),
+    infixjs: false,
+    typ: symbolNil(),
+    compiletime: false,
+    constvalue: fexprNil(),
+    converters: ilistNil[FExpr](),
+    isCStruct: false,
+    isSyntax: false,
+    isEvaluated: false,
+    isExpanded: false,
+    isToplevel: false,
+    isElimEvaluated: false,
+    isEliminated: false,
+    isConverted: false,
+  ))
 
 proc hasConvert*(matches: openArray[Matched]): bool =
   for m in matches:
@@ -270,7 +295,7 @@ proc readimage*(s: Stream): FImage =
   let linbin = newString(linsize)
   # linmem
   initLinmem(linsize.int)
-  discard s.readData(cast[pointer](addr(linmem[0])), linsize.int)
+  discard s.readData(cast[pointer](linmemPtr), linsize.int)
 
 proc saveimage*[P](filename: string) =
   let ss = newStringStream()

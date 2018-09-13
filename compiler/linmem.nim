@@ -2,10 +2,38 @@
 import macros
 import patty
 
-var linmem*: seq[uint8]
+var linmemPtr*: pointer
+var linmemPos*: int
+var linmemSize*: int
+
+proc cmalloc*(size: int): pointer {.importc: "malloc", header: "stdlib.h".}
+proc crealloc*(p: pointer, size: int): pointer {.importc: "realloc", header: "stdlib.h".}
+proc cfree*(p: pointer) {.importc: "free", header: "stdlib.h".}
 
 proc initLinmem*(size: int) =
-  linmem = newSeq[uint8]()
+  linmemPtr = cmalloc(size)
+  # zeroMem(linmemPtr, size)
+  if linmemPtr.isNil:
+    raise newException(OSError, "linmem: can't alloc memory.")
+  linmemPos = 0
+  linmemSize = size
+proc autoExtend(size: int) =
+  if linmemPos+size >= linmemSize:
+    let startsize = linmemSize
+    while linmemPos+size >= linmemSize:
+      linmemSize *= 2
+    linmemPtr = crealloc(linmemPtr, linmemSize)
+    if linmemPtr.isNil:
+      raise newException(OSError, "linmem: can't realloc memory.")
+    # zeroMem(cast[pointer](cast[int](linmemPtr) + startSize), linmemSize - startsize)
+proc allocLinmem*(size: int): int =
+  autoExtend(size)
+  result = linmemPos
+  linmemPos += size
+proc getptr*(idx: int): pointer =
+  cast[pointer](cast[int](linmemPtr) + idx)
+proc destroyLinmem*() =
+  cfree(linmemPtr)
 
 template defineInternal*(name) =
   type name* = object
@@ -43,15 +71,15 @@ macro expandFields*(t: typed, typ: typed): untyped =
 
 template implInternal*(name, typ) =
   proc `alloc name`*(): name =
-    result = name(index: linmem.len)
-    for i in 0..<sizeof(typ):
-      linmem.add(0)
+    name(index: allocLinmem(sizeof(typ)))
   proc obj*(x: name): var typ =
     assert(x.index != -1)
-    cast[ptr typ](addr(linmem[x.index]))[]
+    assert(x.index < linmemPos)
+    cast[ptr typ](getptr(x.index))[]
   proc `obj=`*(x: name, value: typ) =
     assert(x.index != -1)
-    cast[ptr typ](addr(linmem[x.index]))[] = value
+    assert(x.index < linmemPos)
+    cast[ptr typ](getptr(x.index))[] = value
   proc `gen name`*(f: typ): name =
     result = `alloc name`()
     result.obj = f
@@ -61,8 +89,8 @@ template implInternal*(name, typ) =
 
 proc linmemBinary*(): string =
   result = ""
-  for c in linmem:
-    result.add(char(c))
+  for i in 0..<linmemPos:
+    result.add(cast[ptr char](cast[int](linmemPtr) + i)[])
 
 #
 # internals
@@ -82,36 +110,34 @@ type
     index: int
 
 proc istring*(s: string): IString =
-  result = IString(index: linmem.len, len: s.len)
-  for c in s:
-    linmem.add(uint8(c))
-  linmem.add(0)
+  result = IString(index: allocLinmem(s.len+1), len: s.len)
+  for i, c in s:
+    cast[ptr char](getptr(result.index + i))[] = c
+  cast[ptr char](getptr(result.index + s.len))[] = '\0'
 proc `$`*(fs: IString): string =
   result = ""
   for i in 0..<fs.len:
-    result.add(char(linmem[fs.index + i]))
+    result.add(cast[ptr char](getptr(fs.index + i))[])
 proc `==`*(a: IString, b: IString): bool =
   $a == $b
 proc `==`*(a: IString, b: string): bool =
   $a == b
 
 proc iarray*[T](len: int): IArray[T] =
-  result = IArray[T](index: linmem.len, len: len)
-  for i in 0..<(len * sizeof(T)):
-    linmem.add(0)
+  result = IArray[T](index: allocLinmem(sizeof(T)*len), len: len)
 proc checkBounds*[T](arr: IArray[T], i: int) =
   when not defined(release):
     if i < 0 or i >= arr.len:
       raise newException(Exception, "index out of bounds: $#" % $i)
 proc `[]`*[T](arr: IArray[T], i: int): T =
   arr.checkBounds(i)
-  cast[ptr T](addr(linmem[arr.index + i*sizeof(T)]))[]
+  cast[ptr T](getptr(arr.index + i*sizeof(T)))[]
 proc mget*[T](arr: IArray[T], i: int): var T =
   arr.checkBounds(i)
-  cast[ptr T](addr(linmem[arr.index + i*sizeof(T)]))[]
+  cast[ptr T](getptr(arr.index + i*sizeof(T)))[]
 proc `[]=`*[T](arr: IArray[T], i: int, val: T) =
   arr.checkBounds(i)
-  cast[ptr T](addr(linmem[arr.index + i*sizeof(T)]))[] = val
+  cast[ptr T](getptr(arr.index + i*sizeof(T)))[] = val
 proc iarray*[T](arr: openArray[T]): IArray[T] =
   result = iarray[T](arr.len)
   for i, e in arr:
@@ -133,20 +159,20 @@ iterator mpairs*[T](arr: IArray[T]): (int, var T) =
 
 proc obj*[T](lst: IList[T]): var IListObj[T] =
   assert(lst.index != -1)
-  let p = cast[ptr IListObj[T]](addr(linmem[lst.index]))
-  p[]
+  assert(lst.index < linmemPos)
+  cast[ptr IListObj[T]](getptr(lst.index))[]
 proc value*[T](lst: IList[T]): var T =
   lst.obj.value
+import typetraits
 proc `value=`*[T](lst: IList[T], v: T) =
+  echo name(type(v))
   lst.obj.value = v
 proc next*[T](lst: IList[T]): var IList[T] =
   lst.obj.next
 proc `next=`*[T](lst: IList[T], n: IList[T]) =
   lst.obj.next = n
 proc ilist*[T](value: T, next: IList[T]): IList[T] =
-  result = IList[T](index: linmem.len)
-  for i in 0..<sizeof(IListObj[T]): # FIXME:
-    linmem.add(0)
+  result = IList[T](index: allocLinmem(sizeof(IListObj[T])))
   result.value = value
   result.next = next
 proc ilistNil*[T](): IList[T] =

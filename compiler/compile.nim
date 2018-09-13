@@ -72,7 +72,7 @@ proc ccoptions*(args: Table[string, Value]): CCOptions =
   result.defines = @(args["-d"])
 
 proc compileFloriC*(options: CCOptions) =
-  initLinmem(1024*1024)
+  initLinmem(1)
   discard newSemContext(options.moptions, options.defines)
   let genctx = newCCodegenContext()
   bench "eval":
@@ -98,6 +98,7 @@ proc compileFloriC*(options: CCOptions) =
       genctx.compileWithGCC(cachedir, genGCCOptions(options))
     of ccTCC:
       genctx.compileWithTCC(cachedir, genTCCOptions(options))
+  destroyLinmem()
       
 # proc compileFloriJS*(options: CCOptions, sourcemap: bool) =
 #   let semctx = newSemanticContext(options.moptions)

@@ -10,6 +10,10 @@ proc elimToplevelPass*(scope: Scope, fexpr: FExpr): bool =
     return false
   fexpr.metadata.isElimEvaluated = true
   if fexpr.metadata.internal == internalDefn:
+    if fexpr.metadata.exportc.isSome:
+      fexpr.metadata.isEliminated = false
+      scope.elimRoot(fexpr.fnBody)
+      return false
     fexpr.metadata.isEliminated = true
     return false
   elif fexpr.metadata.internal == internalMacro:

@@ -174,3 +174,5 @@ fn `!=(a CString, b CString) Bool {
 }
 fn `!(cs CString, i Int) Char $[importc, patternc "$1[$2]", importjs, patternjs "$1[$2]"]
 fn `!(cs CString, i Int32) Char $[importc, patternc "$1[$2]", importjs, patternjs "$1[$2]"]
+
+fn assert(b Bool) $[importc, header "assert.h"]

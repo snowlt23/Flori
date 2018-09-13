@@ -34,7 +34,7 @@ proc error*(span: Span, msg: string) =
 
 template assert*(fexpr: FExpr, b: typed) =
   if not b:
-    fexpr.error("internal error.")
+    fexpr.error("internal error: " & $fexpr)
 
 proc hint*(fexpr: FExpr, msg: string) = fexpr.span.hint(msg)
 proc error*(fexpr: FExpr, msg: string) = fexpr.span.error(msg)

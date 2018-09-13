@@ -43,6 +43,8 @@ proc internalPass*(scope: Scope, fexpr: var FExpr): bool =
 proc toplevelPass*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
   if fexpr.isGenericsFuncCall:
+    for son in fexpr[1].mitems:
+      son = fsymbol(son.span, scope.semType(son))
     for son in fexpr[2].mitems:
       scope.rootPass(son)
     return true

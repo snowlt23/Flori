@@ -69,11 +69,12 @@ iterator items(range TExpr[Range]) {
 
 syntax when(fexpr FExpr) FExpr {
   if (length(fexpr) == 3) {
+    ftmp := gensym()
     tmpsym := gensym()
     cond := fexpr!1
     body := fexpr!2
     quote {
-      syntax `tmpsym(fexpr FExpr) FExpr {
+      syntax `tmpsym(`ftmp FExpr) FExpr {
         if `cond {
           quote `body
         } else {
@@ -86,12 +87,13 @@ syntax when(fexpr FExpr) FExpr {
     if (to_cs(fexpr!3) != "else") {
       error(fexpr!3, "when expect `else branch.")
     }
+    ftmp := gensym()
     tmpsym := gensym()
     cond := fexpr!1
     tbody := fexpr!2
     fbody := fexpr!4
     quote {
-      syntax `tmpsym(fexpr FExpr) FExpr {
+      syntax `tmpsym(`ftmp FExpr) FExpr {
         if `cond {
           quote `tbody
         } else {

@@ -1,5 +1,6 @@
 
 import "core"
+import "core/syntax"
 import "core/pointer"
 import "std/env"
 

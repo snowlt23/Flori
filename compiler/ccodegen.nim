@@ -180,7 +180,6 @@ proc codegenDefnInstance*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) 
   ctx.codegenDefnDecl(decl, fexpr)
   ctx.fndeclsrc &= decl.exp & ";\n"
 
-  # echo fexpr
   src &= decl
   src &= " {\n"
   let body = fexpr.fnBody
