@@ -1,4 +1,0 @@
-
-import "core"
-
-fn expect(s CString) {}
