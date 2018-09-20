@@ -1,0 +1,48 @@
+
+import "core"
+
+fn fib(n: Int): Int =>
+  if (n<2):
+    n
+  else:
+    fib(n-1) + fib(n-2
+
+@template[T]
+struct Vec =>
+  p: Ptr[T]
+  cap: Int
+  len: Int
+
+@template[T]
+fn new_vec(cap: Int) Int =>
+  init(Vec[T]):
+    p: alloc[T](cap)
+    cap: cap
+    len: 0
+
+@template[T]
+fn extend(v: Vec[T]) =>
+  if (v.len+1 >= v.cap):
+    realloc(v.p, v.cap*2)
+    v.cap *= 2
+
+@template[T]
+fn push(v: Vec[T], e: T) =>
+  v.extend()
+  unref(v.p +! v.len*sizeof(T)) = e
+  v.len += 1
+
+@template[T]
+fn `!(v: Vec[T], i: Int): T =>
+  unref(v.p +! i*sizeof(T))
+@template [T]
+fn `!!(v: Vec[T], i: Int, e: T) =>
+  unref(v.p +! i*sizeof(T)) = e
+
+macro fmac(f: FList): FExpr =>
+  quote:
+    println("FList!")
+macro fmac(f: FArray): FExpr =>
+  quote:
+    println("FArray!")
+

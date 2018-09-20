@@ -1,0 +1,23 @@
+
+a[i] # index
+=> # infix
+f a b # call
+
+import core
+
+int => $internal_type "int"
+
+fib n =>
+  if n<2: n
+  else: fib n-1 + fib n-2
+
+vector a => $struct:
+  p: a
+  cap: int
+  len: int
+
+push v e =>
+  (v.p+!v.len+sizeof(v.a))[] = e
+  v.len += 1
+
+

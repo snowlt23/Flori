@@ -1,0 +1,46 @@
+
+series []
+block {}
+^t type_syntax
+
+struct range {
+  s ^int
+  e ^int
+  i ^int
+}
+fn start(r ^range) ^int {
+  r.s
+}
+fn next(r ^range) ^int {
+  result = r.i
+  r.i += 1
+}
+fn isend(r ^range) ^int {
+  r.i >= r.e
+}
+fn '..(s ^int, e ^int) ^range {
+  init ^range {
+    s: s
+    e: e
+  }
+}
+
+syntax ['for i 'in itr b] {
+  quote {
+    itr := `itr
+    `i := start(itr)
+    while isend(itr) {
+      `b
+      `i = next(itr)
+    }
+  }
+}
+
+syntax ['^ t] { type_syntax }
+
+syntax ['fn name args opt(ret, ^void) body] {}
+  
+fn fib(n ^int) ^int {
+  if n<2: n
+  else: fib(n-1) + fib(n-2)
+}
