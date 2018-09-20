@@ -4,9 +4,21 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
-typedef enum {
+#define error(...) { fprintf(stderr, __VA_ARGS__); exit(1); }
+
+#define fwith(f, t) t ## Obj* f = (t ## Obj*)t ## _ptr(f)
+
+typedef struct {
+  char* buf;
+  int pos;
+  int len;
+} Stream;
+
+%%enum FExprKind {
   FEXPR_IDENT,
   FEXPR_INFIX,
 
@@ -22,7 +34,7 @@ typedef enum {
   FEXPR_ARRAY,
   FEXPR_LIST,
   FEXPR_BLOCK
-} FExprKind;
+};
 
 typedef struct {
   // IString filename;
@@ -37,6 +49,7 @@ typedef struct {
     int index;
   } %%1;
   %%1 alloc_%%1();
+  %%2* %%1_ptr(%%1 t);
 } {
   %%1 alloc_%%1() {
     return (%%1){linmem_alloc(sizeof(%%2))};
@@ -49,27 +62,21 @@ typedef struct {
 %%expand fstruct(FExpr, struct _FExprObj);
 typedef struct _FExprObj {
   FExprKind kind;
-  // union {
-  //   struct {
-  //     IString idname;
-  //     int priority;
-  //     bool isleft;
-  //   };
-  //   struct {
-  //     FExpr quoted;
-  //   };
-  //   struct {
-  //     Symbol symbol;
-  //   };
-  //   int intval;
-  //   float floatval;
-  //   IString strval;
-  //   IList_FExpr sons;
-  // };
+  union {
+    int intval;
+  };
 } FExprObj;
 
 // linmem.c
+void linmem_init(int size);
 int linmem_alloc(int size);
 void* linmem_toptr(int index);
+
+// parser.c
+Stream* new_stream(char* buf);
+FExpr parse(Stream* s);
+
+// codegen.c
+void codegen(FExpr f);
 
 #endif

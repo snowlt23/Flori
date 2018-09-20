@@ -1,4 +1,3 @@
-
 %%hook enum {
   skip_spaces();
   string* enumname = parse_ident();
@@ -33,6 +32,7 @@
   }
 
   printf("typedef enum { %s } %s;\n", string_cstr(enumsrc), string_cstr(enumname));
+  printf("char* %s_tostring(%s kind);\n", string_cstr(enumname), string_cstr(enumname));
   adprintf("char* %s_tostring(%s kind) { %s; return \"unknownkind\"; }\n", string_cstr(enumname), string_cstr(enumname), string_cstr(tostrsrc));
 }
 
@@ -107,3 +107,15 @@ int tnamepos = 0;
   }
 }
 
+// %%fwith FExpr fobj = f;
+%%hook fwith {
+  skip_spaces();
+  string* t = parse_ident();
+  skip_spaces();
+  string* n = parse_ident();
+  skip_spaces();
+  if (getc(stdin) != '=') error("fwith expect = infix.");
+  skip_spaces();
+  string* v = parse_until(";");
+  printf("%sObj* %s = (%sObj*)%s_ptr(%s);", t->data, n->data, t->data, t->data, v->data);
+}
