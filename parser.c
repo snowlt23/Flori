@@ -82,18 +82,22 @@ FExpr parse_ident(Stream* s) {
   return f;
 }
 
+bool ishex(char c) {
+  return isalpha(c) || c == 'x';
+}
+
 FExpr parse_intlit(Stream* s) {
   char litbuf[1024] = {};
   streamrep(i, s) {
     assert(i < 1024);
     char c = stream_get(s);
-    if (!isdigit(c)) break;
+    if (!(isdigit(c) || ishex(c))) break;
     stream_next(s);
     litbuf[i] = c;
   }
   FExpr f = new_fexpr(FEXPR_INTLIT);
   %%fwith FExpr fobj = f;
-  fobj->intval = atoi(litbuf);
+  fobj->intval = strtol(litbuf, NULL, 0);
   return f;
 }
 
