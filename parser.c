@@ -40,9 +40,47 @@ FExpr new_fexpr(FExprKind kind) {
   return f;
 }
 
+bool cmp_ident(FExpr f, char* id) {
+  %%fwith FExpr fobj = f;
+  return strcmp(fobj->ident, id) == 0;
+}
+
 //
 // parse
 //
+
+bool isident(char c) {
+  return isalpha(c) || isdigit(c) || c == '_';
+}
+
+bool isspaces(char c) {
+  return c == ' ' || c == '\t';
+}
+
+void skip_spaces(Stream* s) {
+  for (;;) {
+    if (isspaces(stream_get(s))) {
+      stream_next(s);
+    } else {
+      break;
+    }
+  }
+}
+
+FExpr parse_ident(Stream* s) {
+  char litbuf[1024] = {};
+  streamrep(i, s) {
+    assert(i < 1024);
+    char c = stream_get(s);
+    if (!isident(c)) break;
+    stream_next(s);
+    litbuf[i] = c;
+  }
+  FExpr f = new_fexpr(FEXPR_IDENT);
+  %%fwith FExpr fobj = f;
+  fobj->ident = strdup(litbuf);
+  return f;
+}
 
 FExpr parse_intlit(Stream* s) {
   char litbuf[1024] = {};
@@ -59,6 +97,34 @@ FExpr parse_intlit(Stream* s) {
   return f;
 }
 
+FExpr parse_element(Stream* s) {
+  if (isdigit(stream_get(s))) {
+    return parse_intlit(s);
+  } else if (isident(stream_get(s))) {
+    return parse_ident(s);
+  } else {
+    error("unexpected %c char.", stream_get(s));
+  }
+}
+
 FExpr parse(Stream* s) {
-  return parse_intlit(s);
+  IListFExpr sons = nil_IListFExpr();
+  for (;;) {
+    skip_spaces(s);
+    if (stream_get(s) == '\n') {
+      stream_next(s);
+      break;
+    }
+    sons = new_IListFExpr(parse_element(s), sons);
+  }
+  if (IListFExpr_len(sons) == 0) {
+    error("require more token.");
+  }
+  if (IListFExpr_len(sons) == 1) {
+    return IListFExpr_value(sons);
+  }
+  FExpr f = new_fexpr(FEXPR_SEQ);
+  %%fwith FExpr fobj = f;
+  fobj->sons = sons;
+  return f;
 }

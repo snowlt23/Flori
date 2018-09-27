@@ -18,6 +18,7 @@ void linmem_extend(int size) {
   while (linmem_need_extend(size)) {
     linmemcap *= 2;
   }
+  linmemptr = realloc(linmemptr, linmemcap);
 }
 
 int linmem_alloc(int size) {

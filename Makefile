@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall
 
-FLORI_LIBS = linmem.o parser.o codegen.o flori.h.o
+FLORI_LIBS = linmem.o jit.o parser.o codegen.o flori.h.o
 
 build: flori ;
 
@@ -22,9 +22,10 @@ flori.h.o: flori-header
 
 flori: bin flori-header $(FLORI_LIBS) flori.o
 	$(CC) $(CFLAGS) -o bin/flori $(FLORI_LIBS) flori.o
+%.out: %.o flori-header $(FLORI_LIBS)
+	$(CC) $(CFLAGS) -o $(basename $<).out $(FLORI_LIBS) $(basename $<).o
 test: flori
 	./test.sh
 
 clean:
 	@rm -rf bin/ *.out *.asm *.o adhocctmp/ tmp/ tostring.c
-
