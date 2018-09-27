@@ -9,6 +9,7 @@
 #include <assert.h>
 
 #define error(...) { fprintf(stderr, __VA_ARGS__); exit(1); }
+#define check_next(l, ...) if (IListFExpr_isnil(l)) { error(__VA_ARGS__); }
 
 #define fwith(f, t) t ## Obj* f = (t ## Obj*)t ## _ptr(f)
 
@@ -17,6 +18,10 @@ typedef struct {
   int pos;
   int len;
 } Stream;
+
+typedef struct {
+  int index;
+} IString;
 
 %%enum FExprKind {
   FEXPR_IDENT,
@@ -44,6 +49,12 @@ typedef struct {
   bool isinternal;
 } Span;
 
+#define CONCAT(a, b) a ## b
+#define flist_get_nextvalue(T, l) (IList ## T ## _isnil(l) ? (T){} : IList ## T ## _value(l))
+#define forlist2(T, lv, e, l) IList ## T lv; T e; for (lv = l, e = flist_get_nextvalue(T, lv); !IList ## T ## _isnil(lv); lv = IList ## T ## _next(lv), e = flist_get_nextvalue(T, lv))
+#define forlist1(T, ln, e, l) forlist2(T, CONCAT(_tmplst, ln), e, l)
+#define forlist(T, e, l) forlist1(T, __LINE__, e, l)
+
 %%template ilist {
   typedef struct _IList%%1 {
     int index;
@@ -59,6 +70,7 @@ typedef struct {
   IList%%1 IList%%1_next(IList%%1 l);
   bool IList%%1_isnil(IList%%1 l);
   int IList%%1_len(IList%%1 l);
+  IList%%1 IList%%1_reverse(IList%%1 l);
 } {
   IList%%1 nil_IList%%1() {
     return (IList%%1){-1};
@@ -91,6 +103,13 @@ typedef struct {
     }
     return len;
   }
+  IList%%1 IList%%1_reverse(IList%%1 l) {
+    IList%%1 ret = nil_IList%%1();
+    forlist(%%1, e, l) {
+      ret = new_IList%%1(e, ret);
+    }
+    return ret;
+  }
 }
 
 %%template fstruct {
@@ -113,11 +132,18 @@ typedef struct {
 typedef struct _FExprObj {
   FExprKind kind;
   union {
-    char* ident;
+    IString ident;
     int intval;
     IListFExpr sons;
   };
 } FExprObj;
+
+typedef struct {
+  IString key;
+  int index;
+} FnPair;
+
+%%expand ilist(FnPair);
 
 // linmem.c
 void linmem_init(int size);
@@ -130,11 +156,18 @@ int jit_getidx();
 int jit_alloc_write(uint8_t* buf, int n);
 void* jit_toptr(int index);
 
+// istring.c
+IString new_istring(char* s);
+char* istring_cstr(IString s);
+
 // parser.c
+bool cmp_ident(FExpr f, char* id);
 Stream* new_stream(char* buf);
 FExpr parse(Stream* s);
 
 // codegen.c
+void codegen_init();
 void codegen(FExpr f);
+int call_main();
 
 #endif

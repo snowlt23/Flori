@@ -29,5 +29,6 @@ int linmem_alloc(int size) {
 }
 
 void* linmem_toptr(int index) {
+  assert(index >= 0);
   return (void*)(linmemptr + index);
 }

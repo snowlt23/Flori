@@ -19,12 +19,11 @@ char* read_stdin() {
 
 int main() {
   linmem_init(1024);
+  jit_init(1024);
+  codegen_init();
   Stream* s = new_stream(read_stdin());
   FExpr f = parse(s);
-  printf("  .intel_syntax noprefix\n");
-  printf("  .global main\n");
-  printf("main:\n");
   codegen(f);
-  printf("  ret\n");
+  printf("%d", call_main());
   return 0;
 }

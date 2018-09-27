@@ -42,7 +42,7 @@ FExpr new_fexpr(FExprKind kind) {
 
 bool cmp_ident(FExpr f, char* id) {
   %%fwith FExpr fobj = f;
-  return strcmp(fobj->ident, id) == 0;
+  return strcmp(istring_cstr(fobj->ident), id) == 0;
 }
 
 //
@@ -78,7 +78,7 @@ FExpr parse_ident(Stream* s) {
   }
   FExpr f = new_fexpr(FEXPR_IDENT);
   %%fwith FExpr fobj = f;
-  fobj->ident = strdup(litbuf);
+  fobj->ident = new_istring(strdup(litbuf));
   return f;
 }
 
@@ -125,6 +125,6 @@ FExpr parse(Stream* s) {
   }
   FExpr f = new_fexpr(FEXPR_SEQ);
   %%fwith FExpr fobj = f;
-  fobj->sons = sons;
+  fobj->sons = IListFExpr_reverse(sons);
   return f;
 }
