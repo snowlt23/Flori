@@ -87,6 +87,13 @@ void codegen_fseq(FExpr f) {
     codegen(fnbody);
     write_hex(0x58); // pop rax ; for return value
     gen_epilogue();
+  } else if (cmp_ident(first, "X")) {
+    IListFExpr cur = fobj->sons;
+    cur = IListFExpr_next(cur);
+    check_next(cur, "expected name in fn");
+    %%fwith FExpr opcode = IListFExpr_value(cur);
+    if (opcode->kind != FEXPR_INTLIT) error("expected int literal in X.");
+    write_hex(opcode->intval);
   } else {
     error("undefined `%s syntax", istring_cstr(FExpr_ptr(first)->ident));
   }

@@ -30,3 +30,4 @@ runtest "fn main 0xa" 10
 runtest "fn main 0xFF" 255
 runtest "fn main {0xFF}" 255
 runtest "fn main {0xFF; 45}" 45
+runtest "fn main {45; X 0x58; X 0x48; X 0x89; X 0xEC; X 0x5D; X 0xC3}" 45
