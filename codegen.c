@@ -30,7 +30,7 @@ bool fnpair_isnil(FnPair pair) {
 }
 
 FnPair search_fn(char* name) {
-  forlist(FnPair, pair, fnmap) {
+  forlist (FnPair, pair, fnmap) {
     if (strcmp(istring_cstr(pair.key), name) == 0) {
       return pair;
     }
@@ -84,9 +84,6 @@ void codegen_fseq(FExpr f) {
     int fnidx = jit_getidx();
     add_fnpair(fnname->ident, fnidx);
     gen_prologue();
-    // forlist (FExpr, son, fnbody->sons) {
-    //   codegen(son);
-    // }
     codegen(fnbody);
     write_hex(0x58); // pop rax ; for return value
     gen_epilogue();
@@ -104,6 +101,13 @@ void codegen(FExpr f) {
     case FEXPR_SEQ:
       if (IListFExpr_len(fobj->sons) != 0) {
         codegen_fseq(f);
+      }
+      break;
+    case FEXPR_BLOCK:
+      {
+        forlist (FExpr, son, fobj->sons) {
+        codegen(son);
+        }
       }
       break;
     default:

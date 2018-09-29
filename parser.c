@@ -101,13 +101,32 @@ FExpr parse_intlit(Stream* s) {
   return f;
 }
 
+FExpr parse_fblock(Stream* s) {
+  if (stream_next(s) != '{') error("expect `{ token");
+  IListFExpr sons = nil_IListFExpr();
+  streamrep(i, s) {
+    skip_spaces(s);
+    if (stream_get(s) == '}') break;
+    FExpr son = parse(s);
+    if (son.index == -1) continue;
+    sons = new_IListFExpr(son, sons);
+  }
+  if (stream_next(s) != '}') error("expect `} token");
+  FExpr f = new_fexpr(FEXPR_BLOCK);
+  %%fwith FExpr fobj = f;
+  fobj->sons = IListFExpr_reverse(sons);
+  return f;
+}
+
 FExpr parse_element(Stream* s) {
   if (isdigit(stream_get(s))) {
     return parse_intlit(s);
   } else if (isident(stream_get(s))) {
     return parse_ident(s);
+  } else if (stream_get(s) == '{') {
+    return parse_fblock(s);
   } else {
-    error("unexpected %c char.", stream_get(s));
+    error("unexpected %c char", stream_get(s));
   }
 }
 
@@ -115,14 +134,16 @@ FExpr parse(Stream* s) {
   IListFExpr sons = nil_IListFExpr();
   for (;;) {
     skip_spaces(s);
-    if (stream_get(s) == '\n') {
+    if (stream_get(s) == '\n' || stream_get(s) == ';') {
       stream_next(s);
+      break;
+    } else if (stream_get(s) == '}') {
       break;
     }
     sons = new_IListFExpr(parse_element(s), sons);
   }
   if (IListFExpr_len(sons) == 0) {
-    error("require more token.");
+    return (FExpr){-1};
   }
   if (IListFExpr_len(sons) == 1) {
     return IListFExpr_value(sons);

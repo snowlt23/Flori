@@ -23,7 +23,10 @@ unittest "jit_test"
 
 runtest "fn main 9" 9
 runtest "fn main 4" 4
-runtest "fn main 5" 5
+runtest "fn main {5}" 5
 runtest "fn main 555" 555
+runtest "fn main {555}" 555
 runtest "fn main 0xa" 10
 runtest "fn main 0xFF" 255
+runtest "fn main {0xFF}" 255
+runtest "fn main {0xFF; 45}" 45
