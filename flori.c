@@ -22,8 +22,11 @@ int main() {
   jit_init(1024);
   codegen_init();
   Stream* s = new_stream(read_stdin());
-  FExpr f = parse(s);
-  codegen(f);
+  while (!stream_isend(s)) {
+    FExpr f = parse(s);
+    if (f.index == -1) continue;
+    codegen(f);
+  }
   printf("%d", call_main());
   return 0;
 }

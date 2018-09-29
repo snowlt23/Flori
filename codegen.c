@@ -10,10 +10,16 @@
 #define write_hex(...) write_hex1(__LINE__, __VA_ARGS__)
 
 IListFnPair fnmap;
+IListJitPair jitmap;
 
 void codegen_init() {
   fnmap = nil_IListFnPair();
+  jitmap = nil_IListJitPair();
 }
+
+//
+// FnPair
+//
 
 void add_fnpair(IString key, int idx) {
   fnmap = new_IListFnPair((FnPair){key, idx}, fnmap);
@@ -36,6 +42,33 @@ FnPair search_fn(char* name) {
     }
   }
   return fnpair_nil();
+}
+
+//
+// JitPair
+//
+
+void add_jitpair(IString key, FExpr f) {
+  jitmap = new_IListJitPair((JitPair){key, f}, jitmap);
+}
+
+JitPair jitpair_nil() {
+  JitPair pair;
+  pair.body.index = -1;
+  return pair;
+}
+
+bool jitpair_isnil(JitPair pair) {
+  return pair.body.index == -1;
+}
+
+JitPair search_jit(char* name) {
+  forlist (JitPair, pair, jitmap) {
+    if (strcmp(istring_cstr(pair.key), name) == 0) {
+      return pair;
+    }
+  }
+  return jitpair_nil();
 }
 
 //
@@ -69,7 +102,7 @@ void gen_push_int(int x) {
   write_lendian(x);
 }
 
-void codegen_fseq(FExpr f) {
+void codegen_internal_fseq(FExpr f) {
   %%fwith FExpr fobj = f;
   FExpr first = IListFExpr_value(fobj->sons);
   // function codegen
@@ -87,6 +120,15 @@ void codegen_fseq(FExpr f) {
     codegen(fnbody);
     write_hex(0x58); // pop rax ; for return value
     gen_epilogue();
+  } else if (cmp_ident(first, "jit")) {
+    IListFExpr cur = fobj->sons;
+    cur = IListFExpr_next(cur);
+    check_next(cur, "expected name in jit");
+    %%fwith FExpr jitname = IListFExpr_value(cur);
+    cur = IListFExpr_next(cur);
+    check_next(cur, "expected body in jit");
+    FExpr jitbody = IListFExpr_value(cur);
+    add_jitpair(jitname->ident, jitbody);
   } else if (cmp_ident(first, "X")) {
     IListFExpr cur = fobj->sons;
     cur = IListFExpr_next(cur);
@@ -102,18 +144,35 @@ void codegen_fseq(FExpr f) {
 void codegen(FExpr f) {
   %%fwith FExpr fobj = f;
   switch (fobj->kind) {
+    case FEXPR_IDENT:
+      {
+        JitPair pair = search_jit(istring_cstr(fobj->ident));
+        if (!jitpair_isnil(pair)) {
+          codegen(pair.body);
+        } else {
+          error("undeclared `%s ident.", istring_cstr(fobj->ident));
+        }
+      }
+      break;
     case FEXPR_INTLIT:
       gen_push_int(fobj->intval);
       break;
     case FEXPR_SEQ:
       if (IListFExpr_len(fobj->sons) != 0) {
-        codegen_fseq(f);
+        %%fwith FExpr first = IListFExpr_value(fobj->sons);
+        if (first->kind != FEXPR_IDENT) break;
+        JitPair pair = search_jit(istring_cstr(first->ident));
+        if (!jitpair_isnil(pair)) {
+          codegen(pair.body);
+        } else {
+          codegen_internal_fseq(f);
+        }
       }
       break;
     case FEXPR_BLOCK:
       {
         forlist (FExpr, son, fobj->sons) {
-        codegen(son);
+          codegen(son);
         }
       }
       break;

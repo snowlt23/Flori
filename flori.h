@@ -143,7 +143,13 @@ typedef struct {
   int index;
 } FnPair;
 
+typedef struct {
+  IString key;
+  FExpr body;
+} JitPair;
+
 %%expand ilist(FnPair);
+%%expand ilist(JitPair);
 
 // linmem.c
 void linmem_init(int size);
@@ -162,6 +168,7 @@ char* istring_cstr(IString s);
 
 // parser.c
 bool cmp_ident(FExpr f, char* id);
+bool stream_isend(Stream* s);
 Stream* new_stream(char* buf);
 FExpr parse(Stream* s);
 
