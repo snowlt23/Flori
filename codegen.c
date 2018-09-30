@@ -163,6 +163,9 @@ void codegen(FExpr f) {
         if (first->kind != FEXPR_IDENT) break;
         JitPair pair = search_jit(istring_cstr(first->ident));
         if (!jitpair_isnil(pair)) {
+          forlist (FExpr, arg, IListFExpr_next(fobj->sons)) {
+            codegen(arg);
+          }
           codegen(pair.body);
         } else {
           codegen_internal_fseq(f);

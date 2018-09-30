@@ -2,6 +2,7 @@
 
 int main() {
   linmem_init(1);
+  if (linmem_need_extend()) linmem_extend();
   int idx1 = linmem_alloc(8);
   assert(idx1 == 0);
   int idx2 = linmem_alloc(12);

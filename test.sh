@@ -18,6 +18,12 @@ jit return {
   X 0x5D
   X 0xC3
 }
+jit add {
+  X 0x59
+  X 0x58
+  X 0x48; X 0x01; X 0xC8
+  X 0x50
+}
 EOD`
 
 # $1=input $2=expect
@@ -41,5 +47,6 @@ runtest "fn main 0xa" 10
 runtest "fn main 0xFF" 255
 runtest "fn main {0xFF}" 255
 runtest "fn main {0xFF; 45}" 45
-# runtest "fn main {45; X 0x58; X 0x48; X 0x89; X 0xEC; X 0x5D; X 0xC3}" 45
-runtest "fn main {555; return}" 555
+runtest "fn main {45; X 0x58; X 0x48; X 0x89; X 0xEC; X 0x5D; X 0xC3}" 45
+runtest "fn main {return 555}" 555
+runtest "fn main {add 4 5}" 9

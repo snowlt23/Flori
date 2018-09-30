@@ -152,6 +152,8 @@ typedef struct {
 %%expand ilist(JitPair);
 
 // linmem.c
+bool linmem_need_extend();
+void linmem_extend();
 void linmem_init(int size);
 int linmem_alloc(int size);
 void* linmem_toptr(int index);
