@@ -141,15 +141,21 @@ typedef struct _FExprObj {
 typedef struct {
   IString key;
   int index;
-} FnPair;
+} FnInfo;
 
 typedef struct {
   IString key;
   FExpr body;
-} JitPair;
+} JitInfo;
 
-%%expand ilist(FnPair);
-%%expand ilist(JitPair);
+typedef struct {
+  IString key;
+  int offset;
+} VarInfo;
+
+%%expand ilist(FnInfo);
+%%expand ilist(JitInfo);
+%%expand ilist(VarInfo);
 
 // linmem.c
 bool linmem_need_extend();

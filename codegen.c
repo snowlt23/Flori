@@ -9,66 +9,96 @@
 #define write_hex1(ln, ...) write_hex2(CONCAT(_hex, ln), __VA_ARGS__)
 #define write_hex(...) write_hex1(__LINE__, __VA_ARGS__)
 
-IListFnPair fnmap;
-IListJitPair jitmap;
+int curroffset;
+IListFnInfo fnmap;
+IListJitInfo jitmap;
+IListVarInfo varmap;
 
 void codegen_init() {
-  fnmap = nil_IListFnPair();
-  jitmap = nil_IListJitPair();
+  fnmap = nil_IListFnInfo();
+  jitmap = nil_IListJitInfo();
+  varmap = nil_IListVarInfo();
 }
 
 //
-// FnPair
+// FnInfo
 //
 
-void add_fnpair(IString key, int idx) {
-  fnmap = new_IListFnPair((FnPair){key, idx}, fnmap);
+void add_fninfo(IString key, int idx) {
+  fnmap = new_IListFnInfo((FnInfo){key, idx}, fnmap);
 }
 
-FnPair fnpair_nil() {
-  FnPair pair;
-  pair.index = -1;
-  return pair;
+FnInfo fninfo_nil() {
+  FnInfo info;
+  info.index = -1;
+  return info;
 }
 
-bool fnpair_isnil(FnPair pair) {
-  return pair.index == -1;
+bool fninfo_isnil(FnInfo info) {
+  return info.index == -1;
 }
 
-FnPair search_fn(char* name) {
-  forlist (FnPair, pair, fnmap) {
-    if (strcmp(istring_cstr(pair.key), name) == 0) {
-      return pair;
+FnInfo search_fn(char* name) {
+  forlist (FnInfo, info, fnmap) {
+    if (strcmp(istring_cstr(info.key), name) == 0) {
+      return info;
     }
   }
-  return fnpair_nil();
+  return fninfo_nil();
 }
 
 //
-// JitPair
+// JitInfo
 //
 
-void add_jitpair(IString key, FExpr f) {
-  jitmap = new_IListJitPair((JitPair){key, f}, jitmap);
+void add_jitinfo(IString key, FExpr f) {
+  jitmap = new_IListJitInfo((JitInfo){key, f}, jitmap);
 }
 
-JitPair jitpair_nil() {
-  JitPair pair;
-  pair.body.index = -1;
-  return pair;
+JitInfo jitinfo_nil() {
+  JitInfo info;
+  info.body.index = -1;
+  return info;
 }
 
-bool jitpair_isnil(JitPair pair) {
-  return pair.body.index == -1;
+bool jitinfo_isnil(JitInfo info) {
+  return info.body.index == -1;
 }
 
-JitPair search_jit(char* name) {
-  forlist (JitPair, pair, jitmap) {
-    if (strcmp(istring_cstr(pair.key), name) == 0) {
-      return pair;
+JitInfo search_jit(char* name) {
+  forlist (JitInfo, info, jitmap) {
+    if (strcmp(istring_cstr(info.key), name) == 0) {
+      return info;
     }
   }
-  return jitpair_nil();
+  return jitinfo_nil();
+}
+
+//
+// VarInfo
+//
+
+void add_varinfo(IString key, int offset) {
+  varmap = new_IListVarInfo((VarInfo){key, offset}, varmap);
+}
+
+VarInfo varinfo_nil() {
+  VarInfo info;
+  info.offset= -1;
+  return info;
+}
+
+bool varinfo_isnil(VarInfo info) {
+  return info.offset == -1;
+}
+
+VarInfo search_var(char* name) {
+  forlist (VarInfo, info, varmap) {
+    if (strcmp(istring_cstr(info.key), name) == 0) {
+      return info;
+    }
+  }
+  return varinfo_nil();
 }
 
 //
@@ -108,14 +138,22 @@ void codegen_internal_fseq(FExpr f) {
   // function codegen
   if (cmp_ident(first, "fn")) {
     IListFExpr cur = fobj->sons;
+
     cur = IListFExpr_next(cur);
     check_next(cur, "expected name in fn");
     %%fwith FExpr fnname = IListFExpr_value(cur);
+
+    cur = IListFExpr_next(cur);
+    check_next(cur, "expected arguments in fn");
+    %%fwith FExpr fnargs= IListFExpr_value(cur);
+
     cur = IListFExpr_next(cur);
     check_next(cur, "expected body in fn");
     FExpr fnbody = IListFExpr_value(cur);
+
     int fnidx = jit_getidx();
-    add_fnpair(fnname->ident, fnidx);
+    add_fninfo(fnname->ident, fnidx);
+    curroffset = 0;
     gen_prologue();
     codegen(fnbody);
     write_hex(0x58); // pop rax ; for return value
@@ -128,7 +166,7 @@ void codegen_internal_fseq(FExpr f) {
     cur = IListFExpr_next(cur);
     check_next(cur, "expected body in jit");
     FExpr jitbody = IListFExpr_value(cur);
-    add_jitpair(jitname->ident, jitbody);
+    add_jitinfo(jitname->ident, jitbody);
   } else if (cmp_ident(first, "X")) {
     IListFExpr cur = fobj->sons;
     cur = IListFExpr_next(cur);
@@ -136,6 +174,24 @@ void codegen_internal_fseq(FExpr f) {
     %%fwith FExpr opcode = IListFExpr_value(cur);
     if (opcode->kind != FEXPR_INTLIT) error("expected int literal in X.");
     write_hex(opcode->intval);
+  } else if (cmp_ident(first, "set")) {
+    IListFExpr cur = fobj->sons;
+
+    cur = IListFExpr_next(cur);
+    check_next(cur, "expected name in fn");
+    %%fwith FExpr lvalue = IListFExpr_value(cur);
+
+    cur = IListFExpr_next(cur);
+    check_next(cur, "expected name in fn");
+    FExpr value = IListFExpr_value(cur);
+
+    curroffset += 8;
+    int offset = curroffset;
+    add_varinfo(lvalue->ident, offset);
+    codegen(value);
+    write_hex(0x58); // pop rax
+    write_hex(0x48, 0x89, 0x85); // mov [rbp-offset], rax
+    write_lendian(-offset);
   } else {
     error("undefined `%s syntax", istring_cstr(FExpr_ptr(first)->ident));
   }
@@ -146,9 +202,13 @@ void codegen(FExpr f) {
   switch (fobj->kind) {
     case FEXPR_IDENT:
       {
-        JitPair pair = search_jit(istring_cstr(fobj->ident));
-        if (!jitpair_isnil(pair)) {
-          codegen(pair.body);
+        VarInfo vinfo = search_var(istring_cstr(fobj->ident));
+        JitInfo jinfo = search_jit(istring_cstr(fobj->ident));
+        if (!varinfo_isnil(vinfo)) {
+          write_hex(0xff, 0xb5);
+          write_lendian(-vinfo.offset);
+        } else if (!jitinfo_isnil(jinfo)) {
+          codegen(jinfo.body);
         } else {
           error("undeclared `%s ident.", istring_cstr(fobj->ident));
         }
@@ -161,12 +221,20 @@ void codegen(FExpr f) {
       if (IListFExpr_len(fobj->sons) != 0) {
         %%fwith FExpr first = IListFExpr_value(fobj->sons);
         if (first->kind != FEXPR_IDENT) break;
-        JitPair pair = search_jit(istring_cstr(first->ident));
-        if (!jitpair_isnil(pair)) {
+        JitInfo jitinfo = search_jit(istring_cstr(first->ident));
+        FnInfo fninfo = search_fn(istring_cstr(first->ident));
+        if (!jitinfo_isnil(jitinfo)) {
           forlist (FExpr, arg, IListFExpr_next(fobj->sons)) {
             codegen(arg);
           }
-          codegen(pair.body);
+          codegen(jitinfo.body);
+        } else if (!fninfo_isnil(fninfo)) {
+          forlist (FExpr, arg, IListFExpr_next(fobj->sons)) {
+            codegen(arg);
+          }
+          int rel = fninfo.index - jit_getidx() - 4;
+          write_hex(0xE8);
+          write_lendian(rel);
         } else {
           codegen_internal_fseq(f);
         }
@@ -186,8 +254,8 @@ void codegen(FExpr f) {
 }
 
 int call_main() {
-  FnPair mainp = search_fn("main");
-  if (fnpair_isnil(mainp)) {
+  FnInfo mainp = search_fn("main");
+  if (fninfo_isnil(mainp)) {
     error("undefined reference to `main");
   }
   return ((int (*)())jit_toptr(mainp.index))();
