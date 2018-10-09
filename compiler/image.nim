@@ -270,7 +270,7 @@ proc readimage*(s: Stream): FImage =
   let linbin = newString(linsize)
   # linmem
   initLinmem(linsize.int)
-  discard s.readData(cast[pointer](addr(linmem[0])), linsize.int)
+  discard s.readData(linmemPtr, linsize.int)
 
 proc saveimage*[P](filename: string) =
   let ss = newStringStream()

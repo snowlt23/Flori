@@ -8,7 +8,7 @@ type MyListObj = object
 implInternal(MyList, MyListObj)
 
 suite "linmem":
-  initLinmem(1024)
+  initLinmem(defaultLinmemSpace)
   test "ilist":
     var lst = ilistNil[string]()
     for i in 0..<100:

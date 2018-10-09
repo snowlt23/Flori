@@ -2,10 +2,34 @@
 import macros
 import patty
 
-var linmem*: seq[uint8]
+var defaultLinmemSpace* = 1024*1024*1024
+
+var linmemPtr*: pointer
+var linmemPos*: int
+var linmemSize*: int
+
+proc malloc*(size: int): pointer {.importc, header: "stdlib.h".}
+proc free*(p: pointer) {.importc, header: "stdlib.h".}
+proc realloc*(p: pointer, size: int): pointer {.importc, header: "stdlib.h".}
 
 proc initLinmem*(size: int) =
-  linmem = newSeq[uint8]()
+  linmemPtr = malloc(size)
+  linmemPos = 0
+  linmemSize = size
+proc linmemNeedExtend*(size: int): bool =
+  linmemPos + size >= linmemSize
+proc linmemExtend*(size: int) =
+  while linmemNeedExtend(size):
+    linmemSize *= 2
+  linmemPtr = realloc(linmemPtr, linmemSize)
+proc linmemAlloc*(size: int): int =
+  if linmemNeedExtend(size):
+    raise newException(OSError, "linmem space is shortage")
+  result = linmemPos
+  linmemPos += size
+proc linmemToPtr*(idx: int): pointer =
+  assert(idx != -1)
+  cast[pointer](cast[int](linmemPtr) + idx)
 
 template defineInternal*(name) =
   type name* = object
@@ -43,15 +67,11 @@ macro expandFields*(t: typed, typ: typed): untyped =
 
 template implInternal*(name, typ) =
   proc `alloc name`*(): name =
-    result = name(index: linmem.len)
-    for i in 0..<sizeof(typ):
-      linmem.add(0)
+    result = name(index: linmemAlloc(sizeof(typ)))
   proc obj*(x: name): var typ =
-    assert(x.index != -1)
-    cast[ptr typ](addr(linmem[x.index]))[]
+    cast[ptr typ](linmemToPtr(x.index))[]
   proc `obj=`*(x: name, value: typ) =
-    assert(x.index != -1)
-    cast[ptr typ](addr(linmem[x.index]))[] = value
+    cast[ptr typ](linmemToPtr(x.index))[] = value
   proc `gen name`*(f: typ): name =
     result = `alloc name`()
     result.obj = f
@@ -61,8 +81,8 @@ template implInternal*(name, typ) =
 
 proc linmemBinary*(): string =
   result = ""
-  for c in linmem:
-    result.add(char(c))
+  for i in 0..<linmemPos:
+    result.add(cast[ptr char](linmemToPtr(i))[])
 
 #
 # internals
@@ -82,36 +102,37 @@ type
     index: int
 
 proc istring*(s: string): IString =
-  result = IString(index: linmem.len, len: s.len)
-  for c in s:
-    linmem.add(uint8(c))
-  linmem.add(0)
+  if linmemNeedExtend(s.len):
+    raise newException(OSError, "linmem space is shortage")
+  result = IString(index: linmemPos, len: s.len)
+  linmemPos += s.len
+  for i, c in s:
+    cast[ptr char](linmemToPtr(result.index + i))[] = c
+  cast[ptr char](linmemToPtr(result.index + s.len))[] = '\0'
 proc `$`*(fs: IString): string =
   result = ""
   for i in 0..<fs.len:
-    result.add(char(linmem[fs.index + i]))
+    result.add(cast[ptr char](linmemToPtr(fs.index + i))[])
 proc `==`*(a: IString, b: IString): bool =
   $a == $b
 proc `==`*(a: IString, b: string): bool =
   $a == b
 
 proc iarray*[T](len: int): IArray[T] =
-  result = IArray[T](index: linmem.len, len: len)
-  for i in 0..<(len * sizeof(T)):
-    linmem.add(0)
+  result = IArray[T](index: linmemAlloc(len*sizeof(T)), len: len)
 proc checkBounds*[T](arr: IArray[T], i: int) =
   when not defined(release):
     if i < 0 or i >= arr.len:
       raise newException(Exception, "index out of bounds: $#" % $i)
 proc `[]`*[T](arr: IArray[T], i: int): T =
   arr.checkBounds(i)
-  cast[ptr T](addr(linmem[arr.index + i*sizeof(T)]))[]
+  cast[ptr T](linmemToPtr(arr.index + i*sizeof(T)))[]
 proc mget*[T](arr: IArray[T], i: int): var T =
   arr.checkBounds(i)
-  cast[ptr T](addr(linmem[arr.index + i*sizeof(T)]))[]
+  cast[ptr T](linmemToPtr(arr.index + i*sizeof(T)))[]
 proc `[]=`*[T](arr: IArray[T], i: int, val: T) =
   arr.checkBounds(i)
-  cast[ptr T](addr(linmem[arr.index + i*sizeof(T)]))[] = val
+  cast[ptr T](linmemToPtr(arr.index + i*sizeof(T)))[] = val
 proc iarray*[T](arr: openArray[T]): IArray[T] =
   result = iarray[T](arr.len)
   for i, e in arr:
@@ -133,8 +154,7 @@ iterator mpairs*[T](arr: IArray[T]): (int, var T) =
 
 proc obj*[T](lst: IList[T]): var IListObj[T] =
   assert(lst.index != -1)
-  let p = cast[ptr IListObj[T]](addr(linmem[lst.index]))
-  p[]
+  cast[ptr IListObj[T]](linmemToPtr(lst.index))[]
 proc value*[T](lst: IList[T]): var T =
   lst.obj.value
 proc `value=`*[T](lst: IList[T], v: T) =
@@ -144,9 +164,7 @@ proc next*[T](lst: IList[T]): var IList[T] =
 proc `next=`*[T](lst: IList[T], n: IList[T]) =
   lst.obj.next = n
 proc ilist*[T](value: T, next: IList[T]): IList[T] =
-  result = IList[T](index: linmem.len)
-  for i in 0..<sizeof(IListObj[T]): # FIXME:
-    linmem.add(0)
+  result = IList[T](index: linmemAlloc(sizeof(IListObj[T])))
   result.value = value
   result.next = next
 proc ilistNil*[T](): IList[T] =

@@ -3,7 +3,7 @@ import unittest
 import compiler/fexpr_core
 
 suite "F expression parser test":
-  initLinmem(1024)
+  initLinmem(defaultLinmemSpace)
   test "atom":
     let fexprs = parseToplevel("test.flori", """
     9

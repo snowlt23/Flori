@@ -47,7 +47,7 @@ proc setupFloriCompiler*() =
 
 proc main() =
   setupFloriCompiler()
-  initLinmem(1024)
+  initLinmem(defaultLinmemSpace)
   for florifile in walkDirRec("tests/floritests"):
     execFloriTest(florifile)
   

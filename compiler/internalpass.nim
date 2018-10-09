@@ -830,12 +830,17 @@ proc newSemContext*(moptions = "", defines = newSeq[string]()): SemContext =
   rootPass = processSemPass
   gCtx = result
 
+proc semExtendLinmem() =
+  if linmemNeedExtend(defaultLinmemSpace):
+    linmemExtend(defaultLinmemSpace)
+
 proc semModule*(ctx: var SemContext, name: IString, scope: Scope, fexprs: var seq[FExpr]) =
   let opt = ctx.modules.find($name)
   if opt.isSome:
     return
   scope.importScope(istring("internal"), ctx.internalScope)
   for f in fexprs.mitems:
+    semExtendLinmem()
     f.metadata.isToplevel = true
     scope.rootPass(f)
     ctx.globaltoplevels.add(f)

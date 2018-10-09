@@ -72,7 +72,7 @@ proc ccoptions*(args: Table[string, Value]): CCOptions =
   result.defines = @(args["-d"])
 
 proc compileFloriC*(options: CCOptions) =
-  initLinmem(1024*1024)
+  initLinmem(defaultLinmemSpace)
   discard newSemContext(options.moptions, options.defines)
   let genctx = newCCodegenContext()
   bench "eval":
