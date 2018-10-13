@@ -12,10 +12,15 @@ fn char(c Int) Char $[importjs "String.fromCharCode"] {
 
 macro c(s FStrLit) FExpr $[syntax] {
   len := strlen(strval(s))
-  if (len != 1) {
+  ch := if (len == 1) {
+    strval(s)!0
+  } elif (len == 2) {
+    strval(s)!1
+  } else {
     error(s, "char literal should be 1 length string.")
+    char(0)
   }
-  i := new_fintlit(cast[Int](strval(s)!0))
+  i := new_fintlit(cast[Int](ch))
   quote {
     char(`i)
   }

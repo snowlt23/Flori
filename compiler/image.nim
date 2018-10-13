@@ -3,6 +3,7 @@ import options
 import tables
 import streams
 import dynlib
+import marshal
 
 import linmem
 
@@ -42,6 +43,7 @@ type
   MetadataStoreObj* = object
     scope*: Scope
     internal*: InternalKind
+    decl*: bool
     header*: Option[IString]
     patternc*: Option[IString]
     importc*: Option[IString]
@@ -264,21 +266,22 @@ proc writeimage*(s: Stream, image: var FImage) =
   let linbin = linmemBinary()
   s.write(linbin.len.int64)
   s.write(linbin)
+  s.store(gCtx)
 
 proc readimage*(s: Stream): FImage =
   let linsize = s.readInt64()
-  let linbin = newString(linsize)
   # linmem
   initLinmem(linsize.int)
+  linmemPos = linsize.int
+  linmemExtend(defaultLinmemSpace)
   discard s.readData(linmemPtr, linsize.int)
+  s.load(gCtx)
 
-proc saveimage*[P](filename: string) =
+proc saveimage*(filename: string) =
   let ss = newStringStream()
   ss.writeimage(gImage)
   writeFile(filename, ss.data)
 
-proc loadimage*[P](filename: string) =
+proc loadimage*(filename: string) =
   let ss = newStringStream(readFile(filename))
   gImage = ss.readimage()
-  if gImage.scopes.len > 0:
-    gCtx.rootScope = Scope(index: 0)

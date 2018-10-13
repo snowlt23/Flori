@@ -57,7 +57,7 @@ fn extend[T](v ref Vec[T]) {
 }
 
 fn push[T](v ref Vec[T], value T) $[importjs, patternjs "$1.push($2)"] {
-  if (v.cap < v.len+1) {
+  if (v.cap <= v.len) {
     extend(v)
   }
   unref(to_ptr(v.data) +! (v.len * sizeof[T]())) = value

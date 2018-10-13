@@ -15,6 +15,8 @@ type
     ccTCC
     ccGCC
   CCOptions* = object
+    imagedump*: bool
+    loadimage*: bool
     cc*: CCKind
     filepath*: string
     output*: string
@@ -39,6 +41,8 @@ proc genTCCOptions*(options: CCOptions): string =
   "-o$# -I$# $#" % [options.output.exe, getAppDir() / "../ffi", options.ccoptions]
 
 proc ccoptions*(args: Table[string, Value]): CCOptions =
+  result.imagedump = bool(args["--imagedump"])
+  result.loadimage = bool(args["--loadimage"])
   result.cc = if args["--cc"]:
                 if $args["--cc"] == "gcc":
                   ccGCC
@@ -74,6 +78,8 @@ proc ccoptions*(args: Table[string, Value]): CCOptions =
 proc compileFloriC*(options: CCOptions) =
   initLinmem(defaultLinmemSpace)
   discard newSemContext(options.moptions, options.defines)
+  if options.loadimage:
+    loadimage("tmpimg.fimg")
   let genctx = newCCodegenContext()
   bench "eval":
     if not existsFile(options.filepath):
@@ -98,6 +104,8 @@ proc compileFloriC*(options: CCOptions) =
       genctx.compileWithGCC(cachedir, genGCCOptions(options))
     of ccTCC:
       genctx.compileWithTCC(cachedir, genTCCOptions(options))
+  if options.imagedump:
+    saveimage("tmpimg.fimg")
       
 # proc compileFloriJS*(options: CCOptions, sourcemap: bool) =
 #   let semctx = newSemanticContext(options.moptions)

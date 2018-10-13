@@ -131,6 +131,13 @@ proc expandDeftype*(fexpr: FExpr): FExpr =
   return newfexpr
 
 #
+# Basic pragmas
+#
+
+proc semDecl*(scope: Scope, fexpr: var FExpr) =
+  fexpr[1].metadata.decl = true
+
+#
 # C pragmas
 #
 
@@ -301,13 +308,17 @@ proc semFunc*(scope: Scope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): (
   let sym = scope.symbol(istring(name(fexpr.fnName)), symkind, fexpr)
 
   if decl:
-    let pd = ProcDecl(name: istring(name(fexpr.fnName)), argtypes: iarray(argtypes), generics: iarray(generics), returntype: rettype, sym: sym)
-    if fexpr.metadata.isExpanded:
-      scope.top.addSpecFunc(pd)
-      fnscope.top.addSpecFunc(pd)
+    let fnopt = scope.getFunc(procname(name(fexpr.fnName), argtypes))
+    if fnopt.isSome and fnopt.get.pd.sym.fexpr.metadata.decl:
+      fnopt.get.pd.sym.obj = sym.obj
     else:
-      discard scope.top.addFunc(pd)
-      discard fnscope.top.addFunc(pd)
+      let pd = ProcDecl(name: istring(name(fexpr.fnName)), argtypes: iarray(argtypes), generics: iarray(generics), returntype: rettype, sym: sym)
+      if fexpr.metadata.isExpanded:
+        scope.top.addSpecFunc(pd)
+        fnscope.top.addSpecFunc(pd)
+      else:
+        discard scope.top.addFunc(pd)
+        discard fnscope.top.addFunc(pd)
 
   let fsym = fsymbol(fexpr[0].span, sym)
   fexpr.fnName = fsym
@@ -793,6 +804,8 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(istring("codegen_head"), semCodegenHead)
   scope.addInternalEval(istring("block"), semBlock)
 
+  # basic pragmas
+  scope.addInternalEval(istring("decl"), semDecl)
   # c pragmas
   scope.addInternalEval(istring("importc"), semImportc)
   scope.addInternalEval(istring("header"), semHeader)
