@@ -6,6 +6,7 @@ import "tests/testutils"
 expect("Hello Yukari! and Maki!\nHello Yukari! and Maki! and Akari!\n9\n9\n")
 
 fn main() {
+  in_region(1) {
   s1 := s"Hello Yukari!"
   push(s1, s" and Maki!")
   println(s1)
@@ -15,6 +16,7 @@ fn main() {
   println(s3)
   ch := c"9"
   println(ch)
+  }
 }
 
 main()

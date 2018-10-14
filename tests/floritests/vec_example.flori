@@ -17,8 +17,10 @@ fn print(mi MyInt) {
 }
 
 fn main() {
+  in_region(1) {
   v := vec[mi(1), mi(2), mi(3)]
   println(v)
+  }
 }
 
 main()
