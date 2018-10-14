@@ -3,21 +3,14 @@ import "core"
 import "core/pointer"
 when (is_windows) {
   import "std/windows"
+} else {
+  type TimeVal $[importc "struct timeval", header "sys/time.h"] {
+    tv_sec Int
+    tv_usec Int
+  }
+  fn gettimeofday(tv ref TimeVal, p Pointer) $[importc, header "sys/time.h"]
 }
 
-type Clock $[importc "clock_t", header "time.h"]
-type Time $[importc "time_t", header "time.h"]
-
-fn get_clock() Clock $[importc "clock", header "time.h"]
-fn `+(a Clock, b Clock) Clock $[importc "+", header nodeclc, patternc infixc]
-fn `-(a Clock, b Clock) Clock $[importc "-", header nodeclc, patternc infixc]
-fn `/(a Clock, b Int) Float {
-  cast[Float](a) / cast[Float](b)
-}
-
-fn print(x Clock) {
-  printf("%lld", x)
-}
 
 when (is_windows) {
   var freq WinTime
@@ -28,6 +21,10 @@ fn get_current_milliseconds() Double {
     var counter WinTime
     win_query_performance_counter(getptr(counter))
     (cast[Double](counter.QuadPart) * 1000.0) / double(freq.QuadPart)
+  } else {
+    var tv TimeVal
+    gettimeofday(tv, null)
+    cast[Double](tv.tv_sec) + cast[Double](tv.tv_usec)/1000000.0
   }
 }
 

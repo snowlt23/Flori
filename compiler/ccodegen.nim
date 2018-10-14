@@ -210,7 +210,15 @@ proc codegenDefn*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
 proc codegenDeftypeStruct*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
   ctx.typesrc &= "struct $# {\n" % codegenSymbol(fexpr.fnName.symbol)
   for field in fexpr.typeBody:
-    if field[1].symbol.kind == symbolFuncType:
+    if $field[0] == "union":
+      ctx.typesrc &= "union {\n"
+      for son in field[1]:
+        ctx.typesrc &= ctx.codegenType(son[1].symbol)
+        ctx.typesrc &= " "
+        ctx.typesrc &= $son[0]
+        ctx.typesrc &= ";\n"
+      ctx.typesrc &= "};\n"
+    elif field[1].symbol.kind == symbolFuncType:
       ctx.typesrc &= "$# (*$#)($#);\n" % [
         ctx.codegenType(field[1].symbol.rettype),
         $field[0],

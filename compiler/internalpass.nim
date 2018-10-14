@@ -19,7 +19,11 @@ proc getFieldType*(fexpr: FExpr, fieldname: string): Option[Symbol] =
   if fexpr.metadata.internal != internalDeftype:
     fexpr.error("$# isn't structure type."  % $fexpr)
   for field in fexpr.typeBody:
-    if $field[0] == fieldname:
+    if $field[0] == "union":
+      for son in field[1]:
+        if $son[0] == fieldname:
+          return some(son[1].symbol)
+    elif $field[0] == fieldname:
       return some(field[1].symbol)
   return none(Symbol)
 
@@ -426,10 +430,17 @@ proc semDeftype*(scope: Scope, fexpr: var FExpr) =
   for field in fexpr.typeBody.mitems:
     if field.len < 2:
       field.error("$# isn't field declaration." % $field)
-    let ftyp = fseq(field.span, toSeq(field.items)[1..^1])
-    field = fseq(field.span, @[field[0], ftyp])
-    let s = typescope.semType(field[1])
-    field[1].replaceByTypesym(s)
+    if $field[0] == "union":
+      for son in field[1].mitems:
+        let ftyp = fseq(son.span, toSeq(son.items)[1..^1])
+        son = fseq(son.span, @[son[0], ftyp])
+        let s = typescope.semType(son[1])
+        son[1].replaceByTypesym(s)
+    else:
+      let ftyp = fseq(field.span, toSeq(field.items)[1..^1])
+      field = fseq(field.span, @[field[0], ftyp])
+      let s = typescope.semType(field[1])
+      field[1].replaceByTypesym(s)
   fexpr.metadata.scope = typescope
 
   if fexpr.metadata.importc.isNone:

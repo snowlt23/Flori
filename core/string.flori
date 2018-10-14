@@ -16,14 +16,12 @@ type String {
   cap Int
 }
 
+const DEFAULT_CAP := 128
+
 fn strlen(cs CString) Int $[importc "strlen", header "string.h", importjs, patternjs "$1.length"]
 
-fn string(cs CString) String $[importjs, patternjs "$1"] {
+fn string(cs CString, cap Int) String $[importjs, patternjs "$1"] {
   len := strlen(cs)
-  cap := strlen(cs) * 2
-  if (cap < 1024) {
-    cap = int(1024)
-  }
   s := init(String) {
     alloc_with[Char](cap+1)
     len
@@ -32,6 +30,9 @@ fn string(cs CString) String $[importjs, patternjs "$1"] {
   copy_memory(to_ptr(s.p), cast[Ptr[Char]](cs), len)
   unref(to_ptr(s.p) +! len) = char(0)
   s
+}
+fn string(cs CString) String $[importjs, patternjs "$1"] {
+  string(cs, strlen(cs)*2)
 }
 fn string(len Int, cap Int) String $[importjs, patternjs "'\0'.repeat($1)"] {
   s := init(String) {
@@ -44,9 +45,6 @@ fn string(len Int, cap Int) String $[importjs, patternjs "'\0'.repeat($1)"] {
 }
 fn string(len Int) String $[importjs, patternjs "'\0'.repeat($1)"] {
   cap := len*2
-  if (cap < 1024) {
-    cap = int(1024)
-  }
   string(len, cap)
 }
 
@@ -55,8 +53,14 @@ fn `!(s String, i Int) Char $[importjs, patternjs "$1[$2]"] {
 }
 
 macro s(s FStrLit) FExpr $[syntax] {
-  quote {
-    string(`s)
+  if (strlen(strval(s)) < DEFAULT_CAP) {
+    quote {
+      string(`s, DEFAULT_CAP)
+    }
+  } else {
+    quote {
+      string(`s)
+    }
   }
 }
 
@@ -140,6 +144,10 @@ fn to_s(val Int) String $[importjs, patternjs "($1).toString()"] {
 
 cr := char(13)
 lf := char(10)
+
+fn `==(a String, b String) Bool {
+  to_cs(a) == to_cs(b)
+}
 
 fn replace(s CString, dst Char, src CString) String {
   newstr := s""
