@@ -1,0 +1,65 @@
+import "core/prelude"
+import "core/pointer"
+import "core/cstring"
+import "core/io"
+import "core/syntax"
+import "core/math"
+import "core/macros"
+import "core/vec"
+import "core/region"
+import "core/array"
+import "core/string"
+
+type STString {
+  p RPtr[Char]
+  len Int
+}
+
+fn ststring(cs CString) STString {
+  len := strlen(cs)
+  s := init(STString) {
+    alloc[Char](len+1)
+    len
+  }
+  copy_memory(to_ptr(s.p), cast[Ptr[Char]](cs), len)
+  unref(to_ptr(s.p) +! len) = char(0)
+  s
+}
+fn string(len Int) STString {
+  s := init(STString) {
+    alloc[Char](len+1)
+    len
+  }
+  unref(to_ptr(s.p) +! len) = char(0)
+  s
+}
+
+fn `!(s STString, i Int) Char $[importjs, patternjs "$1[$2]"] {
+  unref(to_ptr(s.p) +! i)
+}
+
+macro sts(s FStrLit) FExpr $[syntax] {
+  quote {
+    ststring(`s)
+  }
+}
+
+fn to_cs(s STString) CString $[importjs, patternjs "$1"] {
+  cast[CString](to_ptr(s.p))
+}
+
+fn length(s STString) Int $[importjs, patternjs "$1.length"] {
+  s.len
+}
+
+fn copy(s STString) STString {
+  ststring(to_cs(s))
+}
+
+fn print(s STString) $[importjs "console.log"] {
+  print(cast[CString](to_ptr(s.p)))
+}
+
+fn `==(a STString, b STString) Bool {
+  to_cs(a) == to_cs(b)
+}
