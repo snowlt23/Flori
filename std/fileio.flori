@@ -7,7 +7,7 @@ when (is_windows) {
   import "std/windows"
 }
 
-type File $[nodestruct, importc "FILE*", header "stdio.h"]
+type File $[importc "FILE*", header "stdio.h"]
 
 fn SEEK_END() Int $[importc, header "stdio.h", patternc "SEEK_END"]
 SEEK_END := SEEK_END()

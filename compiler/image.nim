@@ -263,6 +263,7 @@ proc hasConvert*(matches: openArray[Matched]): bool =
 #
 
 proc writeimage*(s: Stream, image: var FImage) =
+  gCtx.macrolib = nil
   let linbin = linmemBinary()
   s.write(linbin.len.int64)
   s.write(linbin)

@@ -8,7 +8,7 @@ let doc = """
 Flori programming language.
 
 Usage:
-  flori c <name> [-o=<outname>] [--opt=<level>] [--cc=<cc>] [--bench] [--ccoptions=<options>] [--moptions=<options>] [--src-comment] [-d=<defines>...] [--imagedump] [--loadimage]
+  flori c <name> [-o=<outname>] [--opt=<level>] [--cc=<cc>] [--bench] [--ccoptions=<options>] [--moptions=<options>] [--src-comment] [-d=<defines>...] [--imagedump=<file>]
   flori js <name> [-o=<outname>] [--bench] [--sourcemap]
 
 Options:
@@ -25,7 +25,7 @@ Options:
   --moptions=<options>  CC Options for macro evaluate.
   --sourcemap    Generate sourcemap in JS backend.
   --src-comment  Add src comment to generated file.
-  --imagedump    Dump compiler image to file.
+  --imagedump=<file>  Dump compiler image to file.
   --loadimage    Load compiler image fom file.
 """
 

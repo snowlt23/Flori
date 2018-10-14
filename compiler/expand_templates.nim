@@ -170,4 +170,4 @@ proc expandMacrofn*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExp
   result.symbol.kind = symbolMacro
   
   gCtx.macroprocs.add(mp)
-  gCtx.reloadMacroLibrary(scope.top)
+  gCtx.reloadMacroLibrary()

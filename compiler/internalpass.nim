@@ -373,7 +373,7 @@ proc semSyntax*(scope: Scope, fexpr: var FExpr) =
 
   gCtx.globaltoplevels.add(fexpr)
   gCtx.macroprocs.add(mp)
-  gCtx.reloadMacroLibrary(scope.top)
+  gCtx.reloadMacroLibrary()
   gCtx.globaltoplevels.del(high(gCtx.globaltoplevels))
   
   if not fexpr.metadata.isToplevel:
@@ -398,7 +398,7 @@ proc semMacro*(scope: Scope, fexpr: var FExpr) =
   gCtx.globaltoplevels.add(fexpr)
   if fexpr.fnGenerics.isSpecTypes:
     gCtx.macroprocs.add(mp)
-    gCtx.reloadMacroLibrary(scope.top)
+    gCtx.reloadMacroLibrary()
   gCtx.globaltoplevels.del(delpos)
   
   if not fexpr.metadata.isToplevel:

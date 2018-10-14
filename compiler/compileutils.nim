@@ -32,7 +32,7 @@ proc exe*(s: string): string =
 
 const macrolib* = cachedir / "flori_macrolib".dll
 
-proc compileMacroLibrary*(semctx: var SemContext, scope: Scope) =
+proc compileMacroLibrary*(semctx: var SemContext) =
   # for top in semctx.globaltoplevels.mitems:
   #   top.internalScope.resetElim(top)
   for top in semctx.globaltoplevels.mitems:
@@ -71,13 +71,13 @@ proc setupFFI*(handle: LibHandle) =
   ffi "flori_get_type", ffiGetType
   ffi "flori_get_srcexpr", ffiGetSrcExpr
 
-proc reloadMacroLibrary*(semctx: var SemContext, scope: Scope) =
+proc reloadMacroLibrary*(semctx: var SemContext) =
   if semctx.macrolib != nil:
     let floridest = cast[proc () {.cdecl.}](semctx.macrolib.symAddr("ct_flori_destruct"))
     if not floridest.isNil:
       floridest()
     unloadLib(semctx.macrolib)
-  semctx.compileMacroLibrary(scope)
+  semctx.compileMacroLibrary()
   semctx.macrolib = loadLib(macrolib)
   if semctx.macrolib.isNil:
     raise newException(IOError, "couldn't load flori macro library.")
