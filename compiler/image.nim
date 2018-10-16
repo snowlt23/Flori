@@ -66,6 +66,7 @@ type
     isElimEvaluated*: bool
     isEliminated*: bool
     isConverted*: bool
+    isGlobal: bool
   SymbolKind* = enum
     symbolDef
     symbolArg
@@ -198,6 +199,7 @@ type
     moptions*: string
     macrolib*: LibHandle
     macroprocs*: seq[MacroProc]
+    needReload*: bool
 
 implInternal(MetadataStore, MetadataStoreObj)
 implInternal(MacroProc, MacroProcObj)
@@ -208,7 +210,7 @@ implInternal(FExpr, FExprObj)
 proc initFImage*(): FImage =
   FImage()
 proc initSemContext*(): SemContext =
-  SemContext(expands: @[], tmpcount: 0, notevals: @[], defines: @[], globaltoplevels: @[], modules: ilistNil[TupleTable[Scope]]())
+  SemContext(expands: @[], tmpcount: 0, notevals: @[], defines: @[], globaltoplevels: @[], modules: ilistNil[TupleTable[Scope]](), needReload: false)
 
 var gImage*: FImage
 var gCtx*: SemContext

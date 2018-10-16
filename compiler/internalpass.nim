@@ -378,10 +378,7 @@ proc semSyntax*(scope: Scope, fexpr: var FExpr) =
   gCtx.globaltoplevels.add(fexpr)
   gCtx.macroprocs.add(mp)
   gCtx.reloadMacroLibrary()
-  gCtx.globaltoplevels.del(high(gCtx.globaltoplevels))
-  
-  if not fexpr.metadata.isToplevel:
-    gCtx.globaltoplevels.add(fexpr)
+  fexpr.metadata.isGlobal = true
 
 proc semMacro*(scope: Scope, fexpr: var FExpr) =
   if fexpr.len == 2:
@@ -402,11 +399,9 @@ proc semMacro*(scope: Scope, fexpr: var FExpr) =
   gCtx.globaltoplevels.add(fexpr)
   if fexpr.fnGenerics.isSpecTypes:
     gCtx.macroprocs.add(mp)
+    gCtx.needReload = true
     gCtx.reloadMacroLibrary()
-  gCtx.globaltoplevels.del(delpos)
-  
-  if not fexpr.metadata.isToplevel:
-    gCtx.globaltoplevels.add(fexpr)
+  fexpr.metadata.isGlobal = true
     
 proc semDeftype*(scope: Scope, fexpr: var FExpr) =
   fexpr = expandDeftype(fexpr)
@@ -867,7 +862,8 @@ proc semModule*(ctx: var SemContext, name: IString, scope: Scope, fexprs: var se
     semExtendLinmem()
     f.metadata.isToplevel = true
     scope.rootPass(f)
-    ctx.globaltoplevels.add(f)
+    if not f.metadata.isGlobal:
+      ctx.globaltoplevels.add(f)
   ctx.modules.add(TupleTable[Scope](name: name, value: scope))
 
 proc semFile*(ctx: var SemContext, filepath: string): Option[IString] =

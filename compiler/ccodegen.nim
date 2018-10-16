@@ -614,6 +614,8 @@ proc codegenToplevel*(ctx: CCodegenContext, src: var SrcExpr, fexpr: FExpr) =
     ctx.codegenInternal(src, fexpr, topcodegen = true)
   elif fexpr.kind == fexprBlock:
     for son in fexpr:
+      if son.metadata.isGlobal:
+        return
       ctx.codegenToplevel(src, son)
 
 proc collectDependFn*(s: var seq[Symbol], fexpr: FExpr) =
