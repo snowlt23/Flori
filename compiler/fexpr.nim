@@ -9,7 +9,7 @@ import algorithm
 import linmem, image, symbol
 
 const fexprAtoms* = {fexprIdent..fexprStrLit}
-const fexprNames* = {fexprIdent, fexprPrefix, fexprInfix}
+const fexprNames* = {fexprIdent, fexprInfix}
 const fexprAllNames* = {fexprIdent, fexprPrefix, fexprInfix, fexprQuote, fexprSymbol}
 const fexprContainer* = {fexprSeq, fexprArray, fexprList, fexprBlock}
 
@@ -152,6 +152,10 @@ proc genIndent*(indent: int): string =
   repeat(' ', indent)
 
 proc toString*(fexpr: FExpr, indent: int, desc: bool): string =
+  if fexpr.kind == fexprSeq and fexpr.len >= 1 and $fexpr[0] == "type":
+    let args = toSeq(fexpr.items)[1..^1]
+    return "^" & args.mapIt($it).join(" ")
+
   case fexpr.kind
   of fexprIdent, fexprPrefix, fexprInfix:
     $fexpr.idname

@@ -36,12 +36,12 @@ proc replaceByTypesym*(fexpr: var FExpr, sym: Symbol) =
   fexpr = fsymbol(fexpr.span, sym)
 
 proc voidtypeExpr*(span: Span): FExpr =
-  return fident(span, istring("Void"))
+  return fident(span, istring("void"))
 
 proc resolveByVoid*(scope: Scope, fexpr: FExpr) =
-  let opt = scope.getDecl("Void")
+  let opt = scope.getDecl("void")
   if opt.isNone:
-    fexpr.error("undeclared Void type, please import prelude.")
+    fexpr.error("undeclared void type, please import prelude.")
   fexpr.metadata.typ = opt.get
 
 proc genCall*(name: FExpr, args: varargs[FExpr]): FExpr =

@@ -1,116 +1,117 @@
 
 import "core/prelude"
 
-type FExpr $[importc "flori_fexpr", header "floriffi.h"]
-type FSeq $[importc "flori_fexpr", header "floriffi.h"]
-type FArray $[importc "flori_fexpr", header "floriffi.h"]
-type FList $[importc "flori_fexpr", header "floriffi.h"]
-type FBlock $[importc "flori_fexpr", header "floriffi.h"]
-type FIdent $[importc "flori_fexpr", header "floriffi.h"]
-type FSymbol $[importc "flori_fexpr", header "floriffi.h"]
-type FStrLit $[importc "flori_fexpr", header "floriffi.h"]
-type FIntLit $[importc "flori_fexpr", header "floriffi.h"]
-type TExpr[T] $[importc "flori_fexpr", header "floriffi.h"]
-type TSeq $[importc "flori_fexpr", header "floriffi.h"]
-type TArray $[importc "flori_fexpr", header "floriffi.h"]
-type TList $[importc "flori_fexpr", header "floriffi.h"]
-type TBlock $[importc "flori_fexpr", header "floriffi.h"]
-type TIdent $[importc "flori_fexpr", header "floriffi.h"]
-type TSymbol $[importc "flori_fexpr", header "floriffi.h"]
-type TStrLit $[importc "flori_fexpr", header "floriffi.h"]
-type TIntLit $[importc "flori_fexpr", header "floriffi.h"]
-type FExprKind $[importc "int", header "floriffi.h"]
+struct fexpr $[importc "flori_fexpr", header "floriffi.h"]
+struct fseq $[importc "flori_fexpr", header "floriffi.h"]
+struct farray $[importc "flori_fexpr", header "floriffi.h"]
+struct flist $[importc "flori_fexpr", header "floriffi.h"]
+struct fblock $[importc "flori_fexpr", header "floriffi.h"]
+struct fident $[importc "flori_fexpr", header "floriffi.h"]
+struct fsymbol $[importc "flori_fexpr", header "floriffi.h"]
+struct fstrlit $[importc "flori_fexpr", header "floriffi.h"]
+struct fintlit $[importc "flori_fexpr", header "floriffi.h"]
+struct texpr[t] $[importc "flori_fexpr", header "floriffi.h"]
+struct tseq $[importc "flori_fexpr", header "floriffi.h"]
+struct tarray $[importc "flori_fexpr", header "floriffi.h"]
+struct tlist $[importc "flori_fexpr", header "floriffi.h"]
+struct tblock $[importc "flori_fexpr", header "floriffi.h"]
+struct tident $[importc "flori_fexpr", header "floriffi.h"]
+struct tsymbol $[importc "flori_fexpr", header "floriffi.h"]
+struct tstrlit $[importc "flori_fexpr", header "floriffi.h"]
+struct tintlit $[importc "flori_fexpr", header "floriffi.h"]
+struct fexprkind $[importc "int", header "floriffi.h"]
 
-FEXPR_IDENT $[compiletime] := cast[FExprKind](0)
-FEXPR_PREFIX $[compiletime] := cast[FExprKind](1)
-FEXPR_INFIX $[compiletime] := cast[FExprKind](2)
-FEXPR_QUOTE $[compiletime] := cast[FExprKind](3)
-FEXPR_SYMBOL $[compiletime] := cast[FExprKind](4)
-FEXPR_INTLIT $[compiletime] := cast[FExprKind](5)
-FEXPR_FLOATLIT $[compiletime] := cast[FExprKind](6)
-FEXPR_STRLIT $[compiletime] := cast[FExprKind](7)
-FEXPR_SEQ $[compiletime] := cast[FExprKind](8)
-FEXPR_ARRAY $[compiletime] := cast[FExprKind](9)
-FEXPR_LIST $[compiletime] := cast[FExprKind](10)
-FEXPR_BLOCK $[compiletime] := cast[FExprKind](11)
+FEXPR_IDENT $[compiletime] := cast[^fexprkind](0)
+FEXPR_PREFIX $[compiletime] := cast[^fexprkind](1)
+FEXPR_INFIX $[compiletime] := cast[^fexprkind](2)
+FEXPR_QUOTE $[compiletime] := cast[^fexprkind](3)
+FEXPR_SYMBOL $[compiletime] := cast[^fexprkind](4)
+FEXPR_INTLIT $[compiletime] := cast[^fexprkind](5)
+FEXPR_FLOATLIT $[compiletime] := cast[^fexprkind](6)
+FEXPR_STRLIT $[compiletime] := cast[^fexprkind](7)
+FEXPR_SEQ $[compiletime] := cast[^fexprkind](8)
+FEXPR_ARRAY $[compiletime] := cast[^fexprkind](9)
+FEXPR_LIST $[compiletime] := cast[^fexprkind](10)
+FEXPR_BLOCK $[compiletime] := cast[^fexprkind](11)
 
-fn to_fexpr(texpr FSeq) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
-fn to_fexpr(texpr FArray) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
-fn to_fexpr(texpr FList) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
-fn to_fexpr(texpr FBlock) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
-fn to_fexpr(texpr FIdent) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
-fn to_fexpr(texpr FSymbol) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
-fn to_fexpr(texpr FStrLit) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
-fn to_fexpr(texpr FIntLit) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+fn to_fexpr(t ^fseq) ^fexpr $[converter, compiletime] {cast[^fexpr](t)}
+fn to_fexpr(t ^farray) ^fexpr $[converter, compiletime] {cast[^fexpr](t)}
+fn to_fexpr(t ^flist) ^fexpr $[converter, compiletime] {cast[^fexpr](t)}
+fn to_fexpr(t ^fblock) ^fexpr $[converter, compiletime] {cast[^fexpr](t)}
+fn to_fexpr(t ^fident) ^fexpr $[converter, compiletime] {cast[^fexpr](t)}
+fn to_fexpr(t ^fsymbol) ^fexpr $[converter, compiletime] {cast[^fexpr](t)}
+fn to_fexpr(t ^fstrlit) ^fexpr $[converter, compiletime] {cast[^fexpr](t)}
+fn to_fexpr(t ^fintlit) ^fexpr $[converter, compiletime] {cast[^fexpr](t)}
 
-fn to_fexpr[T](texpr TExpr[T]) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
-fn to_fexpr(texpr TSeq) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
-fn to_fexpr(texpr TArray) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
-fn to_fexpr(texpr TList) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
-fn to_fexpr(texpr TBlock) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
-fn to_fexpr(texpr TIdent) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
-fn to_fexpr(texpr TSymbol) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
-fn to_fexpr(texpr TStrLit) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
-fn to_fexpr(texpr TIntLit) FExpr $[converter, compiletime] {cast[FExpr](texpr)}
+fn to_fexpr[T](t ^texpr[^T]) ^fexpr $[converter, compiletime] {cast[^fexpr](t)}
+fn to_fexpr(t ^tseq) ^fexpr $[converter, compiletime] {cast[^fexpr](t)}
+fn to_fexpr(t ^tarray) ^fexpr $[converter, compiletime] {cast[^fexpr](t)}
+fn to_fexpr(t ^tlist) ^fexpr $[converter, compiletime] {cast[^fexpr](t)}
+fn to_fexpr(t ^tblock) ^fexpr $[converter, compiletime] {cast[^fexpr](t)}
+fn to_fexpr(t ^tident) ^fexpr $[converter, compiletime] {cast[^fexpr](t)}
+fn to_fexpr(t ^tsymbol) ^fexpr $[converter, compiletime] {cast[^fexpr](t)}
+fn to_fexpr(t ^tstrlit) ^fexpr $[converter, compiletime] {cast[^fexpr](t)}
+fn to_fexpr(t ^tintlit) ^fexpr $[converter, compiletime] {cast[^fexpr](t)}
 
-fn `==(a FExprKind, b FExprKind) Bool $[importc "==", header nodeclc, patternc infixc, importjs]
-fn `!=(a FExprKind, b FExprKind) Bool $[importc "!=", header nodeclc, patternc infixc, importjs]
+fn `==(a ^fexprkind, b ^fexprkind) ^bool $[importc "==", header nodeclc, patternc infixc, importjs]
+fn `!=(a ^fexprkind, b ^fexprkind) ^bool $[importc "!=", header nodeclc, patternc infixc, importjs]
 
-fn new_fident(ident CString) FExpr $[importc "flori_new_fident", header "floriffi.h", importjs]
-fn new_fseq() FExpr $[importc "flori_new_fseq", header "floriffi.h", importjs]
-fn new_farray() FExpr $[importc "flori_new_farray", header "floriffi.h", importjs]
-fn new_flist() FExpr $[importc "flori_new_flist", header "floriffi.h", importjs]
-fn new_fblock() FExpr $[importc "flori_new_fblock", header "floriffi.h", importjs]
-fn new_fintlit(x Int) FExpr $[importc "flori_new_fintlit", header "floriffi.h", importjs]
-fn new_fstrlit(cs CString) FExpr $[importc "flori_new_fstrlit", header "floriffi.h", importjs]
+fn fident(ident ^cstring) ^fexpr $[importc "flori_new_fident", header "floriffi.h", importjs]
+fn new_fident(ident ^cstring) ^fexpr $[importc "flori_new_fident", header "floriffi.h", importjs]
+fn new_fseq() ^fexpr $[importc "flori_new_fseq", header "floriffi.h", importjs]
+fn new_farray() ^fexpr $[importc "flori_new_farray", header "floriffi.h", importjs]
+fn new_flist() ^fexpr $[importc "flori_new_flist", header "floriffi.h", importjs]
+fn new_fblock() ^fexpr $[importc "flori_new_fblock", header "floriffi.h", importjs]
+fn new_fintlit(x ^int) ^fexpr $[importc "flori_new_fintlit", header "floriffi.h", importjs]
+fn new_fstrlit(cs ^cstring) ^fexpr $[importc "flori_new_fstrlit", header "floriffi.h", importjs]
 
-fn parse(filename CString, line Int, linepos Int, cstr CString) FExpr $[importc "flori_parse_fexpr", header "floriffi.h", importjs]
+fn parse(filename ^cstring, line ^int, linepos ^int, cstr ^cstring) ^fexpr $[importc "flori_parse_fexpr", header "floriffi.h", importjs]
 
-fn print(fexpr FExpr) $[importc "flori_print_fexpr", header "floriffi.h", importjs]
+fn print(f ^fexpr) $[importc "flori_print_fexpr", header "floriffi.h", importjs]
 
-fn push(fexpr FExpr, son FExpr) $[importc "flori_push", header "floriffi.h", importjs]
-fn push[T](fexpr FExpr, son TExpr[T]) $[importc "flori_push", header "floriffi.h", importjs]
+fn push(f ^fexpr, son ^fexpr) $[importc "flori_push", header "floriffi.h", importjs]
+fn push[t](f ^fexpr, son ^texpr[^t]) $[importc "flori_push", header "floriffi.h", importjs]
 
-fn length(fexpr FExpr) Int $[importc "flori_length", header "floriffi.h", importjs]
-fn error(fexpr FExpr, msg CString) $[importc "flori_error", header "floriffi.h", importjs]
-fn quoted(fexpr FExpr) FExpr $[importc "flori_quoted", header "floriffi.h", importjs]
-fn kind(fexpr FExpr) FExprKind $[importc "flori_kind", header "floriffi.h", importjs]
-fn expect(fexpr FExpr, kind FExprKind) $[importc "flori_expect", header "floriffi.h", importjs]
+fn length(f ^fexpr) ^int $[importc "flori_length", header "floriffi.h", importjs]
+fn error(f ^fexpr, msg ^cstring) $[importc "flori_error", header "floriffi.h", importjs]
+fn quoted(f ^fexpr) ^fexpr $[importc "flori_quoted", header "floriffi.h", importjs]
+fn kind(f ^fexpr) ^fexprkind $[importc "flori_kind", header "floriffi.h", importjs]
+fn expect(f ^fexpr, kind ^fexprkind) $[importc "flori_expect", header "floriffi.h", importjs]
 
-fn `!(fexpr FExpr, i Int) FExpr $[importc "flori_access", header "floriffi.h", importjs]
-fn `!!(fexpr FExpr, i Int, value FExpr) $[importc "flori_set", header "floriffi.h", importjs]
+fn `!(f ^fexpr, i ^int) ^fexpr $[importc "flori_access", header "floriffi.h", importjs]
+fn `!!(f ^fexpr, i ^int, value ^fexpr) $[importc "flori_set", header "floriffi.h", importjs]
 
-fn to_cs(fexpr FExpr) CString $[importc "flori_to_cs", header "floriffi.h", importjs]
-fn intval(fexpr FIntLit) Int $[importc "flori_intval", header "floriffi.h", importjs]
-fn strval(fexpr FStrLit) CString $[importc "flori_strval", header "floriffi.h", importjs]
-fn gensym() FExpr $[importc "flori_gensym", header "floriffi.h", importjs]
-fn get_type(fexpr FExpr) FExpr $[importc "flori_get_type", header "floriffi.h", importjs]
-fn get_srcexpr(fexpr FExpr) CString $[importc "flori_get_srcexpr", header "floriffi.h", importjs]
+fn to_cs(f ^fexpr) ^cstring $[importc "flori_to_cs", header "floriffi.h", importjs]
+fn intval(f ^fintlit) ^int $[importc "flori_intval", header "floriffi.h", importjs]
+fn strval(f ^fstrlit) ^cstring $[importc "flori_strval", header "floriffi.h", importjs]
+fn gensym() ^fexpr $[importc "flori_gensym", header "floriffi.h", importjs]
+fn get_type(f ^fexpr) ^fexpr $[importc "flori_get_type", header "floriffi.h", importjs]
+fn get_srcexpr(f ^fexpr) ^cstring $[importc "flori_get_srcexpr", header "floriffi.h", importjs]
 
-fn quote_expand_inside(fexpr FExpr, args FExpr, count ref Int) $[compiletime, importjs] {
+fn quote_expand_inside(f ^fexpr, args ^fexpr, count ^ref int) $[compiletime, importjs] {
   i := 0
-  while (i < length(fexpr)) {
-    k := kind(fexpr!i)
-    if (k == FEXPR_QUOTE && kind(quoted(fexpr!i)) == FEXPR_IDENT) {
-      fexpr!i = args!count
+  while (i < length(f)) {
+    k := kind(f!i)
+    if (k == FEXPR_QUOTE && kind(quoted(f!i)) == FEXPR_IDENT) {
+      f!i = args!count
       count += 1
-    } elif (k == FEXPR_QUOTE && kind(quoted(fexpr!i)) == FEXPR_QUOTE) {
-      fexpr!i = quoted(fexpr!i)
+    } elif (k == FEXPR_QUOTE && kind(quoted(f!i)) == FEXPR_QUOTE) {
+      f!i = quoted(f!i)
     }
     if (k == FEXPR_SEQ || k == FEXPR_ARRAY || k == FEXPR_LIST || k == FEXPR_BLOCK) {
-      quote_expand_inside(fexpr!i, args, count)
+      quote_expand_inside(f!i, args, count)
     }
     i += 1
   }
 }
 
-fn quote_expand(fexpr FExpr, args FExpr) FExpr $[compiletime, importjs] {
+fn quote_expand(f ^fexpr, args ^fexpr) ^fexpr $[compiletime, importjs] {
   count := 0
-  quote_expand_inside(fexpr, args, count)
-  fexpr
+  quote_expand_inside(f, args, count)
+  f
 }
 
-fn is_windows_fn() Bool $[importc, header nodeclc, declc "
+fn is_windows_fn() ^bool $[importc, header nodeclc, declc "
 #ifdef _WIN32
 #define is_windows true
 #elif _WIN64

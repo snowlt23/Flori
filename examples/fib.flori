@@ -2,7 +2,7 @@
 import "core/prelude"
 import "core/io"
 
-fn fib(n Int) Int {
+fn fib(n ^int) ^int {
   if (n < 2) {
     n
   } else {

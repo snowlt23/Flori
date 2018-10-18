@@ -24,6 +24,9 @@ proc expandDefnPass*(scope: Scope, fexpr: var FExpr): bool =
       let fnsym = fexpr[0]
       let argtypes = fexpr[2].mapIt(it.metadata.typ)
       if argtypes.isSpecTypes and fnsym.symbol.fexpr.isGenerics:
+        for g in fexpr[1]:
+          if g.kind != fexprSymbol:
+            g.error("$# isn't type param." % $g)
         let exsym = expandDefn(scope, fnsym.symbol.obj.fexpr, fexpr[1].mapIt(it.symbol), argtypes)
         fexpr[0] = exsym
         fexpr.metadata.typ = exsym.symbol.fexpr.fnReturn.symbol

@@ -3,36 +3,36 @@ import "core/prelude"
 import "core/macros"
 import "core/syntax"
 
-fn printf[T](fmt CString, x T) $[importc "printf", header "stdio.h", importjs, patternjs "console.log($2)"]
+fn printf[T](fmt ^cstring, x ^T) $[importc "printf", header "stdio.h", importjs, patternjs "console.log($2)"]
 
-fn print(x Char) {
+fn print(x ^char) {
   printf("%c", x)
 }
-fn print(cs CString) {
+fn print(cs ^cstring) {
   printf("%s", cs)
 }
-fn print(x IntLit) {
+fn print(x ^intlit) {
   printf("%ld", x)
 }
-fn print(x Int) {
+fn print(x ^int) {
   printf("%ld", x)
 }
-fn print(x UInt8) {
+fn print(x ^uint8) {
   printf("%d", x)
 }
-fn print(x UInt32) {
+fn print(x ^uint32) {
   printf("%d", x)
 }
-fn print(x Int32) {
+fn print(x ^int32) {
   printf("%d", x)
 }
-fn print(x Float) {
+fn print(x ^float) {
   printf("%f", x)
 }
-fn print(x Double) {
+fn print(x ^double) {
   printf("%lf", x)
 }
-fn print(x Bool) {
+fn print(x ^bool) {
   if (x) {
     print("true")
   } else {
@@ -40,7 +40,7 @@ fn print(x Bool) {
   }
 }
 
-macro println(args FList) FExpr $[syntax] {
+macro println(args ^flist) ^fexpr $[syntax] {
   ret := new_fblock()
   for (son : args) {
     push(ret, quote {

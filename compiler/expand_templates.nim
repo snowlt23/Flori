@@ -160,7 +160,7 @@ proc expandDefn*(scope: Scope, fexpr: var FExpr, genericstypes: seq[Symbol], arg
   expanded.assert(expanded.fnName.kind == fexprSymbol)
 
   gCtx.globaltoplevels.add(expanded)
-  
+
   return expanded.fnName
 
 proc expandMacrofn*(scope: Scope, fexpr: var FExpr, argtypes: seq[Symbol]): FExpr =

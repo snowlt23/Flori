@@ -108,6 +108,21 @@ proc parseFExprElem*(context: var ParserContext): FExpr =
         break
       context.inc
     return fexprNil()
+  elif context.curchar == '^': # reader macro for type
+    context.inc
+    let t = context.parseFExprElem()
+    if $t == "ref":
+      context.skipSpaces()
+      let tt = context.parseFExprElem()
+      if context.curchar == '[':
+        return fseq(t.span, @[fident(t.span, istring("type-ref")), tt, context.parseFExprElem()])
+      else:
+        return fseq(t.span, @[fident(t.span, istring("type-ref")), tt])
+    else:
+      if context.curchar == '[':
+        return fseq(t.span, @[fident(t.span, istring("type")), t, context.parseFExprElem()])
+      else:
+        return fseq(t.span, @[fident(t.span, istring("type")), t])
   elif context.curchar == '(':
     let span = context.span
     var lst = newSeq[FExpr]()

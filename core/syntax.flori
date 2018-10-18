@@ -2,14 +2,24 @@
 import "core/prelude"
 import "core/macros"
 
-syntax for(fexpr FExpr) FExpr {
-  if (kind(fexpr) != FEXPR_SEQ || length(fexpr) != 3 || kind(fexpr!1) != FEXPR_LIST || length(fexpr!1) != 1 || length(fexpr!1!0) != 3 || to_cs(fexpr!1!0!0) != ":") {
-    error(fexpr, "expect syntax: for (e : v) {...}")
+fn ftype(f ^fexpr) ^fexpr $[compiletime] {
+  quote{type `f}!0
+}
+fn ftype(s ^cstring) ^fexpr $[compiletime] {
+  ftype(fident(s))
+}
+fn fargdecl(n ^fexpr, t ^fexpr) ^fexpr $[compiletime] {
+  quote{`n `t}!0
+}
+
+syntax for(f ^fexpr) ^fexpr {
+  if (kind(f) != FEXPR_SEQ || length(f) != 3 || kind(f!1) != FEXPR_LIST || length(f!1) != 1 || length(f!1!0) != 3 || to_cs(f!1!0!0) != ":") {
+    error(f, "expect syntax: for (e : v) {...}")
   }
 
-  elem := fexpr!1!0!1
-  value := fexpr!1!0!2
-  body := fexpr!2
+  elem := f!1!0!1
+  value := f!1!0!2
+  body := f!2
   
   quote {
     block {
@@ -18,46 +28,48 @@ syntax for(fexpr FExpr) FExpr {
   }
 }
 
-syntax iterator(fexpr FExpr) FExpr {
-  if (length(fexpr) == 4) {
-    mname := fexpr!1
-    args := fexpr!2
-    body := fexpr!3
+syntax iterator(f ^fexpr) ^fexpr {
+  if (length(f) == 4) {
+    mname := f!1
+    args := f!2
+    body := f!3
 
-    push(args, quote {element FExpr} ! 0)
-    push(args, quote {yield FExpr} ! 0)
+    push(args, fargdecl(fident("element"), ftype("fexpr")))
+    push(args, fargdecl(fident("yield"), ftype("fexpr")))
     
-    quote {
-      macro `mname `args FExpr `body
+    retf := quote {
+      macro `mname `args ^fexpr `body
     }
-  } elif (length(fexpr) == 5) {
-    mname := fexpr!1
-    generics := fexpr!2
-    args := fexpr!3
-    body := fexpr!4
+    quote {
+      macro `mname `args ^fexpr `body
+    }
+  } elif (length(f) == 5) {
+    mname := f!1
+    generics := f!2
+    args := f!3
+    body := f!4
 
-    push(args, quote {element FExpr} ! 0)
-    push(args, quote {yield FExpr} ! 0)
+    push(args, fargdecl(fident("element"), ftype("fexpr")))
+    push(args, fargdecl(fident("yield"), ftype("fexpr")))
 
     quote {
-      macro `mname `generics `args FExpr `body
+      macro `mname `generics `args ^fexpr `body
     }
   } else {
-    error(fexpr, "usage: iterator name(...) {...}")
+    error(f, "usage: iterator name(...) {...}")
     quote {}
   }
 }
 
-type Range {
-  s Int
-  e Int
+struct range {
+  s ^int
+  e ^int
 }
 
-fn range(s Int, e Int) Range {
-  init(Range){s; e}
+fn range(s ^int, e ^int) ^range {
+  init(^range){s; e}
 }
-iterator items(range TExpr[Range]) {
-  rng := cast[FExpr](range)
+iterator items(rng ^texpr[^range]) {
   quote {
     `element := `rng.s
     while (`element <= `rng.e) {
@@ -67,13 +79,13 @@ iterator items(range TExpr[Range]) {
   }
 }
 
-syntax when(fexpr FExpr) FExpr {
-  if (length(fexpr) == 3) {
+syntax when(f ^fexpr) ^fexpr {
+  if (length(f) == 3) {
     tmpsym := gensym()
-    cond := fexpr!1
-    body := fexpr!2
+    cond := f!1
+    body := f!2
     quote {
-      syntax `tmpsym(fexpr FExpr) FExpr {
+      syntax `tmpsym(f ^fexpr) ^fexpr {
         if `cond {
           quote `body
         } else {
@@ -82,16 +94,16 @@ syntax when(fexpr FExpr) FExpr {
       }
       `tmpsym()
     }
-  } elif (length(fexpr) == 5) {
-    if (to_cs(fexpr!3) != "else") {
-      error(fexpr!3, "when expect `else branch.")
+  } elif (length(f) == 5) {
+    if (to_cs(f!3) != "else") {
+      error(f!3, "when expect `else branch.")
     }
     tmpsym := gensym()
-    cond := fexpr!1
-    tbody := fexpr!2
-    fbody := fexpr!4
+    cond := f!1
+    tbody := f!2
+    fbody := f!4
     quote {
-      syntax `tmpsym(fexpr FExpr) FExpr {
+      syntax `tmpsym(f ^fexpr) ^fexpr {
         if `cond {
           quote `tbody
         } else {
@@ -101,42 +113,19 @@ syntax when(fexpr FExpr) FExpr {
       `tmpsym()
     }
   } else {
-    error(fexpr, "when syntax expect: when (cond) {...}")
+    error(f, "when syntax expect: when (cond) {...}")
     quote {}
   }
 }
 
-# usage: destructor(mi MyInt) {...}
-syntax destructor(fexpr FExpr) FExpr {
-  if ((length(fexpr) != 3) && (length(fexpr) != 4)) {
-    error(fexpr, "usage: destructor(arg1 T) {...}")
-  }
-  if (length(fexpr) == 3) {
-    args := fexpr!1
-    body := fexpr!2
-    
-    quote {
-      fn destruct `args $[nodestruct] `body
-    }
-  } else {
-    generics := fexpr!1
-    args := fexpr!2
-    body := fexpr!3
-    
-    quote {
-      fn destruct `generics `args $[nodestruct] `body
-    }
-  }
-}
-
-syntax static(fexpr FExpr) FExpr {
-  if (length(fexpr) != 2) {
-    error(fexpr, "usage: static {...}")
+syntax static(f ^fexpr) ^fexpr {
+  if (length(f) != 2) {
+    error(f, "usage: static {...}")
   }
   mname := gensym()
-  body := fexpr!1
+  body := f!1
   quote {
-    syntax `mname (fexpr FExpr) FExpr {
+    syntax `mname (f ^fexpr) ^fexpr {
       `body
       quote {}
     }
@@ -144,11 +133,10 @@ syntax static(fexpr FExpr) FExpr {
   }
 }
 
-iterator items(fexpr TExpr[FExpr]) {
+iterator items(f ^texpr[^fexpr]) {
   tmp := gensym()
-  f := to_fexpr(fexpr)
   quote {
-    for (`tmp : range(0, length(`fexpr)-1)) {
+    for (`tmp : range(0, length(`f)-1)) {
       `element := `f!`tmp
       `yield
     }
@@ -228,40 +216,40 @@ iterator items(fexpr TExpr[FExpr]) {
 # }
 
 # FIXME: converter for macro
-macro const_eval(x TExpr[IntLit]) FExpr {
+macro const_eval(x ^texpr[^intlit]) ^fexpr {
   tmp := gensym()
   fx := to_fexpr(x)
   quote {
-    syntax `tmp(fexpr FExpr) FExpr {
+    syntax `tmp(fexpr ^fexpr) ^fexpr {
       new_fintlit(`fx)
     }
     `tmp()
   }
 }
 
-macro const_eval(x TExpr[Int]) FExpr {
+macro const_eval(x ^texpr[^int]) ^fexpr {
   tmp := gensym()
   fx := to_fexpr(x)
   quote {
-    syntax `tmp(fexpr FExpr) FExpr {
+    syntax `tmp(fexpr ^fexpr) ^fexpr {
       new_fintlit(`fx)
     }
     `tmp()
   }
 }
 
-macro const_eval(s TExpr[CString]) FExpr {
+macro const_eval(s ^texpr[^cstring]) ^fexpr {
   tmp := gensym()
   fs := to_fexpr(s)
   quote {
-    syntax `tmp(fexpr FExpr) FExpr {
+    syntax `tmp(fexpr ^fexpr) ^fexpr {
       new_fstrlit(`fs)
     }
     `tmp()
   }
 }
 
-macro enum(typename FIdent, body FBlock) FExpr $[syntax] {
+macro enum(typename ^fident, body ^fblock) ^fexpr $[syntax] {
   ret := new_fblock()
   push(ret, quote {
       type `typename $[importc "int64_t", header "stdint.h"]
@@ -290,7 +278,7 @@ macro enum(typename FIdent, body FBlock) FExpr $[syntax] {
       if (kind(fieldvalue) != FEXPR_INTLIT) {
         error(fieldvalue, "unsupported enum field value.")
       }
-      curr = intval(cast[FIntLit](fieldvalue))
+      curr = intval(cast[^fintlit](fieldvalue))
       push(ret, quote {
           `fieldname := cast[`typename](`fieldvalue)
         })

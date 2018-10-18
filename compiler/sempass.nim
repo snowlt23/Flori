@@ -1,6 +1,6 @@
 
 import fexpr_core
-import passmacro, typepass, macropass, expandpass
+import passmacro, macropass, expandpass
 
 import options
 import strutils, sequtils
@@ -22,7 +22,7 @@ proc internalPass*(scope: Scope, fexpr: var FExpr): bool =
       return true
     let internalopt = scope.getFunc(procname($fnident, @[]))
     if internalopt.isSome and internalopt.get.pd.internalproc.isSome:
-      if scope.getDecl("Void").isSome:
+      if scope.getDecl("void").isSome:
         scope.resolveByVoid(fexpr)
       fexpr.metadata.isEvaluated = true
       (internalopt.get.pd.internalproc.get)(scope, fexpr)
@@ -42,11 +42,6 @@ proc internalPass*(scope: Scope, fexpr: var FExpr): bool =
 
 proc toplevelPass*(scope: Scope, fexpr: var FExpr): bool =
   thruInternal(fexpr)
-  if fexpr.isGenericsFuncCall:
-    for son in fexpr[2].mitems:
-      scope.rootPass(son)
-    return true
-
   case fexpr.kind
   of fexprArray, fexprList:
     for son in fexpr.mitems:
@@ -104,32 +99,32 @@ proc typeInfer*(scope: Scope, fexpr: var FExpr): bool =
       #   fexpr.typ = fexpr.typ.instance.get
     elif fexpr.symbol.instance.isSome and fexpr.symbol.instance.get.kind == symbolIntLit:
       fexpr.symbol = fexpr.symbol.instance.get
-      let opt = scope.getDecl("IntLit")
+      let opt = scope.getDecl("intlit")
       if opt.isNone:
-        fexpr.error("undeclared IntLit type, please import prelude.")
+        fexpr.error("undeclared intlit type, please import prelude.")
       fexpr.metadata.typ = opt.get
     elif fexpr.symbol.kind == symbolIntLit:
-      let opt = scope.getDecl("IntLit")
+      let opt = scope.getDecl("intlit")
       if opt.isNone:
-        fexpr.error("undeclared IntLit type, please import prelude.")
+        fexpr.error("undeclared intlit type, please import prelude.")
       fexpr.metadata.typ = opt.get
     return true
   of fexprIntLit:
-    let opt = scope.getDecl("IntLit")
+    let opt = scope.getDecl("intlit")
     if opt.isNone:
-      fexpr.error("undeclared IntLit type, please import prelude.")
+      fexpr.error("undeclared intlit type, please import prelude.")
     fexpr.metadata.typ = opt.get
     return true
   of fexprFloatLit:
-    let opt = scope.getDecl("FloatLit")
+    let opt = scope.getDecl("floatlit")
     if opt.isNone:
-      fexpr.error("undeclared FloatLit type, please import prelude.")
+      fexpr.error("undeclared floatlit type, please import prelude.")
     fexpr.metadata.typ = opt.get
     return true
   of fexprStrLit:
-    let opt = scope.getDecl("StrLit")
+    let opt = scope.getDecl("strlit")
     if opt.isNone:
-      fexpr.error("undeclared StrLit type, please import prelude.")
+      fexpr.error("undeclared strlit type, please import prelude.")
     fexpr.metadata.typ = opt.get
     return true
   of fexprList:
@@ -165,33 +160,25 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
     checkArgsHastype(fexpr[1])
     let argtypes = fexpr[1].mapIt(it.metadata.typ)
     let opt = scope.getFunc(procname(name(fnident), argtypes))
-    if opt.isSome:
-      fexpr[0] = fsymbol(fexpr[0].span, opt.get.pd.sym)
-      fexpr.metadata.typ = opt.get.pd.returntype
-      fexpr[1] = genConvertedCall(fexpr[1], opt.get.matches)
-      scope.rootPass(fexpr[1])
-    else:
+    if opt.isNone:
       fexpr.error("undeclared $#($#) function" % [$fnident, argtypes.mapIt($it).join(", ")])
-
+    fexpr[0] = fsymbol(fexpr[0].span, opt.get.pd.sym)
+    fexpr.metadata.typ = opt.get.pd.returntype
+    fexpr[1] = genConvertedCall(fexpr[1], opt.get.matches)
+    scope.rootPass(fexpr[1])
     return true
   elif fexpr.isGenericsFuncCall:
     let fnident = fexpr[0]
     let generics = fexpr[1]
     checkArgsHastype(fexpr[2])
     let argtypes = fexpr[2].mapIt(it.metadata.typ)
-    for g in generics.mitems:
-      if g.kind == fexprSymbol and g.symbol.isSpecSymbol:
-        continue
-      g = fsymbol(g.span, scope.semType(g))
     let opt = scope.getFunc(procname(name(fnident), argtypes))
-    if opt.isSome:
-      fexpr[0] = fsymbol(fexpr[0].span, opt.get.pd.sym)
-      fexpr.metadata.typ = opt.get.pd.returntype
-      fexpr[2] = genConvertedCall(fexpr[2], opt.get.matches)
-      scope.rootPass(fexpr[2])
-    else:
+    if opt.isNone:
       fexpr.error("undeclared $#$#($#) function" % [$fnident, $generics, argtypes.mapIt($it).join(", ")])
-
+    fexpr[0] = fsymbol(fexpr[0].span, opt.get.pd.sym)
+    fexpr.metadata.typ = opt.get.pd.returntype
+    fexpr[2] = genConvertedCall(fexpr[2], opt.get.matches)
+    scope.rootPass(fexpr[2])
     return true
   elif fexpr.isInfixFuncCall:
     let fnident = fexpr[0]
@@ -199,17 +186,15 @@ proc overloadResolve*(scope: Scope, fexpr: var FExpr): bool =
     checkArgsHastype(args)
     let argtypes = @[fexpr[1].metadata.typ, fexpr[2].metadata.typ]
     let opt = scope.getFunc(procname(name(fnident), argtypes))
-    if opt.isSome:
-      fexpr[0] = fsymbol(fexpr[0].span, opt.get.pd.sym)
-      fexpr.metadata.typ = opt.get.pd.returntype
-      let converted = genConvertedCall(args, opt.get.matches)
-      fexpr[1] = converted[0]
-      fexpr[2] = converted[1]
-      scope.rootPass(fexpr[1])
-      scope.rootPass(fexpr[2])
-    else:
+    if opt.isNone:
       fexpr.error("undeclared $# $# $# function" % [$args[0].metadata.typ, $fnident, $args[1].metadata.typ])
-      
+    fexpr[0] = fsymbol(fexpr[0].span, opt.get.pd.sym)
+    fexpr.metadata.typ = opt.get.pd.returntype
+    let converted = genConvertedCall(args, opt.get.matches)
+    fexpr[1] = converted[0]
+    fexpr[2] = converted[1]
+    scope.rootPass(fexpr[1])
+    scope.rootPass(fexpr[2])
     return true
   else:
     return true

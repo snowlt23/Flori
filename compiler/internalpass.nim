@@ -1,6 +1,6 @@
 
 import fexpr_core
-import passutils, typepass, sempass
+import passutils, sempass, expand_templates
 import compileutils, macroffi
 import passmacro
 
@@ -52,26 +52,14 @@ proc expandDefn*(fexpr: FExpr): FExpr =
   newfexpr.addSon(fexpr[pos])
   pos.inc
 
-  let ret = fseq(fexpr.span)
-  # ret ref
-  if pos < fexpr.len and ($fexpr[pos] == "ref" or $fexpr[pos] == "dynamic"):
-    ret.addSon(fexpr[pos])
-    pos.inc
-
   # ret
-  if pos < fexpr.len and fexpr[pos].kind in {fexprIdent, fexprSymbol}:
-    ret.addSon(fexpr[pos])
+  if pos < fexpr.len and fexpr[pos].kind in {fexprSeq, fexprSymbol}:
+    newfexpr.addSon(fexpr[pos])
     pos.inc
+  elif pos < fexpr.len and fexpr[pos].kind in fexprNames:
+    fexpr[pos].error("expect return type, but got $#." % $fexpr[pos])
   else:
-    ret.addSon(fident(fexpr.span, istring("Void")))
-
-  # ret generics
-  if pos < fexpr.len and fexpr[pos].kind == fexprArray:
-    ret.addSon(fexpr[pos])
-    newfexpr.addSon(ret)
-    pos.inc
-  else:
-    newfexpr.addSon(ret)
+    newfexpr.addSon(fseq(fexpr.span, @[fident(fexpr.span, istring("type")), fident(fexpr.span, istring("void"))]))
 
   # pragma
   if pos < fexpr.len and $fexpr[pos] == "$":
@@ -281,25 +269,25 @@ proc declGenerics*(scope: Scope, fexpr: FExpr, decl: bool): seq[Symbol] =
 proc declArgtypes*(scope: Scope, originscope: Scope, fexpr: FExpr): seq[Symbol] =
   result = @[]
   for i, arg in fexpr.mpairs:
-    if arg.len < 2:
+    if arg.len != 2:
       arg.error("$# isn't argument declaration." % $arg)
     if arg[1].kind == fexprSymbol:
       result.add(arg[1].symbol)
     else:
-      if arg.len != 2:
-        let argtyp = fseq(arg.span, toSeq(arg.items)[1..^1])
-        arg = fseq(arg.span, @[arg[0], argtyp])
-      let typesym = scope.semType(arg[1])
+      scope.rootPass(arg[1])
+      if arg[1].kind != fexprSymbol:
+        arg[1].error("$# isn't type of argument." % $arg[1])
       arg[0] = fsymbol(arg[0].span, scope.symbol(istring(name(arg[0])), symbolDef, arg[0]))
-      arg[1] = fsymbol(arg[1].span, typesym)
-      result.add(typesym)
+      result.add(arg[1].symbol)
         
 proc semFunc*(scope: Scope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): (Scope, seq[Symbol], seq[Symbol], Symbol, Symbol) =
   let fnscope = scope.extendScope()
   let generics = fnscope.declGenerics(fexpr.fnGenerics, true)
   let argtypes = fnscope.declArgtypes(scope, fexpr.fnArguments)
-  let rettype = fnscope.semType(fexpr.fnReturn)
-  fexpr.fnReturn = fsymbol(fexpr.fnReturn.span, rettype)
+  fnscope.rootPass(fexpr.fnReturn)
+  if fexpr.fnReturn.kind != fexprSymbol:
+    fexpr.fnReturn.error("$# isn't return type." % $fexpr.fnReturn)
+  let rettype = fexpr.fnReturn.symbol
   
   let symkind = if defsym == symbolMacro:
                   defsym
@@ -347,7 +335,6 @@ proc semFunc*(scope: Scope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): (
   fnscope.rootPass(fexpr.fnBody)
   if fexpr.fnBody.len != 0:
     if not fexpr.fnBody.metadata.typ.spec(rettype):
-      echo fexpr.fnBody[^1], ":", fexpr.fnBody[^1].metadata.typ
       fexpr.fnBody.error("function expect $# return type, actually $#" % [$rettype, $fexpr.fnBody.metadata.typ])
   
   return (fnscope, generics, argtypes, rettype, sym)
@@ -427,26 +414,50 @@ proc semDeftype*(scope: Scope, fexpr: var FExpr) =
       field.error("$# isn't field declaration." % $field)
     if $field[0] == "union":
       for son in field[1].mitems:
-        let ftyp = fseq(son.span, toSeq(son.items)[1..^1])
-        son = fseq(son.span, @[son[0], ftyp])
-        let s = typescope.semType(son[1])
-        son[1].replaceByTypesym(s)
+        scope.rootPass(son[1])
     else:
-      let ftyp = fseq(field.span, toSeq(field.items)[1..^1])
-      field = fseq(field.span, @[field[0], ftyp])
-      let s = typescope.semType(field[1])
-      field[1].replaceByTypesym(s)
+      scope.rootPass(field[1])
   fexpr.metadata.scope = typescope
 
   if fexpr.metadata.importc.isNone:
     sym.fexpr.metadata.isCStruct = true
+
+proc semType*(scope: Scope, fexpr: var FExpr) =
+  if fexpr.len notin {2, 3}:
+    fexpr.error("type syntax should be 2,3 parameters")
+  if fexpr.len == 2:
+    let sym = scope.getDecl(name(fexpr[1]))
+    if sym.isNone:
+      fexpr.error("undeclared $# type." % $fexpr[1])
+    fexpr = fsymbol(fexpr.span, sym.get)
+  else:
+    let opt = scope.getDecl(name(fexpr[1]))
+    if opt.isNone:
+      fexpr.error("undeclared $# type." % $fexpr[1])
+    var types = newSeq[Symbol]()
+    for arg in fexpr[2].mitems:
+      scope.rootPass(arg)
+      if arg.kind != fexprSymbol:
+        arg.error("$# isn't type param." % $arg)
+      types.add(arg.symbol)
+    var sym = opt.get.scope.symbol(opt.get.name, symbolTypeGenerics, opt.get.fexpr)
+    sym.types = iarray(types)
+    fexpr = scope.expandDeftype(sym.obj.fexpr, toSeq(sym.types.items))
+  scope.resolveByVoid(fexpr)
+
+proc semTypeRef*(scope: Scope, fexpr: var FExpr) =
+  scope.semType(fexpr)
+  fexpr = fsymbol(fexpr.span, scope.refsym(fexpr.symbol))
 
 proc semTypedef*(scope: Scope, fexpr: var FExpr) =
   let ftyp = fseq(fexpr[2].span, toSeq(fexpr.items)[2..^1])
   let newfexpr = fseq(fexpr.span, @[fexpr[0], fexpr[1], ftyp])
   newfexpr.metadata = fexpr.metadata
   fexpr = newfexpr
-  let typesym = scope.semType(fexpr[2])
+  scope.rootPass(fexpr[2])
+  if fexpr[2].kind != fexprSymbol:
+    fexpr[2].error("$# isn't type." % $fexpr[2])
+  let typesym = fexpr[2].symbol
   if not scope.addDecl(istring($fexpr[1]), typesym):
     fexpr.error("redefinition $# type." % $fexpr[1])
   fexpr[2] = fsymbol(fexpr[2].span, typesym)
@@ -464,7 +475,7 @@ proc semIf*(scope: Scope, fexpr: var FExpr) =
     if branch.cond.isSome:
       bscope.rootPass(fexpr[branch.cond.get])
       if not fexpr[branch.cond.get].metadata.typ.isBoolType:
-        fexpr[branch.cond.get].error("if expression cond type should be Bool.")
+        fexpr[branch.cond.get].error("if expression cond type should be bool.")
     bscope.rootPass(fexpr[branch.body])
     if fexpr[branch.body].len != 0:
       branchtypes.add(fexpr[branch.body][^1].metadata.typ)
@@ -479,7 +490,7 @@ proc semIf*(scope: Scope, fexpr: var FExpr) =
 proc semWhile*(scope: Scope, fexpr: var FExpr) =
   scope.rootPass(fexpr[1])
   if not fexpr[1][0].metadata.typ.isBoolType:
-    fexpr[1].error("while statement cond type chould be Bool.")
+    fexpr[1].error("while statement cond type chould be bool.")
   let bodyscope = scope.extendScope()
   bodyscope.rootPass(fexpr[2])
   scope.resolveByVoid(fexpr)
@@ -490,16 +501,11 @@ proc semVar*(scope: Scope, fexpr: var FExpr) =
   let n = fexpr[1]
   if n.kind != fexprIdent:
     n.error("variable name should be FIdent.")
-  
-  let ftyp = fseq(fexpr[2].span, toSeq(fexpr.items)[2..^1])
-  let newfexpr = fseq(fexpr.span, @[fexpr[0], fexpr[1], ftyp])
-  newfexpr.metadata = fexpr.metadata
-  fexpr = newfexpr
 
-  let typsym = if fexpr[2].kind == fexprSymbol:
-                 fexpr[2].symbol
-               else:
-                 scope.semType(fexpr[2])
+  scope.rootPass(fexpr[2])
+  if fexpr[2].kind != fexprSymbol:
+    fexpr[2].error("$# isn't type." % $fexpr[2])
+  let typsym = fexpr[2].symbol
   
   let varsym = scope.symbol(istring($n), symbolDef, n)
   n.metadata.typ = typsym.scope.varsym(typsym)
@@ -554,14 +560,14 @@ proc semDef*(scope: Scope, fexpr: var FExpr) =
 
   scope.rootPass(fexpr[2])
   if fexpr[2].metadata.typ.isVoidType:
-    fexpr[2].error("value is Void.")
-  elif $fexpr[2].metadata.typ.name == "IntLit":
+    fexpr[2].error("value is void.")
+  elif $fexpr[2].metadata.typ.name == "intlit":
     fexpr[2] = fexpr[2].span.quoteFExpr("int(`embed)", [fexpr[2]])
     scope.rootPass(fexpr[2])
-  elif $fexpr[2].metadata.typ.name == "FloatLit":
+  elif $fexpr[2].metadata.typ.name == "floatlit":
     fexpr[2] = fexpr[2].span.quoteFExpr("double(`embed)", [fexpr[2]])
     scope.rootPass(fexpr[2])
-  elif $fexpr[2].metadata.typ.name == "StrLit":
+  elif $fexpr[2].metadata.typ.name == "strlit":
     fexpr[2] = fexpr[2].span.quoteFExpr("cstring(`embed)", [fexpr[2]])
     scope.rootPass(fexpr[2])
     
@@ -672,8 +678,10 @@ proc semInit*(scope: Scope, fexpr: var FExpr) =
   if fexpr[2].kind != fexprBlock:
     fexpr.error("init body should be FBlock.")
     
-  let typesym = scope.semType(fexpr[1][0])
-  fexpr[1][0].replaceByTypesym(typesym)
+  scope.rootPass(fexpr[1][0])
+  if fexpr[1][0].kind != fexprSymbol:
+    fexpr.error("$# isn't init type." % $fexpr[1][0])
+  let typesym = fexpr[1][0].symbol
   fexpr.metadata.typ = typesym
   scope.rootPass(fexpr[2])
 
@@ -794,7 +802,9 @@ proc initInternalEval*(scope: Scope) =
   scope.addInternalEval(istring("fn"), semDefn)
   scope.addInternalEval(istring("syntax"), semSyntax)
   scope.addInternalEval(istring("macro"), semMacro)
-  scope.addInternalEval(istring("type"), semDeftype)
+  scope.addInternalEval(istring("struct"), semDeftype)
+  scope.addInternalEval(istring("type"), semType)
+  scope.addInternalEval(istring("type-ref"), semTypeRef)
   scope.addInternalEval(istring("typedef"), semTypedef)
   scope.addInternalEval(istring("if"), semIf)
   scope.addInternalEval(istring("while"), semWhile)
