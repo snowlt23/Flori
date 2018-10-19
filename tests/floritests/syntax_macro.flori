@@ -4,12 +4,12 @@ import "tests/testutils"
 
 expect("FList!\nFArray!\nFList!\n")
 
-macro mac(f FList) FExpr $[syntax] {
+macro mac(f ^flist) ^fexpr $[syntax] {
   quote {
     println("FList!")
   }
 }
-macro mac(f FArray) FExpr $[syntax] {
+macro mac(f ^farray) ^fexpr $[syntax] {
   quote {
     println("FArray!")
   }

@@ -5,13 +5,13 @@ import "tests/testutils"
 
 expect("vec[MyInt:1, MyInt:2, MyInt:3]\n")
 
-type MyInt {
-  x Int
+struct myint {
+  x ^int
 }
-fn mi(x Int) MyInt {
-  init(MyInt){x}
+fn mi(x ^int) ^myint {
+  init(^myint){x}
 }
-fn print(mi MyInt) {
+fn print(mi ^myint) {
   print("MyInt:")
   print(mi.x)
 }

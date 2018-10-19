@@ -5,21 +5,21 @@ import "tests/testutils"
 
 expect("0\n")
 
-type MyInt {
-  x IntLit
-  y IntLit
+struct myint {
+  x ^intlit
+  y ^intlit
 }
 
-fn islive(mi MyInt) Bool {
+fn islive(mi ^myint) ^bool {
   false
 }
 
 fn main() {
-  p := new_pool[MyInt]()
+  p := new_pool[^myint]()
   use_pool(p) {
-    push(p, init(MyInt){1; 2})
-    push(p, init(MyInt){3; 4})
-    push(p, init(MyInt){4; 5})
+    push(p, init(^myint){1; 2})
+    push(p, init(^myint){3; 4})
+    push(p, init(^myint){4; 5})
   }
   println(length(p))
 }

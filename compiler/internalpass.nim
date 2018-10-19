@@ -253,12 +253,14 @@ proc semPragma*(scope: Scope, fexpr: FExpr, pragma: FExpr) =
 # Evaluater
 #
 
-proc declGenerics*(scope: Scope, fexpr: FExpr, decl: bool): seq[Symbol] =
+proc declGenerics*(scope: Scope, fexpr: FExpr): seq[Symbol] =
   result = @[]
   for g in fexpr.mitems:
     if g.kind == fexprSymbol:
       result.add(g.symbol)
     else:
+      if g.kind == fexprSeq:
+        g.error("generics param should be fident.")
       let sym = scope.symbol(istring($g), symbolGenerics, g)
       let status = scope.addDecl(istring($g), sym)
       if not status:
@@ -266,7 +268,7 @@ proc declGenerics*(scope: Scope, fexpr: FExpr, decl: bool): seq[Symbol] =
       g = fsymbol(g.span, sym)
       result.add(sym)
 
-proc declArgtypes*(scope: Scope, originscope: Scope, fexpr: FExpr): seq[Symbol] =
+proc declArgtypes*(scope: Scope, fexpr: FExpr): seq[Symbol] =
   result = @[]
   for i, arg in fexpr.mpairs:
     if arg.len != 2:
@@ -282,8 +284,8 @@ proc declArgtypes*(scope: Scope, originscope: Scope, fexpr: FExpr): seq[Symbol] 
         
 proc semFunc*(scope: Scope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): (Scope, seq[Symbol], seq[Symbol], Symbol, Symbol) =
   let fnscope = scope.extendScope()
-  let generics = fnscope.declGenerics(fexpr.fnGenerics, true)
-  let argtypes = fnscope.declArgtypes(scope, fexpr.fnArguments)
+  let generics = fnscope.declGenerics(fexpr.fnGenerics)
+  let argtypes = fnscope.declArgtypes(fexpr.fnArguments)
   fnscope.rootPass(fexpr.fnReturn)
   if fexpr.fnReturn.kind != fexprSymbol:
     fexpr.fnReturn.error("$# isn't return type." % $fexpr.fnReturn)
@@ -322,13 +324,10 @@ proc semFunc*(scope: Scope, fexpr: var FExpr, defsym: SymbolKind, decl: bool): (
   for i, arg in fexpr.fnArguments:
     let argtsym = scope.symbol(istring($arg[0]), symbolArg, arg[0])
     if not fnscope.addDecl(istring($arg[0]), argtsym):
-      for d in fnscope.decls:
-        echo d.name
       arg[0].error("redefinition $# argument." % $arg[0])
     arg[0] = fsymbol(arg[0].span, argtsym)
     arg[0].symbol.fexpr.metadata.typ = argtypes[i]
     arg[1] = fsymbol(arg[0].span, argtypes[i])
-  fexpr.metadata.scope = fnscope
   # scope.resolveByVoid(fexpr)
 
   # semPragma(scope, fexpr, fexpr.fnPragma)
@@ -426,10 +425,20 @@ proc semType*(scope: Scope, fexpr: var FExpr) =
   if fexpr.len notin {2, 3}:
     fexpr.error("type syntax should be 2,3 parameters")
   if fexpr.len == 2:
-    let sym = scope.getDecl(name(fexpr[1]))
-    if sym.isNone:
-      fexpr.error("undeclared $# type." % $fexpr[1])
-    fexpr = fsymbol(fexpr.span, sym.get)
+    if fexpr[1].kind == fexprSymbol:
+      fexpr = fexpr[1]
+    elif fexpr[1].kind == fexprIntLit:
+      fexpr = fsymbol(fexpr.span, scope.intsym(fexpr[1]))
+    else:
+      let opt = scope.getDecl(name(fexpr[1]))
+      if opt.isNone:
+        fexpr.error("undeclared $# type." % $fexpr[1])
+      elif opt.get.fexpr.metadata.internal == internalConst:
+        fexpr = fsymbol(fexpr.span, scope.intsym(opt.get.fexpr.metadata.constvalue))
+      elif fexpr.kind == fexprSymbol:
+        discard
+      else:
+        fexpr = fsymbol(fexpr.span, opt.get)
   else:
     let opt = scope.getDecl(name(fexpr[1]))
     if opt.isNone:
@@ -442,7 +451,9 @@ proc semType*(scope: Scope, fexpr: var FExpr) =
       types.add(arg.symbol)
     var sym = opt.get.scope.symbol(opt.get.name, symbolTypeGenerics, opt.get.fexpr)
     sym.types = iarray(types)
-    fexpr = scope.expandDeftype(sym.obj.fexpr, toSeq(sym.types.items))
+    let s = scope.expandDeftype(sym.obj.fexpr, types).symbol.symcopy
+    s.types = sym.types
+    fexpr = fsymbol(fexpr.span, s)
   scope.resolveByVoid(fexpr)
 
 proc semTypeRef*(scope: Scope, fexpr: var FExpr) =
@@ -745,7 +756,7 @@ proc semQuote*(scope: Scope, fexpr: var FExpr) =
   if fexpr.len != 2:
     fexpr.error("quote expected fblock.")
   if fexpr[1].kind != fexprBlock:
-    fexpr[1].error("quote expected FBlock, actually $#" % $fexpr[1].kind)
+    fexpr[1].error("quote expected fblock, actually $#" % $fexpr[1].kind)
   let fstr = fstrlit(fexpr[1].span, istring(($fexpr[1]).replace("\n", ";").replace("\"", "\\\"").replace("\\n", "\\\\n")))
 
   let ret = fblock(fexpr.span)

@@ -1,9 +1,8 @@
-
 import "core/prelude"
 import "core/macros"
 import "core/string"
 
-fn is_jscodegen_fn() Bool $[importc, header nodeclc, declc "
+fn is_jscodegen_fn() ^bool $[importc, header nodeclc, declc "
 #ifdef FLORI_JSCODEGEN
 #define is_jscodegen true
 #else
@@ -12,7 +11,7 @@ fn is_jscodegen_fn() Bool $[importc, header nodeclc, declc "
   ", patternc "is_jscodegen"]
 is_jscodegen $[compiletime] := is_jscodegen_fn()
 
-macro is_defined(d FIdent) FExpr {
+macro is_defined(d ^fident) ^fexpr {
   tmp := gensym()
   mtmp := gensym()
   sdecl := s""
@@ -30,8 +29,8 @@ macro is_defined(d FIdent) FExpr {
   fdecl := new_fstrlit(to_cs(sdecl))
   fpat := new_fstrlit(to_cs(tmp))
   quote {
-    fn `tmp() Bool $[importc, declc `fdecl, patternc `fpat]
-    macro `mtmp() FExpr {
+    fn `tmp() ^bool $[importc, declc `fdecl, patternc `fpat]
+    macro `mtmp() ^fexpr {
       if (`tmp()) {
         quote {true}
       } else {
@@ -42,10 +41,10 @@ macro is_defined(d FIdent) FExpr {
   }
 }
 
-fn is_release_fn() Bool {
+fn is_release_fn() ^bool {
   is_defined(RELEASE)
 }
-fn is_debug_fn() Bool {
+fn is_debug_fn() ^bool {
   not(is_defined(RELEASE))
 }
 is_release $[compiletime] := is_release_fn()

@@ -1,4 +1,3 @@
-
 import "core/prelude"
 import "core/pointer"
 import "core/io"
@@ -6,33 +5,33 @@ import "core/syntax"
 import "core/macros"
 import "core/region"
 
-type Vec[T] {
-  data WPtr[T]
-  cap Int
-  len Int
+struct vec[T] {
+  data ^wptr[^T]
+  cap ^int
+  len ^int
 }
 
-fn vec[T](len Int, cap Int) Vec[T] $[importjs, patternjs "new Array($1)"] {
-  init(Vec[T]) {
-    alloc_with[T](cap)
+fn vec[T](len ^int, cap ^int) ^vec[^T] $[importjs, patternjs "new Array($1)"] {
+  init(^vec[^T]) {
+    alloc_with[^T](cap)
     cap
     len
   }
 }
-fn vec[T](len Int) Vec[T] {
-  vec[T](len, len * 2)
+fn vec[T](len ^int) ^vec[^T] {
+  vec[^T](len, len * 2)
 }
-fn vec[T]() Vec[T] {
-  vec[T](0, 32)
+fn vec[T]() ^vec[^T] {
+  vec[^T](0, 32)
 }
 
-fn copy[T](r ref Region, v Vec[T]) Vec[T] {
-  newv := vec[T](v.len, v.cap)
-  copy_memory(to_ptr(newv.data), to_ptr(v.data), sizeof[T]() * v.len)
+fn copy[T](r ^ref region, v ^vec[^T]) ^vec[^T] {
+  newv := vec[^T](v.len, v.cap)
+  copy_memory(to_ptr(newv.data), to_ptr(v.data), sizeof[^T]() * v.len)
   newv
 }
 
-macro vec(elems TArray) FExpr $[syntax] {
+macro vec(elems ^tarray) ^fexpr $[syntax] {
   if (length(elems) == 0) {
     error(elems, "vec syntax require arguments.")
   }
@@ -51,32 +50,32 @@ macro vec(elems TArray) FExpr $[syntax] {
   ret
 }
 
-fn extend[T](v ref Vec[T]) {
+fn extend[T](v ^ref vec[^T]) {
   realloc(v.data, v.cap*2)
   v.cap = v.cap*2
 }
 
-fn push[T](v ref Vec[T], value T) $[importjs, patternjs "$1.push($2)"] {
+fn push[T](v ^ref vec[^T], value ^T) $[importjs, patternjs "$1.push($2)"] {
   if (v.cap <= v.len) {
     extend(v)
   }
-  unref(to_ptr(v.data) +! (v.len * sizeof[T]())) = value
+  unref(to_ptr(v.data) +! (v.len * sizeof[^T]())) = value
   v.len += 1
 }
 
-fn length[T](v Vec[T]) Int $[importjs, patternjs "$1.length"] {
+fn length[T](v ^vec[^T]) ^int $[importjs, patternjs "$1.length"] {
   v.len
 }
 
-fn `![T](v Vec[T], i Int) ref T $[importjs, patternjs "$1[$2]"] {
-  unref(to_ptr(v.data) +! (i * sizeof[T]()))
+fn `![T](v ^vec[^T], i ^int) ^ref T $[importjs, patternjs "$1[$2]"] {
+  unref(to_ptr(v.data) +! (i * sizeof[^T]()))
 }
 
-fn `!![T](v ref Vec[T], i Int, value T) {
-  unref(to_ptr(v.data) +! (i * sizeof[T]())) = value
+fn `!![T](v ^ref vec[^T], i ^int, value ^T) {
+  unref(to_ptr(v.data) +! (i * sizeof[^T]())) = value
 }
 
-iterator items[T](v TExpr[Vec[T]]) {
+iterator items[T](v ^texpr[^vec[^T]]) {
   i := gensym()
   quote {
     for (`i : range(int(0), length(`v)-1)) {
@@ -86,7 +85,7 @@ iterator items[T](v TExpr[Vec[T]]) {
   }
 }
 
-fn print[T](v Vec[T]) {
+fn print[T](v ^vec[^T]) {
   print("vec[")
   if (length(v) > 0) {
     print(v!0)
@@ -98,6 +97,6 @@ fn print[T](v Vec[T]) {
   print("]")
 }
 
-fn getref[T](v ref Vec[T]) Ptr[T] {
+fn getref[T](v ^ref vec[^T]) ^ptr[^T] {
   v.data.p
 }

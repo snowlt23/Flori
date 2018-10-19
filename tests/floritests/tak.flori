@@ -5,7 +5,7 @@ import "tests/testutils"
 
 expect("12\n")
 
-fn tak(x Int, y Int, z Int) Int {
+fn tak(x ^int, y ^int, z ^int) ^int {
   if (x <= y) {
     y
   } else {

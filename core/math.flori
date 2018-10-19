@@ -1,37 +1,36 @@
-
 import "core/prelude"
 
-fn M_PI() Float $[importc, header "math.h", patternc "M_PI", importjs, patternjs "Math.PI"]
+fn M_PI() ^float $[importc, header "math.h", patternc "M_PI", importjs, patternjs "Math.PI"]
 M_PI := M_PI()
 
-fn neg(x Int) Int $[importc, header nodeclc, patternc "(-($1))", importjs, patternjs "(-($1))"]
-fn neg(x Float) Float $[importc, header nodeclc, patternc "(-($1))", importjs, patternjs "(-($1))"]
-fn neg(x Double) Double $[importc, header nodeclc, patternc "(-($1))", importjs, patternjs "(-($1))"]
+fn neg(x ^int) ^int $[importc, header nodeclc, patternc "(-($1))", importjs, patternjs "(-($1))"]
+fn neg(x ^float) ^float $[importc, header nodeclc, patternc "(-($1))", importjs, patternjs "(-($1))"]
+fn neg(x ^double) ^double $[importc, header nodeclc, patternc "(-($1))", importjs, patternjs "(-($1))"]
 
-fn sin(x Float) Float $[importc "sin", header "math.h"]
-fn cos(x Float) Float $[importc "cos", header "math.h"]
-fn sqrt(x Float) Float $[importc "sqrt", header "math.h"]
-fn sqrt(x Double) Double $[importc "sqrt", header "math.h"]
-fn pow(x Double, y Double) Double $[importc "pow", header "math.h"]
-fn pow(x Float, y Float) Float $[importc "pow", header "math.h"]
-fn pow(x Int, y Int) Int $[importc "pow", header "math.h"]
-fn pow(x UInt32, y UInt32) UInt32 $[importc "pow", header "math.h"]
+fn sin(x ^float) ^float $[importc "sin", header "math.h"]
+fn cos(x ^float) ^float $[importc "cos", header "math.h"]
+fn sqrt(x ^float) ^float $[importc "sqrt", header "math.h"]
+fn sqrt(x ^double) ^double $[importc "sqrt", header "math.h"]
+fn pow(x ^double, y ^double) ^double $[importc "pow", header "math.h"]
+fn pow(x ^float, y ^float) ^float $[importc "pow", header "math.h"]
+fn pow(x ^int, y ^int) ^int $[importc "pow", header "math.h"]
+fn pow(x ^uint32, y ^uint32) ^uint32 $[importc "pow", header "math.h"]
 
-fn abs(x Float) Float {
+fn abs(x ^float) ^float {
   if (x < 0.0) {
     neg(x)
   } else {
     x
   }
 }
-fn min(a Float, b Float) Float {
+fn min(a ^float, b ^float) ^float {
   if (a < b) {
     a
   } else {
     b
   }
 }
-fn max(a Float, b Float) Float {
+fn max(a ^float, b ^float) ^float {
   if (a > b) {
     a
   } else {

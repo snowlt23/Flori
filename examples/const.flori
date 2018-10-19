@@ -1,4 +1,3 @@
-
 import "core/prelude"
 import "core/io"
 import "core/array"
@@ -8,7 +7,7 @@ import "core/macros"
 const N := 9
 
 fn main() {
-  var arr Array[N, Int]
+  var arr ^array[^N, ^int]
   println(N)
 }
 

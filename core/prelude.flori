@@ -1,4 +1,3 @@
-
 struct void $[importc "void", header nodeclc]
 struct bool $[importc "bool", header "stdbool.h"]
 struct strlit $[importc "char*", header nodeclc]

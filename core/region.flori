@@ -1,45 +1,44 @@
-
 import "core/prelude"
 import "core/pointer"
 import "core/io"
 import "core/macros"
 import "core/syntax"
 
-type RPtr[T] {
-  p Pointer
+struct rptr[T] {
+  p ^pointer
 }
 
-type WPtr[T] {
-  p Pointer
+struct wptr[T] {
+  p ^pointer
 }
 
-type Region {
-  data Pointer
-  current Int
-  size Int
-  prev Ptr[Region]
+struct region {
+  data ^pointer
+  current ^int
+  size ^int
+  prev ^ptr[^region]
 }
 
-fn new_region(size Int, dscap Int) Region {
-  var r Region
+fn new_region(size ^int, dscap ^int) ^region {
+  var r ^region
   r.data = unsafe_malloc(size)
   r.current = int(0)
   r.size = size
-  r.prev = unsafe_null[Region]()
+  r.prev = unsafe_null[^region]()
   r
 }
 
-fn dealloc_region(r Region) {
-  if (cast[Pointer](r.prev) != null) {
+fn dealloc_region(r ^region) {
+  if (cast[^pointer](r.prev) != null) {
     dealloc_region(unref(r.prev))
-    unsafe_free(cast[Pointer](r.prev))
+    unsafe_free(cast[^pointer](r.prev))
   }
   unsafe_free(r.data)
 }
 
-fn extend(r ref Region, allocsize Int) {
+fn extend(r ^ref region, allocsize ^int) {
   if (r.current + allocsize >= r.size) {
-    rp := cast[Ptr[Region]](unsafe_malloc(sizeof[Region]()))
+    rp := cast[^ptr[^region]](unsafe_malloc(sizeof[^region]()))
     unref(rp) = r
 
     newrsize := r.size*2
@@ -51,57 +50,57 @@ fn extend(r ref Region, allocsize Int) {
   }
 }
 
-fn alloc[T](r ref Region, len Int) RPtr[T] {
-  sz := sizeof[T]() * len
+fn alloc[T](r ^ref region, len ^int) ^rptr[^T] {
+  sz := sizeof[^T]() * len
   extend(r, sz)
-  var rp RPtr[T]
-  rp.p = cast[Pointer](cast[Int](r.data) + r.current)
+  var rp ^rptr[^T]
+  rp.p = cast[^pointer](cast[^int](r.data) + r.current)
   r.current += sz
   rp
 }
 
-fn alloc[T](r ref Region) RPtr[T] {
-  alloc[T](r, 1)
+fn alloc[T](r ^ref region) ^rptr[^T] {
+  alloc[^T](r, 1)
 }
 
-fn to_ptr[T](rp RPtr[T]) Ptr[T] {
-  cast[Ptr[T]](rp.p)
+fn to_ptr[T](rp ^rptr[^T]) ^ptr[^T] {
+  cast[^ptr[^T]](rp.p)
 }
 
-fn null_rptr[T]() RPtr[T] {
-  var rp RPtr[T]
+fn null_rptr[T]() ^rptr[^T] {
+  var rp ^rptr[^T]
   rp.p = null
   rp
 }
 
-fn is_null[T](rp RPtr[T]) Bool {
+fn is_null[T](rp ^rptr[^T]) ^bool {
   rp.p == null
 }
 
-fn alloc_with[T](r ref Region, len Int) WPtr[T] {
-  sz := sizeof[T]() * len
-  init(WPtr[T]){unsafe_malloc(sz)}
+fn alloc_with[T](r ^ref region, len ^int) ^wptr[^T] {
+  sz := sizeof[^T]() * len
+  init(^wptr[^T]){unsafe_malloc(sz)}
 }
 
-fn dealloc[T](wp WPtr[T]) {
-  unsafe_free(cast[Pointer](wp.p))
+fn dealloc[T](wp ^wptr[^T]) {
+  unsafe_free(cast[^pointer](wp.p))
 }
 
-fn realloc[T](wp ref WPtr[T], newlen Int) {
-  wp.p = unsafe_realloc(wp.p, sizeof[T]()*newlen)
+fn realloc[T](wp ^ref wptr[^T], newlen ^int) {
+  wp.p = unsafe_realloc(wp.p, sizeof[^T]()*newlen)
 }
 
-fn to_ptr[T](wp WPtr[T]) Ptr[T] {
-  cast[Ptr[T]](wp.p)
+fn to_ptr[T](wp ^wptr[^T]) ^ptr[^T] {
+  cast[^ptr[^T]](wp.p)
 }
 
 #
 # context
 #
 
-var g_current_region Region
+var g_current_region ^region
 
-fn region_settings(regsize Int, dscap Int) {
+fn region_settings(regsize ^int, dscap ^int) {
   g_current_region = new_region(regsize, dscap)
 }
 fn default_region_settings() {
@@ -114,31 +113,31 @@ default_region_settings()
 fn ct_flori_destruct() $[exportc "ct_flori_destruct"] {
   dealloc_region(g_current_region)
 }
-macro elimregist() FExpr {
+macro elimregist() ^fexpr {
   ct_flori_destruct()
   quote {}
 }
 
-fn alloc[T](len Int) RPtr[T] {
-  alloc[T](g_current_region, len)
+fn alloc[T](len ^int) ^rptr[^T] {
+  alloc[^T](g_current_region, len)
 }
-fn alloc[T]() RPtr[T] {
-  alloc[T](1)
+fn alloc[T]() ^rptr[^T] {
+  alloc[^T](1)
 }
-fn alloc_with[T](len Int) WPtr[T] {
-  alloc_with[T](g_current_region, len)
+fn alloc_with[T](len ^int) ^wptr[^T] {
+  alloc_with[^T](g_current_region, len)
 }
 
 #
 # macros
 #
 
-macro in_region(size FExpr, body TBlock) FExpr $[syntax] {
+macro in_region(size ^fexpr, body ^tblock) ^fexpr $[syntax] {
   prevr := gensym()
   ret := gensym()
   tmpr := gensym()
   # newbody := convert_to_copy(prevr, body)
-  if (to_cs(get_type(body)) == "Void") {
+  if (to_cs(get_type(body)) == "void") {
     quote {
       `prevr := g_current_region
       g_current_region = new_region(`size, 1024)
@@ -146,7 +145,7 @@ macro in_region(size FExpr, body TBlock) FExpr $[syntax] {
       dealloc_region(g_current_region)
       g_current_region = `prevr
     }
-  } elif (to_cs(get_type(body)) == "FExpr") {
+  } elif (to_cs(get_type(body)) == "fexpr") {
     quote {
       `prevr := g_current_region
       g_current_region = new_region(`size, 1024)
@@ -170,21 +169,21 @@ macro in_region(size FExpr, body TBlock) FExpr $[syntax] {
   }
 }
 
-macro in_region(body TBlock) FExpr $[syntax] {
+macro in_region(body ^tblock) ^fexpr $[syntax] {
   quote {
     in_region(1024) `body
   }
 }
 
-macro region(size FExpr, fndef FExpr) FExpr $[syntax] {
-  fnbody := fndef!(length(fndef)-1)
-  fndef!(length(fndef)-1) = quote {
-    in_region `size `fnbody
-  }
-  quote {}
-}
-macro region(fndef FExpr) FExpr $[syntax] {
-  quote {
-    region(1024) `fndef
-  }
-}
+# macro region(size FExpr, fndef FExpr) FExpr $[syntax] {
+#   fnbody := fndef!(length(fndef)-1)
+#   fndef!(length(fndef)-1) = quote {
+#     in_region `size `fnbody
+#   }
+#   quote {}
+# }
+# macro region(fndef FExpr) FExpr $[syntax] {
+#   quote {
+#     region(1024) `fndef
+#   }
+# }

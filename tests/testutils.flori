@@ -1,4 +1,3 @@
-
 import "core"
 
-fn expect(s CString) {}
+fn expect(s ^cstring) {}

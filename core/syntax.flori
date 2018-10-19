@@ -220,7 +220,7 @@ macro const_eval(x ^texpr[^intlit]) ^fexpr {
   tmp := gensym()
   fx := to_fexpr(x)
   quote {
-    syntax `tmp(fexpr ^fexpr) ^fexpr {
+    syntax `tmp(f ^fexpr) ^fexpr {
       new_fintlit(`fx)
     }
     `tmp()
@@ -231,7 +231,7 @@ macro const_eval(x ^texpr[^int]) ^fexpr {
   tmp := gensym()
   fx := to_fexpr(x)
   quote {
-    syntax `tmp(fexpr ^fexpr) ^fexpr {
+    syntax `tmp(f ^fexpr) ^fexpr {
       new_fintlit(`fx)
     }
     `tmp()
@@ -242,7 +242,7 @@ macro const_eval(s ^texpr[^cstring]) ^fexpr {
   tmp := gensym()
   fs := to_fexpr(s)
   quote {
-    syntax `tmp(fexpr ^fexpr) ^fexpr {
+    syntax `tmp(f ^fexpr) ^fexpr {
       new_fstrlit(`fs)
     }
     `tmp()
@@ -252,14 +252,14 @@ macro const_eval(s ^texpr[^cstring]) ^fexpr {
 macro enum(typename ^fident, body ^fblock) ^fexpr $[syntax] {
   ret := new_fblock()
   push(ret, quote {
-      type `typename $[importc "int64_t", header "stdint.h"]
-      fn int(e `typename) Int {
-        cast[Int](e)
+      struct `typename $[importc "int64_t", header "stdint.h"]
+      fn int(e `typename) ^int {
+        cast[^int](e)
       }
-      fn `==(a `typename, b `typename) Bool {
+      fn `==(a `typename, b `typename) ^bool {
         int(a) == int(b)
       }
-      fn `!=(a `typename, b `typename) Bool {
+      fn `!=(a `typename, b `typename) ^bool {
         int(a) != int(b)
       }
     })
@@ -270,7 +270,7 @@ macro enum(typename ^fident, body ^fblock) ^fexpr $[syntax] {
       fieldname := body!i
       fieldvalue := new_fintlit(curr)
       push(ret, quote {
-          `fieldname := cast[`typename](`fieldvalue)
+          `fieldname := cast[^`typename](`fieldvalue)
         })
     } elif (kind(body!i) == FEXPR_SEQ && to_cs(body!i!0) == "=") {
       fieldname := body!i!1
@@ -280,7 +280,7 @@ macro enum(typename ^fident, body ^fblock) ^fexpr $[syntax] {
       }
       curr = intval(cast[^fintlit](fieldvalue))
       push(ret, quote {
-          `fieldname := cast[`typename](`fieldvalue)
+          `fieldname := cast[^`typename](`fieldvalue)
         })
     } else {
       error(body!i, "unknown enum field.")

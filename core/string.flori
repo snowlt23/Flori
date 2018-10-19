@@ -1,4 +1,3 @@
-
 import "core/prelude"
 import "core/pointer"
 import "core/cstring"
@@ -10,49 +9,49 @@ import "core/vec"
 import "core/region"
 import "core/array"
 
-type String {
-  p WPtr[Char]
-  len Int
-  cap Int
+struct string {
+  p ^wptr[^char]
+  len ^int
+  cap ^int
 }
 
 const DEFAULT_CAP := 128
 
-fn strlen(cs CString) Int $[importc "strlen", header "string.h", importjs, patternjs "$1.length"]
+fn strlen(cs ^cstring) ^int $[importc "strlen", header "string.h", importjs, patternjs "$1.length"]
 
-fn string(cs CString, cap Int) String $[importjs, patternjs "$1"] {
+fn string(cs ^cstring, cap ^int) ^string $[importjs, patternjs "$1"] {
   len := strlen(cs)
-  s := init(String) {
-    alloc_with[Char](cap+1)
+  s := init(^string) {
+    alloc_with[^char](cap+1)
     len
     cap
   }
-  copy_memory(to_ptr(s.p), cast[Ptr[Char]](cs), len)
+  copy_memory(to_ptr(s.p), cast[^ptr[^char]](cs), len)
   unref(to_ptr(s.p) +! len) = char(0)
   s
 }
-fn string(cs CString) String $[importjs, patternjs "$1"] {
+fn string(cs ^cstring) ^string $[importjs, patternjs "$1"] {
   string(cs, strlen(cs)*2)
 }
-fn string(len Int, cap Int) String $[importjs, patternjs "'\0'.repeat($1)"] {
-  s := init(String) {
-    alloc_with[Char](cap+1)
+fn string(len ^int, cap ^int) ^string $[importjs, patternjs "'\0'.repeat($1)"] {
+  s := init(^string) {
+    alloc_with[^char](cap+1)
     len
     cap
   }
   unref(to_ptr(s.p) +! len) = char(0)
   s
 }
-fn string(len Int) String $[importjs, patternjs "'\0'.repeat($1)"] {
+fn string(len ^int) ^string $[importjs, patternjs "'\0'.repeat($1)"] {
   cap := len*2
   string(len, cap)
 }
 
-fn `!(s String, i Int) Char $[importjs, patternjs "$1[$2]"] {
+fn `!(s ^string, i ^int) ^char $[importjs, patternjs "$1[$2]"] {
   unref(to_ptr(s.p) +! i)
 }
 
-macro s(s FStrLit) FExpr $[syntax] {
+macro s(s ^fstrlit) ^fexpr $[syntax] {
   if (strlen(strval(s)) < DEFAULT_CAP) {
     quote {
       string(`s, DEFAULT_CAP)
@@ -64,19 +63,19 @@ macro s(s FStrLit) FExpr $[syntax] {
   }
 }
 
-fn to_cs(s String) CString $[importjs, patternjs "$1"] {
-  cast[CString](to_ptr(s.p))
+fn to_cs(s ^string) ^cstring $[importjs, patternjs "$1"] {
+  cast[^cstring](to_ptr(s.p))
 }
 
-fn length(s String) Int $[importjs, patternjs "$1.length"] {
+fn length(s ^string) ^int $[importjs, patternjs "$1.length"] {
   s.len
 }
 
-fn copy(s String) String {
+fn copy(s ^string) ^string {
   string(to_cs(s))
 }
 
-fn extend(s ref String, size Int) {
+fn extend(s ^ref string, size ^int) {
   if (s.len + size >= s.cap) {
     newcap := s.cap * 2
     while (s.len + size >= newcap) {
@@ -88,21 +87,21 @@ fn extend(s ref String, size Int) {
   }
 }
 
-fn push(dest ref String, src CString) $[importjs "+=", patternjs infixjs] {
+fn push(dest ^ref string, src ^cstring) $[importjs "+=", patternjs infixjs] {
   extend(dest, strlen(src))
   l := length(dest) + strlen(src)
-  copy_memory(to_ptr(dest.p) +! length(dest), cast[Ptr[Char]](src), strlen(src))
+  copy_memory(to_ptr(dest.p) +! length(dest), cast[^ptr[^char]](src), strlen(src))
   unref(to_ptr(dest.p) +! l) = char(0)
   dest.len = l
 }
-fn push(dest ref String, src String) $[importjs "+=", patternjs infixjs] {
+fn push(dest ^ref string, src ^string) $[importjs "+=", patternjs infixjs] {
   extend(dest, length(src))
   l := length(dest) + length(src)
   copy_memory(to_ptr(dest.p) +! length(dest), to_ptr(src.p), length(src))
   unref(to_ptr(dest.p) +! l) = char(0)
   dest.len = l
 }
-fn push(dest ref String, c Char) $[importjs "+=", patternjs infixjs] {
+fn push(dest ^ref string, c ^char) $[importjs "+=", patternjs infixjs] {
   extend(dest, 1)
   l := length(dest) + 1
   unref(to_ptr(dest.p) +! length(dest)) = c
@@ -110,18 +109,18 @@ fn push(dest ref String, c Char) $[importjs "+=", patternjs infixjs] {
   dest.len = l
 }
 
-fn print(s String) $[importjs "console.log"] {
-  print(cast[CString](to_ptr(s.p)))
+fn print(s ^string) $[importjs "console.log"] {
+  print(cast[^cstring](to_ptr(s.p)))
 }
 
-fn `&(a String, b String) String $[importjs "+", patternjs infixjs] {
+fn `&(a ^string, b ^string) ^string $[importjs "+", patternjs infixjs] {
   ret := s""
   push(ret, a)
   push(ret, b)
   ret
 }
 
-fn reverse(a String) String {
+fn reverse(a ^string) ^string {
   ret := s""
   for (i : range(0, length(a)-1)) {
     push(ret, a!(length(a) - i - 1))
@@ -129,7 +128,7 @@ fn reverse(a String) String {
   ret
 }
 
-fn to_s(val Int) String $[importjs, patternjs "($1).toString()"] {
+fn to_s(val ^int) ^string $[importjs, patternjs "($1).to^string()"] {
   x := val
   str := s""
   if (x == 0) {
@@ -137,7 +136,7 @@ fn to_s(val Int) String $[importjs, patternjs "($1).toString()"] {
   }
   while (x > 0) {
     push(str, char(48 + (x % 10)))
-    x = cast[Int](x / 10)
+    x = cast[^int](x / 10)
   }
   reverse(str)
 }
@@ -145,11 +144,11 @@ fn to_s(val Int) String $[importjs, patternjs "($1).toString()"] {
 cr := char(13)
 lf := char(10)
 
-fn `==(a String, b String) Bool {
+fn `==(a ^string, b ^string) ^bool {
   to_cs(a) == to_cs(b)
 }
 
-fn replace(s CString, dst Char, src CString) String {
+fn replace(s ^cstring, dst ^char, src ^cstring) ^string {
   newstr := s""
   for (i : range(0, strlen(s)-1)) {
     if (s!i == dst) {
@@ -161,8 +160,8 @@ fn replace(s CString, dst Char, src CString) String {
   newstr
 }
 
-fn split(s String, c Char) Vec[String] {
-  ret := vec[String]()
+fn split(s ^string, c ^char) ^vec[^string] {
+  ret := vec[^string]()
   news := s""
   for (i : range(0, length(s)-1)) {
     if (s!i == c) {
@@ -176,12 +175,12 @@ fn split(s String, c Char) Vec[String] {
   ret
 }
 
-fn parse_int(cs CString) Int $[importc "atoi", header "string.h"]
-fn parse_int(s String) Int {
+fn parse_int(cs ^cstring) ^int $[importc "atoi", header "string.h"]
+fn parse_int(s ^string) ^int {
   parse_int(to_cs(s))
 }
 
-fn embed_to_template[N](s String, args Array[N, String]) String {
+fn embed_to_template[N](s ^string, args ^array[^N, ^string]) ^string {
   ret := s""
   cnt := 0
   i := 0
@@ -197,7 +196,7 @@ fn embed_to_template[N](s String, args Array[N, String]) String {
         cnt += 1
         i += 1
       } else {
-        n := cast[Int](s!i) - cast[Int](c"0")
+        n := cast[^int](s!i) - cast[^int](c"0")
         push(ret, args!(n-1))
         i += 1
       }
@@ -209,13 +208,13 @@ fn embed_to_template[N](s String, args Array[N, String]) String {
   ret
 }
 
-macro `%(s FExpr, args FArray) FExpr {
+macro `%(s ^fexpr, args ^farray) ^fexpr {
   quote {
     embed_to_template(`s, array `args)
   }
 }
 
-# iterator items(s TExpr[String]) {
+# iterator items(s TExpr[^string]) {
 #   tmp := gensym()
 #   quote {
 #     for (`tmp : range(0, length(`s)-1)) {

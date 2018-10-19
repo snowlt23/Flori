@@ -5,7 +5,7 @@ import "tests/testutils"
 
 expect("39088169\n")
 
-fn fib(n Int) Int {
+fn fib(n ^int) ^int {
   if (n < 2) {
     n
   } else {

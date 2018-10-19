@@ -1,16 +1,15 @@
-
 import "core/prelude"
 import "core/pointer"
 import "core/macros"
 import "core/syntax"
 
-fn strlen(cs CString) Int $[importc "strlen", header "string.h", importjs, patternjs "$1.length"]
+fn strlen(cs ^cstring) ^int $[importc "strlen", header "string.h", importjs, patternjs "$1.length"]
 
-fn char(c Int) Char $[importjs "String.fromCharCode"] {
-  cast[Char](c)
+fn char(c ^int) ^char $[importjs "string.fromcharcode"] {
+  cast[^char](c)
 }
 
-macro c(s FStrLit) FExpr $[syntax] {
+macro c(s ^fstrlit) ^fexpr $[syntax] {
   len := strlen(strval(s))
   ch := if (len == 1) {
     strval(s)!0
@@ -20,7 +19,7 @@ macro c(s FStrLit) FExpr $[syntax] {
     error(s, "char literal should be 1 length string.")
     char(0)
   }
-  i := new_fintlit(cast[Int](ch))
+  i := new_fintlit(cast[^int](ch))
   quote {
     char(`i)
   }

@@ -5,8 +5,8 @@ import "tests/testutils"
 
 expect("")
 
-fn new_vec_array() Array[3, Int] {
-  var a Array[3, Int]
+fn new_vec_array() ^array[^3, ^int] {
+  var a ^array[^3, ^int]
   a
 }
 

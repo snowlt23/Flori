@@ -10,56 +10,56 @@ import "core/region"
 import "core/array"
 import "core/string"
 
-type STString {
-  p RPtr[Char]
-  len Int
+struct ststring {
+  p ^rptr[^char]
+  len ^int
 }
 
-fn ststring(cs CString) STString {
+fn ststring(cs ^cstring) ^ststring {
   len := strlen(cs)
-  s := init(STString) {
-    alloc[Char](len+1)
+  s := init(^ststring) {
+    alloc[^char](len+1)
     len
   }
-  copy_memory(to_ptr(s.p), cast[Ptr[Char]](cs), len)
+  copy_memory(to_ptr(s.p), cast[^ptr[^char]](cs), len)
   unref(to_ptr(s.p) +! len) = char(0)
   s
 }
-fn string(len Int) STString {
-  s := init(STString) {
-    alloc[Char](len+1)
+fn string(len ^int) ^ststring {
+  s := init(^ststring) {
+    alloc[^char](len+1)
     len
   }
   unref(to_ptr(s.p) +! len) = char(0)
   s
 }
 
-fn `!(s STString, i Int) Char $[importjs, patternjs "$1[$2]"] {
+fn `!(s ^ststring, i ^int) ^char $[importjs, patternjs "$1[$2]"] {
   unref(to_ptr(s.p) +! i)
 }
 
-macro sts(s FStrLit) FExpr $[syntax] {
+macro sts(s ^fstrlit) ^fexpr $[syntax] {
   quote {
     ststring(`s)
   }
 }
 
-fn to_cs(s STString) CString $[importjs, patternjs "$1"] {
-  cast[CString](to_ptr(s.p))
+fn to_cs(s ^ststring) ^cstring $[importjs, patternjs "$1"] {
+  cast[^cstring](to_ptr(s.p))
 }
 
-fn length(s STString) Int $[importjs, patternjs "$1.length"] {
+fn length(s ^ststring) ^int $[importjs, patternjs "$1.length"] {
   s.len
 }
 
-fn copy(s STString) STString {
+fn copy(s ^ststring) ^ststring {
   ststring(to_cs(s))
 }
 
-fn print(s STString) $[importjs "console.log"] {
-  print(cast[CString](to_ptr(s.p)))
+fn print(s ^ststring) $[importjs "console.log"] {
+  print(cast[^cstring](to_ptr(s.p)))
 }
 
-fn `==(a STString, b STString) Bool {
+fn `==(a ^ststring, b ^ststring) ^bool {
   to_cs(a) == to_cs(b)
 }

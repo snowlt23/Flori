@@ -1,28 +1,28 @@
 
 import "core"
 
-type ObjectPool[T] {
-  objs Vec[T]
+struct objectpool[t] {
+  objs ^vec[^t]
 }
 
-fn new_pool[T](defaultsize Int) ObjectPool[T] {
-  init(ObjectPool[T]) {
-    vec[T](defaultsize)
+fn new_pool[t](defaultsize ^int) ^objectpool[^t] {
+  init(^objectpool[^t]) {
+    vec[^t](defaultsize)
   }
 }
-fn new_pool[T]() ObjectPool[T] {
-  new_pool[T](1024)
+fn new_pool[t]() ^objectpool[^t] {
+  new_pool[^t](1024)
 }
 
-fn length[T](p ObjectPool[T]) Int {
+fn length[t](p ^objectpool[^t]) ^int {
   length(p.objs)
 }
 
-fn push[T](p ref ObjectPool[T], value T) {
+fn push[t](p ^ref objectpool[t], value ^t) {
   push(p.objs, value)
 }
 
-fn compaction[T](p ref ObjectPool[T]) {
+fn compaction[t](p ^ref objectpool[^t]) {
   vpos := 0
   for (i : range(0, length(p.objs)-1)) {
     if (islive(p.objs!i)) {
@@ -33,7 +33,7 @@ fn compaction[T](p ref ObjectPool[T]) {
   p.objs.len = vpos
 }
 
-macro use_pool(p FList, body FBlock) FExpr $[syntax] {
+macro use_pool(p ^flist, body ^fblock) ^fexpr $[syntax] {
   quote {
     `body
     compaction(`p)
