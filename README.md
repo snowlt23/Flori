@@ -37,7 +37,7 @@ println("Hello World!")
 ```
 import "core"
 
-fn fib(n Int) Int {
+fn fib(n ^int) ^int {
   if (n < 2) {
     n
   } else {
