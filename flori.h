@@ -25,10 +25,9 @@ typedef struct {
 
 %%enum FExprKind {
   FEXPR_IDENT,
-  FEXPR_INFIX,
+  FEXPR_OP,
 
   FEXPR_QUOTE,
-  FEXPR_PREFIX,
   FEXPR_SYMBOL,
 
   FEXPR_INTLIT,
@@ -176,6 +175,7 @@ IString new_istring(char* s);
 char* istring_cstr(IString s);
 
 // parser.c
+FExpr new_fexpr(FExprKind kind);
 bool cmp_ident(FExpr f, char* id);
 bool stream_isend(Stream* s);
 Stream* new_stream(char* buf);

@@ -57,6 +57,20 @@ bool isspaces(char c) {
   return c == ' ' || c == '\t';
 }
 
+bool isoperator(char c) {
+  static char ifx[] = {
+    '+', '-', '*', '/', '%',
+    '<', '>', '.', '=', ':',
+    '!', '&', '|', '~'
+  };
+  for (int i=0; i<sizeof(ifx); i++) {
+    if (c == ifx[i]) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void skip_spaces(Stream* s) {
   for (;;) {
     if (isspaces(stream_get(s))) {
@@ -77,6 +91,21 @@ FExpr parse_ident(Stream* s) {
     litbuf[i] = c;
   }
   FExpr f = new_fexpr(FEXPR_IDENT);
+  %%fwith FExpr fobj = f;
+  fobj->ident = new_istring(strdup(litbuf));
+  return f;
+}
+
+FExpr parse_operator(Stream* s) {
+  char litbuf[1024] = {};
+  streamrep(i, s) {
+    assert(i < 1024);
+    char c = stream_get(s);
+    if (!isoperator(c)) break;
+    stream_next(s);
+    litbuf[i] = c;
+  }
+  FExpr f = new_fexpr(FEXPR_OP);
   %%fwith FExpr fobj = f;
   fobj->ident = new_istring(strdup(litbuf));
   return f;
@@ -140,6 +169,8 @@ FExpr parse_element(Stream* s) {
     return parse_intlit(s);
   } else if (isident(stream_get(s))) {
     return parse_ident(s);
+  } else if (isoperator(stream_get(s))) {
+    return parse_operator(s);
   } else if (stream_get(s) == '(') {
     return parse_flist(s);
   } else if (stream_get(s) == '{') {

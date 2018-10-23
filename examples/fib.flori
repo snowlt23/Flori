@@ -1,8 +1,4 @@
-
-import "core/prelude"
-import "core/io"
-
-fn fib(n Int) Int {
+fn fib(n) {
   if (n < 2) {
     n
   } else {
@@ -10,4 +6,6 @@ fn fib(n Int) Int {
   }
 }
 
-println(fib(38))
+fn main() {
+  fib(38)
+}

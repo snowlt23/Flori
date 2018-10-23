@@ -132,7 +132,7 @@ void gen_push_int(int x) {
   write_lendian(x);
 }
 
-void codegen_internal_fseq(FExpr f) {
+bool codegen_internal_fseq(FExpr f) {
   %%fwith FExpr fobj = f;
   FExpr first = IListFExpr_value(fobj->sons);
   // function codegen
@@ -202,8 +202,9 @@ void codegen_internal_fseq(FExpr f) {
     write_hex(0x48, 0x89, 0x85); // mov [rbp-offset], rax
     write_lendian(-offset);
   } else {
-    error("undefined `%s syntax", istring_cstr(FExpr_ptr(first)->ident));
+    return false;
   }
+  return true;
 }
 
 void codegen(FExpr f) {
@@ -228,8 +229,11 @@ void codegen(FExpr f) {
       break;
     case FEXPR_SEQ:
       if (IListFExpr_len(fobj->sons) != 0) {
+        if (codegen_internal_fseq(f)) {
+          break;
+        }
         %%fwith FExpr first = IListFExpr_value(fobj->sons);
-        if (first->kind != FEXPR_IDENT) break;
+        if (first->kind != FEXPR_IDENT) goto infixgen;
         JitInfo jitinfo = search_jit(istring_cstr(first->ident));
         FnInfo fninfo = search_fn(istring_cstr(first->ident));
         if (!jitinfo_isnil(jitinfo)) {
@@ -237,6 +241,7 @@ void codegen(FExpr f) {
             codegen(arg);
           }
           codegen(jitinfo.body);
+          break;
         } else if (!fninfo_isnil(fninfo)) {
           forlist (FExpr, arg, IListFExpr_next(fobj->sons)) {
             codegen(arg);
@@ -245,9 +250,41 @@ void codegen(FExpr f) {
           write_hex(0xE8); // call
           write_lendian(rel);
           write_hex(0x50); // push rax
-        } else {
-          codegen_internal_fseq(f);
+          break;
         }
+      infixgen: {
+        if (IListFExpr_len(fobj->sons) != 3) goto genfail;
+        %%fwith FExpr second = IListFExpr_value(IListFExpr_next(fobj->sons));
+        if (second->kind == FEXPR_OP) {
+          FExpr firstf = IListFExpr_value(fobj->sons);
+          codegen(firstf);
+          if (IListFExpr_len(IListFExpr_next(IListFExpr_next(fobj->sons))) != 1) {
+            FExpr restf = new_fexpr(FEXPR_SEQ);
+            %%fwith FExpr restfobj = restf;
+            restfobj->sons = IListFExpr_next(IListFExpr_next(fobj->sons));
+            codegen(restf);
+          } else {
+            codegen(IListFExpr_value(IListFExpr_next(IListFExpr_next(fobj->sons))));
+          }
+          JitInfo jitinfo = search_jit(istring_cstr(second->ident));
+          FnInfo fninfo = search_fn(istring_cstr(second->ident));
+          if (!jitinfo_isnil(jitinfo)) {
+            codegen(jitinfo.body);
+            break;
+          } else if (!fninfo_isnil(fninfo)) {
+            int rel = fninfo.index - jit_getidx() + 5;
+            write_hex(0xE8); // call
+            write_lendian(rel);
+            write_hex(0x50); // push rax
+            break;
+          } else {
+            error("undeclared %s function.", istring_cstr(first->ident));
+          }
+        }
+      }
+      genfail: {
+        error("undeclared %s function.", istring_cstr(first->ident));
+      }
       }
       break;
     case FEXPR_BLOCK:

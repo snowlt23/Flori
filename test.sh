@@ -11,24 +11,18 @@ unittest() {
   fi
 }
 
-PRELUDE=`cat <<EOD
-jit return {
-  X 0x58
-  X 0x48; X 0x89; X 0xEC
-  X 0x5D
-  X 0xC3
-}
-jit add {
-  X 0x59
-  X 0x58
-  X 0x48; X 0x01; X 0xC8
-  X 0x50
-}
-EOD`
-
 # $1=input $2=expect
 runtest() {
+  PRELUDE=`cat core/prelude.flori`
   OUT=`echo "$PRELUDE; $1" | ./bin/flori`
+  if [ "$2" != "$OUT" ] ; then
+    echo "[ERROR] $1: expect $2, but got $OUT"
+    exit 1
+  fi
+}
+
+filetest() {
+  OUT=`cat core/prelude.flori "$1" | ./bin/flori`
   if [ "$2" != "$OUT" ] ; then
     echo "[ERROR] $1: expect $2, but got $OUT"
     exit 1
@@ -52,3 +46,4 @@ runtest "fn main() {return 555}" 555
 runtest "fn main() {add 4 5}" 9
 runtest "fn main() {set ott 123; ott}" 123
 runtest "fn add5(x) {add x 5}; fn main() {add5 7}" 12
+runtest "fn main() {4 + 5}" 9
