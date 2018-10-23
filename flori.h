@@ -169,6 +169,7 @@ void jit_init(int size);
 int jit_getidx();
 int jit_alloc_write(uint8_t* buf, int n);
 void* jit_toptr(int index);
+void jit_write_to_file(char* filename);
 
 // istring.c
 IString new_istring(char* s);

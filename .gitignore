@@ -6,3 +6,4 @@ tmp.s
 *.exe
 *.o
 *.swp
+buffer.jit

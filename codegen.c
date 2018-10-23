@@ -155,6 +155,15 @@ void codegen_internal_fseq(FExpr f) {
     add_fninfo(fnname->ident, fnidx);
     curroffset = 0;
     gen_prologue();
+    int argoffset = 0;
+    forlist (FExpr, arg, fnargs->sons) {
+      %%fwith FExpr argobj = arg;
+      argoffset += 8;
+      curroffset += 8;
+      write_hex(0xff, 0xb5); // push [rax-argoffset]
+      write_lendian(-argoffset);
+      add_varinfo(argobj->ident, argoffset);
+    }
     codegen(fnbody);
     write_hex(0x58); // pop rax ; for return value
     gen_epilogue();
@@ -232,9 +241,10 @@ void codegen(FExpr f) {
           forlist (FExpr, arg, IListFExpr_next(fobj->sons)) {
             codegen(arg);
           }
-          int rel = fninfo.index - jit_getidx() - 4;
-          write_hex(0xE8);
+          int rel = fninfo.index - jit_getidx() + 5;
+          write_hex(0xE8); // call
           write_lendian(rel);
+          write_hex(0x50); // push rax
         } else {
           codegen_internal_fseq(f);
         }

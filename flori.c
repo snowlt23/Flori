@@ -28,6 +28,7 @@ int main() {
     if (f.index == -1) continue;
     codegen(f);
   }
+  jit_write_to_file("buffer.jit");
   printf("%d", call_main());
   return 0;
 }

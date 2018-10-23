@@ -51,3 +51,11 @@ int jit_alloc_write(uint8_t* buf, int n) {
 void* jit_toptr(int index) {
   return (void*)(jitptr + index);
 }
+
+void jit_write_to_file(char* filename) {
+  FILE* f = fopen(filename, "wb");
+  for (uint8_t* p = jitptr; p < jitptr+jitcap; p++) {
+    putc(*p, f);
+  }
+  fclose(f);
+}
