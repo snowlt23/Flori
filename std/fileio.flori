@@ -58,7 +58,7 @@ fn read_file(filename CString) String {
   size := ftell(f)
   fseek(f, 0, SEEK_SET)
   ret := string(size)
-  fread(to_cs(ret), 1, size, f)
+  r := fread(to_cs(ret), 1, size, f)
   ret
 }
 
