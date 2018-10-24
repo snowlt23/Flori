@@ -22,7 +22,9 @@ runtest() {
 }
 
 filetest() {
-  OUT=`cat core/prelude.flori "$1" | ./bin/flori`
+  PRELUDE=`cat core/prelude.flori`
+  FILE=`cat "$1"`
+  OUT=`echo "$PRELUDE; $FILE" | ./bin/flori`
   if [ "$2" != "$OUT" ] ; then
     echo "[ERROR] $1: expect $2, but got $OUT"
     exit 1
@@ -49,3 +51,5 @@ runtest "fn add5(x) {add x 5}; fn main() {add5 7}" 12
 runtest "fn main() {4 + 5}" 9
 runtest "fn main() { if 1 2 else 3 }" 2
 runtest "fn main() { if 0 2 else 3 }" 3
+
+filetest "examples/fib.flori" 34

@@ -17,7 +17,6 @@ IListVarInfo varmap;
 void codegen_init() {
   fnmap = nil_IListFnInfo();
   jitmap = nil_IListJitInfo();
-  varmap = nil_IListVarInfo();
 }
 
 //
@@ -165,16 +164,14 @@ bool codegen_internal_fseq(FExpr f) {
 
     int fnidx = jit_getidx();
     add_fninfo(fnname->ident, fnidx);
+    varmap = nil_IListVarInfo();
     curroffset = 0;
     gen_prologue();
-    int argoffset = 0;
+    int argoffset = 16;
     forlist (FExpr, arg, fnargs->sons) {
       %%fwith FExpr argobj = arg;
+      add_varinfo(argobj->ident, -argoffset);
       argoffset += 8;
-      curroffset += 8;
-      write_hex(0xff, 0xb5); // push [rax-argoffset]
-      write_lendian(-argoffset);
-      add_varinfo(argobj->ident, argoffset);
     }
     codegen(fnbody);
     write_hex(0x58); // pop rax ; for return value
@@ -342,9 +339,11 @@ void codegen(FExpr f) {
           forlist (FExpr, arg, IListFExpr_next(fobj->sons)) {
             codegen(arg);
           }
-          int rel = fninfo.index - jit_getidx() + 5;
+          int rel = fninfo.index - jit_getidx() - 5;
           write_hex(0xE8); // call
           write_lendian(rel);
+          write_hex(0x48, 0x81, 0xc4); // add rsp, ..
+          write_lendian(IListFExpr_len(IListFExpr_next(fobj->sons))*8);
           write_hex(0x50); // push rax
           break;
         }
@@ -368,9 +367,10 @@ void codegen(FExpr f) {
             codegen(jitinfo.body);
             break;
           } else if (!fninfo_isnil(fninfo)) {
-            int rel = fninfo.index - jit_getidx() + 5;
+            int rel = fninfo.index - jit_getidx() - 5;
             write_hex(0xE8); // call
             write_lendian(rel);
+            write_hex(0x48, 0x83, 0xc4, 16); // add rsp, 16
             write_hex(0x50); // push rax
             break;
           } else {
