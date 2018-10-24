@@ -127,6 +127,18 @@ void write_lendian(int x) {
   write_hex(b1, b2, b3, b4);
 }
 
+void fixup_lendian(int fixupidx, int x) {
+  int b1 = x & 0xFF;
+  int b2 = (x >> 8) & 0xFF;
+  int b3 = (x >> 16) & 0xFF;
+  int b4 = (x >> 24) & 0xFF;
+  uint8_t* fixupaddr = jit_toptr(fixupidx);
+  fixupaddr[0] = b1;
+  fixupaddr[1] = b2;
+  fixupaddr[2] = b3;
+  fixupaddr[3] = b4;
+}
+
 void gen_push_int(int x) {
   write_hex(0x68);
   write_lendian(x);
@@ -183,6 +195,90 @@ bool codegen_internal_fseq(FExpr f) {
     %%fwith FExpr opcode = IListFExpr_value(cur);
     if (opcode->kind != FEXPR_INTLIT) error("expected int literal in X.");
     write_hex(opcode->intval);
+  } else if (cmp_ident(first, "if")) {
+    IListFExpr cur = fobj->sons;
+
+    int relocnum = 0;
+    int relocs[1024];
+    int fixup = 0;
+    for (;;) {
+      if (relocnum == 0 && cmp_ident(IListFExpr_value(cur), "if")) {
+        // cond codegen.
+        cur = IListFExpr_next(cur);
+        check_next(cur, "expected cond in if-expression");
+        FExpr cond = IListFExpr_value(cur);
+        codegen(cond);
+
+        // cond if branching (need fixup)
+        write_hex(0x58) // pop rax
+        write_hex(0x48, 0x83, 0xf8, 0x00); // cmp rax, 0
+        write_hex(0x0f, 0x84); // je rel
+        fixup = jit_getidx();
+        write_lendian(0); // fixup
+
+        // body codegen.
+        cur = IListFExpr_next(cur);
+        check_next(cur, "expected body in if-expression");
+        FExpr body = IListFExpr_value(cur);
+        codegen(body);
+
+        // jmp end of if after body.
+        write_hex(0xe9);
+        relocs[relocnum] = jit_getidx();
+        relocnum++;
+        write_lendian(0); // fixup
+
+        cur = IListFExpr_next(cur);
+      } else if (cmp_ident(IListFExpr_value(cur), "elif")) {
+        int fixuprel = jit_getidx() - fixup - 4;
+        fixup_lendian(fixup, fixuprel);
+
+        // cond codegen.
+        cur = IListFExpr_next(cur);
+        check_next(cur, "expected cond in if-expression");
+        FExpr cond = IListFExpr_value(cur);
+        codegen(cond);
+
+        // cond if branching (need fixup)
+        write_hex(0x58) // pop rax
+        write_hex(0x48, 0x83, 0xf8, 0x00); // cmp rax, 0
+        write_hex(0x0f, 0x84); // je rel
+        fixup = jit_getidx();
+        write_lendian(0); // fixup
+
+        // body codegen.
+        cur = IListFExpr_next(cur);
+        check_next(cur, "expected body in if-expression");
+        FExpr body = IListFExpr_value(cur);
+        codegen(body);
+
+        // jmp end of if after body.
+        write_hex(0xe9);
+        relocs[relocnum] = jit_getidx();
+        relocnum++;
+        write_lendian(0); // fixup
+
+        cur = IListFExpr_next(cur);
+      } else if (cmp_ident(IListFExpr_value(cur), "else")) {
+        int fixuprel = jit_getidx() - fixup - 4;
+        fixup_lendian(fixup, fixuprel);
+
+        cur = IListFExpr_next(cur);
+        check_next(cur, "expected name in fn");
+        FExpr body = IListFExpr_value(cur);
+        codegen(body);
+
+        // fixup relocations of if-expression.
+        for (int i=0; i<relocnum; i++) {
+          int fixuprel = jit_getidx() - relocs[i] - 4;
+          fixup_lendian(relocs[i], fixuprel);
+        }
+        cur = IListFExpr_next(cur);
+        break;
+      } else {
+        error("unexpected token in if expression.");
+      }
+    }
   } else if (cmp_ident(first, "set")) {
     IListFExpr cur = fobj->sons;
 
@@ -285,6 +381,13 @@ void codegen(FExpr f) {
       genfail: {
         error("undeclared %s function.", istring_cstr(first->ident));
       }
+      }
+      break;
+    case FEXPR_LIST:
+      {
+        forlist (FExpr, son, fobj->sons) {
+          codegen(son);
+        }
       }
       break;
     case FEXPR_BLOCK:
