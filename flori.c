@@ -26,6 +26,7 @@ int main() {
     if (linmem_need_extend()) linmem_extend();
     FExpr f = parse(s);
     if (f.index == -1) continue;
+    semantic_analysis(f);
     codegen(f);
   }
   jit_write_to_file("buffer.jit");

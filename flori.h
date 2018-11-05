@@ -13,6 +13,10 @@
 
 #define fwith(f, t) t ## Obj* f = (t ## Obj*)t ## _ptr(f)
 
+#define fiter(itr, f) IListFExpr itr = f
+#define fcurr(itr) IListFExpr_value(itr)
+#define fnext(itr) fnext_impl(&itr)
+
 typedef struct {
   char* buf;
   int pos;
@@ -126,12 +130,24 @@ typedef struct {
   }
 }
 
+typedef enum {
+  FTYPE_VOID,
+  FTYPE_INT,
+} FTypeKind;
+
+%%expand fstruct(FType, struct _FTypeObj);
+typedef struct _FTypeObj {
+  FTypeKind kind;
+} FTypeObj;
+
 %%expand fstruct(FExpr, struct _FExprObj);
 %%expand ilist(FExpr);
 typedef struct _FExprObj {
   FExprKind kind;
+  FType typ;
   union {
     IString ident;
+    FType typsym;
     int intval;
     IListFExpr sons;
   };
@@ -180,6 +196,10 @@ bool cmp_ident(FExpr f, char* id);
 bool stream_isend(Stream* s);
 Stream* new_stream(char* buf);
 FExpr parse(Stream* s);
+
+// semantic.c
+FExpr fnext_impl(IListFExpr* il);
+void semantic_analysis(FExpr f);
 
 // codegen.c
 void codegen_init();

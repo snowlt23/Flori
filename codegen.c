@@ -148,19 +148,13 @@ bool codegen_internal_fseq(FExpr f) {
   FExpr first = IListFExpr_value(fobj->sons);
   // function codegen
   if (cmp_ident(first, "fn")) {
-    IListFExpr cur = fobj->sons;
+    fiter(cur, fobj->sons);
+    fnext(cur);
 
-    cur = IListFExpr_next(cur);
-    check_next(cur, "expected name in fn");
-    %%fwith FExpr fnname = IListFExpr_value(cur);
-
-    cur = IListFExpr_next(cur);
-    check_next(cur, "expected arguments in fn");
-    %%fwith FExpr fnargs= IListFExpr_value(cur);
-
-    cur = IListFExpr_next(cur);
-    check_next(cur, "expected body in fn");
-    FExpr fnbody = IListFExpr_value(cur);
+    %%fwith FExpr fnname = fnext(cur);
+    %%fwith FExpr fnargs = fnext(cur);
+    %%fwith FExpr rettyp = fnext(cur);
+    FExpr fnbody = fnext(cur);
 
     int fnidx = jit_getidx();
     add_fninfo(fnname->ident, fnidx);
@@ -170,7 +164,9 @@ bool codegen_internal_fseq(FExpr f) {
     int argoffset = 16;
     forlist (FExpr, arg, fnargs->sons) {
       %%fwith FExpr argobj = arg;
-      add_varinfo(argobj->ident, -argoffset);
+      fiter(argit, argobj->sons);
+      %%fwith FExpr argname = fnext(argit);
+      add_varinfo(argname->ident, -argoffset);
       argoffset += 8;
     }
     codegen(fnbody);

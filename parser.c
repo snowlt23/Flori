@@ -40,10 +40,45 @@ FExpr new_fexpr(FExprKind kind) {
   return f;
 }
 
+FExpr fident(char* id) {
+  FExpr f = new_fexpr(FEXPR_IDENT);
+  %%fwith FExpr fobj = f;
+  fobj->ident = new_istring(id);
+  return f;
+}
+
 bool cmp_ident(FExpr f, char* id) {
   %%fwith FExpr fobj = f;
   return strcmp(istring_cstr(fobj->ident), id) == 0;
 }
+
+FExpr new_fcontainer(FExprKind kind) {
+  FExpr f = alloc_FExpr();
+  %%fwith FExpr fobj = f;
+  fobj->kind = kind;
+  fobj->sons = nil_IListFExpr();
+  return f;
+}
+
+void push_son(FExpr f, FExpr son) {
+  %%fwith FExpr fobj = f;
+  fobj->sons = new_IListFExpr(son, fobj->sons);
+}
+
+void reverse_sons(FExpr f) {
+  %%fwith FExpr fobj = f;
+  fobj->sons = IListFExpr_reverse(fobj->sons);
+}
+
+#define fcont(v, kind, ...) \
+  FExpr _sons[] = {__VA_ARGS__}; \
+  FExpr v = new_fcontainer(kind); \
+  for (int _sonstmp=0; _sonstmp<sizeof(_sons); _sonstmp++) { \
+    push_son(v, _sons[_sonstmp]);                             \
+  } \
+  reverse_sons(v);
+#define fseq(v, ...) fcont(v, FEXPR_SEQ, __VA_ARGS__)
+  
 
 //
 // parse
@@ -164,6 +199,12 @@ FExpr parse_fblock(Stream* s) {
   return f;
 }
 
+FExpr parse_reader_type(Stream* s) {
+  if (stream_next(s) != '^') error("expect `^ reader token.");
+  fseq(f, fident("type"), parse_ident(s));
+  return f;
+}
+
 FExpr parse_element(Stream* s) {
   if (isdigit(stream_get(s))) {
     return parse_intlit(s);
@@ -175,6 +216,8 @@ FExpr parse_element(Stream* s) {
     return parse_flist(s);
   } else if (stream_get(s) == '{') {
     return parse_fblock(s);
+  } else if (stream_get(s) == '^') {
+    return parse_reader_type(s);
   } else {
     error("unexpected %c char", stream_get(s));
   }
