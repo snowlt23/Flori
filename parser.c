@@ -35,39 +35,33 @@ bool stream_isend(Stream* s) {
 
 FExpr new_fexpr(FExprKind kind) {
   FExpr f = alloc_FExpr();
-  %%fwith FExpr fobj = f;
-  fobj->kind = kind;
+  fe(f)->kind = kind;
   return f;
 }
 
 FExpr fident(char* id) {
   FExpr f = new_fexpr(FEXPR_IDENT);
-  %%fwith FExpr fobj = f;
-  fobj->ident = new_istring(id);
+  fe(f)->ident = new_istring(id);
   return f;
 }
 
 bool cmp_ident(FExpr f, char* id) {
-  %%fwith FExpr fobj = f;
-  return strcmp(istring_cstr(fobj->ident), id) == 0;
+  return strcmp(istring_cstr(fe(f)->ident), id) == 0;
 }
 
 FExpr new_fcontainer(FExprKind kind) {
   FExpr f = alloc_FExpr();
-  %%fwith FExpr fobj = f;
-  fobj->kind = kind;
-  fobj->sons = nil_IListFExpr();
+  fe(f)->kind = kind;
+  fe(f)->sons = nil_IListFExpr();
   return f;
 }
 
 void push_son(FExpr f, FExpr son) {
-  %%fwith FExpr fobj = f;
-  fobj->sons = new_IListFExpr(son, fobj->sons);
+  fe(f)->sons = new_IListFExpr(son, fe(f)->sons);
 }
 
 void reverse_sons(FExpr f) {
-  %%fwith FExpr fobj = f;
-  fobj->sons = IListFExpr_reverse(fobj->sons);
+  fe(f)->sons = IListFExpr_reverse(fe(f)->sons);
 }
 
 #define fcont(v, kind, ...) \
@@ -78,7 +72,7 @@ void reverse_sons(FExpr f) {
   } \
   reverse_sons(v);
 #define fseq(v, ...) fcont(v, FEXPR_SEQ, __VA_ARGS__)
-  
+
 
 //
 // parse
@@ -126,8 +120,7 @@ FExpr parse_ident(Stream* s) {
     litbuf[i] = c;
   }
   FExpr f = new_fexpr(FEXPR_IDENT);
-  %%fwith FExpr fobj = f;
-  fobj->ident = new_istring(strdup(litbuf));
+  fe(f)->ident = new_istring(strdup(litbuf));
   return f;
 }
 
@@ -141,8 +134,7 @@ FExpr parse_operator(Stream* s) {
     litbuf[i] = c;
   }
   FExpr f = new_fexpr(FEXPR_OP);
-  %%fwith FExpr fobj = f;
-  fobj->ident = new_istring(strdup(litbuf));
+  fe(f)->ident = new_istring(strdup(litbuf));
   return f;
 }
 
@@ -160,8 +152,7 @@ FExpr parse_intlit(Stream* s) {
     litbuf[i] = c;
   }
   FExpr f = new_fexpr(FEXPR_INTLIT);
-  %%fwith FExpr fobj = f;
-  fobj->intval = strtol(litbuf, NULL, 0);
+  fe(f)->intval = strtol(litbuf, NULL, 0);
   return f;
 }
 
@@ -177,8 +168,7 @@ FExpr parse_flist(Stream* s) {
   }
   if (stream_next(s) != ')') error("expect `) token");
   FExpr f = new_fexpr(FEXPR_LIST);
-  %%fwith FExpr fobj = f;
-  fobj->sons = IListFExpr_reverse(sons);
+  fe(f)->sons = IListFExpr_reverse(sons);
   return f;
 }
 
@@ -194,8 +184,7 @@ FExpr parse_fblock(Stream* s) {
   }
   if (stream_next(s) != '}') error("expect `} token");
   FExpr f = new_fexpr(FEXPR_BLOCK);
-  %%fwith FExpr fobj = f;
-  fobj->sons = IListFExpr_reverse(sons);
+  fe(f)->sons = IListFExpr_reverse(sons);
   return f;
 }
 
@@ -242,7 +231,6 @@ FExpr parse(Stream* s) {
     return IListFExpr_value(sons);
   }
   FExpr f = new_fexpr(FEXPR_SEQ);
-  %%fwith FExpr fobj = f;
-  fobj->sons = IListFExpr_reverse(sons);
+  fe(f)->sons = IListFExpr_reverse(sons);
   return f;
 }

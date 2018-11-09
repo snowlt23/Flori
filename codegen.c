@@ -144,52 +144,50 @@ void gen_push_int(int x) {
 }
 
 bool codegen_internal_fseq(FExpr f) {
-  %%fwith FExpr fobj = f;
-  FExpr first = IListFExpr_value(fobj->sons);
+  FExpr first = IListFExpr_value(fe(f)->sons);
   // function codegen
   if (cmp_ident(first, "fn")) {
-    fiter(cur, fobj->sons);
+    fiter(cur, fe(f)->sons);
     fnext(cur);
 
-    %%fwith FExpr fnname = fnext(cur);
-    %%fwith FExpr fnargs = fnext(cur);
-    %%fwith FExpr rettyp = fnext(cur);
+    FExpr fnname = fnext(cur);
+    FExpr fnargs = fnext(cur);
+    /* FExpr rettyp = */ fnext(cur);
     FExpr fnbody = fnext(cur);
 
     int fnidx = jit_getidx();
-    add_fninfo(fnname->ident, fnidx);
+    add_fninfo(fe(fnname)->ident, fnidx);
     varmap = nil_IListVarInfo();
     curroffset = 0;
     gen_prologue();
     int argoffset = 16;
-    forlist (FExpr, arg, fnargs->sons) {
-      %%fwith FExpr argobj = arg;
-      fiter(argit, argobj->sons);
-      %%fwith FExpr argname = fnext(argit);
-      add_varinfo(argname->ident, -argoffset);
+    forlist (FExpr, arg, fe(fnargs)->sons) {
+      fiter(argit, fe(arg)->sons);
+      FExpr argname = fnext(argit);
+      add_varinfo(fe(argname)->ident, -argoffset);
       argoffset += 8;
     }
     codegen(fnbody);
     write_hex(0x58); // pop rax ; for return value
     gen_epilogue();
   } else if (cmp_ident(first, "jit")) {
-    IListFExpr cur = fobj->sons;
+    IListFExpr cur = fe(f)->sons;
     cur = IListFExpr_next(cur);
     check_next(cur, "expected name in jit");
-    %%fwith FExpr jitname = IListFExpr_value(cur);
+    FExpr jitname = IListFExpr_value(cur);
     cur = IListFExpr_next(cur);
     check_next(cur, "expected body in jit");
     FExpr jitbody = IListFExpr_value(cur);
-    add_jitinfo(jitname->ident, jitbody);
+    add_jitinfo(fe(jitname)->ident, jitbody);
   } else if (cmp_ident(first, "X")) {
-    IListFExpr cur = fobj->sons;
+    IListFExpr cur = fe(f)->sons;
     cur = IListFExpr_next(cur);
     check_next(cur, "expected name in fn");
-    %%fwith FExpr opcode = IListFExpr_value(cur);
-    if (opcode->kind != FEXPR_INTLIT) error("expected int literal in X.");
-    write_hex(opcode->intval);
+    FExpr opcode = IListFExpr_value(cur);
+    if (fe(opcode)->kind != FEXPR_INTLIT) error("expected int literal in X.");
+    write_hex(fe(opcode)->intval);
   } else if (cmp_ident(first, "if")) {
-    IListFExpr cur = fobj->sons;
+    IListFExpr cur = fe(f)->sons;
 
     int relocnum = 0;
     int relocs[1024];
@@ -273,11 +271,11 @@ bool codegen_internal_fseq(FExpr f) {
       }
     }
   } else if (cmp_ident(first, "set")) {
-    IListFExpr cur = fobj->sons;
+    IListFExpr cur = fe(f)->sons;
 
     cur = IListFExpr_next(cur);
     check_next(cur, "expected name in fn");
-    %%fwith FExpr lvalue = IListFExpr_value(cur);
+    FExpr lvalue = IListFExpr_value(cur);
 
     cur = IListFExpr_next(cur);
     check_next(cur, "expected name in fn");
@@ -285,7 +283,7 @@ bool codegen_internal_fseq(FExpr f) {
 
     curroffset += 8;
     int offset = curroffset;
-    add_varinfo(lvalue->ident, offset);
+    add_varinfo(fe(lvalue)->ident, offset);
     codegen(value);
     write_hex(0x58); // pop rax
     write_hex(0x48, 0x89, 0x85); // mov [rbp-offset], rax
@@ -297,68 +295,66 @@ bool codegen_internal_fseq(FExpr f) {
 }
 
 void codegen(FExpr f) {
-  %%fwith FExpr fobj = f;
-  switch (fobj->kind) {
+  switch (fe(f)->kind) {
     case FEXPR_IDENT:
       {
-        VarInfo vinfo = search_var(istring_cstr(fobj->ident));
-        JitInfo jinfo = search_jit(istring_cstr(fobj->ident));
+        VarInfo vinfo = search_var(istring_cstr(fe(f)->ident));
+        JitInfo jinfo = search_jit(istring_cstr(fe(f)->ident));
         if (!varinfo_isnil(vinfo)) {
           write_hex(0xff, 0xb5);
           write_lendian(-vinfo.offset);
         } else if (!jitinfo_isnil(jinfo)) {
           codegen(jinfo.body);
         } else {
-          error("undeclared `%s ident.", istring_cstr(fobj->ident));
+          error("undeclared `%s ident.", istring_cstr(fe(f)->ident));
         }
       }
       break;
     case FEXPR_INTLIT:
-      gen_push_int(fobj->intval);
+      gen_push_int(fe(f)->intval);
       break;
     case FEXPR_SEQ:
-      if (IListFExpr_len(fobj->sons) != 0) {
+      if (IListFExpr_len(fe(f)->sons) != 0) {
         if (codegen_internal_fseq(f)) {
           break;
         }
-        %%fwith FExpr first = IListFExpr_value(fobj->sons);
-        if (first->kind != FEXPR_IDENT) goto infixgen;
-        JitInfo jitinfo = search_jit(istring_cstr(first->ident));
-        FnInfo fninfo = search_fn(istring_cstr(first->ident));
+        FExpr first = IListFExpr_value(fe(f)->sons);
+        if (fe(first)->kind != FEXPR_IDENT) goto infixgen;
+        JitInfo jitinfo = search_jit(istring_cstr(fe(first)->ident));
+        FnInfo fninfo = search_fn(istring_cstr(fe(first)->ident));
         if (!jitinfo_isnil(jitinfo)) {
-          forlist (FExpr, arg, IListFExpr_next(fobj->sons)) {
+          forlist (FExpr, arg, IListFExpr_next(fe(f)->sons)) {
             codegen(arg);
           }
           codegen(jitinfo.body);
           break;
         } else if (!fninfo_isnil(fninfo)) {
-          forlist (FExpr, arg, IListFExpr_next(fobj->sons)) {
+          forlist (FExpr, arg, IListFExpr_next(fe(f)->sons)) {
             codegen(arg);
           }
           int rel = fninfo.index - jit_getidx() - 5;
           write_hex(0xE8); // call
           write_lendian(rel);
           write_hex(0x48, 0x81, 0xc4); // add rsp, ..
-          write_lendian(IListFExpr_len(IListFExpr_next(fobj->sons))*8);
+          write_lendian(IListFExpr_len(IListFExpr_next(fe(f)->sons))*8);
           write_hex(0x50); // push rax
           break;
         }
       infixgen: {
-        if (IListFExpr_len(fobj->sons) != 3) goto genfail;
-        %%fwith FExpr second = IListFExpr_value(IListFExpr_next(fobj->sons));
-        if (second->kind == FEXPR_OP) {
-          FExpr firstf = IListFExpr_value(fobj->sons);
+        if (IListFExpr_len(fe(f)->sons) != 3) goto genfail;
+        FExpr second = IListFExpr_value(IListFExpr_next(fe(f)->sons));
+        if (fe(second)->kind == FEXPR_OP) {
+          FExpr firstf = IListFExpr_value(fe(f)->sons);
           codegen(firstf);
-          if (IListFExpr_len(IListFExpr_next(IListFExpr_next(fobj->sons))) != 1) {
+          if (IListFExpr_len(IListFExpr_next(IListFExpr_next(fe(f)->sons))) != 1) {
             FExpr restf = new_fexpr(FEXPR_SEQ);
-            %%fwith FExpr restfobj = restf;
-            restfobj->sons = IListFExpr_next(IListFExpr_next(fobj->sons));
+            fe(restf)->sons = IListFExpr_next(IListFExpr_next(fe(f)->sons));
             codegen(restf);
           } else {
-            codegen(IListFExpr_value(IListFExpr_next(IListFExpr_next(fobj->sons))));
+            codegen(IListFExpr_value(IListFExpr_next(IListFExpr_next(fe(f)->sons))));
           }
-          JitInfo jitinfo = search_jit(istring_cstr(second->ident));
-          FnInfo fninfo = search_fn(istring_cstr(second->ident));
+          JitInfo jitinfo = search_jit(istring_cstr(fe(second)->ident));
+          FnInfo fninfo = search_fn(istring_cstr(fe(second)->ident));
           if (!jitinfo_isnil(jitinfo)) {
             codegen(jitinfo.body);
             break;
@@ -370,31 +366,31 @@ void codegen(FExpr f) {
             write_hex(0x50); // push rax
             break;
           } else {
-            error("undeclared %s function.", istring_cstr(first->ident));
+            error("undeclared %s function.", istring_cstr(fe(first)->ident));
           }
         }
       }
       genfail: {
-        error("undeclared %s function.", istring_cstr(first->ident));
+        error("undeclared %s function.", istring_cstr(fe(first)->ident));
       }
       }
       break;
     case FEXPR_LIST:
       {
-        forlist (FExpr, son, fobj->sons) {
+        forlist (FExpr, son, fe(f)->sons) {
           codegen(son);
         }
       }
       break;
     case FEXPR_BLOCK:
       {
-        forlist (FExpr, son, fobj->sons) {
+        forlist (FExpr, son, fe(f)->sons) {
           codegen(son);
         }
       }
       break;
     default:
-      error("unsupported %s codegen in currently.", FExprKind_tostring(fobj->kind));
+      error("unsupported %s codegen in currently.", FExprKind_tostring(fe(f)->kind));
       break;
   }
 }

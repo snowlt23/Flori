@@ -13,11 +13,10 @@ FExpr fnext_impl(IListFExpr* il) {
 FType new_ftype(FTypeKind kind) {
   FType ft = alloc_FType();
   fp(FType, ft)->kind = kind;
-  ftobj->kind = kind;
   return ft;
 }
 
-FExpr new_nftypesym(FType t) {
+FExpr new_ftypesym(FType t) {
   FExpr f = new_fexpr(FEXPR_SYMBOL);
   fe(f)->typsym = t;
   return f;
@@ -34,20 +33,18 @@ FExpr new_nftypesym(FType t) {
 //
 
 bool is_typeseq(FExpr f) {
-  if (fe(fobj)->kind != FEXPR_SEQ) return false;
+  if (fe(f)->kind != FEXPR_SEQ) return false;
   if (IListFExpr_len(fe(f)->sons) < 2) return false;
-  return cmp_ident(IListFExpr_value(fe(f)->sons), "type"); 
+  return cmp_ident(IListFExpr_value(fe(f)->sons), "type");
 }
 
-bool is_fncall() {
-  
-}
+// bool is_fncall() {
+// }
 
 bool is_fnseq(FExpr f) {
-  %%fwith FExpr fobj = f;
-  if (fobj->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fobj->sons) < 1) return false;
-  return cmp_ident(IListFExpr_value(fobj->sons), "fn");
+  if (fe(f)->kind != FEXPR_SEQ) return false;
+  if (IListFExpr_len(fe(f)->sons) < 1) return false;
+  return cmp_ident(IListFExpr_value(fe(f)->sons), "fn");
 }
 
 //
@@ -55,22 +52,21 @@ bool is_fnseq(FExpr f) {
 //
 
 void semantic_analysis(FExpr f) {
-  %%fwith FExpr fobj = f;
-  if (fobj->kind == FEXPR_INTLIT) {
-    fobj->typ = new_ftype(FTYPE_INT);
+  if (fe(f)->kind == FEXPR_INTLIT) {
+    fe(f)->typ = new_ftype(FTYPE_INT);
   } else if (is_typeseq(f)) {
-    FExpr t = IListFExpr_value(IListFExpr_next(fobj->sons));
+    FExpr t = IListFExpr_value(IListFExpr_next(fe(f)->sons));
     if (cmp_ident(t, "int")) {
-      *FExpr_ptr(f) = *FExpr_ptr(new_ftypesym(new_ftype(FTYPE_INT)));
+      *fe(f) = *fe(new_ftypesym(new_ftype(FTYPE_INT)));
     } else {
       error("undeclared %s type", istring_cstr(FExpr_ptr(t)->ident));
     }
   } else if (is_fnseq(f)) {
-    fiter(it, fobj->sons);
+    fiter(it, fe(f)->sons);
     fnext(it);
-    FExpr name = fnext(it);
+    /* FExpr name = */ fnext(it);
     IListFExpr argsit = it;
-    FExpr args = fnext(it);
+    /* FExpr args = */ fnext(it);
     FExpr rettyp;
     FExpr body;
     if (FExpr_ptr(fcurr(it))->kind == FEXPR_BLOCK) {
@@ -86,8 +82,8 @@ void semantic_analysis(FExpr f) {
       semantic_analysis(rettyp);
       semantic_analysis(body);
     }
-  } else if (fobj->kind == FEXPR_SEQ) {
-    forlist (FExpr, son, fobj->sons) {
+  } else if (fe(f)->kind == FEXPR_SEQ) {
+    forlist (FExpr, son, fe(f)->sons) {
       semantic_analysis(son);
     }
   }
