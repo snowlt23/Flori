@@ -106,16 +106,3 @@ int tnamepos = 0;
     adprintf("%c", c);
   }
 }
-
-// %%fwith FExpr fobj = f;
-%%hook fwith {
-  skip_spaces();
-  string* t = parse_ident();
-  skip_spaces();
-  string* n = parse_ident();
-  skip_spaces();
-  if (getc(stdin) != '=') error("fwith expect = infix.");
-  skip_spaces();
-  string* v = parse_until(";");
-  printf("%sObj* %s = (%sObj*)%s_ptr(%s);", t->data, n->data, t->data, t->data, v->data);
-}

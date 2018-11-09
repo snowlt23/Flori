@@ -11,7 +11,8 @@
 #define error(...) { fprintf(stderr, __VA_ARGS__); exit(1); }
 #define check_next(l, ...) if (IListFExpr_isnil(l)) { error(__VA_ARGS__); }
 
-#define fwith(f, t) t ## Obj* f = (t ## Obj*)t ## _ptr(f)
+#define fp(t, f) t ## _ptr(f)
+#define fe(f) fp(FExpr, f)
 
 #define fiter(itr, f) IListFExpr itr = f
 #define fcurr(itr) IListFExpr_value(itr)
@@ -139,19 +140,44 @@ typedef enum {
 typedef struct _FTypeObj {
   FTypeKind kind;
 } FTypeObj;
+%%expand ilist(FType);
 
 %%expand fstruct(FExpr, struct _FExprObj);
 %%expand ilist(FExpr);
+
+typedef struct _FSymbolObj {
+  FExpr f;
+} FSymbol;
+
 typedef struct _FExprObj {
   FExprKind kind;
   FType typ;
   union {
     IString ident;
+    FSymbol sym;
     FType typsym;
     int intval;
     IListFExpr sons;
   };
 } FExprObj;
+
+typedef struct {
+  IString name;
+  FSymbol sym;
+} Decl;
+
+typedef struct {
+  IString name;
+  IListFType argtypes;
+  FSymbol sym;
+} FnDecl;
+
+%%expand ilist(Decl);
+typedef IListDecl DeclMap;
+%%expand ilist(FnDecl);
+typedef IListFnDecl FnDeclGroup;
+%%expand ilist(FnDeclGroup);
+typedef IListFnDeclGroup FnDeclMap;
 
 typedef struct {
   IString key;

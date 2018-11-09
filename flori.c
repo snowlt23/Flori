@@ -31,5 +31,4 @@ int main() {
   }
   jit_write_to_file("buffer.jit");
   printf("%d", call_main());
-  return 0;
 }

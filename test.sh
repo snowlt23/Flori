@@ -1,5 +1,5 @@
 #!/bin/bash
-1;5201;0c
+
 # $1=testname
 unittest() {
   M=`make $1.out`

@@ -1,5 +1,8 @@
 #include "flori.h"
 
+DeclMap declmap;
+FnDeclMap fndeclmap;
+
 FExpr fnext_impl(IListFExpr* il) {
   check_next(*il, "require more token");
   FExpr ret = IListFExpr_value(*il);
@@ -9,23 +12,35 @@ FExpr fnext_impl(IListFExpr* il) {
 
 FType new_ftype(FTypeKind kind) {
   FType ft = alloc_FType();
-  %%fwith FType ftobj = ft;
+  fp(FType, ft)->kind = kind;
   ftobj->kind = kind;
   return ft;
 }
 
-FExpr new_ftypesym(FType t) {
+FExpr new_nftypesym(FType t) {
   FExpr f = new_fexpr(FEXPR_SYMBOL);
-  %%fwith FExpr fobj = f;
-  fobj->typsym = t;
+  fe(f)->typsym = t;
   return f;
 }
 
+//
+// search
+//
+
+
+
+//
+// compare
+//
+
 bool is_typeseq(FExpr f) {
-  %%fwith FExpr fobj = f;
-  if (fobj->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fobj->sons) < 2) return false;
-  return cmp_ident(IListFExpr_value(fobj->sons), "type"); 
+  if (fe(fobj)->kind != FEXPR_SEQ) return false;
+  if (IListFExpr_len(fe(f)->sons) < 2) return false;
+  return cmp_ident(IListFExpr_value(fe(f)->sons), "type"); 
+}
+
+bool is_fncall() {
+  
 }
 
 bool is_fnseq(FExpr f) {
@@ -34,6 +49,10 @@ bool is_fnseq(FExpr f) {
   if (IListFExpr_len(fobj->sons) < 1) return false;
   return cmp_ident(IListFExpr_value(fobj->sons), "fn");
 }
+
+//
+// semantic
+//
 
 void semantic_analysis(FExpr f) {
   %%fwith FExpr fobj = f;
