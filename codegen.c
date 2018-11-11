@@ -12,7 +12,6 @@
 int curroffset;
 IListFnInfo fnmap;
 IListJitInfo jitmap;
-IListVarInfo varmap;
 
 void codegen_init() {
   fnmap = nil_IListFnInfo();
@@ -38,7 +37,7 @@ bool fninfo_isnil(FnInfo info) {
 }
 
 FnInfo search_fn(char* name) {
-  forlist (FnInfo, info, fnmap) {
+  forlist (IListFnInfo, FnInfo, info, fnmap) {
     if (strcmp(istring_cstr(info.key), name) == 0) {
       return info;
     }
@@ -65,39 +64,12 @@ bool jitinfo_isnil(JitInfo info) {
 }
 
 JitInfo search_jit(char* name) {
-  forlist (JitInfo, info, jitmap) {
+  forlist (IListJitInfo, JitInfo, info, jitmap) {
     if (strcmp(istring_cstr(info.key), name) == 0) {
       return info;
     }
   }
   return jitinfo_nil();
-}
-
-//
-// VarInfo
-//
-
-void add_varinfo(IString key, int offset) {
-  varmap = new_IListVarInfo((VarInfo){key, offset}, varmap);
-}
-
-VarInfo varinfo_nil() {
-  VarInfo info;
-  info.offset= -1;
-  return info;
-}
-
-bool varinfo_isnil(VarInfo info) {
-  return info.offset == -1;
-}
-
-VarInfo search_var(char* name) {
-  forlist (VarInfo, info, varmap) {
-    if (strcmp(istring_cstr(info.key), name) == 0) {
-      return info;
-    }
-  }
-  return varinfo_nil();
 }
 
 //
@@ -157,14 +129,11 @@ bool codegen_internal_fseq(FExpr f) {
 
     int fnidx = jit_getidx();
     add_fninfo(fe(fnname)->ident, fnidx);
-    varmap = nil_IListVarInfo();
     curroffset = 0;
     gen_prologue();
     int argoffset = 16;
-    forlist (FExpr, arg, fe(fnargs)->sons) {
-      fiter(argit, fe(arg)->sons);
-      FExpr argname = fnext(argit);
-      add_varinfo(fe(argname)->ident, -argoffset);
+    forlist (IListFExpr, FExpr, arg, fe(fnargs)->sons) {
+      fp(FSymbol, fe(arg)->sym)->varoffset = -argoffset;
       argoffset += 8;
     }
     codegen(fnbody);
@@ -271,19 +240,13 @@ bool codegen_internal_fseq(FExpr f) {
       }
     }
   } else if (cmp_ident(first, "set")) {
-    IListFExpr cur = fe(f)->sons;
-
-    cur = IListFExpr_next(cur);
-    check_next(cur, "expected name in fn");
-    FExpr lvalue = IListFExpr_value(cur);
-
-    cur = IListFExpr_next(cur);
-    check_next(cur, "expected name in fn");
-    FExpr value = IListFExpr_value(cur);
-
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr name = fnext(it);
+    FExpr value = fnext(it);
     curroffset += 8;
     int offset = curroffset;
-    add_varinfo(fe(lvalue)->ident, offset);
+    fp(FSymbol, fe(name)->sym)->varoffset = offset;
     codegen(value);
     write_hex(0x58); // pop rax
     write_hex(0x48, 0x89, 0x85); // mov [rbp-offset], rax
@@ -296,18 +259,18 @@ bool codegen_internal_fseq(FExpr f) {
 
 void codegen(FExpr f) {
   switch (fe(f)->kind) {
-    case FEXPR_IDENT:
-      {
-        VarInfo vinfo = search_var(istring_cstr(fe(f)->ident));
+    case FEXPR_IDENT: {
         JitInfo jinfo = search_jit(istring_cstr(fe(f)->ident));
-        if (!varinfo_isnil(vinfo)) {
-          write_hex(0xff, 0xb5);
-          write_lendian(-vinfo.offset);
-        } else if (!jitinfo_isnil(jinfo)) {
+        if (!jitinfo_isnil(jinfo)) {
           codegen(jinfo.body);
         } else {
-          error("undeclared `%s ident.", istring_cstr(fe(f)->ident));
+          error("unresolved `%s ident.", istring_cstr(fe(f)->ident));
         }
+      }
+      break;
+    case FEXPR_SYMBOL: {
+        write_hex(0xff, 0xb5);
+        write_lendian(-fp(FSymbol, fe(f)->sym)->varoffset);
       }
       break;
     case FEXPR_INTLIT:
@@ -323,13 +286,13 @@ void codegen(FExpr f) {
         JitInfo jitinfo = search_jit(istring_cstr(fe(first)->ident));
         FnInfo fninfo = search_fn(istring_cstr(fe(first)->ident));
         if (!jitinfo_isnil(jitinfo)) {
-          forlist (FExpr, arg, IListFExpr_next(fe(f)->sons)) {
+          forlist (IListFExpr, FExpr, arg, IListFExpr_next(fe(f)->sons)) {
             codegen(arg);
           }
           codegen(jitinfo.body);
           break;
         } else if (!fninfo_isnil(fninfo)) {
-          forlist (FExpr, arg, IListFExpr_next(fe(f)->sons)) {
+          forlist (IListFExpr, FExpr, arg, IListFExpr_next(fe(f)->sons)) {
             codegen(arg);
           }
           int rel = fninfo.index - jit_getidx() - 5;
@@ -377,14 +340,14 @@ void codegen(FExpr f) {
       break;
     case FEXPR_LIST:
       {
-        forlist (FExpr, son, fe(f)->sons) {
+        forlist (IListFExpr, FExpr, son, fe(f)->sons) {
           codegen(son);
         }
       }
       break;
     case FEXPR_BLOCK:
       {
-        forlist (FExpr, son, fe(f)->sons) {
+        forlist (IListFExpr, FExpr, son, fe(f)->sons) {
           codegen(son);
         }
       }

@@ -11,3 +11,7 @@ IString new_istring(char* s) {
 char* istring_cstr(IString s) {
   return (char*)linmem_toptr(s.index);
 }
+
+bool istring_eq(IString a, IString b) {
+  return strcmp(istring_cstr(a), istring_cstr(b)) == 0;
+}
