@@ -1,0 +1,15 @@
+import "core"
+import "std/map"
+
+fn main() {
+  reg enemies := init_map()
+  loop {
+    msg := get_msg()
+    if (msg.kind == ADD_ENEMY) {
+      insert(enemies, msg.name, new_enemy())
+    } elif (msg.kind == KILL_ENEMY) {
+      delete(enemies, msg.name)
+    }
+  }
+}
+main()
