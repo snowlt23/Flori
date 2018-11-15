@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#define debug(...) {fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n");}
 #define error(...) { fprintf(stderr, __VA_ARGS__); exit(1); }
 #define check_next(l, ...) if (IListFExpr_isnil(l)) { error(__VA_ARGS__); }
 
@@ -17,6 +18,21 @@
 #define fiter(itr, f) IListFExpr itr = f
 #define fcurr(itr) IListFExpr_value(itr)
 #define fnext(itr) fnext_impl(&itr)
+
+#define fcont(v, kind, ...) \
+  FExpr _sons[] = {__VA_ARGS__}; \
+  FExpr v = new_fcontainer(kind); \
+  for (int _sonstmp=0; _sonstmp<sizeof(_sons); _sonstmp++) { \
+    push_son(v, _sons[_sonstmp]);                             \
+  } \
+  reverse_sons(v);
+#define fseq(v, ...) fcont(v, FEXPR_SEQ, __VA_ARGS__)
+
+typedef struct {
+  void** data;
+  int cap;
+  int len;
+} Vector;
 
 typedef struct {
   char* buf;
@@ -131,6 +147,48 @@ typedef struct {
   }
 }
 
+// %%1=V %%2=T
+%%template vector {
+  typedef struct {
+    %%2* data;
+    int cap;
+    int len;
+  } %%1;
+  %%1* newcap_%%1(int cap);
+  %%1* new_%%1();
+  void %%1_extend(%%1* v);
+  %%2 %%1_get(%%1* v, int index);
+  void %%1_set(%%1* v, int index, %%2 elem);
+  void %%1_push(%%1* v, %%2 elem);
+} {
+  %%1* newcap_%%1(int cap) {
+    %%1* v = malloc(sizeof(%%1));
+    v->data = malloc(cap*sizeof(%%2));
+    v->cap = cap;
+    v->len = 0;
+    return v;
+  }
+  %%1* new_%%1() {
+    return newcap_%%1(256);
+  }
+  void %%1_extend(%%1* v) {
+    if (v->cap < v->len+1) {
+      v->data = realloc(v->data, v->cap*2*sizeof(%%2));
+      v->cap *= 2;
+    }
+  }
+  %%2 %%1_get(%%1* v, int index) {
+    return v->data[index];
+  }
+  void %%1_set(%%1* v, int index, %%2 elem) {
+    v->data[index] = elem;
+  }
+  void %%1_push(%%1* v, %%2 elem) {
+    %%1_extend(v);
+    %%1_set(v, v->len++, elem);
+  }
+}
+
 typedef enum {
   FTYPE_VOID,
   FTYPE_INT,
@@ -142,13 +200,18 @@ typedef struct _FTypeObj {
 } FTypeObj;
 %%expand ilist(IListFType, FType);
 
+%%expand vector(FTypeVec, FType);
+
 %%expand fstruct(FExpr, struct _FExprObj);
 %%expand ilist(IListFExpr, FExpr);
 
 %%expand fstruct(FSymbol, struct _FSymbolObj);
 typedef struct _FSymbolObj {
   FExpr f;
-  int varoffset;
+  union {
+    int varoffset;
+    int fnidx;
+  };
 } FSymbolObj;
 
 typedef struct _FExprObj {
@@ -166,16 +229,23 @@ typedef struct _FExprObj {
 typedef struct {
   IString name;
   FSymbol sym;
+  FType typ;
 } Decl;
 
 typedef struct {
   IString name;
   IListFType argtypes;
+  FType returntype;
   FSymbol sym;
 } FnDecl;
 
 %%expand ilist(DeclMap, Decl);
-%%expand ilist(FnDeclGroup, FnDecl);
+%%expand ilist(IListFnDecl, FnDecl);
+typedef struct {
+  IString name;
+  IListFnDecl decls;
+} FnDeclGroupObj;
+%%expand fstruct(FnDeclGroup, FnDeclGroupObj);
 %%expand ilist(FnDeclMap, FnDeclGroup);
 
 typedef struct {
@@ -219,6 +289,9 @@ bool istring_eq(IString a, IString b);
 // parser.c
 FExpr new_fexpr(FExprKind kind);
 bool cmp_ident(FExpr f, char* id);
+FExpr new_fcontainer(FExprKind kind);
+void push_son(FExpr f, FExpr son);
+void reverse_sons(FExpr f);
 bool stream_isend(Stream* s);
 Stream* new_stream(char* buf);
 FExpr parse(Stream* s);
@@ -226,6 +299,7 @@ FExpr parse(Stream* s);
 // semantic.c
 void semantic_init();
 FExpr fnext_impl(IListFExpr* il);
+bool search_fndecl(IString name, FTypeVec* argtypes, FnDecl* retfndecl);
 void semantic_analysis(FExpr f);
 
 // codegen.c

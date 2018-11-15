@@ -64,15 +64,6 @@ void reverse_sons(FExpr f) {
   fe(f)->sons = IListFExpr_reverse(fe(f)->sons);
 }
 
-#define fcont(v, kind, ...) \
-  FExpr _sons[] = {__VA_ARGS__}; \
-  FExpr v = new_fcontainer(kind); \
-  for (int _sonstmp=0; _sonstmp<sizeof(_sons); _sonstmp++) { \
-    push_son(v, _sons[_sonstmp]);                             \
-  } \
-  reverse_sons(v);
-#define fseq(v, ...) fcont(v, FEXPR_SEQ, __VA_ARGS__)
-
 
 //
 // parse

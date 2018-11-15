@@ -10,39 +10,10 @@
 #define write_hex(...) write_hex1(__LINE__, __VA_ARGS__)
 
 int curroffset;
-IListFnInfo fnmap;
 IListJitInfo jitmap;
 
 void codegen_init() {
-  fnmap = nil_IListFnInfo();
   jitmap = nil_IListJitInfo();
-}
-
-//
-// FnInfo
-//
-
-void add_fninfo(IString key, int idx) {
-  fnmap = new_IListFnInfo((FnInfo){key, idx}, fnmap);
-}
-
-FnInfo fninfo_nil() {
-  FnInfo info;
-  info.index = -1;
-  return info;
-}
-
-bool fninfo_isnil(FnInfo info) {
-  return info.index == -1;
-}
-
-FnInfo search_fn(char* name) {
-  forlist (IListFnInfo, FnInfo, info, fnmap) {
-    if (strcmp(istring_cstr(info.key), name) == 0) {
-      return info;
-    }
-  }
-  return fninfo_nil();
 }
 
 //
@@ -122,13 +93,13 @@ bool codegen_internal_fseq(FExpr f) {
     fiter(cur, fe(f)->sons);
     fnext(cur);
 
-    FExpr fnname = fnext(cur);
+    FExpr fnsym = fnext(cur);
     FExpr fnargs = fnext(cur);
     /* FExpr rettyp = */ fnext(cur);
     FExpr fnbody = fnext(cur);
 
     int fnidx = jit_getidx();
-    add_fninfo(fe(fnname)->ident, fnidx);
+    fp(FSymbol, fe(fnsym)->sym)->fnidx = fnidx;
     curroffset = 0;
     gen_prologue();
     int argoffset = 16;
@@ -282,60 +253,23 @@ void codegen(FExpr f) {
           break;
         }
         FExpr first = IListFExpr_value(fe(f)->sons);
-        if (fe(first)->kind != FEXPR_IDENT) goto infixgen;
-        JitInfo jitinfo = search_jit(istring_cstr(fe(first)->ident));
-        FnInfo fninfo = search_fn(istring_cstr(fe(first)->ident));
-        if (!jitinfo_isnil(jitinfo)) {
+        if (fe(first)->kind == FEXPR_SYMBOL) {
+          forlist (IListFExpr, FExpr, arg, IListFExpr_next(fe(f)->sons)) {
+            codegen(arg);
+          }
+          int rel = fp(FSymbol, fe(first)->sym)->fnidx - jit_getidx() - 5;
+          write_hex(0xE8); // call
+          write_lendian(rel);
+          write_hex(0x48, 0x81, 0xc4); // add rsp, ..
+          write_lendian(IListFExpr_len(IListFExpr_next(fe(f)->sons))*8); write_hex(0x50); // push rax
+        } else {
+          JitInfo jitinfo = search_jit(istring_cstr(fe(first)->ident));
+          if (jitinfo_isnil(jitinfo)) error ("undeclared `%s function", istring_cstr(fe(first)->ident));
           forlist (IListFExpr, FExpr, arg, IListFExpr_next(fe(f)->sons)) {
             codegen(arg);
           }
           codegen(jitinfo.body);
-          break;
-        } else if (!fninfo_isnil(fninfo)) {
-          forlist (IListFExpr, FExpr, arg, IListFExpr_next(fe(f)->sons)) {
-            codegen(arg);
-          }
-          int rel = fninfo.index - jit_getidx() - 5;
-          write_hex(0xE8); // call
-          write_lendian(rel);
-          write_hex(0x48, 0x81, 0xc4); // add rsp, ..
-          write_lendian(IListFExpr_len(IListFExpr_next(fe(f)->sons))*8);
-          write_hex(0x50); // push rax
-          break;
         }
-      infixgen: {
-        if (IListFExpr_len(fe(f)->sons) != 3) goto genfail;
-        FExpr second = IListFExpr_value(IListFExpr_next(fe(f)->sons));
-        if (fe(second)->kind == FEXPR_OP) {
-          FExpr firstf = IListFExpr_value(fe(f)->sons);
-          codegen(firstf);
-          if (IListFExpr_len(IListFExpr_next(IListFExpr_next(fe(f)->sons))) != 1) {
-            FExpr restf = new_fexpr(FEXPR_SEQ);
-            fe(restf)->sons = IListFExpr_next(IListFExpr_next(fe(f)->sons));
-            codegen(restf);
-          } else {
-            codegen(IListFExpr_value(IListFExpr_next(IListFExpr_next(fe(f)->sons))));
-          }
-          JitInfo jitinfo = search_jit(istring_cstr(fe(second)->ident));
-          FnInfo fninfo = search_fn(istring_cstr(fe(second)->ident));
-          if (!jitinfo_isnil(jitinfo)) {
-            codegen(jitinfo.body);
-            break;
-          } else if (!fninfo_isnil(fninfo)) {
-            int rel = fninfo.index - jit_getidx() - 5;
-            write_hex(0xE8); // call
-            write_lendian(rel);
-            write_hex(0x48, 0x83, 0xc4, 16); // add rsp, 16
-            write_hex(0x50); // push rax
-            break;
-          } else {
-            error("undeclared %s function.", istring_cstr(fe(first)->ident));
-          }
-        }
-      }
-      genfail: {
-        error("undeclared %s function.", istring_cstr(fe(first)->ident));
-      }
       }
       break;
     case FEXPR_LIST:
@@ -359,9 +293,9 @@ void codegen(FExpr f) {
 }
 
 int call_main() {
-  FnInfo mainp = search_fn("main");
-  if (fninfo_isnil(mainp)) {
+  FnDecl fndecl;
+  if (!search_fndecl(new_istring("main"), new_FTypeVec(), &fndecl)) {
     error("undefined reference to `main");
   }
-  return ((int (*)())jit_toptr(mainp.index))();
+  return ((int (*)())jit_toptr(fp(FSymbol, fndecl.sym)->fnidx))();
 }
