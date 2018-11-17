@@ -189,19 +189,6 @@ typedef struct {
   }
 }
 
-typedef enum {
-  FTYPE_VOID,
-  FTYPE_INT,
-} FTypeKind;
-
-%%expand fstruct(FType, struct _FTypeObj);
-typedef struct _FTypeObj {
-  FTypeKind kind;
-} FTypeObj;
-%%expand ilist(IListFType, FType);
-
-%%expand vector(FTypeVec, FType);
-
 %%expand fstruct(FExpr, struct _FExprObj);
 %%expand ilist(IListFExpr, FExpr);
 
@@ -213,6 +200,20 @@ typedef struct _FSymbolObj {
     int fnidx;
   };
 } FSymbolObj;
+
+typedef enum {
+  FTYPE_VOID,
+  FTYPE_INT,
+  FTYPE_SYM,
+} FTypeKind;
+
+%%expand fstruct(FType, struct _FTypeObj);
+typedef struct _FTypeObj {
+  FTypeKind kind;
+  FSymbol sym;
+} FTypeObj;
+%%expand ilist(IListFType, FType);
+%%expand vector(FTypeVec, FType);
 
 typedef struct _FExprObj {
   FExprKind kind;

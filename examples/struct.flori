@@ -1,5 +1,7 @@
 struct myint {}
 
+fn init_myint() ^myint {}
+
 fn main() {
   9
 }

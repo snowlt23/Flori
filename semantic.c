@@ -198,7 +198,12 @@ void semantic_analysis(FExpr f) {
     // }
   } else if (is_typeseq(f)) {
     FExpr t = IListFExpr_value(IListFExpr_next(fe(f)->sons));
-    if (cmp_ident(t, "int")) {
+    Decl decl;
+    if (search_decl(fe(t)->ident, &decl)) {
+      FType ft = new_ftype(FTYPE_SYM);
+      fp(FType, ft)->sym = decl.sym;
+      *fe(f) = *fe(new_ftypesym(ft));
+    } else if (cmp_ident(t, "int")) {
       *fe(f) = *fe(new_ftypesym(new_ftype(FTYPE_INT)));
     } else {
       error("undeclared %s type", istring_cstr(FExpr_ptr(t)->ident));
@@ -219,6 +224,14 @@ void semantic_analysis(FExpr f) {
     // discard
   } else if (is_structseq(f)) {
     // TODO:
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr name = fnext(it);
+    IString namestr = fe(name)->ident;
+    /* FExpr body = */ fnext(it);
+    fe(name)->kind = FEXPR_SYMBOL;
+    fe(name)->sym = alloc_FSymbol();
+    add_decl((Decl){namestr, fe(name)->sym});
   } else if (is_fnseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);
