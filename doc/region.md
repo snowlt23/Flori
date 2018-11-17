@@ -1,7 +1,6 @@
-
 # Explicit Region
 
-What is Region? Region has some names (Arena, Zone...), I call it Region here.
+What is Region? Region has some names (Arena, Zone...), I call it Region here.  
 Region definition is a type of value lifetime (in my language).
 
 Why Region as core of Flori? How Region be useful?
@@ -60,9 +59,3 @@ Region can't management this case. It is user that manage enemy lifetime, so can
 How does we this to better? First, dynamic lifetime allocation needs dynamic memory management. So we should use dynamic memory management in dynamic lifetime allocations. (So Rust has Rc<T>, etc.. for this. other languages has GC.)
 
 ## Solution
-
-We have some Solution.
-
-- Memory Pool
-- Object Pool
-

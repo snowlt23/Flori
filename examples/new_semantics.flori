@@ -1,0 +1,36 @@
+import "core"
+
+struct enemy {
+  hp ^int
+  name ^string
+}
+
+struct state {
+  enemies ^map[^enemy]
+}
+
+fn main() {
+  st := loop {
+    msg := get_msg()
+    if (msg.kind == SPAWN) {
+      init ^state {enemies: insert(st.enemies, msg.name, new_enemy())}
+    } elif (msg.kind == KILL) {
+      init ^state {enemies: delete(st.enemies, msg.name)}
+    }
+  }
+}
+
+fn main() {
+  st := loop {
+    msg := get_msg()
+    if (msg.kind == SPAWN) {
+      inherit(st) {
+        enemies: insert(st.enemies, msg.name, new_enemy())
+      }
+    } elif (msg.kind == KILL) {
+      inherit(st) {
+        enemies: delete(st.enemies, msg.name)
+      }
+    }
+  }
+}

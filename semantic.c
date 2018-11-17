@@ -173,6 +173,12 @@ bool is_fnseq(FExpr f) {
   return cmp_ident(IListFExpr_value(fe(f)->sons), "fn");
 }
 
+bool is_structseq(FExpr f) {
+  if (fe(f)->kind != FEXPR_SEQ) return false;
+  if (IListFExpr_len(fe(f)->sons) < 1) return false;
+  return cmp_ident(IListFExpr_value(fe(f)->sons), "struct");
+}
+
 //
 // semantic
 //
@@ -211,6 +217,8 @@ void semantic_analysis(FExpr f) {
     // discard
   } else if (is_Xseq(f)) {
     // discard
+  } else if (is_structseq(f)) {
+    // TODO:
   } else if (is_fnseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);

@@ -1,0 +1,5 @@
+struct myint {}
+
+fn main() {
+  9
+}

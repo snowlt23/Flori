@@ -1,4 +1,3 @@
-
 # Concurrency
 
 **DRAFT**
@@ -47,4 +46,3 @@ fn conc(v ref Vec[Int]) $[concurrent_check] {
   }
 }
 ```
-

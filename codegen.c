@@ -110,6 +110,8 @@ bool codegen_internal_fseq(FExpr f) {
     codegen(fnbody);
     write_hex(0x58); // pop rax ; for return value
     gen_epilogue();
+  } else if (cmp_ident(first, "struct")) {
+    // discard
   } else if (cmp_ident(first, "jit")) {
     IListFExpr cur = fe(f)->sons;
     cur = IListFExpr_next(cur);
