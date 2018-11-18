@@ -27,7 +27,7 @@
 - LR <- return HR correct
 - LR <- return LR correct
 
-## Do(Loop) notation
+## Solution1: Do(Loop) notation
 
 ```
 struct enemy {
@@ -39,26 +39,18 @@ struct state {
   enemies ^map[^enemy]
 }
 
-fn update(st ^state) ^state {
-  msg := get_msg()
-  if (msg.kind == SPAWN) {
-    inherit(st) {
-      enemies: insert(st.enemies, msg.name, new_enemy())
-    }
-  } elif (msg.kind == KILL) {
-    inherit(st) {
-      enemies: delete(st.enemies, msg.name)
-    }
+fn copy(r ^region, st ^state) ^state {
+  init ^state {
+    enemies: copy(r, st.enemies)
   }
 }
 
-fn main_do() {
-  do [st <- init_state()] {
-    st <- update(st)
-    st <- update(st)
-    st <- update(st)
-    st <- update(st)
-    return st
+fn update(st ^ref state) {
+  msg := get_msg()
+  if (msg.kind == SPAWN) {
+    insert(st.enemies, msg.name, new_enemy())
+  } elif (msg.kind == KILL) {
+    delete(st.enemies, msg.name)
   }
 }
 
@@ -70,19 +62,18 @@ fn main_loop() {
 # converted by macro =>
 fn main_loop() {
   block {
-    st_reg1 := new_region()
-    st_reg2 := new_region()
-    local_reg(st_reg1) {
-      st := init_state()
-    }
+    lr1 := new_region()
+    lr2 := new_region()
+    st'lr1 := init_state()
     unsafe_while(true) {
-      local_reg(st_reg1) {
-        st = in_reg {
-          update(st)
-        }
+      in_reg {
+        update(st'lr1)
       }
-      swap(st_reg1, st_reg2)
-      unsafe_clear(st_reg1)
+      if (is_over(lr1)) {
+        swap(lr1, lr2)
+        st = copy(lr1, st)
+        unsafe_clear(lr2)
+      }
     }
   }
 }
