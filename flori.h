@@ -11,6 +11,7 @@
 #define debug(...) {fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n");}
 #define error(...) { fprintf(stderr, __VA_ARGS__); exit(1); }
 #define check_next(l, ...) if (IListFExpr_isnil(l)) { error(__VA_ARGS__); }
+#define isfnil(l) IListFExpr_isnil(l)
 
 #define fp(t, f) t ## _ptr(f)
 #define fe(f) fp(FExpr, f)
@@ -195,6 +196,7 @@ typedef struct {
 %%expand fstruct(FSymbol, struct _FSymbolObj);
 typedef struct _FSymbolObj {
   FExpr f;
+  bool isjit;
   union {
     int varoffset;
     int fnidx;
@@ -237,6 +239,7 @@ typedef struct {
   IString name;
   IListFType argtypes;
   FType returntype;
+  bool isjit;
   FSymbol sym;
 } FnDecl;
 
@@ -304,7 +307,6 @@ bool search_fndecl(IString name, FTypeVec* argtypes, FnDecl* retfndecl);
 void semantic_analysis(FExpr f);
 
 // codegen.c
-void codegen_init();
 void codegen(FExpr f);
 int call_main();
 

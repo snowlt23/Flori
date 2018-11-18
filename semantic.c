@@ -157,7 +157,7 @@ bool is_setseq(FExpr f) {
 
 bool is_jitseq(FExpr f) {
   if (fe(f)->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fe(f)->sons) < 3) return false;
+  if (IListFExpr_len(fe(f)->sons) < 5) return false;
   return cmp_ident(IListFExpr_value(fe(f)->sons), "jit");
 }
 
@@ -165,6 +165,12 @@ bool is_Xseq(FExpr f) {
   if (fe(f)->kind != FEXPR_SEQ) return false;
   if (IListFExpr_len(fe(f)->sons) < 2) return false;
   return cmp_ident(IListFExpr_value(fe(f)->sons), "X");
+}
+
+bool is_ifseq(FExpr f) {
+  if (fe(f)->kind != FEXPR_SEQ) return false;
+  if (IListFExpr_len(fe(f)->sons) < 3) return false;
+  return cmp_ident(IListFExpr_value(fe(f)->sons), "if");
 }
 
 bool is_fnseq(FExpr f) {
@@ -188,14 +194,21 @@ void semantic_analysis(FExpr f) {
     fe(f)->typ = new_ftype(FTYPE_INT);
   } else if (fe(f)->kind == FEXPR_IDENT) {
     Decl decl;
+    FnDecl fndecl;
     if (search_decl(fe(f)->ident, &decl)) {
       fe(f)->kind = FEXPR_SYMBOL;
       fe(f)->sym = decl.sym;
       fe(f)->typ = decl.typ;
+    } else if (search_fndecl(fe(f)->ident, new_FTypeVec(), &fndecl)) {
+      FExpr newf = new_fcontainer(FEXPR_SEQ);
+      FExpr idf = alloc_FExpr();
+      *fe(idf) = *fe(f);
+      push_son(newf, idf);
+      semantic_analysis(newf);
+      *fe(f) = *fe(newf);
+    } else {
+      error("undeclared %s ident.", istring_cstr(fe(f)->ident));
     }
-    // } else {
-      // error("undeclared %s ident.", istring_cstr(fe(f)->ident));
-    // }
   } else if (is_typeseq(f)) {
     FExpr t = IListFExpr_value(IListFExpr_next(fe(f)->sons));
     Decl decl;
@@ -219,9 +232,39 @@ void semantic_analysis(FExpr f) {
     semantic_analysis(value);
     add_decl((Decl){namestr, fe(name)->sym, fe(value)->typ});
   } else if (is_jitseq(f)) {
-    // discard
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr name = fnext(it);
+    FExpr args = fnext(it);
+    FExpr rettyp = fnext(it);
+    FExpr body = fnext(it);
+    IListFType argtypes = nil_IListFType();
+    forlist(IListFExpr, FExpr, arg, fe(args)->sons) {
+      semantic_analysis(arg);
+      argtypes = new_IListFType(fe(arg)->typsym, argtypes);
+    }
+    semantic_analysis(rettyp);
+    IString nameid = fe(name)->ident;
+    fe(name)->kind = FEXPR_SYMBOL;
+    fe(name)->sym = alloc_FSymbol();
+    fp(FSymbol, fe(name)->sym)->f = body;
+    fp(FSymbol, fe(name)->sym)->isjit = true;
+    add_fndecl((FnDecl){nameid, argtypes, fe(rettyp)->typsym, true, fe(name)->sym});
   } else if (is_Xseq(f)) {
     // discard
+  } else if (is_ifseq(f)) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr cond = fnext(it);
+    FExpr body = fnext(it);
+    semantic_analysis(cond);
+    semantic_analysis(body);
+    if (!isfnil(it)) {
+      fnext(it);
+      FExpr elsebody = fnext(it);
+      semantic_analysis(elsebody);
+    }
+    fe(f)->typ = new_ftype(FTYPE_INT); // FIXME: if expression type
   } else if (is_structseq(f)) {
     // TODO:
     fiter(it, fe(f)->sons);
@@ -248,11 +291,12 @@ void semantic_analysis(FExpr f) {
       fe(arg)->kind = FEXPR_SYMBOL;
       fe(arg)->sym = alloc_FSymbol();
       fp(FSymbol, fe(arg)->sym)->f = argname;
-      add_decl((Decl){fe(argname)->ident, fe(arg)->sym});
+      add_decl((Decl){fe(argname)->ident, fe(arg)->sym, fe(argtyp)->typsym});
     }
     IString nameid = fe(name)->ident;
     fe(name)->kind = FEXPR_SYMBOL;
     fe(name)->sym = alloc_FSymbol();
+    fp(FSymbol, fe(name)->sym)->isjit = false;
 
     FExpr rettyp;
     FExpr body;
@@ -267,7 +311,7 @@ void semantic_analysis(FExpr f) {
       body = fnext(it);
       semantic_analysis(rettyp);
     }
-    add_fndecl((FnDecl){nameid, argtypes, fe(rettyp)->typsym, fe(name)->sym});
+    add_fndecl((FnDecl){nameid, argtypes, fe(rettyp)->typsym, false, fe(name)->sym});
     semantic_analysis(body);
   } else if (is_infixcall(f)) {
     *fe(f) = *fe(split_infixseq(f));
@@ -280,19 +324,27 @@ void semantic_analysis(FExpr f) {
       semantic_analysis(arg);
       FTypeVec_push(argtypes, fe(arg)->typ);
     }
-    // fprintf(stderr, "%s: ", istring_cstr(fe(first)->ident));
-    // for (int i=0; i<argtypes->len; i++) {
-    //   fprintf(stderr, " %d", fp(FType, FTypeVec_get(argtypes, i))->kind);
-    // }
-    // fprintf(stderr, "\n");
     FnDecl fndecl;
     if (search_fndecl(fe(first)->ident, argtypes, &fndecl)) {
-      fe(first)->kind = FEXPR_SYMBOL;
-      fe(first)->sym = fndecl.sym;
-      fe(f)->typ = fndecl.returntype;
+      if (fndecl.isjit) { // jit call
+        FExpr jitbody = fp(FSymbol, fndecl.sym)->f;
+        semantic_analysis(jitbody);
+        FExpr callf = alloc_FExpr();
+        *fe(callf) = *fe(f);
+        FExpr newf = new_fcontainer(FEXPR_BLOCK);
+        push_son(newf, jitbody);
+        push_son(newf, callf);
+        fe(newf)->typ = fndecl.returntype;
+        fe(first)->kind = FEXPR_SYMBOL;
+        fe(first)->sym = fndecl.sym;
+        *fe(f) = *fe(newf);
+      } else { // fn call
+        fe(first)->kind = FEXPR_SYMBOL;
+        fe(first)->sym = fndecl.sym;
+        fe(f)->typ = fndecl.returntype;
+      }
     } else {
-      fe(f)->typ = new_ftype(FTYPE_INT);
-      // error("undeclared %s function", istring_cstr(fe(first)->ident));
+      error("undeclared %s function", istring_cstr(fe(first)->ident));
     }
   } else if (fe(f)->kind == FEXPR_SEQ) {
     forlist (IListFExpr, FExpr, son, fe(f)->sons) {

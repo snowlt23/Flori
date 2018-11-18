@@ -10,38 +10,6 @@
 #define write_hex(...) write_hex1(__LINE__, __VA_ARGS__)
 
 int curroffset;
-IListJitInfo jitmap;
-
-void codegen_init() {
-  jitmap = nil_IListJitInfo();
-}
-
-//
-// JitInfo
-//
-
-void add_jitinfo(IString key, FExpr f) {
-  jitmap = new_IListJitInfo((JitInfo){key, f}, jitmap);
-}
-
-JitInfo jitinfo_nil() {
-  JitInfo info;
-  info.body.index = -1;
-  return info;
-}
-
-bool jitinfo_isnil(JitInfo info) {
-  return info.body.index == -1;
-}
-
-JitInfo search_jit(char* name) {
-  forlist (IListJitInfo, JitInfo, info, jitmap) {
-    if (strcmp(istring_cstr(info.key), name) == 0) {
-      return info;
-    }
-  }
-  return jitinfo_nil();
-}
 
 //
 // codegen
@@ -113,14 +81,7 @@ bool codegen_internal_fseq(FExpr f) {
   } else if (cmp_ident(first, "struct")) {
     // discard
   } else if (cmp_ident(first, "jit")) {
-    IListFExpr cur = fe(f)->sons;
-    cur = IListFExpr_next(cur);
-    check_next(cur, "expected name in jit");
-    FExpr jitname = IListFExpr_value(cur);
-    cur = IListFExpr_next(cur);
-    check_next(cur, "expected body in jit");
-    FExpr jitbody = IListFExpr_value(cur);
-    add_jitinfo(fe(jitname)->ident, jitbody);
+    // discard
   } else if (cmp_ident(first, "X")) {
     IListFExpr cur = fe(f)->sons;
     cur = IListFExpr_next(cur);
@@ -232,14 +193,8 @@ bool codegen_internal_fseq(FExpr f) {
 
 void codegen(FExpr f) {
   switch (fe(f)->kind) {
-    case FEXPR_IDENT: {
-        JitInfo jinfo = search_jit(istring_cstr(fe(f)->ident));
-        if (!jitinfo_isnil(jinfo)) {
-          codegen(jinfo.body);
-        } else {
-          error("unresolved `%s ident.", istring_cstr(fe(f)->ident));
-        }
-      }
+    case FEXPR_IDENT:
+      error("unresolved `%s ident.", istring_cstr(fe(f)->ident));
       break;
     case FEXPR_SYMBOL: {
         write_hex(0xff, 0xb5);
@@ -259,18 +214,18 @@ void codegen(FExpr f) {
           forlist (IListFExpr, FExpr, arg, IListFExpr_next(fe(f)->sons)) {
             codegen(arg);
           }
+          if (fp(FSymbol, fe(first)->sym)->isjit) {
+            break;
+          }
           int rel = fp(FSymbol, fe(first)->sym)->fnidx - jit_getidx() - 5;
           write_hex(0xE8); // call
           write_lendian(rel);
           write_hex(0x48, 0x81, 0xc4); // add rsp, ..
           write_lendian(IListFExpr_len(IListFExpr_next(fe(f)->sons))*8); write_hex(0x50); // push rax
+        } else if (fe(first)->kind == FEXPR_IDENT) {
+          error("unresolved `%s function", istring_cstr(fe(first)->ident));
         } else {
-          JitInfo jitinfo = search_jit(istring_cstr(fe(first)->ident));
-          if (jitinfo_isnil(jitinfo)) error ("undeclared `%s function", istring_cstr(fe(first)->ident));
-          forlist (IListFExpr, FExpr, arg, IListFExpr_next(fe(f)->sons)) {
-            codegen(arg);
-          }
-          codegen(jitinfo.body);
+          error("unresolved %s", FExprKind_tostring(fe(first)->kind));
         }
       }
       break;

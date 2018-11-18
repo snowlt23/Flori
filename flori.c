@@ -21,7 +21,6 @@ int main() {
   linmem_init(1024*1024);
   jit_init(1024);
   semantic_init();
-  codegen_init();
   Stream* s = new_stream(read_stdin());
   while (!stream_isend(s)) {
     if (linmem_need_extend()) linmem_extend();

@@ -207,10 +207,10 @@ FExpr parse(Stream* s) {
   IListFExpr sons = nil_IListFExpr();
   for (;;) {
     skip_spaces(s);
-    if (stream_get(s) == '\n' || stream_get(s) == ';') {
+    if (stream_get(s) == '\n' || stream_get(s) == ';' || stream_get(s) == ',') {
       stream_next(s);
       break;
-    } else if (stream_get(s) == '}' || stream_get(s) == ')' || stream_get(s) == ',') {
+    } else if (stream_get(s) == '}' || stream_get(s) == ')') {
       break;
     }
     sons = new_IListFExpr(parse_element(s), sons);
