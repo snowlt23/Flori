@@ -64,6 +64,11 @@ void reverse_sons(FExpr f) {
   fe(f)->sons = IListFExpr_reverse(fe(f)->sons);
 }
 
+FExpr copy_fexpr(FExpr f) {
+  FExpr newf = alloc_FExpr();
+  *fe(newf) = *fe(f);
+  return newf;
+}
 
 //
 // parse

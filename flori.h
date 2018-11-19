@@ -296,6 +296,7 @@ bool cmp_ident(FExpr f, char* id);
 FExpr new_fcontainer(FExprKind kind);
 void push_son(FExpr f, FExpr son);
 void reverse_sons(FExpr f);
+FExpr copy_fexpr(FExpr f);
 bool stream_isend(Stream* s);
 Stream* new_stream(char* buf);
 FExpr parse(Stream* s);

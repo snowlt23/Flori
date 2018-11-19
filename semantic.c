@@ -186,6 +186,22 @@ bool is_structseq(FExpr f) {
 }
 
 //
+// utils
+//
+
+bool search_field(FExpr body, IString name, FExpr* retf) {
+  forlist (IListFExpr, FExpr, field, fe(body)->sons) {
+    fiter(fieldit, fe(field)->sons);
+    FExpr fieldsym = fnext(fieldit);
+    if (cmp_ident(fp(FSymbol, fe(fieldsym)->sym)->f, istring_cstr(name))) {
+      *retf = field;
+      return true;
+    }
+  }
+  return false;
+}
+
+//
 // semantic
 //
 
@@ -271,10 +287,21 @@ void semantic_analysis(FExpr f) {
     fnext(it);
     FExpr name = fnext(it);
     IString namestr = fe(name)->ident;
-    /* FExpr body = */ fnext(it);
+    FExpr body = fnext(it);
     fe(name)->kind = FEXPR_SYMBOL;
     fe(name)->sym = alloc_FSymbol();
     add_decl((Decl){namestr, fe(name)->sym});
+    forlist (IListFExpr, FExpr, field, fe(body)->sons) {
+      if (fe(field)->kind != FEXPR_SEQ) error("struct field should be fseq");
+      fiter(fieldit, fe(field)->sons);
+      FExpr fieldname = fnext(fieldit);
+      FExpr fieldtyp = fnext(fieldit);
+      FExpr newfieldname = copy_fexpr(fieldname);
+      fe(fieldname)->kind = FEXPR_SYMBOL;
+      fe(fieldname)->sym = alloc_FSymbol();
+      fp(FSymbol, fe(fieldname)->sym)->f = newfieldname;
+      semantic_analysis(fieldtyp);
+    }
   } else if (is_fnseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);

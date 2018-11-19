@@ -1,4 +1,7 @@
-struct myint {}
+struct myint {
+  a ^int
+  b ^int
+}
 
 fn init_myint() ^myint {}
 
