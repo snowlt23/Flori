@@ -167,6 +167,12 @@ bool is_Xseq(FExpr f) {
   return cmp_ident(IListFExpr_value(fe(f)->sons), "X");
 }
 
+bool is_sizeofseq(FExpr f) {
+  if (fe(f)->kind != FEXPR_SEQ) return false;
+  if (IListFExpr_len(fe(f)->sons) < 2) return false;
+  return cmp_ident(IListFExpr_value(fe(f)->sons), "sizeof");
+}
+
 bool is_ifseq(FExpr f) {
   if (fe(f)->kind != FEXPR_SEQ) return false;
   if (IListFExpr_len(fe(f)->sons) < 3) return false;
@@ -189,6 +195,19 @@ bool is_structseq(FExpr f) {
 // utils
 //
 
+int get_type_size(FType t) {
+  if (fp(FType, t)->kind == FTYPE_VOID) {
+    return 0;
+  } else if (fp(FType, t)->kind == FTYPE_INT) {
+    return 4;
+  } else if (fp(FType, t)->kind == FTYPE_SYM) {
+    return fp(FSymbol, fp(FType, t)->sym)->size;
+  } else {
+    assert(false);
+    return 0;
+  }
+}
+
 bool search_field(FExpr body, IString name, FExpr* retf) {
   forlist (IListFExpr, FExpr, field, fe(body)->sons) {
     fiter(fieldit, fe(field)->sons);
@@ -199,6 +218,18 @@ bool search_field(FExpr body, IString name, FExpr* retf) {
     }
   }
   return false;
+}
+
+void decide_struct_size(FExpr structsym, FExpr body) {
+  int curoffset = 0;
+  forlist (IListFExpr, FExpr, field, fe(body)->sons) {
+    fiter(fieldit, fe(field)->sons);
+    FExpr fieldsym = fnext(fieldit);
+    FExpr fieldtyp = fnext(fieldit);
+    fp(FSymbol, fe(fieldsym)->sym)->varoffset = curoffset;
+    curoffset += get_type_size(fe(fieldtyp)->typsym);
+  }
+  fp(FSymbol, fe(structsym)->sym)->size = curoffset;
 }
 
 //
@@ -268,6 +299,15 @@ void semantic_analysis(FExpr f) {
     add_fndecl((FnDecl){nameid, argtypes, fe(rettyp)->typsym, true, fe(name)->sym});
   } else if (is_Xseq(f)) {
     // discard
+  } else if (is_sizeofseq(f)) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr ftyp = fnext(it);
+    semantic_analysis(ftyp);
+    if (fe(ftyp)->kind != FEXPR_SYMBOL) error("sizeof argument should be type");
+    fe(f)->kind = FEXPR_INTLIT;
+    fe(f)->intval = get_type_size(fe(ftyp)->typsym);
+    semantic_analysis(f);
   } else if (is_ifseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);
@@ -302,6 +342,7 @@ void semantic_analysis(FExpr f) {
       fp(FSymbol, fe(fieldname)->sym)->f = newfieldname;
       semantic_analysis(fieldtyp);
     }
+    decide_struct_size(name, body);
   } else if (is_fnseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);

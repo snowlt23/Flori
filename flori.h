@@ -200,6 +200,7 @@ typedef struct _FSymbolObj {
   union {
     int varoffset;
     int fnidx;
+    int size;
   };
 } FSymbolObj;
 
