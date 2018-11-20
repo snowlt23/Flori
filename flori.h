@@ -207,6 +207,7 @@ typedef struct _FSymbolObj {
 typedef enum {
   FTYPE_VOID,
   FTYPE_INT,
+  FTYPE_PTR,
   FTYPE_SYM,
 } FTypeKind;
 
@@ -214,6 +215,7 @@ typedef enum {
 typedef struct _FTypeObj {
   FTypeKind kind;
   FSymbol sym;
+  FType ptrof;
 } FTypeObj;
 %%expand ilist(IListFType, FType);
 %%expand vector(FTypeVec, FType);
@@ -303,6 +305,8 @@ Stream* new_stream(char* buf);
 FExpr parse(Stream* s);
 
 // semantic.c
+int get_type_size(FType t);
+bool is_structtype(FType t);
 void semantic_init();
 FExpr fnext_impl(IListFExpr* il);
 bool search_fndecl(IString name, FTypeVec* argtypes, FnDecl* retfndecl);

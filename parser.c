@@ -186,8 +186,18 @@ FExpr parse_fblock(Stream* s) {
 
 FExpr parse_reader_type(Stream* s) {
   if (stream_next(s) != '^') error("expect `^ reader token.");
-  fseq(f, fident("type"), parse_ident(s));
-  return f;
+  FExpr typeid = parse_ident(s);
+  if (cmp_ident(typeid, "ptr")) {
+    skip_spaces(s);
+    FExpr f = new_fcontainer(FEXPR_SEQ);
+    push_son(f, parse_ident(s));
+    push_son(f, fident("type"));
+    fseq(retf, fident("type_ptr"), f);
+    return retf;
+  } else {
+    fseq(f, fident("type"), typeid);
+    return f;
+  }
 }
 
 FExpr parse_element(Stream* s) {

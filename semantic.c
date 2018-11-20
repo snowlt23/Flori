@@ -105,6 +105,12 @@ bool search_fndecl(IString name, FTypeVec* argtypes, FnDecl* retfndecl) {
 // compare
 //
 
+bool is_typeptrseq(FExpr f) {
+  if (fe(f)->kind != FEXPR_SEQ) return false;
+  if (IListFExpr_len(fe(f)->sons) < 2) return false;
+  return cmp_ident(IListFExpr_value(fe(f)->sons), "type_ptr");
+}
+
 bool is_typeseq(FExpr f) {
   if (fe(f)->kind != FEXPR_SEQ) return false;
   if (IListFExpr_len(fe(f)->sons) < 2) return false;
@@ -199,13 +205,19 @@ int get_type_size(FType t) {
   if (fp(FType, t)->kind == FTYPE_VOID) {
     return 0;
   } else if (fp(FType, t)->kind == FTYPE_INT) {
-    return 4;
+    return 4; // FIXME:
+  } else if (fp(FType, t)->kind == FTYPE_PTR) {
+    return 8;
   } else if (fp(FType, t)->kind == FTYPE_SYM) {
     return fp(FSymbol, fp(FType, t)->sym)->size;
   } else {
     assert(false);
     return 0;
   }
+}
+
+bool is_structtype(FType t) {
+  return fp(FType, t)->kind == FTYPE_SYM;
 }
 
 bool search_field(FExpr body, IString name, FExpr* retf) {
@@ -256,6 +268,14 @@ void semantic_analysis(FExpr f) {
     } else {
       error("undeclared %s ident.", istring_cstr(fe(f)->ident));
     }
+  } else if (is_typeptrseq(f)) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr typ = fnext(it);
+    semantic_analysis(typ);
+    fe(f)->kind = FEXPR_SYMBOL;
+    fe(f)->typsym = new_ftype(FTYPE_PTR);
+    fp(FType, fe(f)->typsym)->ptrof = fe(typ)->typsym;
   } else if (is_typeseq(f)) {
     FExpr t = IListFExpr_value(IListFExpr_next(fe(f)->sons));
     Decl decl;
@@ -364,6 +384,7 @@ void semantic_analysis(FExpr f) {
     IString nameid = fe(name)->ident;
     fe(name)->kind = FEXPR_SYMBOL;
     fe(name)->sym = alloc_FSymbol();
+    fp(FSymbol, fe(name)->sym)->f = f;
     fp(FSymbol, fe(name)->sym)->isjit = false;
 
     FExpr rettyp;

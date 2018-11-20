@@ -1,0 +1,5 @@
+fn idptr(a ^ptr int) ^ptr int {}
+
+fn main() {
+  9
+}

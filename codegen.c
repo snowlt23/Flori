@@ -217,11 +217,21 @@ void codegen(FExpr f) {
           if (fp(FSymbol, fe(first)->sym)->isjit) {
             break;
           }
+          fiter(it, fe(fp(FSymbol, fe(first)->sym)->f)->sons);
+          fnext(it); fnext(it); fnext(it);
+          // FExpr rettyp = fnext(it);
+          int callstacksize = IListFExpr_len(IListFExpr_next(fe(f)->sons))*8;
+          // if (is_structtype(fe(rettyp)->typsym)) {
+          //   write_hex(0x48, 0x81, 0xec); // sub rsp, ..
+          //   write_lendian(get_type_size(fe(rettyp)->typsym));
+          //   callstacksize += get_type_size(fe(rettyp)->typsym);
+          // }
           int rel = fp(FSymbol, fe(first)->sym)->fnidx - jit_getidx() - 5;
           write_hex(0xE8); // call
           write_lendian(rel);
           write_hex(0x48, 0x81, 0xc4); // add rsp, ..
-          write_lendian(IListFExpr_len(IListFExpr_next(fe(f)->sons))*8); write_hex(0x50); // push rax
+          write_lendian(callstacksize);
+          write_hex(0x50); // push rax
         } else if (fe(first)->kind == FEXPR_IDENT) {
           error("unresolved `%s function", istring_cstr(fe(first)->ident));
         } else {
