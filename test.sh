@@ -44,7 +44,7 @@ runtest "fn main() {0xFF; 45}" 45
 runtest "fn main() {45; X 0x58; X 0x48; X 0x89; X 0xEC; X 0x5D; X 0xC3}" 45
 runtest "fn main() {return 555}" 555
 runtest "fn main() {add 4 5}" 9
-runtest "fn main() {set ott 123; ott}" 123
+runtest "fn main() {ott := 123; ott}" 123
 runtest "fn add5(x ^int) ^int {add x 5}; fn main() {add5 7}" 12
 runtest "fn main() {4 + 5}" 9
 runtest "fn main() { if 1 2 else 3 }" 2

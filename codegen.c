@@ -190,7 +190,7 @@ bool codegen_internal_fseq(FExpr f) {
         error("unexpected token in if expression.");
       }
     }
-  } else if (cmp_ident(first, "set")) {
+  } else if (cmp_ident(first, ":=")) {
     fiter(it, fe(f)->sons);
     fnext(it);
     FExpr name = fnext(it);

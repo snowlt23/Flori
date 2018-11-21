@@ -165,7 +165,7 @@ FExpr split_infixseq(FExpr f) {
 bool is_setseq(FExpr f) {
   if (fe(f)->kind != FEXPR_SEQ) return false;
   if (IListFExpr_len(fe(f)->sons) < 3) return false;
-  return cmp_ident(IListFExpr_value(fe(f)->sons), "set");
+  return cmp_ident(IListFExpr_value(fe(f)->sons), ":=");
 }
 
 bool is_jitseq(FExpr f) {
