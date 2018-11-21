@@ -2,6 +2,7 @@
 
 DeclMap declmap;
 FnDeclMap fndeclmap;
+int fnstacksize;
 
 void semantic_init() {
   declmap = nil_DeclMap();
@@ -28,7 +29,13 @@ FExpr new_ftypesym(FType t) {
 }
 
 bool ftype_eq(FType a, FType b) {
-  return fp(FType, a)->kind == fp(FType, b)->kind;
+  if (fp(FType, a)->kind == FTYPE_INT || fp(FType, a)->kind == FTYPE_VOID) {
+    return fp(FType, a)->kind == fp(FType, b)->kind;
+  } else if (fp(FType, a)->kind == FTYPE_PTR && fp(FType, b)->kind == FTYPE_PTR) {
+    return ftype_eq(fp(FType, a)->ptrof, fp(FType, b)->ptrof);
+  } else {
+    return false;
+  }
 }
 
 //
@@ -179,6 +186,12 @@ bool is_sizeofseq(FExpr f) {
   return cmp_ident(IListFExpr_value(fe(f)->sons), "sizeof");
 }
 
+bool is_getrefseq(FExpr f) {
+  if (fe(f)->kind != FEXPR_SEQ) return false;
+  if (IListFExpr_len(fe(f)->sons) < 2) return false;
+  return cmp_ident(IListFExpr_value(fe(f)->sons), "getref");
+}
+
 bool is_ifseq(FExpr f) {
   if (fe(f)->kind != FEXPR_SEQ) return false;
   if (IListFExpr_len(fe(f)->sons) < 3) return false;
@@ -205,7 +218,7 @@ int get_type_size(FType t) {
   if (fp(FType, t)->kind == FTYPE_VOID) {
     return 0;
   } else if (fp(FType, t)->kind == FTYPE_INT) {
-    return 4; // FIXME:
+    return 8; // FIXME:
   } else if (fp(FType, t)->kind == FTYPE_PTR) {
     return 8;
   } else if (fp(FType, t)->kind == FTYPE_SYM) {
@@ -242,6 +255,10 @@ void decide_struct_size(FExpr structsym, FExpr body) {
     curoffset += get_type_size(fe(fieldtyp)->typsym);
   }
   fp(FSymbol, fe(structsym)->sym)->size = curoffset;
+}
+
+bool is_lvalue(FExpr f) {
+  return fe(f)->kind == FEXPR_SYMBOL;
 }
 
 //
@@ -298,6 +315,7 @@ void semantic_analysis(FExpr f) {
     fe(name)->sym = alloc_FSymbol();
     semantic_analysis(value);
     add_decl((Decl){namestr, fe(name)->sym, fe(value)->typ});
+    fnstacksize += get_type_size(fe(value)->typ);
   } else if (is_jitseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);
@@ -318,7 +336,9 @@ void semantic_analysis(FExpr f) {
     fp(FSymbol, fe(name)->sym)->isjit = true;
     add_fndecl((FnDecl){nameid, argtypes, fe(rettyp)->typsym, true, fe(name)->sym});
   } else if (is_Xseq(f)) {
-    // discard
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    semantic_analysis(fnext(it));
   } else if (is_sizeofseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);
@@ -328,6 +348,14 @@ void semantic_analysis(FExpr f) {
     fe(f)->kind = FEXPR_INTLIT;
     fe(f)->intval = get_type_size(fe(ftyp)->typsym);
     semantic_analysis(f);
+  } else if (is_getrefseq(f)) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr lvalue = fnext(it);
+    semantic_analysis(lvalue);
+    if (!is_lvalue(lvalue)) error("can't get address of expression, should be lvalue");
+    fe(f)->typ = new_ftype(FTYPE_PTR);
+    fp(FType, fe(f)->typ)->ptrof = fe(lvalue)->typ;
   } else if (is_ifseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);
@@ -389,6 +417,7 @@ void semantic_analysis(FExpr f) {
 
     FExpr rettyp;
     FExpr body;
+    fnstacksize = 0;
     if (FExpr_ptr(fcurr(it))->kind == FEXPR_BLOCK) {
       IListFExpr_ptr(argsit)->next = new_IListFExpr(new_ftypesym(new_ftype(FTYPE_VOID)), it);
       it = argsit;
@@ -402,6 +431,7 @@ void semantic_analysis(FExpr f) {
     }
     add_fndecl((FnDecl){nameid, argtypes, fe(rettyp)->typsym, false, fe(name)->sym});
     semantic_analysis(body);
+    fp(FSymbol, fe(name)->sym)->stacksize = fnstacksize;
   } else if (is_infixcall(f)) {
     *fe(f) = *fe(split_infixseq(f));
     semantic_analysis(f);

@@ -15,20 +15,6 @@ int curroffset;
 // codegen
 //
 
-void gen_prologue() {
-  write_hex(
-      0x55,             // push rbp
-      0x48, 0x89, 0xe5, // mov rbp, rsp
-  )
-}
-void gen_epilogue() {
-  write_hex(
-      0x48, 0x89, 0xec, // mov rsp, rbp
-      0x5d,             // pop rbp
-      0xc3              // ret
-  )
-}
-
 void write_lendian(int x) {
   int b1 = x & 0xFF;
   int b2 = (x >> 8) & 0xFF;
@@ -49,9 +35,35 @@ void fixup_lendian(int fixupidx, int x) {
   fixupaddr[3] = b4;
 }
 
+void gen_prologue(int stacksize) {
+  write_hex(
+      0x55,             // push rbp
+      0x48, 0x89, 0xe5, // mov rbp, rsp
+      0x48, 0x81, 0xec  // sub rsp, ..
+  );
+  write_lendian(stacksize);
+}
+void gen_epilogue() {
+  write_hex(
+      0x48, 0x89, 0xec, // mov rsp, rbp
+      0x5d,             // pop rbp
+      0xc3              // ret
+  )
+}
+
 void gen_push_int(int x) {
   write_hex(0x68);
   write_lendian(x);
+}
+
+void codegen_lvalue(FExpr f) {
+  if (fe(f)->kind == FEXPR_SYMBOL) {
+    write_hex(0x48, 0x8d, 0x85); // lea rax, [rbp-..]
+    write_lendian(-fp(FSymbol, fe(f)->sym)->varoffset);
+    write_hex(0x50); // push rax
+  } else {
+    assert(false);
+  }
 }
 
 bool codegen_internal_fseq(FExpr f) {
@@ -69,7 +81,7 @@ bool codegen_internal_fseq(FExpr f) {
     int fnidx = jit_getidx();
     fp(FSymbol, fe(fnsym)->sym)->fnidx = fnidx;
     curroffset = 0;
-    gen_prologue();
+    gen_prologue(fp(FSymbol, fe(fnsym)->sym)->stacksize);
     int argoffset = 16;
     forlist (IListFExpr, FExpr, arg, fe(fnargs)->sons) {
       fp(FSymbol, fe(arg)->sym)->varoffset = -argoffset;
@@ -89,6 +101,11 @@ bool codegen_internal_fseq(FExpr f) {
     FExpr opcode = IListFExpr_value(cur);
     if (fe(opcode)->kind != FEXPR_INTLIT) error("expected int literal in X.");
     write_hex(fe(opcode)->intval);
+  } else if (cmp_ident(first, "getref")) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr lvalue = fnext(it);
+    codegen_lvalue(lvalue);
   } else if (cmp_ident(first, "if")) {
     IListFExpr cur = fe(f)->sons;
 

@@ -51,5 +51,5 @@ runtest "fn main() { if 1 2 else 3 }" 2
 runtest "fn main() { if 0 2 else 3 }" 3
 
 filetest "examples/fib.flori" 34
-filetest "examples/struct.flori" 12
-filetest "examples/pointer.flori" 9
+filetest "examples/struct.flori" 24
+filetest "examples/pointer.flori" 555

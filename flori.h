@@ -199,7 +199,10 @@ typedef struct _FSymbolObj {
   bool isjit;
   union {
     int varoffset;
-    int fnidx;
+    struct {
+      int fnidx;
+      int stacksize;
+    };
     int size;
   };
 } FSymbolObj;
