@@ -57,10 +57,16 @@ void gen_push_int(int x) {
 }
 
 void codegen_lvalue(FExpr f) {
-  if (fe(f)->kind == FEXPR_SYMBOL) {
+  if (fe(f)->kind == FEXPR_LIST && IListFExpr_len(fe(f)->sons) == 1) {
+    codegen_lvalue(IListFExpr_value(fe(f)->sons));
+  } else if (fe(f)->kind == FEXPR_SYMBOL) {
     write_hex(0x48, 0x8d, 0x85); // lea rax, [rbp-..]
     write_lendian(-fp(FSymbol, fe(f)->sym)->varoffset);
     write_hex(0x50); // push rax
+  } else if (is_derefseq(f)) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    codegen(fnext(it));
   } else {
     assert(false);
   }
@@ -106,6 +112,16 @@ bool codegen_internal_fseq(FExpr f) {
     fnext(it);
     FExpr lvalue = fnext(it);
     codegen_lvalue(lvalue);
+  } else if (cmp_ident(first, "deref")) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr pvalue = fnext(it);
+    codegen(pvalue);
+    write_hex(
+      0x58, // pop rax
+      0x48, 0x8b, 0x00, // mov rax, [rax]
+      0x50 // push rax
+    );
   } else if (cmp_ident(first, "if")) {
     IListFExpr cur = fe(f)->sons;
 
@@ -195,13 +211,31 @@ bool codegen_internal_fseq(FExpr f) {
     fnext(it);
     FExpr name = fnext(it);
     FExpr value = fnext(it);
-    curroffset += 8;
+    curroffset += get_type_size(fe(value)->typ);
     int offset = curroffset;
     fp(FSymbol, fe(name)->sym)->varoffset = offset;
     codegen(value);
     write_hex(0x58); // pop rax
     write_hex(0x48, 0x89, 0x85); // mov [rbp-offset], rax
     write_lendian(-offset);
+  } else if (cmp_ident(first, "var")) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr name = fnext(it);
+    FExpr typ = fnext(it);
+    curroffset += get_type_size(fe(typ)->typsym);
+    int offset = curroffset;
+    fp(FSymbol, fe(name)->sym)->varoffset = offset;
+  } else if (cmp_ident(first, "=")) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr lvalue = fnext(it);
+    FExpr rvalue = fnext(it);
+    codegen_lvalue(lvalue);
+    codegen(rvalue);
+    write_hex(0x59);// pop rcx
+    write_hex(0x58); // pop rax
+    write_hex(0x48, 0x89, 0x08); // mov [rax], rcx
   } else {
     return false;
   }

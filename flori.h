@@ -197,11 +197,13 @@ typedef struct {
 typedef struct _FSymbolObj {
   FExpr f;
   bool isjit;
+  IString name;
   union {
     int varoffset;
     struct {
       int fnidx;
       int stacksize;
+      int rewrited;
     };
     int size;
   };
@@ -298,6 +300,7 @@ bool istring_eq(IString a, IString b);
 
 // parser.c
 FExpr new_fexpr(FExprKind kind);
+FExpr fident(char* id);
 bool cmp_ident(FExpr f, char* id);
 FExpr new_fcontainer(FExprKind kind);
 void push_son(FExpr f, FExpr son);
@@ -310,6 +313,7 @@ FExpr parse(Stream* s);
 // semantic.c
 int get_type_size(FType t);
 bool is_structtype(FType t);
+bool is_derefseq(FExpr f);
 void semantic_init();
 FExpr fnext_impl(IListFExpr* il);
 bool search_fndecl(IString name, FTypeVec* argtypes, FnDecl* retfndecl);

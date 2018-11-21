@@ -4,5 +4,6 @@ fn main() {
   a := 555
   v := deref (getref a)
   p := getref a
-  v + deref p
+  (deref p) = 445
+  v + a
 }

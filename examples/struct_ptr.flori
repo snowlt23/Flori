@@ -1,0 +1,15 @@
+struct myint {
+  a ^int
+  b ^int
+}
+
+fn init_myint(result ^ptr myint) {
+  result.a = 1
+  result.b = 2
+}
+
+fn main() {
+  var mi ^myint
+  init_myint(getref(mi))
+  mi.a + mi.b
+}
