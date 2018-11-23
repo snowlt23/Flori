@@ -63,6 +63,16 @@ void codegen_lvalue(FExpr f) {
     write_hex(0x48, 0x8d, 0x85); // lea rax, [rbp-..]
     write_lendian(-fp(FSymbol, fe(f)->sym)->varoffset);
     write_hex(0x50); // push rax
+  } else if (is_dotseq(f)) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr lvalue = fnext(it);
+    FExpr fieldsym = fnext(it);
+    codegen_lvalue(lvalue);
+    write_hex(0x58); // pop rax
+    write_hex(0x48, 0x05); // add rax, ..
+    write_lendian(fp(FSymbol, fe(fieldsym)->sym)->varoffset);
+    write_hex(0x50); // push rax
   } else if (is_derefseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);
@@ -107,6 +117,13 @@ bool codegen_internal_fseq(FExpr f) {
     FExpr opcode = IListFExpr_value(cur);
     if (fe(opcode)->kind != FEXPR_INTLIT) error("expected int literal in X.");
     write_hex(fe(opcode)->intval);
+  } else if (cmp_ident(first, ".")) {
+    codegen_lvalue(f);
+    write_hex(
+      0x58, // pop rax
+      0x48, 0x8b, 0x00, // mov rax, [rax]
+      0x50 // push rax
+    );
   } else if (cmp_ident(first, "getref")) {
     fiter(it, fe(f)->sons);
     fnext(it);

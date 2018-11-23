@@ -198,6 +198,12 @@ bool is_sizeofseq(FExpr f) {
   return cmp_ident(IListFExpr_value(fe(f)->sons), "sizeof");
 }
 
+bool is_dotseq(FExpr f) {
+  if (fe(f)->kind != FEXPR_SEQ) return false;
+  if (IListFExpr_len(fe(f)->sons) < 2) return false;
+  return cmp_ident(IListFExpr_value(fe(f)->sons), ".");
+}
+
 bool is_getrefseq(FExpr f) {
   if (fe(f)->kind != FEXPR_SEQ) return false;
   if (IListFExpr_len(fe(f)->sons) < 2) return false;
@@ -251,12 +257,13 @@ bool is_structtype(FType t) {
   return fp(FType, t)->kind == FTYPE_SYM;
 }
 
-bool search_field(FExpr body, IString name, FExpr* retf) {
+bool search_field(FSymbol structsym, IString name, FExpr* retf) {
+  FExpr body = fp(FSymbol, structsym)->f;
   forlist (IListFExpr, FExpr, field, fe(body)->sons) {
     fiter(fieldit, fe(field)->sons);
     FExpr fieldsym = fnext(fieldit);
-    if (cmp_ident(fp(FSymbol, fe(fieldsym)->sym)->f, istring_cstr(name))) {
-      *retf = field;
+    if (istring_eq(fp(FSymbol, fe(fieldsym)->sym)->name, name)) {
+      *retf = fieldsym;
       return true;
     }
   }
@@ -279,7 +286,7 @@ bool is_lvalue(FExpr f) {
   if (fe(f)->kind == FEXPR_LIST && IListFExpr_len(fe(f)->sons) == 1) {
     return is_lvalue(IListFExpr_value(fe(f)->sons));
   } else {
-    return fe(f)->kind == FEXPR_SYMBOL || is_derefseq(f);
+    return fe(f)->kind == FEXPR_SYMBOL || is_derefseq(f) || is_dotseq(f);
   }
 }
 
@@ -413,6 +420,19 @@ void semantic_analysis(FExpr f) {
     fe(f)->kind = FEXPR_INTLIT;
     fe(f)->intval = get_type_size(fe(ftyp)->typsym);
     semantic_analysis(f);
+  } else if (is_dotseq(f)) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr lvalue = fnext(it);
+    FExpr fieldname = fnext(it);
+    semantic_analysis(lvalue);
+    FSymbol structsym = fp(FType, fe(lvalue)->typ)->sym;
+    if (fe(fieldname)->kind != FEXPR_IDENT) error("right of `. should be field-name, but got %s", FExprKind_tostring(fe(fieldname)->kind));
+    if (!is_structtype(fe(lvalue)->typ)) error("can't get field of no-struct value");
+    FExpr fieldsym;
+    if (!search_field(structsym, fe(fieldname)->ident, &fieldsym)) error("%s struct hasn't %s field", istring_cstr(fp(FSymbol, structsym)->name), istring_cstr(fe(fieldname)->ident));
+    *fe(fieldname) = *fe(fieldsym);
+    fe(f)->typ = fe(fieldsym)->typ;
   } else if (is_getrefseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);
@@ -450,6 +470,7 @@ void semantic_analysis(FExpr f) {
     FExpr body = fnext(it);
     fe(name)->kind = FEXPR_SYMBOL;
     fe(name)->sym = alloc_FSymbol();
+    fp(FSymbol, fe(name)->sym)->f = body;
     add_decl((Decl){namestr, fe(name)->sym});
     forlist (IListFExpr, FExpr, field, fe(body)->sons) {
       if (fe(field)->kind != FEXPR_SEQ) error("struct field should be fseq");
@@ -462,6 +483,7 @@ void semantic_analysis(FExpr f) {
       fp(FSymbol, fe(fieldname)->sym)->name = fe(newfieldname)->ident;
       fp(FSymbol, fe(fieldname)->sym)->f = newfieldname;
       semantic_analysis(fieldtyp);
+      fe(fieldname)->typ = fe(fieldtyp)->typsym;
     }
     decide_struct_size(name, body);
   } else if (is_fnseq(f)) {

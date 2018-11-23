@@ -54,3 +54,4 @@ runtest "fn main() { if 0 2 else 3 }" 3
 filetest "examples/fib.flori" 34
 filetest "examples/sizeof.flori" 24
 filetest "examples/pointer.flori" 1000
+filetest "examples/struct_field.flori" 9

@@ -313,6 +313,7 @@ FExpr parse(Stream* s);
 // semantic.c
 int get_type_size(FType t);
 bool is_structtype(FType t);
+bool is_dotseq(FExpr f);
 bool is_derefseq(FExpr f);
 void semantic_init();
 FExpr fnext_impl(IListFExpr* il);
