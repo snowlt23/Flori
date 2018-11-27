@@ -68,7 +68,11 @@ void codegen_lvalue(FExpr f) {
     fnext(it);
     FExpr lvalue = fnext(it);
     FExpr fieldsym = fnext(it);
-    codegen_lvalue(lvalue);
+    if (fp(FType, fe(lvalue)->typ)->kind == FTYPE_PTR) {
+      codegen(lvalue);
+    } else {
+      codegen_lvalue(lvalue);
+    }
     write_hex(0x58); // pop rax
     write_hex(0x48, 0x05); // add rax, ..
     write_lendian(fp(FSymbol, fe(fieldsym)->sym)->varoffset);

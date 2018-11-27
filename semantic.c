@@ -33,6 +33,8 @@ bool ftype_eq(FType a, FType b) {
     return fp(FType, a)->kind == fp(FType, b)->kind;
   } else if (fp(FType, a)->kind == FTYPE_PTR && fp(FType, b)->kind == FTYPE_PTR) {
     return ftype_eq(fp(FType, a)->ptrof, fp(FType, b)->ptrof);
+  } else if (fp(FType, a)->kind == FTYPE_SYM && fp(FType, b)->kind == FTYPE_SYM) {
+  	return istring_eq(fp(FSymbol, fp(FType, a)->sym)->name, fp(FSymbol, fp(FType, a)->sym)->name);
   } else {
     return false;
   }
@@ -426,9 +428,15 @@ void semantic_analysis(FExpr f) {
     FExpr lvalue = fnext(it);
     FExpr fieldname = fnext(it);
     semantic_analysis(lvalue);
-    FSymbol structsym = fp(FType, fe(lvalue)->typ)->sym;
+    FType structtyp;
+    if (fp(FType, fe(lvalue)->typ)->kind == FTYPE_PTR) {
+      structtyp = fp(FType, fe(lvalue)->typ)->ptrof;
+    } else {
+      structtyp = fe(lvalue)->typ;
+    }
     if (fe(fieldname)->kind != FEXPR_IDENT) error("right of `. should be field-name, but got %s", FExprKind_tostring(fe(fieldname)->kind));
-    if (!is_structtype(fe(lvalue)->typ)) error("can't get field of no-struct value");
+    if (!is_structtype(structtyp)) error("can't get field of no-struct value");
+    FSymbol structsym = fp(FType, structtyp)->sym;
     FExpr fieldsym;
     if (!search_field(structsym, fe(fieldname)->ident, &fieldsym)) error("%s struct hasn't %s field", istring_cstr(fp(FSymbol, structsym)->name), istring_cstr(fe(fieldname)->ident));
     *fe(fieldname) = *fe(fieldsym);
