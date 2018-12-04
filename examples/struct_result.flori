@@ -1,0 +1,15 @@
+struct myint {
+  a ^int
+  b ^int
+}
+
+fn init_myint(a ^int, b ^int) ^myint {
+	(result.a) = a
+	(result.b) = b
+}
+
+fn main() {
+	var mi ^myint
+	mi = init_myint 4 5
+	(mi.a) + (mi.b)
+}

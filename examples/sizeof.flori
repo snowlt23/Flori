@@ -3,8 +3,6 @@ struct myint {
   b ^int
 }
 
-fn init_myint() ^myint {}
-
 fn main() {
   (sizeof ^myint) + (sizeof ^int)
 }

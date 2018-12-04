@@ -22,6 +22,12 @@ FType new_ftype(FTypeKind kind) {
   return ft;
 }
 
+FType copy_ftype(FType ft) {
+	FType newft = alloc_FType();
+	*fp(FType, newft) = *fp(FType, ft);
+	return newft;
+}
+
 FExpr new_ftypesym(FType t) {
   FExpr f = new_fexpr(FEXPR_SYMBOL);
   fe(f)->typsym = t;
@@ -34,7 +40,7 @@ bool ftype_eq(FType a, FType b) {
   } else if (fp(FType, a)->kind == FTYPE_PTR && fp(FType, b)->kind == FTYPE_PTR) {
     return ftype_eq(fp(FType, a)->ptrof, fp(FType, b)->ptrof);
   } else if (fp(FType, a)->kind == FTYPE_SYM && fp(FType, b)->kind == FTYPE_SYM) {
-  	return istring_eq(fp(FSymbol, fp(FType, a)->sym)->name, fp(FSymbol, fp(FType, a)->sym)->name);
+  	return istring_eq(fp(FSymbol, fp(FType, a)->sym)->name, fp(FSymbol, fp(FType, b)->sym)->name);
   } else {
     return false;
   }
@@ -91,7 +97,13 @@ bool match_overload(IListFType fntypes, FTypeVec* argtypes) {
 
 bool search_fndecl_from_group(FnDeclGroup fngroup, IString name, FTypeVec* argtypes, FnDecl* retfndecl) {
   forlist (IListFnDecl, FnDecl, fndecl, fp(FnDeclGroup, fngroup)->decls) {
-    if (match_overload(fndecl.argtypes, argtypes)) {
+  	IListFType fnargtypes;
+  	if (fp(FSymbol, fndecl.sym)->rewrited) {
+  		fnargtypes = IListFType_next(fndecl.argtypes);
+  	} else {
+  		fnargtypes = fndecl.argtypes;
+  	}
+    if (match_overload(fnargtypes, argtypes)) {
       *retfndecl = fndecl;
       return true;
     }
@@ -287,6 +299,8 @@ void decide_struct_size(FExpr structsym, FExpr body) {
 bool is_lvalue(FExpr f) {
   if (fe(f)->kind == FEXPR_LIST && IListFExpr_len(fe(f)->sons) == 1) {
     return is_lvalue(IListFExpr_value(fe(f)->sons));
+  } else if (fe(f)->kind == FEXPR_BLOCK && IListFExpr_len(fe(f)->sons) >= 1) {
+  	return is_lvalue(IListFExpr_last(fe(f)->sons));
   } else {
     return fe(f)->kind == FEXPR_SYMBOL || is_derefseq(f) || is_dotseq(f);
   }
@@ -350,17 +364,20 @@ FExpr generate_copyfn(FExpr copytyp, FExpr fields) {
 
 void rewrite_return_to_arg(FExpr f) {
   fiter(it, fe(f)->sons);
+  fnext(it);
   FExpr fnsym = fnext(it);
   FExpr fnargs = fnext(it);
   FExpr rettyp = fnext(it);
-  FExpr argtyp = new_fexpr(FEXPR_SEQ);
-  push_son(argtyp, copy_fexpr(rettyp));
-  push_son(argtyp, fident("type_ptr"));
-  semantic_analysis(argtyp);
+  assert(fe(rettyp)->kind == FEXPR_SYMBOL);
+  assert(fp(FType, fe(rettyp)->typsym)->kind == FTYPE_SYM);
+  FExpr argtyp = new_fexpr(FEXPR_SYMBOL);
+  fe(argtyp)->typsym = new_ftype(FTYPE_PTR);
+  fp(FType, fe(argtyp)->typsym)->ptrof = fe(rettyp)->typsym;
   FExpr argdecl = new_fcontainer(FEXPR_SEQ);
   push_son(argdecl, argtyp);
   push_son(argdecl, fident("result"));
   push_son(fnargs, argdecl);
+  fe(rettyp)->typsym = new_ftype(FTYPE_VOID);
   fp(FSymbol, fe(fnsym)->sym)->rewrited = true;
 }
 
@@ -373,6 +390,18 @@ FExpr new_fgetref(FExpr f) {
 	push_son(getreff, f);
 	push_son(getreff, fident("getref"));
 	return getreff;
+}
+
+FExpr inject_result_arg(FExpr f, FExpr result) {
+	FExpr newf = new_fcontainer(FEXPR_SEQ);
+	fiter(it, fe(f)->sons);
+	push_son(newf, fnext(it));
+	push_son(newf, new_fgetref(result));
+	forlist (IListFExpr, FExpr, arg, it) {
+		push_son(newf, arg);
+	}
+	reverse_sons(newf);
+	return newf;
 }
 
 //
@@ -436,6 +465,7 @@ void semantic_analysis(FExpr f) {
     fiter(it, fe(f)->sons);
     fnext(it);
     FExpr name = fnext(it);
+    if (fe(name)->kind == FEXPR_SYMBOL) return;
     FExpr typ = fnext(it);
     IString namestr = fe(name)->ident;
     fe(name)->kind = FEXPR_SYMBOL;
@@ -451,7 +481,9 @@ void semantic_analysis(FExpr f) {
     semantic_analysis(lvalue);
     semantic_analysis(rvalue);
     if (!is_lvalue(lvalue)) error("left of `= should be lvalue");
-    if (!ftype_eq(fe(lvalue)->typ, fe(rvalue)->typ)) error("type mismatch in `=");
+    if (!ftype_eq(fe(lvalue)->typ, fe(rvalue)->typ)) {
+      error("type mismatch in `=");
+    }
     if (is_structtype(fe(lvalue)->typ)) {
     	*fe(f) = *fe(new_fcontainer(FEXPR_SEQ));
     	push_son(f, new_fgetref(rvalue));
@@ -547,6 +579,7 @@ void semantic_analysis(FExpr f) {
     FExpr body = fnext(it);
     fe(name)->kind = FEXPR_SYMBOL;
     fe(name)->sym = alloc_FSymbol();
+    fp(FSymbol, fe(name)->sym)->name = namestr;
     fp(FSymbol, fe(name)->sym)->f = body;
     add_decl((Decl){namestr, fe(name)->sym});
     forlist (IListFExpr, FExpr, field, fe(body)->sons) {
@@ -576,8 +609,39 @@ void semantic_analysis(FExpr f) {
     fiter(it, fe(f)->sons);
     fnext(it);
     FExpr name = fnext(it);
+    IString nameid;
+    if (fe(name)->kind == FEXPR_IDENT) {
+    	nameid = fe(name)->ident;
+	    fe(name)->kind = FEXPR_SYMBOL;
+	    fe(name)->sym = alloc_FSymbol();
+	    fp(FSymbol, fe(name)->sym)->name = nameid;
+	    fp(FSymbol, fe(name)->sym)->f = f;
+	    fp(FSymbol, fe(name)->sym)->isjit = false;
+		} else {
+			nameid = fp(FSymbol, fe(name)->sym)->name;
+		}
     IListFExpr argsit = it;
     FExpr args = fnext(it);
+
+    FExpr rettyp;
+    FExpr body;
+    fnstacksize = 0;
+    if (FExpr_ptr(fcurr(it))->kind == FEXPR_BLOCK) {
+      IListFExpr_ptr(argsit)->next = new_IListFExpr(new_ftypesym(new_ftype(FTYPE_VOID)), it);
+      it = argsit;
+      fnext(it);
+      rettyp = fnext(it);
+      body = fnext(it);
+    } else {
+      rettyp = fnext(it);
+      body = fnext(it);
+      semantic_analysis(rettyp);
+      if (is_structtype(fe(rettyp)->typsym)) {
+      	rewrite_return_to_arg(f);
+      	semantic_analysis(f);
+      	return;
+      }
+    }
     IListFType argtypes = nil_IListFType();
     forlist(IListFExpr, FExpr, arg, fe(args)->sons) {
       fiter(argit, fe(arg)->sons);
@@ -598,27 +662,6 @@ void semantic_analysis(FExpr f) {
       add_decl((Decl){fe(argname)->ident, fe(arg)->sym, fe(argtyp)->typsym});
     }
     argtypes = IListFType_reverse(argtypes);
-    IString nameid = fe(name)->ident;
-    fe(name)->kind = FEXPR_SYMBOL;
-    fe(name)->sym = alloc_FSymbol();
-    fp(FSymbol, fe(name)->sym)->name = nameid;
-    fp(FSymbol, fe(name)->sym)->f = f;
-    fp(FSymbol, fe(name)->sym)->isjit = false;
-
-    FExpr rettyp;
-    FExpr body;
-    fnstacksize = 0;
-    if (FExpr_ptr(fcurr(it))->kind == FEXPR_BLOCK) {
-      IListFExpr_ptr(argsit)->next = new_IListFExpr(new_ftypesym(new_ftype(FTYPE_VOID)), it);
-      it = argsit;
-      fnext(it);
-      rettyp = fnext(it);
-      body = fnext(it);
-    } else {
-      rettyp = fnext(it);
-      body = fnext(it);
-      semantic_analysis(rettyp);
-    }
     add_fndecl((FnDecl){nameid, argtypes, fe(rettyp)->typsym, false, fe(name)->sym});
     semantic_analysis(body);
     fp(FSymbol, fe(name)->sym)->stacksize = fnstacksize;
@@ -628,6 +671,12 @@ void semantic_analysis(FExpr f) {
   } else if (is_fncall(f)) {
     fiter(it, fe(f)->sons);
     FExpr first = fnext(it);
+    if (fe(first)->kind == FEXPR_SYMBOL) {
+      forlist (IListFExpr, FExpr, arg, it) {
+        semantic_analysis(arg);
+      }
+    	return;
+    }
     FTypeVec* argtypes = new_FTypeVec();
     forlist (IListFExpr, FExpr, arg, it) {
       semantic_analysis(arg);
@@ -651,6 +700,20 @@ void semantic_analysis(FExpr f) {
         fe(first)->kind = FEXPR_SYMBOL;
         fe(first)->sym = fndecl.sym;
         fe(f)->typ = fndecl.returntype;
+        if (is_rewrite_fn(first)) { // for return struct value
+        	FExpr blk = new_fcontainer(FEXPR_BLOCK);
+        	push_son(blk, fident("__tmp"));
+        	push_son(blk, inject_result_arg(f, fident("__tmp")));
+        	FExpr vardecl = new_fcontainer(FEXPR_SEQ);
+        	assert(fp(FType, IListFType_value(fndecl.argtypes))->kind == FTYPE_PTR);
+        	FType typ = fp(FType, IListFType_value(fndecl.argtypes))->ptrof;
+        	push_son(vardecl, new_ftypesym(typ));
+    			push_son(vardecl, fident("__tmp"));
+        	push_son(vardecl, fident("var"));
+        	push_son(blk, vardecl);
+        	*fe(f) = *fe(blk);
+        	semantic_analysis(f);
+        }
       }
     } else {
       error("undeclared %s function", istring_cstr(fe(first)->ident));
@@ -667,6 +730,9 @@ void semantic_analysis(FExpr f) {
   } else if (fe(f)->kind == FEXPR_BLOCK) {
     forlist (IListFExpr, FExpr, son, fe(f)->sons) {
       semantic_analysis(son);
+    }
+    if (IListFExpr_len(fe(f)->sons) >= 1) {
+      fe(f)->typ = fe(IListFExpr_last(fe(f)->sons))->typ;
     }
   } else {
     assert(false);

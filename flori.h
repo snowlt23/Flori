@@ -92,6 +92,7 @@ typedef struct {
   bool %%1_isnil(%%1 l);
   int %%1_len(%%1 l);
   %%1 %%1_reverse(%%1 l);
+  %%2 %%1_last(%%1 l);
 } {
   %%1 nil_%%1() {
     return (%%1){-1};
@@ -130,6 +131,14 @@ typedef struct {
       ret = new_%%1(e, ret);
     }
     return ret;
+  }
+  %%2 %%1_last(%%1 l) {
+    %%1 curr = l;
+    for (;;) {
+      if (%%1_isnil(%%1_next(curr))) break;
+      curr = %%1_next(curr);
+    }
+    return %%1_value(curr);
   }
 }
 
