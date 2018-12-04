@@ -368,6 +368,13 @@ bool is_rewrite_fn(FExpr fnsym) {
   return fp(FSymbol, fe(fnsym)->sym)->rewrited;
 }
 
+FExpr new_fgetref(FExpr f) {
+	FExpr getreff = new_fcontainer(FEXPR_SEQ);
+	push_son(getreff, f);
+	push_son(getreff, fident("getref"));
+	return getreff;
+}
+
 //
 // semantic
 //
@@ -445,6 +452,13 @@ void semantic_analysis(FExpr f) {
     semantic_analysis(rvalue);
     if (!is_lvalue(lvalue)) error("left of `= should be lvalue");
     if (!ftype_eq(fe(lvalue)->typ, fe(rvalue)->typ)) error("type mismatch in `=");
+    if (is_structtype(fe(lvalue)->typ)) {
+    	*fe(f) = *fe(new_fcontainer(FEXPR_SEQ));
+    	push_son(f, new_fgetref(rvalue));
+    	push_son(f, new_fgetref(lvalue));
+    	push_son(f, fident("copy"));
+    	semantic_analysis(f);
+    }
   } else if (is_jitseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);

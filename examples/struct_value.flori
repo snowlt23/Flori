@@ -1,0 +1,13 @@
+struct myint {
+  a ^int
+  b ^int
+}
+
+fn main() {
+  var l ^myint
+  var r ^myint
+  (r.a) = 4
+  (r.b) = 5
+  l = r
+  (l.a) + (l.b)
+}
