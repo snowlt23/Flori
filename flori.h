@@ -301,6 +301,7 @@ bool istring_eq(IString a, IString b);
 // parser.c
 FExpr new_fexpr(FExprKind kind);
 FExpr fident(char* id);
+FExpr fop(char* id);
 bool cmp_ident(FExpr f, char* id);
 FExpr new_fcontainer(FExprKind kind);
 void push_son(FExpr f, FExpr son);

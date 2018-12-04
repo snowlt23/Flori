@@ -45,6 +45,12 @@ FExpr fident(char* id) {
   return f;
 }
 
+FExpr fop(char* id) {
+  FExpr f = new_fexpr(FEXPR_OP);
+  fe(f)->ident = new_istring(id);
+  return f;
+}
+
 bool cmp_ident(FExpr f, char* id) {
   return strcmp(istring_cstr(fe(f)->ident), id) == 0;
 }

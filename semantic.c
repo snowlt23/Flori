@@ -292,6 +292,62 @@ bool is_lvalue(FExpr f) {
   }
 }
 
+FExpr generate_dot_copy(char* field) {
+  FExpr leftdot = new_fcontainer(FEXPR_SEQ);
+  push_son(leftdot, fident(field));
+  push_son(leftdot, fident("p"));
+  push_son(leftdot, fop("."));
+  FExpr left = new_fcontainer(FEXPR_SEQ);
+  push_son(left, leftdot);
+  push_son(left, fident("getref"));
+
+  FExpr right = new_fcontainer(FEXPR_SEQ);
+  push_son(right, fident(field));
+  push_son(right, fident("v"));
+  push_son(right, fop("."));
+
+  FExpr copyf = new_fcontainer(FEXPR_SEQ);
+  push_son(copyf, right);
+  push_son(copyf, left);
+  push_son(copyf, fident("copy"));
+
+  return copyf;
+}
+
+FExpr generate_copyfn(FExpr copytyp, FExpr fields) {
+  FExpr copyf = new_fcontainer(FEXPR_SEQ);
+  push_son(copyf, fident("fn"));
+  push_son(copyf, fident("copy"));
+  FExpr args = new_fcontainer(FEXPR_LIST);
+  push_son(copyf, args);
+
+  FExpr argv = new_fcontainer(FEXPR_SEQ);
+  push_son(argv, copytyp);
+  push_son(argv, fident("v"));
+  push_son(args, argv);
+
+  FExpr arg = new_fcontainer(FEXPR_SEQ);
+  push_son(args, arg);
+  FExpr argtyp = new_fcontainer(FEXPR_SEQ);
+  push_son(argtyp, copytyp);
+  push_son(argtyp, fident("type_ptr"));
+  push_son(arg, argtyp);
+  push_son(arg, fident("p"));
+
+  FExpr body = new_fcontainer(FEXPR_BLOCK);
+  push_son(copyf, body);
+
+  forlist (IListFExpr, FExpr, field, fe(fields)->sons) {
+	fiter(fieldit, fe(field)->sons);
+	FExpr fieldsym = fnext(fieldit);
+	FExpr c = generate_dot_copy(istring_cstr(fp(FSymbol, fe(fieldsym)->sym)->name));
+	push_son(body, c);
+  }
+  reverse_sons(body);
+  reverse_sons(copyf);
+  return copyf;
+}
+
 void rewrite_return_to_arg(FExpr f) {
   fiter(it, fe(f)->sons);
   FExpr fnsym = fnext(it);
@@ -299,7 +355,7 @@ void rewrite_return_to_arg(FExpr f) {
   FExpr rettyp = fnext(it);
   FExpr argtyp = new_fexpr(FEXPR_SEQ);
   push_son(argtyp, copy_fexpr(rettyp));
-  push_son(argtyp, fident("type-ptr"));
+  push_son(argtyp, fident("type_ptr"));
   semantic_analysis(argtyp);
   FExpr argdecl = new_fcontainer(FEXPR_SEQ);
   push_son(argdecl, argtyp);
@@ -435,7 +491,7 @@ void semantic_analysis(FExpr f) {
       structtyp = fe(lvalue)->typ;
     }
     if (fe(fieldname)->kind != FEXPR_IDENT) error("right of `. should be field-name, but got %s", FExprKind_tostring(fe(fieldname)->kind));
-    if (!is_structtype(structtyp)) error("can't get field of no-struct value");
+    if (!is_structtype(structtyp)) error("can't get %s field of no-struct value", istring_cstr(fe(fieldname)->ident));
     FSymbol structsym = fp(FType, structtyp)->sym;
     FExpr fieldsym;
     if (!search_field(structsym, fe(fieldname)->ident, &fieldsym)) error("%s struct hasn't %s field", istring_cstr(fp(FSymbol, structsym)->name), istring_cstr(fe(fieldname)->ident));
@@ -470,7 +526,6 @@ void semantic_analysis(FExpr f) {
     }
     fe(f)->typ = new_ftype(FTYPE_INT); // FIXME: if expression type
   } else if (is_structseq(f)) {
-    // TODO:
     fiter(it, fe(f)->sons);
     fnext(it);
     FExpr name = fnext(it);
@@ -493,7 +548,16 @@ void semantic_analysis(FExpr f) {
       semantic_analysis(fieldtyp);
       fe(fieldname)->typ = fe(fieldtyp)->typsym;
     }
+    FExpr typsym = new_fexpr(FEXPR_SYMBOL);
+    fe(typsym)->typsym = new_ftype(FTYPE_SYM);
+    fp(FType, fe(typsym)->typsym)->sym = fe(name)->sym;
+    FExpr copyfn = generate_copyfn(typsym, body);
+    FExpr newf = copy_fexpr(f);
     decide_struct_size(name, body);
+    semantic_analysis(copyfn);
+    *fe(f) = *fe(new_fcontainer(FEXPR_BLOCK));
+    push_son(f, copyfn);
+    push_son(f, newf);
   } else if (is_fnseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);
@@ -506,12 +570,20 @@ void semantic_analysis(FExpr f) {
       FExpr argname = fnext(argit);
       FExpr argtyp = fnext(argit);
       semantic_analysis(argtyp);
+      if (is_structtype(fe(argtyp)->typsym)) {
+      	FExpr newargtyp = copy_fexpr(argtyp);
+      	*fe(argtyp) = *fe(new_fcontainer(FEXPR_SEQ));
+      	push_son(argtyp, newargtyp);
+      	push_son(argtyp, fident("type_ptr"));
+      	semantic_analysis(argtyp);
+      }
       argtypes = new_IListFType(fe(argtyp)->typsym, argtypes);
       fe(arg)->kind = FEXPR_SYMBOL;
       fe(arg)->sym = alloc_FSymbol();
       fp(FSymbol, fe(arg)->sym)->f = argname;
       add_decl((Decl){fe(argname)->ident, fe(arg)->sym, fe(argtyp)->typsym});
     }
+    argtypes = IListFType_reverse(argtypes);
     IString nameid = fe(name)->ident;
     fe(name)->kind = FEXPR_SYMBOL;
     fe(name)->sym = alloc_FSymbol();

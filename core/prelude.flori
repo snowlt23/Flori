@@ -19,6 +19,13 @@ jit +(^int, ^int) ^int {
   X 0x50
 }
 
+jit +(^ptr int, ^ptr int) ^ptr int {
+  X 0x59
+  X 0x58
+  X 0x48; X 0x01; X 0xC8
+  X 0x50
+}
+
 jit -(^int, ^int) ^int {
   X 0x59
   X 0x58
@@ -35,8 +42,6 @@ jit <(^int, ^int) ^int {
   X 0x50
 }
 
-jit deref(^ptr int) ^int {
-  X 0x58
-  X 0x48; X 0x8b; X 0x00
-  X 0x50
+fn copy(p ^ptr int, v ^int) {
+  (deref p) = v
 }

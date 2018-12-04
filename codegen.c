@@ -103,7 +103,7 @@ bool codegen_internal_fseq(FExpr f) {
     curroffset = 0;
     gen_prologue(fp(FSymbol, fe(fnsym)->sym)->stacksize);
     int argoffset = 16;
-    forlist (IListFExpr, FExpr, arg, fe(fnargs)->sons) {
+    forlist (IListFExpr, FExpr, arg, IListFExpr_reverse(fe(fnargs)->sons)) {
       fp(FSymbol, fe(arg)->sym)->varoffset = -argoffset;
       argoffset += 8;
     }
@@ -303,7 +303,9 @@ void codegen(FExpr f) {
           write_lendian(rel);
           write_hex(0x48, 0x81, 0xc4); // add rsp, ..
           write_lendian(callstacksize);
-          write_hex(0x50); // push rax
+          if (fp(FType, fe(f)->typ)->kind != FTYPE_VOID) {
+            write_hex(0x50); // push rax
+          }
         } else if (fe(first)->kind == FEXPR_IDENT) {
           error("unresolved `%s function", istring_cstr(fe(first)->ident));
         } else {
