@@ -31,6 +31,18 @@ filetest() {
   fi
 }
 
+exectest() {
+  PRELUDE=`cat core/prelude.flori`
+  FILE=`cat "$1"`
+  echo "$PRELUDE; $FILE" | ./bin/flori -o fa.out
+  ./fa.out
+  OUT=$?
+  if [ "$2" != "$OUT" ] ; then
+    echo "[ERROR] $1: expect $2, but got $OUT"
+    exit 1
+  fi
+}
+
 unittest "linmem_test"
 unittest "jit_test"
 
@@ -59,3 +71,5 @@ filetest "examples/struct_ptr.flori" 13
 filetest "examples/struct_copy.flori" 9
 filetest "examples/struct_value.flori" 9
 filetest "examples/struct_result.flori" 9
+
+exectest "examples/exitfib.flori" 34

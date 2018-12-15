@@ -59,3 +59,11 @@ void jit_write_to_file(char* filename) {
   }
   fclose(f);
 }
+
+uint8_t* jit_codeptr() {
+  return jitptr;
+}
+
+size_t jit_codesize() {
+  return jitpos;
+}

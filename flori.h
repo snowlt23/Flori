@@ -301,6 +301,8 @@ int jit_getidx();
 int jit_alloc_write(uint8_t* buf, int n);
 void* jit_toptr(int index);
 void jit_write_to_file(char* filename);
+uint8_t* jit_codeptr();
+size_t jit_codesize();
 
 // istring.c
 IString new_istring(char* s);
@@ -333,5 +335,9 @@ void semantic_analysis(FExpr f);
 // codegen.c
 void codegen(FExpr f);
 int call_main();
+size_t get_main_offset();
+
+// elfgen.c
+void write_elf_executable(FILE* fp, uint8_t* codeptr, size_t codesize, size_t entryoffset);
 
 #endif
