@@ -7,3 +7,5 @@ tmp.s
 *.o
 *.swp
 buffer.jit
+*.log
+.vagrant

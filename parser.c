@@ -85,7 +85,7 @@ bool isident(char c) {
 }
 
 bool isspaces(char c) {
-  return c == ' ' || c == '\t';
+  return c == ' ' || c == '\t' || c == '\r';
 }
 
 bool isoperator(char c) {
