@@ -60,11 +60,11 @@ void codegen_lvalue(FExpr f) {
   if (fe(f)->kind == FEXPR_LIST && IListFExpr_len(fe(f)->sons) == 1) {
     codegen_lvalue(IListFExpr_value(fe(f)->sons));
   } else if (fe(f)->kind == FEXPR_BLOCK && IListFExpr_len(fe(f)->sons) >= 1) {
-  	fiter(it, fe(f)->sons);
-  	while (!IListFExpr_isnil(IListFExpr_next(it))) {
-  		codegen(fnext(it));
-  	}
-  	codegen_lvalue(IListFExpr_last(fe(f)->sons));
+    fiter(it, fe(f)->sons);
+    while (!IListFExpr_isnil(IListFExpr_next(it))) {
+      codegen(fnext(it));
+    }
+    codegen_lvalue(IListFExpr_last(fe(f)->sons));
   } else if (fe(f)->kind == FEXPR_SYMBOL) {
     write_hex(0x48, 0x8d, 0x85); // lea rax, [rbp-..]
     write_lendian(-fp(FSymbol, fe(f)->sym)->varoffset);
