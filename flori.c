@@ -19,9 +19,26 @@ char* read_stdin() {
   return s;
 }
 
+void define_entrypoint() {
+  Stream* s = new_stream("fn __start() {\nmain; exit 0\n}\n");
+  if (linmem_need_extend()) linmem_extend();
+  FExpr f = parse(s);
+  if (f.index == -1) assert(false);
+  semantic_analysis(f);
+  codegen(f);
+}
+
+size_t get_entrypoint_offset() {
+  FnDecl fndecl;
+  if (!search_fndecl(new_istring("__start"), new_FTypeVec(), &fndecl)) {
+    error("undefined reference to `__start");
+  }
+  return fp(FSymbol, fndecl.sym)->fnidx;
+}
+
 void generate_executable(char* filename) {
   FILE* fp = fopen(filename, "wb");
-  write_elf_executable(fp, jit_codeptr(), jit_codesize(), get_main_offset());
+  write_elf_executable(fp, jit_codeptr(), jit_codesize(), get_entrypoint_offset());
   fclose(fp);
   chmod(filename, S_IRUSR | S_IWUSR|S_IXUSR);
 }
@@ -42,6 +59,7 @@ int main(int argc, char** argv) {
   if (argc == 3) {
     if (strcmp(argv[1], "-o") == 0) {
       char* outname = argv[2];
+      define_entrypoint();
       generate_executable(outname);
     } else {
       error("unknown %s command-line option.", argv[1]);

@@ -339,14 +339,6 @@ void codegen(FExpr f) {
   }
 }
 
-size_t get_main_offset() {
-  FnDecl fndecl;
-  if (!search_fndecl(new_istring("main"), new_FTypeVec(), &fndecl)) {
-    error("undefined reference to `main");
-  }
-  return fp(FSymbol, fndecl.sym)->fnidx;
-}
-
 int call_main() {
   FnDecl fndecl;
   if (!search_fndecl(new_istring("main"), new_FTypeVec(), &fndecl)) {

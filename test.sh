@@ -72,4 +72,5 @@ filetest "examples/struct_copy.flori" 9
 filetest "examples/struct_value.flori" 9
 filetest "examples/struct_result.flori" 9
 
+exectest "examples/fib.flori" 0
 exectest "examples/exitfib.flori" 34
