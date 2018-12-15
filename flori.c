@@ -1,5 +1,6 @@
 #include "flori.h"
 #include <string.h>
+#include <sys/stat.h>
 
 char* read_stdin() {
   char* s = malloc(1024);
@@ -22,6 +23,7 @@ void generate_executable(char* filename) {
   FILE* fp = fopen(filename, "wb");
   write_elf_executable(fp, jit_codeptr(), jit_codesize(), get_main_offset());
   fclose(fp);
+  chmod(filename, S_IRUSR | S_IWUSR|S_IXUSR);
 }
 
 int main(int argc, char** argv) {
