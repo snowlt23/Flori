@@ -158,6 +158,20 @@ FExpr parse_intlit(Stream* s) {
   return f;
 }
 
+FExpr parse_strlit(Stream* s) {
+  char litbuf[1024*1024] = {};
+  streamrep(i, s) {
+    assert(i < 1024*1024);
+    char c = stream_get(s);
+    stream_next(s);
+    if (c == '"') break;
+    litbuf[i] = c;
+  }
+  FExpr f = new_fexpr(FEXPR_STRLIT);
+  fe(f)->strval = new_istring(strdup(litbuf));
+  return f;
+}
+
 FExpr parse_flist(Stream* s) {
   if (stream_next(s) != '(') error("expect `( token");
   IListFExpr sons = nil_IListFExpr();
@@ -209,6 +223,9 @@ FExpr parse_reader_type(Stream* s) {
 FExpr parse_element(Stream* s) {
   if (isdigit(stream_get(s))) {
     return parse_intlit(s);
+  } else if (stream_get(s) == '"') {
+    stream_next(s);
+    return parse_strlit(s);
   } else if (isident(stream_get(s))) {
     return parse_ident(s);
   } else if (isoperator(stream_get(s))) {

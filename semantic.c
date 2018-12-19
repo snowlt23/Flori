@@ -35,7 +35,7 @@ FExpr new_ftypesym(FType t) {
 }
 
 bool ftype_eq(FType a, FType b) {
-  if (fp(FType, a)->kind == FTYPE_INT || fp(FType, a)->kind == FTYPE_VOID) {
+  if (fp(FType, a)->kind == FTYPE_INT || fp(FType, a)->kind == FTYPE_CSTRING || fp(FType, a)->kind == FTYPE_VOID) {
     return fp(FType, a)->kind == fp(FType, b)->kind;
   } else if (fp(FType, a)->kind == FTYPE_PTR && fp(FType, b)->kind == FTYPE_PTR) {
     return ftype_eq(fp(FType, a)->ptrof, fp(FType, b)->ptrof);
@@ -257,6 +257,8 @@ int get_type_size(FType t) {
     return 0;
   } else if (fp(FType, t)->kind == FTYPE_INT) {
     return 8; // FIXME:
+  } else if (fp(FType, t)->kind == FTYPE_CSTRING) {
+    return 8; // FIXME:
   } else if (fp(FType, t)->kind == FTYPE_PTR) {
     return 8;
   } else if (fp(FType, t)->kind == FTYPE_SYM) {
@@ -411,6 +413,8 @@ FExpr inject_result_arg(FExpr f, FExpr result) {
 void semantic_analysis(FExpr f) {
   if (fe(f)->kind == FEXPR_INTLIT) {
     fe(f)->typ = new_ftype(FTYPE_INT);
+  } else if (fe(f)->kind == FEXPR_STRLIT) {
+    fe(f)->typ = new_ftype(FTYPE_CSTRING);
   } else if (fe(f)->kind == FEXPR_SYMBOL) {
     // discard
   } else if (fe(f)->kind == FEXPR_IDENT) {
@@ -447,6 +451,8 @@ void semantic_analysis(FExpr f) {
       *fe(f) = *fe(new_ftypesym(ft));
     } else if (cmp_ident(t, "int")) {
       *fe(f) = *fe(new_ftypesym(new_ftype(FTYPE_INT)));
+    } else if (cmp_ident(t, "cstring")) {
+      *fe(f) = *fe(new_ftypesym(new_ftype(FTYPE_CSTRING)));
     } else {
       error("undeclared %s type", istring_cstr(FExpr_ptr(t)->ident));
     }

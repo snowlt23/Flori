@@ -23,16 +23,8 @@ void write_lendian(int x) {
   write_hex(b1, b2, b3, b4);
 }
 
-void fixup_lendian(int fixupidx, int x) {
-  int b1 = x & 0xFF;
-  int b2 = (x >> 8) & 0xFF;
-  int b3 = (x >> 16) & 0xFF;
-  int b4 = (x >> 24) & 0xFF;
-  uint8_t* fixupaddr = jit_toptr(fixupidx);
-  fixupaddr[0] = b1;
-  fixupaddr[1] = b2;
-  fixupaddr[2] = b3;
-  fixupaddr[3] = b4;
+void jit_fixup_lendian(int fixupidx, int x) {
+  fixup_lendian32(jit_toptr(fixupidx), x);
 }
 
 void gen_prologue(int stacksize) {
@@ -54,6 +46,16 @@ void gen_epilogue() {
 void gen_push_int(int x) {
   write_hex(0x68);
   write_lendian(x);
+}
+
+void gen_cstring(char* s) {
+  write_hex(0x48, 0xb8); // movabs rax, ..
+  size_t jitidx = jit_getidx();
+  write_hex(0, 0, 0, 0, 0, 0, 0, 0);
+  write_hex(0x50); // push rax
+  size_t dataidx = data_cstring(s);
+  fixup_lendian64(jit_toptr(jitidx), (size_t)data_toptr(dataidx));
+  reloc_add_info(jitidx, dataidx);
 }
 
 void codegen_lvalue(FExpr f) {
@@ -185,7 +187,7 @@ bool codegen_internal_fseq(FExpr f) {
         cur = IListFExpr_next(cur);
       } else if (cmp_ident(IListFExpr_value(cur), "elif")) {
         int fixuprel = jit_getidx() - fixup - 4;
-        fixup_lendian(fixup, fixuprel);
+        jit_fixup_lendian(fixup, fixuprel);
 
         // cond codegen.
         cur = IListFExpr_next(cur);
@@ -215,7 +217,7 @@ bool codegen_internal_fseq(FExpr f) {
         cur = IListFExpr_next(cur);
       } else if (cmp_ident(IListFExpr_value(cur), "else")) {
         int fixuprel = jit_getidx() - fixup - 4;
-        fixup_lendian(fixup, fixuprel);
+        jit_fixup_lendian(fixup, fixuprel);
 
         cur = IListFExpr_next(cur);
         check_next(cur, "expected name in fn");
@@ -225,7 +227,7 @@ bool codegen_internal_fseq(FExpr f) {
         // fixup relocations of if-expression.
         for (int i=0; i<relocnum; i++) {
           int fixuprel = jit_getidx() - relocs[i] - 4;
-          fixup_lendian(relocs[i], fixuprel);
+          jit_fixup_lendian(relocs[i], fixuprel);
         }
         cur = IListFExpr_next(cur);
         break;
@@ -281,6 +283,9 @@ void codegen(FExpr f) {
       break;
     case FEXPR_INTLIT:
       gen_push_int(fe(f)->intval);
+      break;
+    case FEXPR_STRLIT:
+      gen_cstring(istring_cstr(fe(f)->strval));
       break;
     case FEXPR_SEQ:
       if (IListFExpr_len(fe(f)->sons) != 0) {

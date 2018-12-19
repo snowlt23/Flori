@@ -46,10 +46,17 @@ void generate_executable(char* filename) {
 int main(int argc, char** argv) {
   linmem_init(1024*1024);
   jit_init(1024);
+  data_init(1024);
+  reloc_init();
   semantic_init();
   Stream* s = new_stream(read_stdin());
   while (!stream_isend(s)) {
     if (linmem_need_extend()) linmem_extend();
+    if (jit_need_extend(1024)) jit_extend(1024);
+    if (data_need_extend(1024)) {
+      data_extend(1024);
+      reloc_execute();
+    }
     FExpr f = parse(s);
     if (f.index == -1) continue;
     semantic_analysis(f);

@@ -221,6 +221,7 @@ typedef struct _FSymbolObj {
 typedef enum {
   FTYPE_VOID,
   FTYPE_INT,
+  FTYPE_CSTRING,
   FTYPE_PTR,
   FTYPE_SYM,
 } FTypeKind;
@@ -242,6 +243,7 @@ typedef struct _FExprObj {
     FSymbol sym;
     FType typsym;
     int intval;
+    IString strval;
     IListFExpr sons;
   };
 } FExprObj;
@@ -270,23 +272,10 @@ typedef struct {
 %%expand ilist(FnDeclMap, FnDeclGroup);
 
 typedef struct {
-  IString key;
-  int index;
-} FnInfo;
-
-typedef struct {
-  IString key;
-  FExpr body;
-} JitInfo;
-
-typedef struct {
-  IString key;
-  int offset;
-} VarInfo;
-
-%%expand ilist(IListFnInfo, FnInfo);
-%%expand ilist(IListJitInfo, JitInfo);
-%%expand ilist(IListVarInfo, VarInfo);
+  size_t jitidx;
+  size_t dataidx;
+} RelocInfo;
+%%expand ilist(RelocList, RelocInfo);
 
 // linmem.c
 bool linmem_need_extend();
@@ -297,12 +286,29 @@ void* linmem_toptr(int index);
 
 // jit.c
 void jit_init(int size);
+bool jit_need_extend(int size);
+void jit_extend(int size);
 int jit_getidx();
 int jit_alloc_write(uint8_t* buf, int n);
 void* jit_toptr(int index);
 void jit_write_to_file(char* filename);
 uint8_t* jit_codeptr();
 size_t jit_codesize();
+
+// data.c
+void data_init(size_t size);
+bool data_need_extend(size_t size);
+void data_extend(size_t size);
+size_t data_alloc(size_t size);
+void* data_toptr(size_t idx);
+size_t data_cstring(char* s);
+
+// reloc.c
+void fixup_lendian32(uint8_t* addr, int x);
+void fixup_lendian64(uint8_t* addr, size_t x);
+void reloc_init();
+void reloc_add_info(size_t jitidx, size_t dataidx);
+void reloc_execute();
 
 // istring.c
 IString new_istring(char* s);
