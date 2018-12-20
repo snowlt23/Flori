@@ -1,4 +1,4 @@
 fn main() {
-  sys_print "yukarisan"
+  sys_print "yukarisan" 9
   0
 }

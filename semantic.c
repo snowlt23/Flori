@@ -509,6 +509,7 @@ void semantic_analysis(FExpr f) {
       semantic_analysis(arg);
       argtypes = new_IListFType(fe(arg)->typsym, argtypes);
     }
+    argtypes = IListFType_reverse(argtypes);
     semantic_analysis(rettyp);
     IString nameid = fe(name)->ident;
     fe(name)->kind = FEXPR_SYMBOL;
