@@ -48,8 +48,6 @@ typedef struct {
 %%enum FExprKind {
   FEXPR_IDENT,
   FEXPR_OP,
-
-  FEXPR_QUOTE,
   FEXPR_SYMBOL,
 
   FEXPR_INTLIT,
@@ -243,6 +241,7 @@ typedef struct _FExprObj {
     FSymbol sym;
     FType typsym;
     int intval;
+    float floatval;
     IString strval;
     IListFExpr sons;
   };
@@ -315,7 +314,7 @@ IString new_istring(char* s);
 char* istring_cstr(IString s);
 bool istring_eq(IString a, IString b);
 
-// parser.c
+// fexpr.c
 FExpr new_fexpr(FExprKind kind);
 FExpr fident(char* id);
 FExpr fop(char* id);
@@ -324,6 +323,9 @@ FExpr new_fcontainer(FExprKind kind);
 void push_son(FExpr f, FExpr son);
 void reverse_sons(FExpr f);
 FExpr copy_fexpr(FExpr f);
+char* fexpr_tostring(FExpr f);
+
+// parser.c
 bool stream_isend(Stream* s);
 Stream* new_stream(char* buf);
 FExpr parse(Stream* s);

@@ -30,53 +30,6 @@ bool stream_isend(Stream* s) {
 }
 
 //
-// ast
-//
-
-FExpr new_fexpr(FExprKind kind) {
-  FExpr f = alloc_FExpr();
-  fe(f)->kind = kind;
-  return f;
-}
-
-FExpr fident(char* id) {
-  FExpr f = new_fexpr(FEXPR_IDENT);
-  fe(f)->ident = new_istring(id);
-  return f;
-}
-
-FExpr fop(char* id) {
-  FExpr f = new_fexpr(FEXPR_OP);
-  fe(f)->ident = new_istring(id);
-  return f;
-}
-
-bool cmp_ident(FExpr f, char* id) {
-  return strcmp(istring_cstr(fe(f)->ident), id) == 0;
-}
-
-FExpr new_fcontainer(FExprKind kind) {
-  FExpr f = alloc_FExpr();
-  fe(f)->kind = kind;
-  fe(f)->sons = nil_IListFExpr();
-  return f;
-}
-
-void push_son(FExpr f, FExpr son) {
-  fe(f)->sons = new_IListFExpr(son, fe(f)->sons);
-}
-
-void reverse_sons(FExpr f) {
-  fe(f)->sons = IListFExpr_reverse(fe(f)->sons);
-}
-
-FExpr copy_fexpr(FExpr f) {
-  FExpr newf = alloc_FExpr();
-  *fe(newf) = *fe(f);
-  return newf;
-}
-
-//
 // parse
 //
 
@@ -237,13 +190,13 @@ FExpr parse_element(Stream* s) {
   } else if (stream_get(s) == '^') {
     return parse_reader_type(s);
   } else {
-    error("unexpected %c char", stream_get(s));
+    error("unexpected %c:%d char", stream_get(s), stream_get(s));
   }
 }
 
 FExpr parse(Stream* s) {
   IListFExpr sons = nil_IListFExpr();
-  for (;;) {
+  streamrep(i, s) {
     skip_spaces(s);
     if (stream_get(s) == '\n' || stream_get(s) == ';' || stream_get(s) == ',') {
       stream_next(s);

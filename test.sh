@@ -45,6 +45,7 @@ exectest() {
 
 unittest "linmem_test"
 unittest "jit_test"
+unittest "fexpr_test"
 
 runtest "fn main() {9}" 9
 runtest "fn main() {4}" 4
