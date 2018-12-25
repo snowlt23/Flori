@@ -37,3 +37,15 @@ size_t data_cstring(char* s) {
   strcpy((char*)data_toptr(idx), s);
   return idx;
 }
+
+uint8_t* data_memptr() {
+  return dataptr;
+}
+
+void data_set_memptr(uint8_t* p) {
+  dataptr = p;
+}
+
+size_t data_memsize() {
+  return datapos;
+}

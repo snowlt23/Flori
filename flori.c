@@ -38,7 +38,7 @@ size_t get_entrypoint_offset() {
 
 void generate_executable(char* filename) {
   FILE* fp = fopen(filename, "wb");
-  write_elf_executable(fp, jit_codeptr(), jit_codesize(), get_entrypoint_offset());
+  write_elf_executable(fp, jit_codeptr(), jit_codesize(), data_memptr(), data_memsize(), get_entrypoint_offset());
   fclose(fp);
   chmod(filename, S_IRUSR | S_IWUSR|S_IXUSR);
 }

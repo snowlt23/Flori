@@ -29,6 +29,14 @@
   reverse_sons(v);
 #define fseq(v, ...) fcont(v, FEXPR_SEQ, __VA_ARGS__)
 
+#define with_reloc(addr, body) \
+  { \
+    uint8_t* __tmpaddr = data_memptr(); \
+    reloc_execute_addr(addr); \
+    body \
+    reloc_execute_addr(__tmpaddr); \
+  }
+
 typedef struct {
   void** data;
   int cap;
@@ -301,6 +309,9 @@ void data_extend(size_t size);
 size_t data_alloc(size_t size);
 void* data_toptr(size_t idx);
 size_t data_cstring(char* s);
+uint8_t* data_memptr();
+void data_set_memptr(uint8_t* addr);
+size_t data_memsize();
 
 // reloc.c
 void fixup_lendian32(uint8_t* addr, int x);
@@ -308,6 +319,7 @@ void fixup_lendian64(uint8_t* addr, size_t x);
 void reloc_init();
 void reloc_add_info(size_t jitidx, size_t dataidx);
 void reloc_execute();
+void reloc_execute_addr(uint8_t* addr);
 
 // istring.c
 IString new_istring(char* s);
@@ -346,6 +358,6 @@ int call_main();
 size_t get_main_offset();
 
 // elfgen.c
-void write_elf_executable(FILE* fp, uint8_t* codeptr, size_t codesize, size_t entryoffset);
+void write_elf_executable(FILE* fp, uint8_t* codeptr, size_t codesize, uint8_t* dataptr, size_t datasize, size_t entryoffset);
 
 #endif

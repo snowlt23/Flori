@@ -35,10 +35,10 @@ exectest() {
   PRELUDE=`cat core/prelude.flori`
   FILE=`cat "$1"`
   echo "$PRELUDE; $FILE" | ./bin/flori -o fa.out
-  ./fa.out
+  PR=`./fa.out`
   OUT=$?
-  if [ "$2" != "$OUT" ] ; then
-    echo "[ERROR] $1: expect $2, but got $OUT"
+  if [ "$2" != "$PR$OUT" ] ; then
+    echo "[ERROR] $1: expect $2, but got $PR$OUT"
     exit 1
   fi
 }
@@ -77,3 +77,4 @@ filetest "examples/sysprint.flori" "yukarisan0"
 
 exectest "examples/fib.flori" 0
 exectest "examples/exitfib.flori" 34
+exectest "examples/sysprint.flori" "yukarisan0"

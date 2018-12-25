@@ -45,3 +45,8 @@ void reloc_execute() {
     fixup_lendian64(jit_toptr(rinfo.jitidx), (size_t)data_toptr(rinfo.dataidx));
   }
 }
+
+void reloc_execute_addr(uint8_t* addr) {
+  data_set_memptr(addr);
+  reloc_execute();
+}
