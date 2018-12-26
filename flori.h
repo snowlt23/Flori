@@ -23,7 +23,7 @@
 #define fcont(v, kind, ...) \
   FExpr _sons[] = {__VA_ARGS__}; \
   FExpr v = new_fcontainer(kind); \
-  for (int _sonstmp=0; _sonstmp<sizeof(_sons); _sonstmp++) { \
+  for (int _sonstmp=0; _sonstmp<sizeof(_sons)/sizeof(FExpr); _sonstmp++) { \
     push_son(v, _sons[_sonstmp]);                             \
   } \
   reverse_sons(v);
@@ -212,6 +212,7 @@ typedef struct {
 typedef struct _FSymbolObj {
   FExpr f;
   bool isjit;
+  bool isprim;
   IString name;
   union {
     int varoffset;
@@ -225,9 +226,7 @@ typedef struct _FSymbolObj {
 } FSymbolObj;
 
 typedef enum {
-  FTYPE_VOID,
-  FTYPE_INT,
-  FTYPE_CSTRING,
+  FTYPE_PRIM,
   FTYPE_PTR,
   FTYPE_SYM,
 } FTypeKind;
@@ -244,6 +243,7 @@ typedef struct _FTypeObj {
 typedef struct _FExprObj {
   FExprKind kind;
   FType typ;
+  bool istyp;
   union {
     IString ident;
     FSymbol sym;
@@ -343,6 +343,7 @@ Stream* new_stream(char* buf);
 FExpr parse(Stream* s);
 
 // semantic.c
+bool ftype_is(FType t, char* name);
 int get_type_size(FType t);
 bool is_structtype(FType t);
 bool is_dotseq(FExpr f);

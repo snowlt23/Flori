@@ -8,6 +8,7 @@
 FExpr new_fexpr(FExprKind kind) {
   FExpr f = alloc_FExpr();
   fe(f)->kind = kind;
+  fe(f)->istyp = false;
   return f;
 }
 
@@ -48,6 +49,16 @@ FExpr copy_fexpr(FExpr f) {
   return newf;
 }
 
+char* ftype_tostring(FType t) {
+  if (fp(FType, t)->kind == FTYPE_PRIM || fp(FType, t)->kind == FTYPE_SYM) {
+    return istring_cstr(fp(FSymbol, fp(FType, t)->sym)->name);
+  } else {
+    char buf[1024] = {};
+    snprintf(buf, 1024, "ptr %s", ftype_tostring(fp(FType, t)->ptrof));
+    return strdup(buf);
+  }
+}
+
 char* fexpr_tostring(FExpr f) {
   char buf[1024*1024] = {};
   int bufpos = 0;
@@ -57,7 +68,11 @@ char* fexpr_tostring(FExpr f) {
   case FEXPR_OP:
     return istring_cstr(fe(f)->ident);
   case FEXPR_SYMBOL:
-    return istring_cstr(fp(FSymbol, fe(f)->sym)->name);
+    if (fe(f)->istyp) {
+      return ftype_tostring(fe(f)->typsym);
+    } else {
+      return istring_cstr(fp(FSymbol, fe(f)->sym)->name);
+    }
   case FEXPR_INTLIT:
     snprintf(buf, 1024*1024, "%d", fe(f)->intval);
     return strdup(buf);
@@ -71,9 +86,9 @@ char* fexpr_tostring(FExpr f) {
     if (IListFExpr_len(fe(f)->sons) == 0) {
       return "<noneseq>";
     }
-    bufpos += snprintf(buf + bufpos, 1024*1024, "%s", fexpr_tostring(IListFExpr_value(fe(f)->sons)));
+    bufpos += snprintf(buf + bufpos, 1024*1024 - bufpos, "%s", fexpr_tostring(IListFExpr_value(fe(f)->sons)));
     forlist (IListFExpr, FExpr, son, IListFExpr_next(fe(f)->sons)) {
-      bufpos += snprintf(buf + bufpos, 1024*1024, " %s", fexpr_tostring(son));
+      bufpos += snprintf(buf + bufpos, 1024*1024 - bufpos, " %s", fexpr_tostring(son));
     }
     return strdup(buf);
   };
@@ -81,33 +96,33 @@ char* fexpr_tostring(FExpr f) {
     if (IListFExpr_len(fe(f)->sons) == 0) {
       return "[]";
     }
-    bufpos += snprintf(buf + bufpos, 1024*1024, "[%s", fexpr_tostring(IListFExpr_value(fe(f)->sons)));
+    bufpos += snprintf(buf + bufpos, 1024*1024 - bufpos, "[%s", fexpr_tostring(IListFExpr_value(fe(f)->sons)));
     forlist (IListFExpr, FExpr, son, IListFExpr_next(fe(f)->sons)) {
-      bufpos += snprintf(buf + bufpos, 1024*1024, ", %s", fexpr_tostring(son));
+      bufpos += snprintf(buf + bufpos, 1024*1024 - bufpos, ", %s", fexpr_tostring(son));
     }
-    bufpos += snprintf(buf + bufpos, 1024*1024, "]");
+    bufpos += snprintf(buf + bufpos, 1024*1024 - bufpos, "]");
     return strdup(buf);
   };
   case FEXPR_LIST: {
     if (IListFExpr_len(fe(f)->sons) == 0) {
       return "()";
     }
-    bufpos += snprintf(buf + bufpos, 1024*1024, "(%s", fexpr_tostring(IListFExpr_value(fe(f)->sons)));
+    bufpos += snprintf(buf + bufpos, 1024*1024 - bufpos, "(%s", fexpr_tostring(IListFExpr_value(fe(f)->sons)));
     forlist (IListFExpr, FExpr, son, IListFExpr_next(fe(f)->sons)) {
-      bufpos += snprintf(buf + bufpos, 1024*1024, ", %s", fexpr_tostring(son));
+      bufpos += snprintf(buf + bufpos, 1024*1024 - bufpos, ", %s", fexpr_tostring(son));
     }
-    bufpos += snprintf(buf + bufpos, 1024*1024, ")");
+    bufpos += snprintf(buf + bufpos, 1024*1024 - bufpos, ")");
     return strdup(buf);
   };
   case FEXPR_BLOCK: {
     if (IListFExpr_len(fe(f)->sons) == 0) {
       return "{}";
     }
-    bufpos += snprintf(buf + bufpos, 1024*1024, "{\n");
+    bufpos += snprintf(buf + bufpos, 1024*1024 - bufpos, "{\n");
     forlist (IListFExpr, FExpr, son, fe(f)->sons) {
-      bufpos += snprintf(buf + bufpos, 1024*1024, "  %s\n", fexpr_tostring(son));
+      bufpos += snprintf(buf + bufpos, 1024*1024 - bufpos, "  %s\n", fexpr_tostring(son));
     }
-    bufpos += snprintf(buf + bufpos, 1024*1024, "}");
+    bufpos += snprintf(buf + bufpos, 1024*1024 - bufpos, "}");
     return strdup(buf);
   };
   }

@@ -118,6 +118,8 @@ bool codegen_internal_fseq(FExpr f) {
     codegen(fnbody);
     write_hex(0x58); // pop rax ; for return value
     gen_epilogue();
+  } else if (cmp_ident(first, "defprimitive")) {
+    // discard
   } else if (cmp_ident(first, "struct")) {
     // discard
   } else if (cmp_ident(first, "jit")) {
@@ -314,7 +316,7 @@ void codegen(FExpr f) {
           write_lendian(rel);
           write_hex(0x48, 0x81, 0xc4); // add rsp, ..
           write_lendian(callstacksize);
-          if (fp(FType, fe(f)->typ)->kind != FTYPE_VOID) {
+          if (!ftype_is(fe(f)->typ, "void")) {
             write_hex(0x50); // push rax
           }
         } else if (fe(first)->kind == FEXPR_IDENT) {

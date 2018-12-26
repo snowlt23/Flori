@@ -1,4 +1,5 @@
 #include "flori.h"
+#include <string.h>
 
 DeclMap declmap;
 FnDeclMap fndeclmap;
@@ -30,13 +31,19 @@ FType copy_ftype(FType ft) {
 
 FExpr new_ftypesym(FType t) {
   FExpr f = new_fexpr(FEXPR_SYMBOL);
+  fe(f)->istyp = true;
   fe(f)->typsym = t;
   return f;
 }
 
+bool ftype_is(FType t, char* name) {
+  if (fp(FType, t)->kind != FTYPE_PRIM && fp(FType, t)->kind != FTYPE_SYM) return false;
+  return strcmp(istring_cstr(fp(FSymbol, fp(FType, t)->sym)->name), name) == 0;
+}
+
 bool ftype_eq(FType a, FType b) {
-  if (fp(FType, a)->kind == FTYPE_INT || fp(FType, a)->kind == FTYPE_CSTRING || fp(FType, a)->kind == FTYPE_VOID) {
-    return fp(FType, a)->kind == fp(FType, b)->kind;
+  if (fp(FType, a)->kind == FTYPE_PRIM && fp(FType, b)->kind == FTYPE_PRIM) {
+    return istring_eq(fp(FSymbol, fp(FType, a)->sym)->name, fp(FSymbol, fp(FType, b)->sym)->name);
   } else if (fp(FType, a)->kind == FTYPE_PTR && fp(FType, b)->kind == FTYPE_PTR) {
     return ftype_eq(fp(FType, a)->ptrof, fp(FType, b)->ptrof);
   } else if (fp(FType, a)->kind == FTYPE_SYM && fp(FType, b)->kind == FTYPE_SYM) {
@@ -62,6 +69,30 @@ bool search_decl(IString name, Decl* retdecl) {
     }
   }
   return false;
+}
+
+FType type_void() {
+  Decl decl;
+  if (!search_decl(new_istring("void"), &decl)) error("undeclared void type, please import prelude");
+  FType t = new_ftype(FTYPE_PRIM);
+  fp(FType, t)->sym = decl.sym;
+  return t;
+}
+
+FType type_int() {
+  Decl decl;
+  if (!search_decl(new_istring("int"), &decl)) error("undeclared int type, please import prelude");
+  FType t = new_ftype(FTYPE_PRIM);
+  fp(FType, t)->sym = decl.sym;
+  return t;
+}
+
+FType type_cstring() {
+  Decl decl;
+  if (!search_decl(new_istring("cstring"), &decl)) error("undeclared cstring type, please import prelude");
+  FType t = new_ftype(FTYPE_PRIM);
+  fp(FType, t)->sym = decl.sym;
+  return t;
 }
 
 //
@@ -136,6 +167,12 @@ bool is_typeseq(FExpr f) {
   if (fe(f)->kind != FEXPR_SEQ) return false;
   if (IListFExpr_len(fe(f)->sons) < 2) return false;
   return cmp_ident(IListFExpr_value(fe(f)->sons), "type");
+}
+
+bool is_defprimseq(FExpr f) {
+  if (fe(f)->kind != FEXPR_SEQ) return false;
+  if (IListFExpr_len(fe(f)->sons) < 3) return false;
+  return cmp_ident(IListFExpr_value(fe(f)->sons), "defprimitive");
 }
 
 bool is_fncall(FExpr f) {
@@ -253,12 +290,8 @@ bool is_structseq(FExpr f) {
 //
 
 int get_type_size(FType t) {
-  if (fp(FType, t)->kind == FTYPE_VOID) {
-    return 0;
-  } else if (fp(FType, t)->kind == FTYPE_INT) {
-    return 8; // FIXME:
-  } else if (fp(FType, t)->kind == FTYPE_CSTRING) {
-    return 8; // FIXME:
+  if (fp(FType, t)->kind == FTYPE_PRIM) {
+    return fp(FSymbol, fp(FType, t)->sym)->size;
   } else if (fp(FType, t)->kind == FTYPE_PTR) {
     return 8;
   } else if (fp(FType, t)->kind == FTYPE_SYM) {
@@ -373,13 +406,15 @@ void rewrite_return_to_arg(FExpr f) {
   assert(fe(rettyp)->kind == FEXPR_SYMBOL);
   assert(fp(FType, fe(rettyp)->typsym)->kind == FTYPE_SYM);
   FExpr argtyp = new_fexpr(FEXPR_SYMBOL);
+  fe(argtyp)->istyp = true;
   fe(argtyp)->typsym = new_ftype(FTYPE_PTR);
   fp(FType, fe(argtyp)->typsym)->ptrof = fe(rettyp)->typsym;
   FExpr argdecl = new_fcontainer(FEXPR_SEQ);
   push_son(argdecl, argtyp);
   push_son(argdecl, fident("result"));
   push_son(fnargs, argdecl);
-  fe(rettyp)->typsym = new_ftype(FTYPE_VOID);
+  fe(rettyp)->istyp = true;
+  fe(rettyp)->typsym = type_void();
   fp(FSymbol, fe(fnsym)->sym)->rewrited = true;
 }
 
@@ -412,9 +447,9 @@ FExpr inject_result_arg(FExpr f, FExpr result) {
 
 void semantic_analysis(FExpr f) {
   if (fe(f)->kind == FEXPR_INTLIT) {
-    fe(f)->typ = new_ftype(FTYPE_INT);
+    fe(f)->typ = type_int();
   } else if (fe(f)->kind == FEXPR_STRLIT) {
-    fe(f)->typ = new_ftype(FTYPE_CSTRING);
+    fe(f)->typ = type_cstring();
   } else if (fe(f)->kind == FEXPR_SYMBOL) {
     // discard
   } else if (fe(f)->kind == FEXPR_IDENT) {
@@ -440,22 +475,39 @@ void semantic_analysis(FExpr f) {
     FExpr typ = fnext(it);
     semantic_analysis(typ);
     fe(f)->kind = FEXPR_SYMBOL;
+    fe(f)->istyp = true;
     fe(f)->typsym = new_ftype(FTYPE_PTR);
     fp(FType, fe(f)->typsym)->ptrof = fe(typ)->typsym;
   } else if (is_typeseq(f)) {
     FExpr t = IListFExpr_value(IListFExpr_next(fe(f)->sons));
     Decl decl;
     if (search_decl(fe(t)->ident, &decl)) {
-      FType ft = new_ftype(FTYPE_SYM);
-      fp(FType, ft)->sym = decl.sym;
-      *fe(f) = *fe(new_ftypesym(ft));
-    } else if (cmp_ident(t, "int")) {
-      *fe(f) = *fe(new_ftypesym(new_ftype(FTYPE_INT)));
-    } else if (cmp_ident(t, "cstring")) {
-      *fe(f) = *fe(new_ftypesym(new_ftype(FTYPE_CSTRING)));
+      if (fp(FSymbol, decl.sym)->isprim) {
+        FType ft = new_ftype(FTYPE_PRIM);
+        fp(FType, ft)->sym = decl.sym;
+        *fe(f) = *fe(new_ftypesym(ft));
+      } else {
+        FType ft = new_ftype(FTYPE_SYM);
+        fp(FType, ft)->sym = decl.sym;
+        *fe(f) = *fe(new_ftypesym(ft));
+      }
     } else {
       error("undeclared %s type", istring_cstr(FExpr_ptr(t)->ident));
     }
+  } else if (is_defprimseq(f)) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr name = fnext(it);
+    FExpr size = fnext(it);
+    if (fe(name)->kind != FEXPR_IDENT) error("defprimitive should be specify type-name");
+    if (fe(size)->kind != FEXPR_INTLIT) error("defprimitive should be specify type-size");
+    IString nameid = fe(name)->ident;
+    fe(name)->kind = FEXPR_SYMBOL;
+    fe(name)->sym = alloc_FSymbol();
+    fp(FSymbol, fe(name)->sym)->isprim = true;
+    fp(FSymbol, fe(name)->sym)->name = nameid;
+    fp(FSymbol, fe(name)->sym)->size = fe(size)->intval;
+    add_decl((Decl){nameid, fe(name)->sym});
   } else if (is_defseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);
@@ -464,6 +516,7 @@ void semantic_analysis(FExpr f) {
     IString namestr = fe(name)->ident;
     fe(name)->kind = FEXPR_SYMBOL;
     fe(name)->sym = alloc_FSymbol();
+    fp(FSymbol, fe(name)->sym)->name = namestr;
     semantic_analysis(value);
     add_decl((Decl){namestr, fe(name)->sym, fe(value)->typ});
     fnstacksize += get_type_size(fe(value)->typ);
@@ -577,7 +630,7 @@ void semantic_analysis(FExpr f) {
       FExpr elsebody = fnext(it);
       semantic_analysis(elsebody);
     }
-    fe(f)->typ = new_ftype(FTYPE_INT); // FIXME: if expression type
+    fe(f)->typ = type_int(); // FIXME: if expression type
   } else if (is_structseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);
@@ -586,6 +639,7 @@ void semantic_analysis(FExpr f) {
     FExpr body = fnext(it);
     fe(name)->kind = FEXPR_SYMBOL;
     fe(name)->sym = alloc_FSymbol();
+    fp(FSymbol, fe(name)->sym)->isprim = false;
     fp(FSymbol, fe(name)->sym)->name = namestr;
     fp(FSymbol, fe(name)->sym)->f = body;
     add_decl((Decl){namestr, fe(name)->sym});
@@ -603,6 +657,7 @@ void semantic_analysis(FExpr f) {
       fe(fieldname)->typ = fe(fieldtyp)->typsym;
     }
     FExpr typsym = new_fexpr(FEXPR_SYMBOL);
+    fe(typsym)->istyp = true;
     fe(typsym)->typsym = new_ftype(FTYPE_SYM);
     fp(FType, fe(typsym)->typsym)->sym = fe(name)->sym;
     FExpr copyfn = generate_copyfn(typsym, body);
@@ -633,8 +688,8 @@ void semantic_analysis(FExpr f) {
     FExpr rettyp;
     FExpr body;
     fnstacksize = 0;
-    if (FExpr_ptr(fcurr(it))->kind == FEXPR_BLOCK) {
-      IListFExpr_ptr(argsit)->next = new_IListFExpr(new_ftypesym(new_ftype(FTYPE_VOID)), it);
+    if (fe(fcurr(it))->kind == FEXPR_BLOCK) {
+      IListFExpr_ptr(argsit)->next = new_IListFExpr(new_ftypesym(type_void()), it);
       it = argsit;
       fnext(it);
       rettyp = fnext(it);
@@ -665,6 +720,7 @@ void semantic_analysis(FExpr f) {
       argtypes = new_IListFType(fe(argtyp)->typsym, argtypes);
       fe(arg)->kind = FEXPR_SYMBOL;
       fe(arg)->sym = alloc_FSymbol();
+      fp(FSymbol, fe(arg)->sym)->name = fe(argname)->ident;
       fp(FSymbol, fe(arg)->sym)->f = argname;
       add_decl((Decl){fe(argname)->ident, fe(arg)->sym, fe(argtyp)->typsym});
     }

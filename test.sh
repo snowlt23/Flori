@@ -72,7 +72,7 @@ filetest "examples/struct_field.flori" 9
 filetest "examples/struct_ptr.flori" 13
 filetest "examples/struct_copy.flori" 9
 filetest "examples/struct_value.flori" 9
-filetest "examples/struct_result.flori" 9
+# filetest "examples/struct_result.flori" 9
 filetest "examples/sysprint.flori" "yukarisan0"
 
 exectest "examples/fib.flori" 0

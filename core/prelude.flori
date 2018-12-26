@@ -1,3 +1,7 @@
+defprimitive void 0
+defprimitive int 8
+defprimitive cstring 8
+
 jit return(^int) ^int {
   X 0x58
   X 0x48; X 0x89; X 0xEC
