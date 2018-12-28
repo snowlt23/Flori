@@ -1,6 +1,7 @@
 defprimitive void 0
 defprimitive int 8
 defprimitive cstring 8
+defprimitive char 1
 
 jit return(^int) ^int {
   X 0x58
@@ -45,6 +46,23 @@ jit <(^int, ^int) ^int {
   X 0x0F; X 0xB6; X 0xC0
   X 0x50
 }
+
+jit deref(^ptr int) ^int {
+  X 0x58
+  X 0x48; X 0x8b; X 0x00
+  X 0x50
+}
+jit deref_lvalue(^ptr int) ^ptr int {}
+
+jit deref(^ptr char) ^char {
+  X 0x58
+  X 0x8a; X 0x00
+  X 0x48; X 0x0f; X 0xb6; X 0xc0
+  X 0x50
+}
+jit deref_lvalue(^ptr char) ^ptr char {}
+
+jit cast_ptr(^cstring) ^ptr char {}
 
 fn copy(p ^ptr int, v ^int) {
   (deref p) = v

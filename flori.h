@@ -154,12 +154,20 @@ typedef struct {
   } %%1;
   %%1 alloc_%%1();
   %%2* %%1_ptr(%%1 t);
+  %%1 nil_%%1();
+  bool %%1_isnil(%%1 t);
 } {
   %%1 alloc_%%1() {
     return (%%1){linmem_alloc(sizeof(%%2))};
   }
+  %%1 nil_%%1() {
+    return (%%1){-1};
+  }
   %%2* %%1_ptr(%%1 t) {
     return (%%2*)linmem_toptr(t.index);
+  }
+  bool %%1_isnil(%%1 t) {
+    return t.index == -1;
   }
 }
 
@@ -244,6 +252,7 @@ typedef struct _FExprObj {
   FExprKind kind;
   FType typ;
   bool istyp;
+  FExpr srcf;
   union {
     IString ident;
     FSymbol sym;
@@ -347,7 +356,7 @@ bool ftype_is(FType t, char* name);
 int get_type_size(FType t);
 bool is_structtype(FType t);
 bool is_dotseq(FExpr f);
-bool is_derefseq(FExpr f);
+bool is_deref(FExpr f);
 void semantic_init();
 FExpr fnext_impl(IListFExpr* il);
 bool search_fndecl(IString name, FTypeVec* argtypes, FnDecl* retfndecl);

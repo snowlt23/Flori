@@ -85,11 +85,8 @@ void codegen_lvalue(FExpr f) {
     write_hex(0x48, 0x05); // add rax, ..
     write_lendian(fp(FSymbol, fe(fieldsym)->sym)->varoffset);
     write_hex(0x50); // push rax
-  } else if (is_derefseq(f)) {
-    fiter(it, fe(f)->sons);
-    fnext(it);
-    codegen(fnext(it));
   } else {
+    debug("%s", fexpr_tostring(f));
     assert(false);
   }
 }
@@ -143,16 +140,6 @@ bool codegen_internal_fseq(FExpr f) {
     fnext(it);
     FExpr lvalue = fnext(it);
     codegen_lvalue(lvalue);
-  } else if (cmp_ident(first, "deref")) {
-    fiter(it, fe(f)->sons);
-    fnext(it);
-    FExpr pvalue = fnext(it);
-    codegen(pvalue);
-    write_hex(
-      0x58, // pop rax
-      0x48, 0x8b, 0x00, // mov rax, [rax]
-      0x50 // push rax
-    );
   } else if (cmp_ident(first, "if")) {
     IListFExpr cur = fe(f)->sons;
 
@@ -262,7 +249,7 @@ bool codegen_internal_fseq(FExpr f) {
     fnext(it);
     FExpr lvalue = fnext(it);
     FExpr rvalue = fnext(it);
-    codegen_lvalue(lvalue);
+    codegen(lvalue);
     codegen(rvalue);
     write_hex(0x59);// pop rcx
     write_hex(0x58); // pop rax
