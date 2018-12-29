@@ -38,6 +38,12 @@ size_t data_cstring(char* s) {
   return idx;
 }
 
+size_t data_int(size_t x) {
+  size_t idx = data_alloc(sizeof(size_t));
+  memcpy(data_toptr(idx), &x, sizeof(size_t));
+  return idx;
+}
+
 uint8_t* data_memptr() {
   return dataptr;
 }

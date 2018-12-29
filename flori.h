@@ -222,7 +222,9 @@ typedef struct _FSymbolObj {
   bool isjit;
   bool isprim;
   IString name;
+  bool istoplevel;
   union {
+    int vardataidx;
     int varoffset;
     struct {
       int fnidx;
@@ -318,6 +320,7 @@ void data_extend(size_t size);
 size_t data_alloc(size_t size);
 void* data_toptr(size_t idx);
 size_t data_cstring(char* s);
+size_t data_int(size_t x);
 uint8_t* data_memptr();
 void data_set_memptr(uint8_t* addr);
 size_t data_memsize();
@@ -358,13 +361,16 @@ int get_type_size(FType t);
 bool is_structtype(FType t);
 bool is_dotseq(FExpr f);
 bool is_deref(FExpr f);
+bool is_defseq(FExpr f);
 void semantic_init();
 FExpr fnext_impl(IListFExpr* il);
 bool search_fndecl(IString name, FTypeVec* argtypes, FnDecl* retfndecl);
 void semantic_analysis(FExpr f);
+void semantic_analysis_toplevel(FExpr f);
 
 // codegen.c
 void codegen(FExpr f);
+void codegen_toplevel(FExpr f);
 int call_main();
 size_t get_main_offset();
 

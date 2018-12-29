@@ -59,8 +59,8 @@ int main(int argc, char** argv) {
     }
     FExpr f = parse(s);
     if (f.index == -1) continue;
-    semantic_analysis(f);
-    codegen(f);
+    semantic_analysis_toplevel(f);
+    codegen_toplevel(f);
   }
 
   if (argc == 3) {

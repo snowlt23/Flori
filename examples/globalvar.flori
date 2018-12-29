@@ -1,0 +1,5 @@
+gTP := 45
+
+fn main() {
+  exit gTP
+}

@@ -266,8 +266,17 @@ void codegen(FExpr f) {
       error("unresolved `%s ident.", istring_cstr(fe(f)->ident));
       break;
     case FEXPR_SYMBOL: {
+      if (fp(FSymbol, fe(f)->sym)->istoplevel) {
+        write_hex(0x48, 0xb8); // movabs rax, ..
+        size_t jitidx = jit_getidx();
+        write_hex(0, 0, 0, 0, 0, 0, 0, 0);
+        write_hex(0xff, 0x30); // push [rax]
+        fixup_lendian64(jit_toptr(jitidx), (size_t)data_toptr(fp(FSymbol, fe(f)->sym)->vardataidx));
+        reloc_add_info(jitidx, fp(FSymbol, fe(f)->sym)->vardataidx);
+      } else {
         write_hex(0xff, 0xb5);
         write_lendian(-fp(FSymbol, fe(f)->sym)->varoffset);
+      }
       }
       break;
     case FEXPR_INTLIT:
@@ -330,6 +339,19 @@ void codegen(FExpr f) {
     default:
       error("unsupported %s codegen in currently.", FExprKind_tostring(fe(f)->kind));
       break;
+  }
+}
+
+void codegen_toplevel(FExpr f) {
+  if (is_defseq(f)) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr name = fnext(it);
+    FExpr value = fnext(it);
+    assert(fe(value)->kind == FEXPR_INTLIT);
+    fp(FSymbol, fe(name)->sym)->vardataidx = data_int(fe(value)->intval);
+  } else {
+    codegen(f);
   }
 }
 

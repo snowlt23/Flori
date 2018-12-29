@@ -64,6 +64,7 @@ jit deref_lvalue(^ptr char) ^ptr char {}
 
 jit cast_ptr(^cstring) ^ptr char {}
 jit cast_int(^cstring) ^int {}
+jit cast_int(^ptr int) ^int {}
 
 fn copy(p ^ptr int, v ^int) {
   (deref p) = v
@@ -109,4 +110,12 @@ fn exit(retcode ^int) {
 
 fn sys_print(s ^cstring, len ^int) ^int {
   syscall 1 1 (cast_int s) len
+}
+
+fn brk(addr ^int) {
+  syscall 12 addr
+}
+
+sbrk_curaddr := 0
+fn sbrk() {
 }

@@ -827,3 +827,15 @@ void semantic_analysis(FExpr f) {
     assert(false);
   }
 }
+
+void semantic_analysis_toplevel(FExpr f) {
+  semantic_analysis(f);
+  if (is_defseq(f)) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr name = fnext(it);
+    // FExpr value = fnext(it);
+    assert(fe(name)->kind == FEXPR_SYMBOL);
+    fp(FSymbol, fe(name)->sym)->istoplevel = true;
+  }
+}
