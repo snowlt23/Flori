@@ -47,6 +47,15 @@ jit <(^int, ^int) ^int {
   X 0x50
 }
 
+jit ==(^int, ^int) ^int {
+  X 0x59
+  X 0x58
+  X 0x48; X 0x39; X 0xC8
+  X 0x0F; X 0x94; X 0xC0
+  X 0x0F; X 0xB6; X 0xC0
+  X 0x50
+}
+
 jit deref(^ptr int) ^int {
   X 0x58
   X 0x48; X 0x8b; X 0x00
@@ -112,10 +121,21 @@ fn sys_print(s ^cstring, len ^int) ^int {
   syscall 1 1 (cast_int s) len
 }
 
-fn brk(addr ^int) {
+fn brk(addr ^int) ^int {
   syscall 12 addr
 }
 
 sbrk_curaddr := 0
-fn sbrk() {
+fn sbrk(inc ^int) ^ptr int {
+  if (sbrk_curaddr == 0) {
+    sbrk_curaddr = brk 0
+  } else {}
+  oldaddr := sbrk_curaddr
+  sbrk_curaddr = sbrk_curaddr + inc
+  brk sbrk_curaddr
+  return oldaddr
+}
+
+fn malloc(size ^int) ^ptr int {
+  sbrk size
 }

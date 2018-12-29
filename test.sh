@@ -61,6 +61,7 @@ runtest "fn main() {ott := 123; ott}" 123
 runtest "fn main() {var yyy ^int; yyy = 1515; yyy}" 1515
 runtest "fn add5(x ^int) ^int {add x 5}; fn main() {add5 7}" 12
 runtest "fn main() {4 + 5}" 9
+runtest "fn main() { if 1 4 }" 4
 runtest "fn main() { if 1 2 else 3 }" 2
 runtest "fn main() { if 0 2 else 3 }" 3
 runtest "fn main() {s := \"yukarisan\"; 9}" 9
@@ -81,3 +82,4 @@ exectest "examples/fib.flori" 0
 exectest "examples/exitfib.flori" 34
 exectest "examples/sysprint.flori" "yukarisan0"
 exectest "examples/globalvar.flori" 45
+exectest "examples/memory_allocate.flori" 123

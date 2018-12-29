@@ -1,0 +1,5 @@
+fn main() {
+  p := malloc (sizeof ^int)
+  (deref p) = 123
+  exit (deref p)
+}
