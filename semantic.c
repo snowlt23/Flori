@@ -114,6 +114,7 @@ void add_fndecl(FnDecl decl) {
 }
 
 bool match_overload(IListFType fntypes, FTypeVec* argtypes) {
+  if (IListFType_len(fntypes) != argtypes->len) return false;
   IListFType curr = fntypes;
   for (int i=0; i<argtypes->len; i++) {
     FType fnt = IListFType_value(curr);
@@ -772,7 +773,7 @@ void semantic_analysis(FExpr f) {
     FnDecl fndecl;
     if (search_fndecl(fe(first)->ident, argtypes, &fndecl)) {
       if (fndecl.isjit) { // jit call
-        FExpr jitbody = fp(FSymbol, fndecl.sym)->f;
+        FExpr jitbody = deepcopy_fexpr(fp(FSymbol, fndecl.sym)->f);
         semantic_analysis(jitbody);
         FExpr callf = copy_fexpr(f);
         FExpr newf = new_fcontainer(FEXPR_BLOCK);
@@ -783,6 +784,7 @@ void semantic_analysis(FExpr f) {
         fe(first)->sym = fndecl.sym;
         fe(newf)->srcf = copy_fexpr(callf);
         *fe(f) = *fe(newf);
+        // debug("AAA: %s :AAA", fexpr_tostring(f));
       } else { // fn call
         fe(first)->kind = FEXPR_SYMBOL;
         fe(first)->sym = fndecl.sym;

@@ -50,6 +50,18 @@ FExpr copy_fexpr(FExpr f) {
   return newf;
 }
 
+FExpr deepcopy_fexpr(FExpr f) {
+  FExpr newf = copy_fexpr(f);
+  if (fe(f)->kind == FEXPR_SEQ || fe(f)->kind == FEXPR_ARRAY || fe(f)->kind == FEXPR_LIST || fe(f)->kind == FEXPR_BLOCK) {
+    fe(newf)->sons = nil_IListFExpr();
+    forlist (IListFExpr, FExpr, son, fe(f)->sons) {
+      fe(newf)->sons = new_IListFExpr(deepcopy_fexpr(son), fe(newf)->sons);
+    }
+    reverse_sons(newf);
+  }
+  return newf;
+}
+
 char* ftype_tostring(FType t) {
   if (fp(FType, t)->kind == FTYPE_PRIM || fp(FType, t)->kind == FTYPE_SYM) {
     return istring_cstr(fp(FSymbol, fp(FType, t)->sym)->name);

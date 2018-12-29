@@ -344,6 +344,7 @@ FExpr new_fcontainer(FExprKind kind);
 void push_son(FExpr f, FExpr son);
 void reverse_sons(FExpr f);
 FExpr copy_fexpr(FExpr f);
+FExpr deepcopy_fexpr(FExpr f);
 char* fexpr_tostring(FExpr f);
 
 // parser.c

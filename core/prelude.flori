@@ -63,21 +63,50 @@ jit deref(^ptr char) ^char {
 jit deref_lvalue(^ptr char) ^ptr char {}
 
 jit cast_ptr(^cstring) ^ptr char {}
+jit cast_int(^cstring) ^int {}
 
 fn copy(p ^ptr int, v ^int) {
   (deref p) = v
 }
 
-jit exit(^int) ^int {
-  X 0xb8; X 1; X 0; X 0; X 0
-  X 0x5b
-  X 0xcd; X 0x80
+jit push_rax() ^void {
+  X 0x50
 }
 
-jit sys_print(^cstring, ^int) ^int {
-  X 0x48; X 0xc7; X 0xc0; X 0x01; X 0x00; X 0x00; X 0x00
-  X 0x48; X 0xc7; X 0xc7; X 0x01; X 0x00; X 0x00; X 0x00
-  X 0x5a
+jit pop_rax() ^void {
+  X 0x58
+}
+jit pop_rdi() ^void {
+  X 0x5f
+}
+jit pop_rsi() ^void {
   X 0x5e
+}
+jit pop_rdx() ^void {
+  X 0x5a
+}
+
+jit op_syscall() ^void {
   X 0x0f; X 0x05
+}
+
+jit syscall(^int, ^int) ^int {
+  pop_rdi; pop_rax
+  op_syscall; push_rax
+}
+jit syscall(^int, ^int, ^int) ^int {
+  pop_rsi; pop_rdi; pop_rax
+  op_syscall; push_rax
+}
+jit syscall(^int, ^int, ^int, ^int) ^int {
+  pop_rdx; pop_rsi; pop_rdi; pop_rax
+  op_syscall; push_rax
+}
+
+fn exit(retcode ^int) {
+  syscall 60 retcode
+}
+
+fn sys_print(s ^cstring, len ^int) ^int {
+  syscall 1 1 (cast_int s) len
 }
