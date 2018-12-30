@@ -77,9 +77,11 @@ filetest "examples/struct_copy.flori" 9
 filetest "examples/struct_value.flori" 9
 # filetest "examples/struct_result.flori" 9
 filetest "examples/sysprint.flori" "yukarisan0"
+filetest "examples/while.flori" "aaaaaaaaaa0"
 
 exectest "examples/fib.flori" 0
 exectest "examples/exitfib.flori" 34
 exectest "examples/sysprint.flori" "yukarisan0"
 exectest "examples/globalvar.flori" 45
 exectest "examples/memory_allocate.flori" 123
+filetest "examples/while.flori" "aaaaaaaaaa0"

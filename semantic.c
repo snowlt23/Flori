@@ -180,6 +180,7 @@ def_isseq(is_derefseq, "deref", 2);
 def_isseq(is_ifseq, "if", 3);
 def_isseq(is_fnseq, "fn", 1);
 def_isseq(is_structseq, "struct", 1);
+def_isseq(is_whileseq, "while", 3);
 
 bool is_dereffn(FExpr f) {
   if (fe(f)->kind != FEXPR_SEQ) return false;
@@ -589,6 +590,14 @@ void semantic_analysis(FExpr f) {
       semantic_analysis(elsebody);
     }
     fe(f)->typ = type_int(); // FIXME: if expression type
+  } else if (is_whileseq(f)) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr cond = fnext(it);
+    FExpr body = fnext(it);
+    semantic_analysis(cond);
+    semantic_analysis(body);
+    fe(f)->typ = type_void();
   } else if (is_structseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);

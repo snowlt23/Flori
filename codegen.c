@@ -186,7 +186,7 @@ bool codegen_internal_fseq(FExpr f) {
         codegen(cond);
 
         // cond if branching (need fixup)
-        write_hex(0x58) // pop rax
+        write_hex(0x58); // pop rax
         write_hex(0x48, 0x83, 0xf8, 0x00); // cmp rax, 0
         write_hex(0x0f, 0x84); // je rel
         fixup = jit_getidx();
@@ -218,6 +218,27 @@ bool codegen_internal_fseq(FExpr f) {
         error("unexpected token in if expression.");
       }
     }
+  } else if (cmp_ident(first, "while")) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr cond = fnext(it);
+    FExpr body = fnext(it);
+    int startL = jit_getidx();
+    codegen(cond);
+    
+    write_hex(0x58); // pop rax
+    write_hex(0x48, 0x83, 0xf8, 0x00); // cmp rax, 0
+    write_hex(0x0f, 0x84); // je rel
+    int fixup = jit_getidx();
+    write_lendian(0); // fixup
+    
+    codegen(body);
+    write_hex(0xe9); // jmp ..
+    int jmprel = startL - jit_getidx() - 4;
+    write_lendian(jmprel);
+    
+    int fixuprel = jit_getidx() - fixup - 4;
+    jit_fixup_lendian(fixup, fixuprel);
   } else if (cmp_ident(first, ":=")) {
     fiter(it, fe(f)->sons);
     fnext(it);
