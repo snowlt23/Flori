@@ -1,5 +1,14 @@
 #!/bin/bash
 
+CORELIBS="core/prelude.flori core/cstring.flori"
+
+read-coresrc() {
+  for f in $CORELIBS ; do
+    cat $f
+    echo ""
+  done
+}
+
 # $1=testname
 unittest() {
   M=`make $1.out`
@@ -13,7 +22,7 @@ unittest() {
 
 # $1=input $2=expect
 runtest() {
-  PRELUDE=`cat core/prelude.flori`
+  PRELUDE=`read-coresrc`
   OUT=`echo "$PRELUDE; $1" | ./bin/flori`
   if [ "$2" != "$OUT" ] ; then
     echo "[ERROR] $1: expect $2, but got $OUT"
@@ -22,7 +31,7 @@ runtest() {
 }
 
 filetest() {
-  PRELUDE=`cat core/prelude.flori`
+  PRELUDE=`read-coresrc`
   FILE=`cat "$1"`
   OUT=`echo "$PRELUDE; $FILE" | ./bin/flori`
   if [ "$2" != "$OUT" ] ; then
@@ -32,7 +41,7 @@ filetest() {
 }
 
 exectest() {
-  PRELUDE=`cat core/prelude.flori`
+  PRELUDE=`read-coresrc`
   FILE=`cat "$1"`
   echo "$PRELUDE; $FILE" | ./bin/flori -o fa.out
   PR=`./fa.out`
@@ -67,6 +76,7 @@ runtest "fn main() { if 0 2 else 3 }" 3
 runtest "fn main() {s := \"yukarisan\"; 9}" 9
 runtest "fn main() {s := \"ia\"; deref (cast_ptr s)}" 105
 runtest "gx := 555; fn main() {gx}" 555
+runtest "fn main() {s := \"yukayuka\"; len s}" 8
 
 filetest "examples/fib.flori" 34
 filetest "examples/sizeof.flori" 24
@@ -78,10 +88,11 @@ filetest "examples/struct_value.flori" 9
 # filetest "examples/struct_result.flori" 9
 filetest "examples/sysprint.flori" "yukarisan0"
 filetest "examples/while.flori" "aaaaaaaaaa0"
+filetest "examples/cstring.flori" "akari0"
 
 exectest "examples/fib.flori" 0
 exectest "examples/exitfib.flori" 34
 exectest "examples/sysprint.flori" "yukarisan0"
 exectest "examples/globalvar.flori" 45
 exectest "examples/memory_allocate.flori" 123
-filetest "examples/while.flori" "aaaaaaaaaa0"
+exectest "examples/while.flori" "aaaaaaaaaa0"
