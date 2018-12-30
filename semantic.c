@@ -155,25 +155,44 @@ bool search_fndecl(IString name, FTypeVec* argtypes, FnDecl* retfndecl) {
 }
 
 //
-// compare
+// isseq util functions
 //
 
-bool is_typeptrseq(FExpr f) {
+#define def_isseq(name, first, mlen)                       \
+  bool name(FExpr f) {                                      \
+    if (fe(f)->kind != FEXPR_SEQ) return false;             \
+    if (IListFExpr_len(fe(f)->sons) < mlen) return false;   \
+    return cmp_ident(IListFExpr_value(fe(f)->sons), first); \
+  }
+
+def_isseq(is_typeptrseq, "type_ptr", 2);
+def_isseq(is_typeseq, "type", 2);
+def_isseq(is_defprimseq, "defprimitive", 3);
+def_isseq(is_defseq, ":=", 3);
+def_isseq(is_varseq, "var", 3);
+def_isseq(is_setseq, "=", 3);
+def_isseq(is_jitseq, "jit", 5);
+def_isseq(is_Xseq, "X", 2);
+def_isseq(is_sizeofseq, "sizeof", 2);
+def_isseq(is_dotseq, ".", 3);
+def_isseq(is_getrefseq, "getref", 2);
+def_isseq(is_derefseq, "deref", 2);
+def_isseq(is_ifseq, "if", 3);
+def_isseq(is_fnseq, "fn", 1);
+def_isseq(is_structseq, "struct", 1);
+
+bool is_dereffn(FExpr f) {
   if (fe(f)->kind != FEXPR_SEQ) return false;
   if (IListFExpr_len(fe(f)->sons) < 2) return false;
-  return cmp_ident(IListFExpr_value(fe(f)->sons), "type_ptr");
+  if (fe(IListFExpr_value(fe(f)->sons))->kind != FEXPR_SYMBOL) return false;
+  return strcmp(istring_cstr(fp(FSymbol, fe(IListFExpr_value(fe(f)->sons))->sym)->name), "deref") == 0;
 }
 
-bool is_typeseq(FExpr f) {
-  if (fe(f)->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fe(f)->sons) < 2) return false;
-  return cmp_ident(IListFExpr_value(fe(f)->sons), "type");
-}
-
-bool is_defprimseq(FExpr f) {
-  if (fe(f)->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fe(f)->sons) < 3) return false;
-  return cmp_ident(IListFExpr_value(fe(f)->sons), "defprimitive");
+bool is_deref(FExpr f) {
+  if (!FExpr_isnil(fe(f)->srcf)) {
+    if (is_deref(fe(f)->srcf)) return true;
+  }
+  return is_derefseq(f) || is_dereffn(f);
 }
 
 bool is_fncall(FExpr f) {
@@ -212,92 +231,6 @@ FExpr split_infixseq(FExpr f) {
   push_son(newf, right);
   reverse_sons(newf);
   return newf;
-}
-
-bool is_defseq(FExpr f) {
-  if (fe(f)->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fe(f)->sons) < 3) return false;
-  return cmp_ident(IListFExpr_value(fe(f)->sons), ":=");
-}
-
-bool is_varseq(FExpr f) {
-  if (fe(f)->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fe(f)->sons) < 3) return false;
-  return cmp_ident(IListFExpr_value(fe(f)->sons), "var");
-}
-
-bool is_setseq(FExpr f) {
-  if (fe(f)->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fe(f)->sons) < 3) return false;
-  return cmp_ident(IListFExpr_value(fe(f)->sons), "=");
-}
-
-bool is_jitseq(FExpr f) {
-  if (fe(f)->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fe(f)->sons) < 5) return false;
-  return cmp_ident(IListFExpr_value(fe(f)->sons), "jit");
-}
-
-bool is_Xseq(FExpr f) {
-  if (fe(f)->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fe(f)->sons) < 2) return false;
-  return cmp_ident(IListFExpr_value(fe(f)->sons), "X");
-}
-
-bool is_sizeofseq(FExpr f) {
-  if (fe(f)->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fe(f)->sons) < 2) return false;
-  return cmp_ident(IListFExpr_value(fe(f)->sons), "sizeof");
-}
-
-bool is_dotseq(FExpr f) {
-  if (fe(f)->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fe(f)->sons) < 2) return false;
-  return cmp_ident(IListFExpr_value(fe(f)->sons), ".");
-}
-
-bool is_getrefseq(FExpr f) {
-  if (fe(f)->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fe(f)->sons) < 2) return false;
-  return cmp_ident(IListFExpr_value(fe(f)->sons), "getref");
-}
-
-bool is_derefseq(FExpr f) {
-  if (fe(f)->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fe(f)->sons) < 2) return false;
-  return cmp_ident(IListFExpr_value(fe(f)->sons), "deref");
-}
-
-bool is_dereffn(FExpr f) {
-  if (fe(f)->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fe(f)->sons) < 2) return false;
-  if (fe(IListFExpr_value(fe(f)->sons))->kind != FEXPR_SYMBOL) return false;
-  return strcmp(istring_cstr(fp(FSymbol, fe(IListFExpr_value(fe(f)->sons))->sym)->name), "deref") == 0;
-}
-
-bool is_deref(FExpr f) {
-  if (!FExpr_isnil(fe(f)->srcf)) {
-    if (is_deref(fe(f)->srcf)) return true;
-  }
-  return is_derefseq(f) || is_dereffn(f);
-}
-
-bool is_ifseq(FExpr f) {
-  if (fe(f)->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fe(f)->sons) < 3) return false;
-  return cmp_ident(IListFExpr_value(fe(f)->sons), "if");
-}
-
-bool is_fnseq(FExpr f) {
-  if (fe(f)->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fe(f)->sons) < 1) return false;
-  return cmp_ident(IListFExpr_value(fe(f)->sons), "fn");
-}
-
-bool is_structseq(FExpr f) {
-  if (fe(f)->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fe(f)->sons) < 1) return false;
-  return cmp_ident(IListFExpr_value(fe(f)->sons), "struct");
 }
 
 //
