@@ -9,6 +9,7 @@ FExpr new_fexpr(FExprKind kind) {
   FExpr f = alloc_FExpr();
   fe(f)->kind = kind;
   fe(f)->istyp = false;
+  fe(f)->typ = nil_FType();
   fe(f)->srcf = nil_FExpr();
   return f;
 }

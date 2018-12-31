@@ -13,21 +13,26 @@
 #define check_next(l, ...) if (IListFExpr_isnil(l)) { error(__VA_ARGS__); }
 #define isfnil(l) IListFExpr_isnil(l)
 
-#define fp(t, f) t ## _ptr(f)
+#define fp(t, f) (assert(!t ## _isnil(f)), t ## _ptr(f))
 #define fe(f) fp(FExpr, f)
 
 #define fiter(itr, f) IListFExpr itr = f
 #define fcurr(itr) IListFExpr_value(itr)
 #define fnext(itr) fnext_impl(&itr)
 
-#define fcont(v, kind, ...) \
-  FExpr _sons[] = {__VA_ARGS__}; \
+#define ppcat1(a, b) a ## b
+#define ppcat(a, b) ppcat1(a, b)
+#define fcont1(sons, sonstmp, v, kind, ...)      \
+  FExpr sons[] = {__VA_ARGS__}; \
   FExpr v = new_fcontainer(kind); \
-  for (int _sonstmp=0; _sonstmp<sizeof(_sons)/sizeof(FExpr); _sonstmp++) { \
-    push_son(v, _sons[_sonstmp]);                             \
+  for (int sonstmp=0; sonstmp<sizeof(sons)/sizeof(FExpr); sonstmp++) { \
+    push_son(v, sons[sonstmp]);                             \
   } \
   reverse_sons(v);
+#define fcont(v, kind, ...) fcont1(ppcat(_sons, __LINE__), ppcat(_sonstmp, __LINE__), v, kind, __VA_ARGS__)
 #define fseq(v, ...) fcont(v, FEXPR_SEQ, __VA_ARGS__)
+#define flist(v, ...) fcont(v, FEXPR_LIST, __VA_ARGS__)
+#define fblock(v, ...) fcont(v, FEXPR_BLOCK, __VA_ARGS__)
 
 #define with_reloc(addr, body) \
   { \
@@ -164,6 +169,7 @@ typedef struct {
     return (%%1){-1};
   }
   %%2* %%1_ptr(%%1 t) {
+    assert(!%%1_isnil(t));
     return (%%2*)linmem_toptr(t.index);
   }
   bool %%1_isnil(%%1 t) {

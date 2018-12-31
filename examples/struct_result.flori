@@ -12,4 +12,5 @@ fn main() {
   var mi ^myint
   mi = init_myint 4 5
   (mi.a) + (mi.b)
+  9
 }
