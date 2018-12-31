@@ -11,6 +11,7 @@ FExpr new_fexpr(FExprKind kind) {
   fe(f)->istyp = false;
   fe(f)->typ = nil_FType();
   fe(f)->srcf = nil_FExpr();
+  fe(f)->evaluated = false;
   return f;
 }
 

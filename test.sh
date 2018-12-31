@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CORELIBS="core/prelude.flori core/cstring.flori"
+CORELIBS="core/prelude.flori core/cstring.flori core/string.flori"
 
 read-coresrc() {
   for f in $CORELIBS ; do
@@ -89,6 +89,7 @@ filetest "examples/struct_result.flori" 9
 filetest "examples/sysprint.flori" "yukarisan0"
 filetest "examples/while.flori" "aaaaaaaaaa0"
 filetest "examples/cstring.flori" "akari0"
+filetest "examples/string.flori" 3
 
 exectest "examples/fib.flori" 0
 exectest "examples/exitfib.flori" 34

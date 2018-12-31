@@ -402,6 +402,8 @@ FExpr inject_result_arg(FExpr f, FExpr result) {
 //
 
 void semantic_analysis(FExpr f) {
+  if (fe(f)->evaluated) return;
+  
   if (fe(f)->kind == FEXPR_INTLIT) {
     fe(f)->typ = type_int();
   } else if (fe(f)->kind == FEXPR_STRLIT) {
@@ -469,13 +471,12 @@ void semantic_analysis(FExpr f) {
     fnext(it);
     FExpr name = fnext(it);
     FExpr value = fnext(it);
-    IString namestr = fe(name)->ident;
-    fe(name)->kind = FEXPR_SYMBOL;
-    fe(name)->sym = alloc_FSymbol();
-    fp(FSymbol, fe(name)->sym)->name = namestr;
     semantic_analysis(value);
-    add_decl((Decl){namestr, fe(name)->sym, fe(value)->typ});
-    fnstacksize += get_type_size(fe(value)->typ);
+    fseq(vdecl, fident("var"), copy_fexpr(name), new_ftypesym(fe(value)->typ));
+    fseq(vinit, fident("="), copy_fexpr(name), value);
+    fblock(blk, vdecl, vinit);
+    semantic_analysis(blk);
+    *fe(f) = *fe(blk);
   } else if (is_varseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);
@@ -489,6 +490,7 @@ void semantic_analysis(FExpr f) {
     semantic_analysis(typ);
     add_decl((Decl){namestr, fe(name)->sym, fe(typ)->typsym});
     fnstacksize += get_type_size(fe(typ)->typsym);
+    fe(f)->typ = type_void();
   } else if (is_setseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);
@@ -507,6 +509,7 @@ void semantic_analysis(FExpr f) {
       *fe(f) = *fe(copycall);
       semantic_analysis(f);
     }
+    fe(f)->typ = type_void();
   } else if (is_jitseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);
@@ -752,16 +755,29 @@ void semantic_analysis(FExpr f) {
   } else {
     assert(false);
   }
+  fe(f)->evaluated = true;
 }
 
 void semantic_analysis_toplevel(FExpr f) {
-  semantic_analysis(f);
-  if (is_defseq(f)) {
+  if (is_jitseq(f) || is_fnseq(f)) {
+    semantic_analysis(f);
+  } else if (is_infixcall(f)) {
+    *fe(f) = *fe(split_infixseq(f));
+    semantic_analysis_toplevel(f);
+  } else if (is_defseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);
     FExpr name = fnext(it);
-    // FExpr value = fnext(it);
-    assert(fe(name)->kind == FEXPR_SYMBOL);
+    FExpr value = fnext(it);
+    IString namestr = fe(name)->ident;
+    fe(name)->kind = FEXPR_SYMBOL;
+    fe(name)->sym = alloc_FSymbol();
+    fp(FSymbol, fe(name)->sym)->name = namestr;
     fp(FSymbol, fe(name)->sym)->istoplevel = true;
+    semantic_analysis(value);
+    add_decl((Decl){namestr, fe(name)->sym, fe(value)->typ});
+    fe(f)->typ = type_void();
+  } else {
+    semantic_analysis(f);
   }
 }

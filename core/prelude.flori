@@ -71,6 +71,13 @@ jit deref(^ptr int) ^int {
 }
 jit deref_lvalue(^ptr int) ^ptr int {}
 
+jit deref(^ptr cstring) ^cstring {
+  X 0x58
+  X 0x48; X 0x8b; X 0x00
+  X 0x50
+}
+jit deref_lvalue(^ptr cstring) ^ptr cstring {}
+
 jit deref(^ptr char) ^char {
   X 0x58
   X 0x8a; X 0x00
@@ -88,6 +95,9 @@ jit cast_int(^ptr int) ^int {}
 jit char_ptr(^pointer) ^ptr char {}
 
 fn copy(p ^ptr int, v ^int) {
+  (deref p) = v
+}
+fn copy(p ^ptr cstring, v ^cstring) {
   (deref p) = v
 }
 

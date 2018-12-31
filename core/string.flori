@@ -1,0 +1,15 @@
+struct string {
+  p ^cstring
+  len ^int
+}
+
+fn new_string(cs ^cstring) ^string {
+  l := len cs
+  (result.p) = cstring (malloc (l+1))
+  (result.len) = l
+  copy (result.p) cs
+}
+
+fn print(s ^string) {
+  sys_print (s.p) (s.len)
+}

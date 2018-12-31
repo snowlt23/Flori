@@ -1,0 +1,4 @@
+fn main() {
+  s := new_string "777"
+  s.len
+}
