@@ -197,6 +197,18 @@ FExpr parse_reader_type(Stream* s) {
   }
 }
 
+FExpr parse_reader_dollar(Stream* s) {
+  if (stream_next(s) != '$') error("expect `$ reader token.");
+  char buf[1024*1024] = {};
+  for (int i=0; i<1024*1024; i++) {
+    if (stream_get(s) == '$' || stream_get(s) == ')' || stream_get(s) == '}' || stream_get(s) == '=') break;
+    if (stream_get(s) == '\n' || stream_get(s) == ';' || stream_get(s) == ',') break;
+    buf[i] = stream_next(s);
+  }
+  Stream* newstrm = new_stream(strdup(buf));
+  return parse(newstrm);
+}
+
 FExpr parse_element(Stream* s) {
   if (isdigit(stream_get(s))) {
     return parse_intlit(s);
@@ -213,6 +225,8 @@ FExpr parse_element(Stream* s) {
     return parse_fblock(s);
   } else if (stream_get(s) == '^') {
     return parse_reader_type(s);
+  } else if (stream_get(s) == '$') {
+    return parse_reader_dollar(s);
   } else {
     error("unexpected %c:%d char", stream_get(s), stream_get(s));
   }
@@ -222,7 +236,7 @@ FExpr parse(Stream* s) {
   IListFExpr sons = nil_IListFExpr();
   streamrep(i, s) {
     skip_spaces(s);
-    if (stream_get(s) == '\n' || stream_get(s) == ';' || stream_get(s) == ',') {
+    if (stream_get(s) == '\n' || stream_get(s) == ';' || stream_get(s) == ',' || stream_get(s) == '\0') {
       stream_next(s);
       break;
     } else if (stream_get(s) == '}' || stream_get(s) == ')') {

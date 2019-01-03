@@ -1,6 +1,6 @@
 fn len(s ^cstring) ^int {
   i := 0
-  while (deref (cast_ptr s + i)) {
+  while (deref $cast_ptr s + i) {
     i = i+1
   }
   return i
@@ -9,15 +9,15 @@ fn len(s ^cstring) ^int {
 fn memcpy(dstp ^pointer, srcp ^pointer, size ^int) {
   i := 0
   while (i < size) {
-    (deref (char_ptr dstp + i)) = (deref (char_ptr srcp + i))
+    deref $char_ptr dstp + i = deref $char_ptr srcp + i
     i = i+1
   }
 }
 
 fn copy(dstp ^cstring, srcp ^cstring) {
-  memcpy (cast_pointer dstp) (cast_pointer srcp) (len srcp + 1)
+  memcpy $cast_pointer dstp $cast_pointer srcp $len srcp + 1
 }
 
 fn print(s ^cstring) {
-  sys_print s (len s)
+  sys_print s $len s
 }
