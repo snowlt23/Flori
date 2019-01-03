@@ -1,0 +1,41 @@
+fn opcode(op ^int) {$internal}
+
+enum asmirkind {
+  ASMIR_REG
+  ASMIR_MOV
+  ASMIR_ADD
+  ASMIR_INT
+}
+
+enum reg {
+  REG_EAX
+}
+
+struct asmir {
+  kind ^asmkirkind
+  left ^ptr asmir
+  right ^ptr asmir
+  intval ^int
+  reg ^reg
+}
+
+fn mov(left ^asmir, right ^asmir) {
+  
+}
+
+fn eax() ^asmir {
+  var ir ^asmir
+  ir.kind = ASMIR_REG
+  ir.reg = REG_EAX
+  return ir
+}
+
+fn asm_mov()
+
+mov
+
+enum reg {
+  rax, rcx, rdx
+}
+
+fn reg_alloc()

@@ -6,8 +6,8 @@ struct myint {
 fn main() {
   var l ^myint
   var r ^myint
-  (r.a) = 4
-  (r.b) = 5
+  r.a = 4
+  r.b = 5
   copy (getref l) (getref r)
-  (l.a) + (l.b)
+  l.a + l.b
 }

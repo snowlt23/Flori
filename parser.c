@@ -79,6 +79,29 @@ FExpr parse_ident(Stream* s) {
   return f;
 }
 
+int calc_op_priority(char* opident) {
+  int l = strlen(opident);
+  if (opident[0] == '<' || opident[0] == '>') {
+    return 7;
+  } else if (l >= 2 && (opident[0] == '!' || opident[0] == '=') && opident[1] == '=') {
+    return 7;
+  } else if (l >= 2 && opident[1] == '=') {
+    return 15;
+  } else if (opident[0] == '&' || opident[0] == '|') {
+    return 12;
+  } else if (opident[0] == '+' || opident[0] == '-' || opident[0] == '!') {
+    return 5;
+  } else if (opident[0] == '*' || opident[0] == '/' || opident[0] == '%') {
+    return 4;
+  } else if (opident[0] == '.') {
+    return 1; 
+  } else if (opident[0] == '=') {
+    return 15;
+  } else {
+    assert(false);
+  }
+}
+
 FExpr parse_operator(Stream* s) {
   char litbuf[1024] = {};
   streamrep(i, s) {
@@ -90,6 +113,7 @@ FExpr parse_operator(Stream* s) {
   }
   FExpr f = new_fexpr(FEXPR_OP);
   fe(f)->ident = new_istring(strdup(litbuf));
+  fe(f)->priority = calc_op_priority(litbuf);
   return f;
 }
 

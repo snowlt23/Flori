@@ -4,16 +4,16 @@ struct myint {
 }
 
 fn init_myint(result ^ptr myint) {
-  (result.a) = 4
-  (result.b) = 6
+  result.a = 4
+  result.b = 6
 }
 
 fn main() {
   var mi ^myint
-  mip := getref(mi)
-  (mip.a) = 1
-  (mip.b) = 2
-  x := (mi.a) + (mi.b)
-  init_myint(getref(mi))
-  (mi.a) + (mi.b) + x
+  mip := getref mi
+  mip.a = 1
+  mip.b = 2
+  x := mi.a + mi.b
+  init_myint(getref mi)
+  mi.a + mi.b + x
 }

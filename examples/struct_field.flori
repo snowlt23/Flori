@@ -5,7 +5,7 @@ struct myint {
 
 fn main() {
   var mi ^myint
-  (mi.a) = 4
-  (mi.b) = 5
-  (mi.a) + (mi.b)
+  mi.a = 4
+  mi.b = 5
+  mi.a + mi.b
 }

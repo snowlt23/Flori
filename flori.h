@@ -262,6 +262,7 @@ typedef struct _FExprObj {
   bool istyp;
   FExpr srcf;
   bool evaluated;
+  int priority;
   union {
     IString ident;
     FSymbol sym;

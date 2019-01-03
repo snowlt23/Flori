@@ -1,6 +1,7 @@
 #!/bin/bash
 
 CORELIBS="core/prelude.flori core/cstring.flori core/string.flori"
+# CORELIBS="core/prelude.flori"
 
 read-coresrc() {
   for f in $CORELIBS ; do

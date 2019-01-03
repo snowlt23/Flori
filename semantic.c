@@ -210,36 +210,66 @@ bool is_fncall(FExpr f) {
   return true;
 }
 
-bool is_infixcall(FExpr f) {
+bool is_infixseq(FExpr f) {
   if (fe(f)->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fe(f)->sons) < 3) return false;
-  fiter(it, fe(f)->sons);
-  fnext(it);
-  FExpr second = fnext(it);
-  if (fe(second)->kind == FEXPR_OP) {
-    return true;
-  } else {
-    return false;
+  if (fe(IListFExpr_value(fe(f)->sons))->kind == FEXPR_OP) return false;
+  forlist (IListFExpr, FExpr, son, fe(f)->sons) {
+    if (fe(son)->kind == FEXPR_OP) return true;
+  }
+  return false;
+}
+
+// splitter
+
+void consume_infix_stack(FExpr* outstack, FExpr* opstack, int* outpos, int* oppos, int curpriority) {
+  while (0 < *oppos) {
+    FExpr op = opstack[*oppos-1];
+    if (fe(op)->priority > curpriority) break;
+    if (*outpos < 2) error("got operator, but illegal infix");
+    (*oppos)--;
+    FExpr right = outstack[--(*outpos)];
+    FExpr left = outstack[--(*outpos)];
+    fseq(infixcall, op, left, right);
+    outstack[(*outpos)++] = infixcall;
   }
 }
 
-FExpr split_infixseq(FExpr f) {
-  fiter(it, fe(f)->sons);
-  FExpr first = fnext(it);
-  FExpr second = fnext(it);
-  FExpr right;
-  if (IListFExpr_len(it) == 1) {
-    right = fnext(it);
-  } else {
-    right = new_fexpr(FEXPR_SEQ);
-    fe(right)->sons = it;
+FExpr split_infixseq_priority(FExpr f) {
+  FExpr outstack[1024] = {};
+  FExpr opstack[1024] = {};
+  FExpr seqstack[1024] = {};
+  int outpos = 0;
+  int oppos = 0;
+  int seqpos = 0;
+  forlist (IListFExpr, FExpr, son, fe(f)->sons) {
+    if (fe(son)->kind == FEXPR_OP) {
+      if (seqpos == 1) {
+        outstack[outpos++] = seqstack[--seqpos];
+      } else {
+        FExpr sq = new_fcontainer(FEXPR_SEQ);
+        while (0 < seqpos) {
+          push_son(sq, seqstack[--seqpos]);
+        }
+        outstack[outpos++] = sq;
+      }
+      consume_infix_stack(outstack, opstack, &outpos, &oppos, fe(son)->priority);
+      opstack[oppos++] = son;
+    } else {
+      seqstack[seqpos++] = son;
+    }
   }
-  FExpr newf = new_fcontainer(FEXPR_SEQ);
-  push_son(newf, second);
-  push_son(newf, first);
-  push_son(newf, right);
-  reverse_sons(newf);
-  return newf;
+  if (seqpos == 1) {
+    seqpos = 0;
+    outstack[outpos++] = seqstack[seqpos];
+  } else {
+    FExpr sq = new_fcontainer(FEXPR_SEQ);
+    while (0 < seqpos) {
+      push_son(sq, seqstack[--seqpos]);
+    }
+    outstack[outpos++] = sq;
+  }
+  consume_infix_stack(outstack, opstack, &outpos, &oppos, 20);
+  return outstack[0];
 }
 
 //
@@ -688,8 +718,8 @@ void semantic_analysis(FExpr f) {
     add_fndecl((FnDecl){nameid, argtypes, fe(rettyp)->typsym, false, fe(name)->sym});
     semantic_analysis(body);
     fp(FSymbol, fe(name)->sym)->stacksize = fnstacksize;
-  } else if (is_infixcall(f)) {
-    *fe(f) = *fe(split_infixseq(f));
+  } else if (is_infixseq(f)) {
+    *fe(f) = *fe(split_infixseq_priority(f));
     semantic_analysis(f);
   } else if (is_fncall(f)) {
     fiter(it, fe(f)->sons);
@@ -761,8 +791,8 @@ void semantic_analysis(FExpr f) {
 void semantic_analysis_toplevel(FExpr f) {
   if (is_jitseq(f) || is_fnseq(f)) {
     semantic_analysis(f);
-  } else if (is_infixcall(f)) {
-    *fe(f) = *fe(split_infixseq(f));
+  } else if (is_infixseq(f)) {
+    *fe(f) = *fe(split_infixseq_priority(f));
     semantic_analysis_toplevel(f);
   } else if (is_defseq(f)) {
     fiter(it, fe(f)->sons);

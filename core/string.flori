@@ -5,8 +5,8 @@ struct string {
 
 fn new_string(cs ^cstring) ^string {
   l := len cs
-  (result.p) = cstring (malloc (l+1))
-  (result.len) = l
+  result.p = cstring (malloc (l+1))
+  result.len = l
   copy (result.p) cs
 }
 
