@@ -5,6 +5,7 @@ enum asmirkind {
   ASMIR_MOV
   ASMIR_ADD
   ASMIR_INT
+  ASMIR_SPILL
 }
 
 enum reg {
@@ -38,4 +39,22 @@ enum reg {
   rax, rcx, rdx
 }
 
-fn reg_alloc()
+fn regalloc() {}
+fn peephole() {}
+fn scheduling() {}
+
+defirgen +(a ^int, b ^int) {
+  add a b
+}
+
+defirgen =(a ^int, b ^int) {
+  mov a, b
+}
+
+macro =(a ^texpr int, b ^texpr int) {
+  push fnir $mov a b
+}
+
+defirgen return(x ^int) {
+  mov rax x
+}

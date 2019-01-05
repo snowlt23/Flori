@@ -5,10 +5,10 @@ defprimitive char 1
 defprimitive pointer 8
 
 jit return(^int) ^int {
-  X 0x58
-  X 0x48; X 0x89; X 0xEC
-  X 0x5D
-  X 0xC3
+  X 0x58                 # pop rax
+  X 0x48; X 0x89; X 0xEC # mov rsp, rbp
+  X 0x5D                 # pop rbp
+  X 0xC3                 # ret
 }
 
 jit add(^int, ^int) ^int {

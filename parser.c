@@ -59,6 +59,13 @@ void skip_spaces(Stream* s) {
   for (;;) {
     if (isspaces(stream_get(s))) {
       stream_next(s);
+    } else if (stream_get(s) == '#') {
+      streamrep(i, s) {
+        if (stream_get(s) == '\n') {
+          break;
+        }
+        stream_next(s);
+      }
     } else {
       break;
     }
