@@ -108,6 +108,9 @@ jit push_rax() ^void {
 jit pop_rax() ^void {
   X 0x58
 }
+jit pop_rcx() ^void {
+  X 0x59
+}
 jit pop_rdi() ^void {
   X 0x5f
 }
@@ -122,6 +125,10 @@ jit op_syscall() ^void {
   X 0x0f; X 0x05
 }
 
+jit op_call_rax() ^void {
+  X 0xff; X 0xd0
+}
+
 jit syscall(^int, ^int) ^int {
   pop_rdi; pop_rax
   op_syscall; push_rax
@@ -133,6 +140,11 @@ jit syscall(^int, ^int, ^int) ^int {
 jit syscall(^int, ^int, ^int, ^int) ^int {
   pop_rdx; pop_rsi; pop_rdi; pop_rax
   op_syscall; push_rax
+}
+
+jit cffi(^pointer, ^int) ^int {
+  pop_rdi; pop_rax
+  op_call_rax; push_rax
 }
 
 fn exit(retcode ^int) {
@@ -160,4 +172,10 @@ fn sbrk(inc ^int) ^ptr int {
 
 fn malloc(size ^int) ^pointer {
   sbrk size
+}
+
+internal_init_defs
+
+fn internal_print(x ^int) {
+  cffi internal_print_ptr x
 }

@@ -103,6 +103,14 @@ FType type_cstring() {
   return t;
 }
 
+FType type_pointer() {
+  Decl decl;
+  if (!search_decl(new_istring("pointer"), &decl)) error("undeclared pointer type, please import prelude");
+  FType t = new_ftype(FTYPE_PRIM);
+  fp(FType, t)->sym = decl.sym;
+  return t;
+}
+
 //
 // fn decls
 //
@@ -807,7 +815,34 @@ void semantic_analysis_toplevel(FExpr f) {
     semantic_analysis(value);
     add_decl((Decl){namestr, fe(name)->sym, fe(value)->typ});
     fe(f)->typ = type_void();
+  } else if (fe(f)->kind == FEXPR_IDENT && cmp_ident(f, "internal_init_defs")) {
+    semantic_init_defs();
+    *fe(f) = *fe(new_fcontainer(FEXPR_SEQ));
   } else {
     semantic_analysis(f);
   }
+}
+
+//
+// internal definitions
+//
+
+void init_def(char* name, void* fnaddr) {
+  IString nameid = new_istring(name);
+  FSymbol sym = alloc_FSymbol();
+  fp(FSymbol, sym)->isjit = false;
+  fp(FSymbol, sym)->isprim = false;
+  fp(FSymbol, sym)->istoplevel = false;
+  fp(FSymbol, sym)->isinternal = true;
+  fp(FSymbol, sym)->name = nameid;
+  fp(FSymbol, sym)->internalptr = fnaddr;
+  add_decl((Decl){nameid, sym, type_pointer()});
+}
+
+void internal_print(size_t x) {
+  printf("%zd", x);
+}
+
+void semantic_init_defs() {
+  init_def("internal_print_ptr", internal_print);
 }

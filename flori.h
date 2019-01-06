@@ -229,6 +229,7 @@ typedef struct _FSymbolObj {
   bool isprim;
   IString name;
   bool istoplevel;
+  bool isinternal;
   union {
     int vardataidx;
     int varoffset;
@@ -238,6 +239,7 @@ typedef struct _FSymbolObj {
       int rewrited;
     };
     int size;
+    void* internalptr;
   };
 } FSymbolObj;
 
@@ -375,6 +377,7 @@ FExpr fnext_impl(IListFExpr* il);
 bool search_fndecl(IString name, FTypeVec* argtypes, FnDecl* retfndecl);
 void semantic_analysis(FExpr f);
 void semantic_analysis_toplevel(FExpr f);
+void semantic_init_defs();
 
 // codegen.c
 void codegen(FExpr f);

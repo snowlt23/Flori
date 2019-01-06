@@ -288,6 +288,13 @@ void codegen(FExpr f) {
         write_hex(0xff, 0x30); // push [rax]
         fixup_lendian64(jit_toptr(jitidx), (size_t)data_toptr(fp(FSymbol, fe(f)->sym)->vardataidx));
         reloc_add_info(jitidx, fp(FSymbol, fe(f)->sym)->vardataidx);
+      } else if (fp(FSymbol, fe(f)->sym)->isinternal) {
+        write_hex(0x48, 0xb8); // movabs rax, ..
+        size_t jitidx = jit_getidx();
+        write_hex(0, 0, 0, 0, 0, 0, 0, 0);
+        write_hex(0x50); // push rax
+        fixup_lendian64(jit_toptr(jitidx), (size_t)fp(FSymbol, fe(f)->sym)->internalptr);
+        // TODO: relocation for internal ffi
       } else {
         write_hex(0xff, 0xb5);
         write_lendian(-fp(FSymbol, fe(f)->sym)->varoffset);

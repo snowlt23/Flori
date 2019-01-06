@@ -1,0 +1,92 @@
+import "bootstrap_x64" as bs
+import "ir_x64" as ir
+
+#
+# internal
+#
+
+typedef fexpr ^int
+
+fn opcode(x ^int) {@internal "opcode"}
+
+#
+# ir
+#
+
+curr_fnirt := seq[^int]
+code_buffer := seq[^int]
+
+fn analyze_liveness(irtseq ^seq irtree) ^liveness {}
+fn regalloc(irtseq ^seq irtree) ^seq irtree {}
+fn peephole(irtseq ^seq irtree) ^seq irtree {}
+fn codegen(irt ^irtree) {}
+
+fn fn_optimizer_begin() {}
+fn fn_optimizer_end() {
+  fnirt := curr_fnirt
+  live := analyze_liveness fnirt
+  fnirt = regalloc fnirt
+  fnirt = peephole fnirt
+  for $irt in fnirt {
+    codegen irt
+  }
+}
+
+fn mov(a ^fexpr, b ^fexpr) {
+  var irt ^irtree
+  irt.kind = IRTREE_MOV
+  irt.left = a.ident
+  rit.right = b.ident
+  push cur_fnir irt
+}
+# defir2 mov IRTREE_MOV
+# defir2 add IRTREE_ADD
+# defir1 push IRTREE_PUSH
+# defir0 ret IRTREE_RET
+
+#
+# optimizer
+#
+
+macro +(a ^int, b ^int) ^fexpr {
+  t := ir::gentmp
+  ir::mov t a
+  ir::add t b
+  return t
+}
+
+macro return(x ^int) ^fexpr {
+  ir::mov rax x
+  return ir::none
+}
+
+macro fn(name ^fident, args ^flist, ret ^fexpr, body ^fexpr) ^fexpr {
+  quote {
+    internal::fn `name `args `ret {
+      static fn_optimizer_begin
+      `body
+      static fn_optimizer_end
+    }
+  }
+}
+macro fn(name ^fident, args ^flist, body ^fexpr) ^fexpr {
+  quote {
+    fn `name `args ^void `body
+  }
+}
+
+fn add5(x ^int) {
+  return x + 5
+}
+
+#
+# elfgen
+#
+
+fn generate_executeble(filename ^cstring) {
+  f := open_file filename
+  defer $close_file f
+  write_elf_header f ..
+  write_program_header f ..
+  write_segment f code_buffer
+}

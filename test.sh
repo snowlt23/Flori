@@ -78,6 +78,7 @@ runtest "fn main() {s := \"yukarisan\"; 9}" 9
 runtest "fn main() {s := \"ia\"; deref (cast_ptr s)}" 105
 runtest "gx := 555; fn main() {gx}" 555
 runtest "fn main() {s := \"yukayuka\"; len s}" 8
+runtest "fn main() {internal_print 5454; 0}" "54540"
 
 filetest "examples/fib.flori" 34
 filetest "examples/sizeof.flori" 24

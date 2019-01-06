@@ -1,0 +1,13 @@
+when $is_cpu_x64 {
+  import "optimizer_x64"
+} else {
+  static $error "unknown or unsupported cpu"
+}
+
+when $is_windows {
+  import "pegen"
+} elif $is_linux {
+  import "elfgen"
+} else {
+  static $error "unknown or unsupported platform"
+}

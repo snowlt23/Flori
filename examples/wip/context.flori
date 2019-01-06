@@ -1,0 +1,63 @@
+enum gamestate {
+  GAME_LOAD
+  GAME_START
+  GAME_BATTLE
+}
+
+struct gamecontext {
+  player ^player
+  state ^gamestate
+  savefile ^file
+}
+
+defcontext game ^gamecontext
+
+fn render() {
+  match game.state {
+    GAME_LOAD render_loadscreen
+    GAME_START render_startscreen
+    GAME_BATTLE $render_player game.player
+  }
+}
+
+struct file { $context_type
+}
+
+fn open_file(filename ^string) ^file {
+  
+}
+
+fn write_file(filename ^string, content ^string) {
+  f := open_file filename
+  write f content
+  # ->
+  f := open_file filename
+  in_context f {
+    write f content
+  }
+}
+
+fn open_file_with(db ^ref filedb, filename ^string) ^file {
+  f := open_file filename
+  filedb.f = f
+  return f
+  # ->
+  f := open_file filename # HC
+  in_context f { # in C1
+    filedb.f = f # HC = C1 : illegal!
+    return f # HC <- C1 : move C1 to HC, correct.
+  }
+}
+
+fn main() {
+  var ctx ^gamecontext
+  ctx.savefile = open_file "save01.bin"
+  in_context ctx {
+    update
+    render
+  }
+  loop [ctx] {
+    update
+    render
+  }
+}
