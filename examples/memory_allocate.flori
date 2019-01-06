@@ -1,5 +1,5 @@
 fn main() {
-  p := cast_ptr_int (malloc (sizeof ^int))
-  (deref p) = 123
-  exit (deref p)
+  p := cast_ptr_int $malloc (sizeof ^int)
+  deref p = 123
+  exit $deref p
 }

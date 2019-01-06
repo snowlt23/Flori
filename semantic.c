@@ -465,6 +465,89 @@ void semantic_analysis(FExpr f) {
     } else {
       error("undeclared %s ident.", istring_cstr(fe(f)->ident));
     }
+  } else if (is_fnseq(f)) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr name = fnext(it);
+    IString nameid;
+    if (fe(name)->kind == FEXPR_IDENT) {
+      nameid = fe(name)->ident;
+      fe(name)->kind = FEXPR_SYMBOL;
+      fe(name)->sym = alloc_FSymbol();
+      fp(FSymbol, fe(name)->sym)->name = nameid;
+      fp(FSymbol, fe(name)->sym)->f = f;
+      fp(FSymbol, fe(name)->sym)->isjit = false;
+    } else {
+      nameid = fp(FSymbol, fe(name)->sym)->name;
+    }
+    IListFExpr argsit = it;
+    FExpr args = fnext(it);
+
+    FExpr rettyp;
+    FExpr body;
+    fnstacksize = 0;
+    if (fe(fcurr(it))->kind == FEXPR_BLOCK) {
+      IListFExpr_ptr(argsit)->next = new_IListFExpr(new_ftypesym(type_void()), it);
+      it = argsit;
+      fnext(it);
+      rettyp = fnext(it);
+      body = fnext(it);
+    } else {
+      rettyp = fnext(it);
+      body = fnext(it);
+      semantic_analysis(rettyp);
+      if (is_structtype(fe(rettyp)->typsym)) {
+        rewrite_return_to_arg(f);
+        semantic_analysis(f);
+        return;
+      }
+    }
+    IListFType argtypes = nil_IListFType();
+    forlist(IListFExpr, FExpr, arg, fe(args)->sons) {
+      fiter(argit, fe(arg)->sons);
+      FExpr argname = fnext(argit);
+      FExpr argtyp = fnext(argit);
+      semantic_analysis(argtyp);
+      if (is_structtype(fe(argtyp)->typsym)) {
+        fseq(newargtyp, fident("type_ptr"), copy_fexpr(argtyp));
+        *fe(argtyp) = *fe(newargtyp);
+        semantic_analysis(argtyp);
+      }
+      argtypes = new_IListFType(fe(argtyp)->typsym, argtypes);
+      fe(arg)->kind = FEXPR_SYMBOL;
+      fe(arg)->sym = alloc_FSymbol();
+      fp(FSymbol, fe(arg)->sym)->name = fe(argname)->ident;
+      fp(FSymbol, fe(arg)->sym)->f = argname;
+      add_decl((Decl){fe(argname)->ident, fe(arg)->sym, fe(argtyp)->typsym});
+    }
+    argtypes = IListFType_reverse(argtypes);
+    add_fndecl((FnDecl){nameid, argtypes, fe(rettyp)->typsym, false, fe(name)->sym});
+    semantic_analysis(body);
+    fp(FSymbol, fe(name)->sym)->stacksize = fnstacksize;
+  } else if (is_jitseq(f)) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr name = fnext(it);
+    FExpr args = fnext(it);
+    FExpr rettyp = fnext(it);
+    FExpr body = fnext(it);
+    IListFType argtypes = nil_IListFType();
+    forlist(IListFExpr, FExpr, arg, fe(args)->sons) {
+      semantic_analysis(arg);
+      argtypes = new_IListFType(fe(arg)->typsym, argtypes);
+    }
+    argtypes = IListFType_reverse(argtypes);
+    semantic_analysis(rettyp);
+    IString nameid = fe(name)->ident;
+    fe(name)->kind = FEXPR_SYMBOL;
+    fe(name)->sym = alloc_FSymbol();
+    fp(FSymbol, fe(name)->sym)->name = nameid;
+    fp(FSymbol, fe(name)->sym)->f = body;
+    fp(FSymbol, fe(name)->sym)->isjit = true;
+    add_fndecl((FnDecl){nameid, argtypes, fe(rettyp)->typsym, true, fe(name)->sym});
+  } else if (is_infixseq(f)) {
+    *fe(f) = *fe(split_infixseq_priority(f));
+    semantic_analysis(f);
   } else if (is_typeptrseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);
@@ -548,27 +631,6 @@ void semantic_analysis(FExpr f) {
       semantic_analysis(f);
     }
     fe(f)->typ = type_void();
-  } else if (is_jitseq(f)) {
-    fiter(it, fe(f)->sons);
-    fnext(it);
-    FExpr name = fnext(it);
-    FExpr args = fnext(it);
-    FExpr rettyp = fnext(it);
-    FExpr body = fnext(it);
-    IListFType argtypes = nil_IListFType();
-    forlist(IListFExpr, FExpr, arg, fe(args)->sons) {
-      semantic_analysis(arg);
-      argtypes = new_IListFType(fe(arg)->typsym, argtypes);
-    }
-    argtypes = IListFType_reverse(argtypes);
-    semantic_analysis(rettyp);
-    IString nameid = fe(name)->ident;
-    fe(name)->kind = FEXPR_SYMBOL;
-    fe(name)->sym = alloc_FSymbol();
-    fp(FSymbol, fe(name)->sym)->name = nameid;
-    fp(FSymbol, fe(name)->sym)->f = body;
-    fp(FSymbol, fe(name)->sym)->isjit = true;
-    add_fndecl((FnDecl){nameid, argtypes, fe(rettyp)->typsym, true, fe(name)->sym});
   } else if (is_Xseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);
@@ -667,68 +729,6 @@ void semantic_analysis(FExpr f) {
     *fe(f) = *fe(new_fcontainer(FEXPR_BLOCK));
     push_son(f, copyfn);
     push_son(f, newf);
-  } else if (is_fnseq(f)) {
-    fiter(it, fe(f)->sons);
-    fnext(it);
-    FExpr name = fnext(it);
-    IString nameid;
-    if (fe(name)->kind == FEXPR_IDENT) {
-      nameid = fe(name)->ident;
-      fe(name)->kind = FEXPR_SYMBOL;
-      fe(name)->sym = alloc_FSymbol();
-      fp(FSymbol, fe(name)->sym)->name = nameid;
-      fp(FSymbol, fe(name)->sym)->f = f;
-      fp(FSymbol, fe(name)->sym)->isjit = false;
-    } else {
-      nameid = fp(FSymbol, fe(name)->sym)->name;
-    }
-    IListFExpr argsit = it;
-    FExpr args = fnext(it);
-
-    FExpr rettyp;
-    FExpr body;
-    fnstacksize = 0;
-    if (fe(fcurr(it))->kind == FEXPR_BLOCK) {
-      IListFExpr_ptr(argsit)->next = new_IListFExpr(new_ftypesym(type_void()), it);
-      it = argsit;
-      fnext(it);
-      rettyp = fnext(it);
-      body = fnext(it);
-    } else {
-      rettyp = fnext(it);
-      body = fnext(it);
-      semantic_analysis(rettyp);
-      if (is_structtype(fe(rettyp)->typsym)) {
-        rewrite_return_to_arg(f);
-        semantic_analysis(f);
-        return;
-      }
-    }
-    IListFType argtypes = nil_IListFType();
-    forlist(IListFExpr, FExpr, arg, fe(args)->sons) {
-      fiter(argit, fe(arg)->sons);
-      FExpr argname = fnext(argit);
-      FExpr argtyp = fnext(argit);
-      semantic_analysis(argtyp);
-      if (is_structtype(fe(argtyp)->typsym)) {
-        fseq(newargtyp, fident("type_ptr"), copy_fexpr(argtyp));
-        *fe(argtyp) = *fe(newargtyp);
-        semantic_analysis(argtyp);
-      }
-      argtypes = new_IListFType(fe(argtyp)->typsym, argtypes);
-      fe(arg)->kind = FEXPR_SYMBOL;
-      fe(arg)->sym = alloc_FSymbol();
-      fp(FSymbol, fe(arg)->sym)->name = fe(argname)->ident;
-      fp(FSymbol, fe(arg)->sym)->f = argname;
-      add_decl((Decl){fe(argname)->ident, fe(arg)->sym, fe(argtyp)->typsym});
-    }
-    argtypes = IListFType_reverse(argtypes);
-    add_fndecl((FnDecl){nameid, argtypes, fe(rettyp)->typsym, false, fe(name)->sym});
-    semantic_analysis(body);
-    fp(FSymbol, fe(name)->sym)->stacksize = fnstacksize;
-  } else if (is_infixseq(f)) {
-    *fe(f) = *fe(split_infixseq_priority(f));
-    semantic_analysis(f);
   } else if (is_fncall(f)) {
     fiter(it, fe(f)->sons);
     FExpr first = fnext(it);

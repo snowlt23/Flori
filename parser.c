@@ -207,8 +207,12 @@ FExpr parse_reader_type(Stream* s) {
 FExpr parse_reader_dollar(Stream* s) {
   if (stream_next(s) != '$') error("expect `$ reader token.");
   char buf[1024*1024] = {};
+  int parencnt = 0;
   for (int i=0; i<1024*1024; i++) {
-    if (stream_get(s) == '$' || stream_get(s) == ')' || stream_get(s) == '}' || stream_get(s) == '=') break;
+    if (stream_get(s) == '(') parencnt++;
+    if (stream_get(s) == ')' && parencnt == 0) break;
+    if (stream_get(s) == ')') parencnt--;
+    if (stream_get(s) == '$' || stream_get(s) == '}' || stream_get(s) == '=') break;
     if (stream_get(s) == '\n' || stream_get(s) == ';' || stream_get(s) == ',') break;
     buf[i] = stream_next(s);
   }

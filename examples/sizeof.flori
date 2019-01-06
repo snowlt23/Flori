@@ -4,5 +4,5 @@ struct myint {
 }
 
 fn main() {
-  (sizeof ^myint) + (sizeof ^int)
+  sizeof ^myint + sizeof ^int
 }
