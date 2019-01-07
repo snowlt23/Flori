@@ -49,6 +49,7 @@ int main(int argc, char** argv) {
   data_init(1024);
   reloc_init();
   semantic_init();
+  semantic_init_internal();
   Stream* s = new_stream(read_stdin());
   while (!stream_isend(s)) {
     if (linmem_need_extend()) linmem_extend();

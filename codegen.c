@@ -309,10 +309,8 @@ void codegen(FExpr f) {
       break;
     case FEXPR_SEQ:
       if (IListFExpr_len(fe(f)->sons) != 0) {
-        if (codegen_internal_fseq(f)) {
-          break;
-        }
         FExpr first = IListFExpr_value(fe(f)->sons);
+        if (codegen_internal_fseq(f)) break;
         if (fe(first)->kind == FEXPR_SYMBOL) {
           forlist (IListFExpr, FExpr, arg, IListFExpr_next(fe(f)->sons)) {
             codegen(arg);

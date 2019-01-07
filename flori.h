@@ -13,7 +13,7 @@
 #define check_next(l, ...) if (IListFExpr_isnil(l)) { error(__VA_ARGS__); }
 #define isfnil(l) IListFExpr_isnil(l)
 
-#define fp(t, f) (assert(!t ## _isnil(f)), t ## _ptr(f))
+#define fp(t, f) (assert(0 <= f.index && f.index < linmem_getidx()), t ## _ptr(f))
 #define fe(f) fp(FExpr, f)
 
 #define fiter(itr, f) IListFExpr itr = f
@@ -288,6 +288,8 @@ typedef struct {
   FType returntype;
   bool isjit;
   FSymbol sym;
+  bool isinternal;
+  void (*internalfn)(FExpr);
 } FnDecl;
 
 %%expand ilist(DeclMap, Decl);
@@ -298,6 +300,12 @@ typedef struct {
 } FnDeclGroupObj;
 %%expand fstruct(FnDeclGroup, FnDeclGroupObj);
 %%expand ilist(FnDeclMap, FnDeclGroup);
+
+typedef struct {
+  IString name;
+  void (*fnptr)(FExpr);
+} InternalDecl;
+%%expand ilist(InternalDeclMap, InternalDecl);
 
 typedef struct {
   size_t jitidx;
@@ -311,6 +319,7 @@ void linmem_extend();
 void linmem_init(int size);
 int linmem_alloc(int size);
 void* linmem_toptr(int index);
+int linmem_getidx();
 
 // jit.c
 void jit_init(int size);
@@ -377,6 +386,7 @@ FExpr fnext_impl(IListFExpr* il);
 bool search_fndecl(IString name, FTypeVec* argtypes, FnDecl* retfndecl);
 void semantic_analysis(FExpr f);
 void semantic_analysis_toplevel(FExpr f);
+void semantic_init_internal();
 void semantic_init_defs();
 
 // codegen.c

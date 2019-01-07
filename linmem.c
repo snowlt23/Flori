@@ -38,3 +38,7 @@ void* linmem_toptr(int index) {
   assert(index >= 0);
   return (void*)(linmemptr + index);
 }
+
+int linmem_getidx() {
+  return linmempos;
+}

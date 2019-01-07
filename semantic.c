@@ -3,14 +3,19 @@
 
 DeclMap declmap;
 FnDeclMap fndeclmap;
+InternalDeclMap internaldeclmap;
 int fnstacksize;
-
 int tmpcnt = 0;
 
 void semantic_init() {
   declmap = nil_DeclMap();
   fndeclmap = nil_FnDeclMap();
+  internaldeclmap = nil_InternalDeclMap();
 }
+
+//
+// semantic
+//
 
 FExpr gen_tmpid() {
   char buf[1024] = {};
@@ -145,6 +150,11 @@ bool match_overload(IListFType fntypes, FTypeVec* argtypes) {
 
 bool search_fndecl_from_group(FnDeclGroup fngroup, IString name, FTypeVec* argtypes, FnDecl* retfndecl) {
   forlist (IListFnDecl, FnDecl, fndecl, fp(FnDeclGroup, fngroup)->decls) {
+    if (fndecl.isinternal) {
+      *retfndecl = fndecl;
+      return true;
+    }
+    
     IListFType fnargtypes;
     if (fp(FSymbol, fndecl.sym)->rewrited) {
       fnargtypes = IListFType_next(fndecl.argtypes);
@@ -171,6 +181,84 @@ bool search_fndecl(IString name, FTypeVec* argtypes, FnDecl* retfndecl) {
 }
 
 //
+// internal decl
+//
+
+void add_internal_decl(InternalDecl decl) {
+  internaldeclmap = new_InternalDeclMap(decl, internaldeclmap);
+}
+
+bool search_internal_decl(IString name, InternalDecl* retdecl) {
+  forlist (InternalDeclMap, InternalDecl, decl, internaldeclmap) {
+    if (istring_eq(decl.name, name)) {
+      *retdecl = decl;
+      return true;
+    }
+  }
+  return false;
+}
+
+void init_def(char* name, void* fnaddr) {
+  IString nameid = new_istring(name);
+  FSymbol sym = alloc_FSymbol();
+  fp(FSymbol, sym)->isjit = false;
+  fp(FSymbol, sym)->isprim = false;
+  fp(FSymbol, sym)->istoplevel = false;
+  fp(FSymbol, sym)->isinternal = true;
+  fp(FSymbol, sym)->name = nameid;
+  fp(FSymbol, sym)->internalptr = fnaddr;
+  add_decl((Decl){nameid, sym, type_pointer()});
+}
+
+void init_internal(char* name, void* fnaddr) {
+  IString nameid = new_istring(name);
+  InternalDecl decl;
+  decl.name = nameid;
+  decl.fnptr = fnaddr;
+  add_internal_decl(decl);
+}
+
+//
+// internal definitions
+//
+
+void internal_typeptr(FExpr f) {
+  fiter(it, fe(f)->sons);
+  fnext(it);
+  FExpr typ = fnext(it);
+  semantic_analysis(typ);
+  assert(fe(typ)->kind == FEXPR_SYMBOL && fe(typ)->istyp);
+  FType ft = new_ftype(FTYPE_PTR);
+  fp(FType, ft)->ptrof = fe(typ)->typsym;
+  *fe(f) = *fe(new_ftypesym(ft));
+}
+
+void internal_type(FExpr f) {
+  fiter(it, fe(f)->sons);
+  fnext(it);
+  FExpr t = fnext(it);
+  Decl decl;
+  if (search_decl(fe(t)->ident, &decl)) {
+    if (fp(FSymbol, decl.sym)->isprim) {
+      FType ft = new_ftype(FTYPE_PRIM);
+      fp(FType, ft)->sym = decl.sym;
+      *fe(f) = *fe(new_ftypesym(ft));
+    } else {
+      FType ft = new_ftype(FTYPE_SYM);
+      fp(FType, ft)->sym = decl.sym;
+      *fe(f) = *fe(new_ftypesym(ft));
+    }
+  } else {
+    error("undeclared %s type", istring_cstr(FExpr_ptr(t)->ident));
+  }
+}
+
+void semantic_init_internal() {
+  init_internal("type_ptr", internal_typeptr);
+  init_internal("type", internal_type);
+}
+
+//
 // isseq util functions
 //
 
@@ -181,8 +269,6 @@ bool search_fndecl(IString name, FTypeVec* argtypes, FnDecl* retfndecl) {
     return cmp_ident(IListFExpr_value(fe(f)->sons), first); \
   }
 
-def_isseq(is_typeptrseq, "type_ptr", 2);
-def_isseq(is_typeseq, "type", 2);
 def_isseq(is_defprimseq, "defprimitive", 3);
 def_isseq(is_defseq, ":=", 3);
 def_isseq(is_varseq, "var", 3);
@@ -197,20 +283,6 @@ def_isseq(is_ifseq, "if", 3);
 def_isseq(is_fnseq, "fn", 1);
 def_isseq(is_structseq, "struct", 1);
 def_isseq(is_whileseq, "while", 3);
-
-bool is_dereffn(FExpr f) {
-  if (fe(f)->kind != FEXPR_SEQ) return false;
-  if (IListFExpr_len(fe(f)->sons) < 2) return false;
-  if (fe(IListFExpr_value(fe(f)->sons))->kind != FEXPR_SYMBOL) return false;
-  return strcmp(istring_cstr(fp(FSymbol, fe(IListFExpr_value(fe(f)->sons))->sym)->name), "deref") == 0;
-}
-
-bool is_deref(FExpr f) {
-  if (!FExpr_isnil(fe(f)->srcf)) {
-    if (is_deref(fe(f)->srcf)) return true;
-  }
-  return is_derefseq(f) || is_dereffn(f);
-}
 
 bool is_fncall(FExpr f) {
   if (fe(f)->kind != FEXPR_SEQ) return false;
@@ -332,29 +404,15 @@ bool is_lvalue(FExpr f) {
   } else if (fe(f)->kind == FEXPR_BLOCK && IListFExpr_len(fe(f)->sons) >= 1) {
     return is_lvalue(IListFExpr_last(fe(f)->sons));
   } else {
-    return fe(f)->kind == FEXPR_SYMBOL || is_deref(f) || is_dotseq(f);
+    return fe(f)->kind == FEXPR_SYMBOL || is_derefseq(f) || is_dotseq(f);
   }
 }
 
 FExpr generate_dot_copy(char* field) {
-  FExpr leftdot = new_fcontainer(FEXPR_SEQ);
-  push_son(leftdot, fident(field));
-  push_son(leftdot, fident("p"));
-  push_son(leftdot, fop("."));
-  FExpr left = new_fcontainer(FEXPR_SEQ);
-  push_son(left, leftdot);
-  push_son(left, fident("getref"));
-
-  FExpr right = new_fcontainer(FEXPR_SEQ);
-  push_son(right, fident(field));
-  push_son(right, fident("v"));
-  push_son(right, fop("."));
-
-  FExpr copyf = new_fcontainer(FEXPR_SEQ);
-  push_son(copyf, right);
-  push_son(copyf, left);
-  push_son(copyf, fident("copy"));
-
+  fseq(leftdot, fop("."), fident("p"), fident(field));
+  fseq(left, fident("getref"), leftdot);
+  fseq(right, fop("."), fident("v"), fident(field));
+  fseq(copyf, fident("copy"), left, right);
   return copyf;
 }
 
@@ -441,6 +499,18 @@ FExpr inject_result_arg(FExpr f, FExpr result) {
 
 void semantic_analysis(FExpr f) {
   if (fe(f)->evaluated) return;
+  // debug("%s", fexpr_tostring(f));
+
+  if (fe(f)->kind == FEXPR_SEQ && IListFExpr_len(fe(f)->sons) >= 1) {
+    fiter(it, fe(f)->sons);
+    FExpr first = fnext(it);
+    InternalDecl decl;
+    if (search_internal_decl(fe(first)->ident, &decl)) {
+      (decl.fnptr)(f);
+      fe(f)->evaluated = true;
+      return;
+    }
+  }
   
   if (fe(f)->kind == FEXPR_INTLIT) {
     fe(f)->typ = type_int();
@@ -508,6 +578,7 @@ void semantic_analysis(FExpr f) {
       FExpr argname = fnext(argit);
       FExpr argtyp = fnext(argit);
       semantic_analysis(argtyp);
+      assert(fe(argtyp)->kind == FEXPR_SYMBOL && fe(argtyp)->istyp);
       if (is_structtype(fe(argtyp)->typsym)) {
         fseq(newargtyp, fident("type_ptr"), copy_fexpr(argtyp));
         *fe(argtyp) = *fe(newargtyp);
@@ -521,7 +592,7 @@ void semantic_analysis(FExpr f) {
       add_decl((Decl){fe(argname)->ident, fe(arg)->sym, fe(argtyp)->typsym});
     }
     argtypes = IListFType_reverse(argtypes);
-    add_fndecl((FnDecl){nameid, argtypes, fe(rettyp)->typsym, false, fe(name)->sym});
+    add_fndecl((FnDecl){nameid, argtypes, fe(rettyp)->typsym, false, fe(name)->sym, false});
     semantic_analysis(body);
     fp(FSymbol, fe(name)->sym)->stacksize = fnstacksize;
   } else if (is_jitseq(f)) {
@@ -544,35 +615,47 @@ void semantic_analysis(FExpr f) {
     fp(FSymbol, fe(name)->sym)->name = nameid;
     fp(FSymbol, fe(name)->sym)->f = body;
     fp(FSymbol, fe(name)->sym)->isjit = true;
-    add_fndecl((FnDecl){nameid, argtypes, fe(rettyp)->typsym, true, fe(name)->sym});
+    add_fndecl((FnDecl){nameid, argtypes, fe(rettyp)->typsym, true, fe(name)->sym, false});
+  } else if (is_structseq(f)) {
+    fiter(it, fe(f)->sons);
+    fnext(it);
+    FExpr name = fnext(it);
+    IString namestr = fe(name)->ident;
+    FExpr body = fnext(it);
+    fe(name)->kind = FEXPR_SYMBOL;
+    fe(name)->sym = alloc_FSymbol();
+    fp(FSymbol, fe(name)->sym)->isprim = false;
+    fp(FSymbol, fe(name)->sym)->name = namestr;
+    fp(FSymbol, fe(name)->sym)->f = body;
+    add_decl((Decl){namestr, fe(name)->sym});
+    forlist (IListFExpr, FExpr, field, fe(body)->sons) {
+      if (fe(field)->kind != FEXPR_SEQ) error("struct field should be fseq");
+      fiter(fieldit, fe(field)->sons);
+      FExpr fieldname = fnext(fieldit);
+      FExpr fieldtyp = fnext(fieldit);
+      FExpr newfieldname = copy_fexpr(fieldname);
+      fe(fieldname)->kind = FEXPR_SYMBOL;
+      fe(fieldname)->sym = alloc_FSymbol();
+      fp(FSymbol, fe(fieldname)->sym)->name = fe(newfieldname)->ident;
+      fp(FSymbol, fe(fieldname)->sym)->f = newfieldname;
+      semantic_analysis(fieldtyp);
+      fe(fieldname)->typ = fe(fieldtyp)->typsym;
+    }
+    FExpr typsym = new_fexpr(FEXPR_SYMBOL);
+    fe(typsym)->evaluated = true;
+    fe(typsym)->istyp = true;
+    fe(typsym)->typsym = new_ftype(FTYPE_SYM);
+    fp(FType, fe(typsym)->typsym)->sym = fe(name)->sym;
+    FExpr copyfn = generate_copyfn(typsym, body);
+    FExpr newf = copy_fexpr(f);
+    decide_struct_size(name, body);
+    semantic_analysis(copyfn);
+    *fe(f) = *fe(new_fcontainer(FEXPR_BLOCK));
+    push_son(f, copyfn);
+    push_son(f, newf);
   } else if (is_infixseq(f)) {
     *fe(f) = *fe(split_infixseq_priority(f));
     semantic_analysis(f);
-  } else if (is_typeptrseq(f)) {
-    fiter(it, fe(f)->sons);
-    fnext(it);
-    FExpr typ = fnext(it);
-    semantic_analysis(typ);
-    fe(f)->kind = FEXPR_SYMBOL;
-    fe(f)->istyp = true;
-    fe(f)->typsym = new_ftype(FTYPE_PTR);
-    fp(FType, fe(f)->typsym)->ptrof = fe(typ)->typsym;
-  } else if (is_typeseq(f)) {
-    FExpr t = IListFExpr_value(IListFExpr_next(fe(f)->sons));
-    Decl decl;
-    if (search_decl(fe(t)->ident, &decl)) {
-      if (fp(FSymbol, decl.sym)->isprim) {
-        FType ft = new_ftype(FTYPE_PRIM);
-        fp(FType, ft)->sym = decl.sym;
-        *fe(f) = *fe(new_ftypesym(ft));
-      } else {
-        FType ft = new_ftype(FTYPE_SYM);
-        fp(FType, ft)->sym = decl.sym;
-        *fe(f) = *fe(new_ftypesym(ft));
-      }
-    } else {
-      error("undeclared %s type", istring_cstr(FExpr_ptr(t)->ident));
-    }
   } else if (is_defprimseq(f)) {
     fiter(it, fe(f)->sons);
     fnext(it);
@@ -693,51 +776,17 @@ void semantic_analysis(FExpr f) {
     semantic_analysis(cond);
     semantic_analysis(body);
     fe(f)->typ = type_void();
-  } else if (is_structseq(f)) {
-    fiter(it, fe(f)->sons);
-    fnext(it);
-    FExpr name = fnext(it);
-    IString namestr = fe(name)->ident;
-    FExpr body = fnext(it);
-    fe(name)->kind = FEXPR_SYMBOL;
-    fe(name)->sym = alloc_FSymbol();
-    fp(FSymbol, fe(name)->sym)->isprim = false;
-    fp(FSymbol, fe(name)->sym)->name = namestr;
-    fp(FSymbol, fe(name)->sym)->f = body;
-    add_decl((Decl){namestr, fe(name)->sym});
-    forlist (IListFExpr, FExpr, field, fe(body)->sons) {
-      if (fe(field)->kind != FEXPR_SEQ) error("struct field should be fseq");
-      fiter(fieldit, fe(field)->sons);
-      FExpr fieldname = fnext(fieldit);
-      FExpr fieldtyp = fnext(fieldit);
-      FExpr newfieldname = copy_fexpr(fieldname);
-      fe(fieldname)->kind = FEXPR_SYMBOL;
-      fe(fieldname)->sym = alloc_FSymbol();
-      fp(FSymbol, fe(fieldname)->sym)->name = fe(newfieldname)->ident;
-      fp(FSymbol, fe(fieldname)->sym)->f = newfieldname;
-      semantic_analysis(fieldtyp);
-      fe(fieldname)->typ = fe(fieldtyp)->typsym;
-    }
-    FExpr typsym = new_fexpr(FEXPR_SYMBOL);
-    fe(typsym)->istyp = true;
-    fe(typsym)->typsym = new_ftype(FTYPE_SYM);
-    fp(FType, fe(typsym)->typsym)->sym = fe(name)->sym;
-    FExpr copyfn = generate_copyfn(typsym, body);
-    FExpr newf = copy_fexpr(f);
-    decide_struct_size(name, body);
-    semantic_analysis(copyfn);
-    *fe(f) = *fe(new_fcontainer(FEXPR_BLOCK));
-    push_son(f, copyfn);
-    push_son(f, newf);
   } else if (is_fncall(f)) {
     fiter(it, fe(f)->sons);
     FExpr first = fnext(it);
+    
     if (fe(first)->kind == FEXPR_SYMBOL) {
       forlist (IListFExpr, FExpr, arg, it) {
         semantic_analysis(arg);
       }
       return;
     }
+    
     FTypeVec* argtypes = new_FTypeVec();
     forlist (IListFExpr, FExpr, arg, it) {
       semantic_analysis(arg);
@@ -826,18 +875,6 @@ void semantic_analysis_toplevel(FExpr f) {
 //
 // internal definitions
 //
-
-void init_def(char* name, void* fnaddr) {
-  IString nameid = new_istring(name);
-  FSymbol sym = alloc_FSymbol();
-  fp(FSymbol, sym)->isjit = false;
-  fp(FSymbol, sym)->isprim = false;
-  fp(FSymbol, sym)->istoplevel = false;
-  fp(FSymbol, sym)->isinternal = true;
-  fp(FSymbol, sym)->name = nameid;
-  fp(FSymbol, sym)->internalptr = fnaddr;
-  add_decl((Decl){nameid, sym, type_pointer()});
-}
 
 void internal_print(size_t x) {
   printf("%zd", x);

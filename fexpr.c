@@ -84,7 +84,9 @@ char* fexpr_tostring(FExpr f) {
     return istring_cstr(fe(f)->ident);
   case FEXPR_SYMBOL:
     if (fe(f)->istyp) {
-      return ftype_tostring(fe(f)->typsym);
+      char buf[1024] = {};
+      snprintf(buf, 1024, "^%s", ftype_tostring(fe(f)->typsym));
+      return strdup(buf);
     } else {
       return istring_cstr(fp(FSymbol, fe(f)->sym)->name);
     }
