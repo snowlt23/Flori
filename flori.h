@@ -264,6 +264,7 @@ typedef struct _FExprObj {
   bool istyp;
   FExpr srcf;
   bool evaluated;
+  bool istoplevel;
   int priority;
   union {
     IString ident;
@@ -303,7 +304,10 @@ typedef struct {
 
 typedef struct {
   IString name;
-  void (*fnptr)(FExpr);
+  bool issyntax;
+  void (*semanticfn)(FExpr);
+  void (*codegenfn)(FExpr);
+  void (*lvaluegenfn)(FExpr);
 } InternalDecl;
 %%expand ilist(InternalDeclMap, InternalDecl);
 
@@ -374,26 +378,14 @@ bool stream_isend(Stream* s);
 Stream* new_stream(char* buf);
 FExpr parse(Stream* s);
 
-// semantic.c
-bool ftype_is(FType t, char* name);
-int get_type_size(FType t);
-bool is_structtype(FType t);
-bool is_dotseq(FExpr f);
-bool is_deref(FExpr f);
-bool is_defseq(FExpr f);
-void semantic_init();
-FExpr fnext_impl(IListFExpr* il);
-bool search_fndecl(IString name, FTypeVec* argtypes, FnDecl* retfndecl);
-void semantic_analysis(FExpr f);
-void semantic_analysis_toplevel(FExpr f);
-void semantic_init_internal();
-void semantic_init_defs();
-
-// codegen.c
-void codegen(FExpr f);
-void codegen_toplevel(FExpr f);
-int call_main();
-size_t get_main_offset();
+// boot.c
+bool search_fndecl(IString name, FTypeVec* argtypes, FnDecl* fndecl);
+void boot_semantic(FExpr f);
+void boot_codegen(FExpr f);
+void boot_eval_toplevel(FExpr f);
+void boot_init();
+void boot_def_internals();
+int boot_call_main();
 
 // elfgen.c
 void write_elf_executable(FILE* fp, uint8_t* codeptr, size_t codesize, uint8_t* dataptr, size_t datasize, size_t entryoffset);

@@ -24,8 +24,7 @@ void define_entrypoint() {
   if (linmem_need_extend()) linmem_extend();
   FExpr f = parse(s);
   if (f.index == -1) assert(false);
-  semantic_analysis(f);
-  codegen(f);
+  boot_eval_toplevel(f);
 }
 
 size_t get_entrypoint_offset() {
@@ -48,8 +47,8 @@ int main(int argc, char** argv) {
   jit_init(1024);
   data_init(1024);
   reloc_init();
-  semantic_init();
-  semantic_init_internal();
+  boot_init();
+  boot_def_internals();
   Stream* s = new_stream(read_stdin());
   while (!stream_isend(s)) {
     if (linmem_need_extend()) linmem_extend();
@@ -60,8 +59,7 @@ int main(int argc, char** argv) {
     }
     FExpr f = parse(s);
     if (f.index == -1) continue;
-    semantic_analysis_toplevel(f);
-    codegen_toplevel(f);
+    boot_eval_toplevel(f);
   }
 
   if (argc == 3) {
@@ -74,6 +72,6 @@ int main(int argc, char** argv) {
     }
   } else {
     jit_write_to_file("buffer.jit");
-    printf("%d", call_main());
+    printf("%d", boot_call_main());
   }
 }

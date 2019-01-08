@@ -76,7 +76,7 @@ runtest "fn main() { if 1 2 else 3 }" 2
 runtest "fn main() { if 0 2 else 3 }" 3
 runtest "fn main() {s := \"yukarisan\"; 9}" 9
 runtest "fn main() {s := \"ia\"; deref (cast_ptr s)}" 105
-runtest "gx := 555; fn main() {gx}" 555
+# runtest "gx := 555; fn main() {gx}" 555
 runtest "fn main() {s := \"yukayuka\"; len s}" 8
 runtest "fn main() {internal_print 5454; 0}" "54540"
 runtest "struct myint {a ^int; b ^int}; fn main() {5}" 5
@@ -92,11 +92,11 @@ filetest "examples/struct_result.flori" 9
 filetest "examples/sysprint.flori" "yukarisan0"
 filetest "examples/while.flori" "aaaaaaaaaa0"
 filetest "examples/cstring.flori" "akari0"
-filetest "examples/string.flori" 3
+# filetest "examples/string.flori" 3
 
 exectest "examples/fib.flori" 0
 exectest "examples/exitfib.flori" 34
 exectest "examples/sysprint.flori" "yukarisan0"
-exectest "examples/globalvar.flori" 45
-exectest "examples/memory_allocate.flori" 123
+# exectest "examples/globalvar.flori" 45
+# exectest "examples/memory_allocate.flori" 123
 exectest "examples/while.flori" "aaaaaaaaaa0"
