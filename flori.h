@@ -155,7 +155,7 @@ typedef struct {
 
 %%template fstruct {
   typedef struct {
-    int index;
+    size_t index;
   } %%1;
   %%1 alloc_%%1();
   %%2* %%1_ptr(%%1 t);
@@ -226,6 +226,7 @@ typedef struct {
 typedef struct _FSymbolObj {
   FExpr f;
   bool isjit;
+  bool ismacro;
   bool isprim;
   IString name;
   bool istoplevel;

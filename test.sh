@@ -93,6 +93,7 @@ filetest "examples/sysprint.flori" "yukarisan0"
 filetest "examples/while.flori" "aaaaaaaaaa0"
 filetest "examples/cstring.flori" "akari0"
 # filetest "examples/string.flori" 3
+filetest "examples/macro.flori" 9
 
 exectest "examples/fib.flori" 0
 exectest "examples/exitfib.flori" 34

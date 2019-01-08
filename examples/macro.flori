@@ -1,0 +1,7 @@
+macro mac45() ^fexpr {
+  return $fintlit (4 + 5)
+}
+
+fn main() {
+  mac45
+}

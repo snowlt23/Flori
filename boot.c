@@ -209,6 +209,7 @@ void init_def(char* name, void* fnaddr) {
   IString nameid = new_istring(name);
   FSymbol sym = alloc_FSymbol();
   fp(FSymbol, sym)->isjit = false;
+  fp(FSymbol, sym)->ismacro = false;
   fp(FSymbol, sym)->isprim = false;
   fp(FSymbol, sym)->istoplevel = false;
   fp(FSymbol, sym)->isinternal = true;
@@ -431,6 +432,11 @@ bool has_ident(FExpr f) {
 // semantic
 //
 
+FExpr call_macro(FSymbol sym) {
+  size_t (*macrofn)() = jit_toptr(fp(FSymbol, sym)->fnidx);
+  return (FExpr){macrofn()};
+}
+
 void boot_semantic(FExpr f) {
   if (fe(f)->evaluated) return;
   // debug("semantic: %s", fexpr_tostring(f));
@@ -506,6 +512,10 @@ void boot_semantic(FExpr f) {
         fe(first)->sym = fndecl.sym;
         fe(newf)->srcf = copy_fexpr(callf);
         *fe(f) = *fe(newf);
+      } else if (fp(FSymbol, fndecl.sym)->ismacro) { // macro call
+        // FExpr newf = copy_fexpr(f);
+        *fe(f) = *fe(call_macro(fndecl.sym));
+        boot_semantic(f);
       } else { // fn call
         fe(first)->kind = FEXPR_SYMBOL;
         fe(first)->sym = fndecl.sym;
@@ -780,6 +790,7 @@ void semantic_fn(FExpr f) {
     fp(FSymbol, fe(name)->sym)->name = nameid;
     fp(FSymbol, fe(name)->sym)->f = f;
     fp(FSymbol, fe(name)->sym)->isjit = false;
+    fp(FSymbol, fe(name)->sym)->ismacro = false;
   } else {
     nameid = fp(FSymbol, fe(name)->sym)->name;
   }
@@ -890,6 +901,19 @@ void semantic_struct(FExpr f) {
   *fe(f) = *fe(new_fcontainer(FEXPR_BLOCK));
   push_son(f, copyfn);
   push_son(f, newf);
+}
+
+void semantic_macro(FExpr f) {
+  fiter(macit, fe(f)->sons);
+  FExpr mac = fnext(macit);
+  fe(mac)->ident = new_istring("fn");
+  boot_semantic(f);
+
+  fiter(fnit, fe(f)->sons);
+  fnext(fnit);
+  FExpr fnsym = fnext(fnit);
+  assert(fe(fnsym)->kind == FEXPR_SYMBOL);
+  fp(FSymbol, fe(fnsym)->sym)->ismacro = true;
 }
 
 void semantic_def(FExpr f) {
@@ -1214,8 +1238,15 @@ void internal_print(size_t x) {
   printf("%zd", x);
 }
 
+size_t internal_fintlit(size_t x) {
+  FExpr f = new_fexpr(FEXPR_INTLIT);
+  fe(f)->intval = x;
+  return f.index;
+}
+
 void internal_init_defs(FExpr f) {
   init_def("internal_print_ptr", internal_print);
+  init_def("internal_fintlit_ptr", internal_fintlit);
 }
 
 void boot_def_internals() {
@@ -1225,6 +1256,7 @@ void boot_def_internals() {
   init_internal("fn", true, semantic_fn, codegen_fn, NULL);
   init_internal("jit", true, semantic_jit, NULL, NULL);
   init_internal("struct", true, semantic_struct, NULL, NULL);
+  init_internal("macro", true, semantic_macro, NULL, NULL);
   init_internal(":=", false, semantic_def, NULL, NULL);
   init_internal("var", false, semantic_var, codegen_var, NULL);
   init_internal("=", false, semantic_set, codegen_set, NULL);

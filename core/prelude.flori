@@ -3,8 +3,16 @@ defprimitive int 8
 defprimitive cstring 8
 defprimitive char 1
 defprimitive pointer 8
+defprimitive fexpr 8
 
 jit return(^int) ^int {
+  X 0x58                 # pop rax
+  X 0x48; X 0x89; X 0xEC # mov rsp, rbp
+  X 0x5D                 # pop rbp
+  X 0xC3                 # ret
+}
+
+jit return(^fexpr) ^fexpr {
   X 0x58                 # pop rax
   X 0x48; X 0x89; X 0xEC # mov rsp, rbp
   X 0x5D                 # pop rbp
@@ -92,6 +100,8 @@ jit cast_pointer(^cstring) ^pointer {}
 jit cstring(^pointer) ^cstring {}
 jit cast_int(^cstring) ^int {}
 jit cast_int(^ptr int) ^int {}
+jit cast_int(^fexpr) ^int {}
+jit cast_fexpr(^int) ^fexpr {}
 jit char_ptr(^pointer) ^ptr char {}
 
 fn copy(p ^ptr int, v ^int) {
@@ -178,4 +188,8 @@ internal_init_defs
 
 fn internal_print(x ^int) {
   cffi internal_print_ptr x
+}
+
+fn fintlit(x ^int) ^fexpr {
+  return (cast_fexpr $cffi internal_fintlit_ptr x)
 }
