@@ -152,8 +152,16 @@ jit syscall(^int, ^int, ^int, ^int) ^int {
   op_syscall; push_rax
 }
 
+jit cffi(^pointer) ^int {
+  pop_rax
+  op_call_rax; push_rax
+}
 jit cffi(^pointer, ^int) ^int {
   pop_rdi; pop_rax
+  op_call_rax; push_rax
+}
+jit cffi(^pointer, ^int, ^int) ^int {
+  pop_rsi; pop_rdi; pop_rax
   op_call_rax; push_rax
 }
 
@@ -163,6 +171,9 @@ fn exit(retcode ^int) {
 
 fn sys_print(s ^cstring, len ^int) ^int {
   syscall 1 1 (cast_int s) len
+}
+fn sys_eprint(s ^cstring, len ^int) ^int {
+  syscall 1 2 (cast_int s) len
 }
 
 fn brk(addr ^int) ^int {
@@ -193,3 +204,65 @@ fn internal_print(x ^int) {
 fn fintlit(x ^int) ^fexpr {
   return (cast_fexpr $cffi internal_fintlit_ptr x)
 }
+
+fn fident(s ^cstring) ^fexpr {
+  return (cast_fexpr $cffi internal_fident_ptr (cast_int s))
+}
+
+fn fseq() ^fexpr {
+  return (cast_fexpr $cffi internal_fseq_ptr)
+}
+fn flist() ^fexpr {
+  return (cast_fexpr $cffi internal_flist_ptr)
+}
+fn fblock() ^fexpr {
+  return (cast_fexpr $cffi internal_fblock_ptr)
+}
+
+fn gensym() ^fexpr {
+  return (cast_fexpr $cffi internal_gensym_ptr)
+}
+
+fn push(f ^fexpr, son ^fexpr) {
+  cffi internal_fexpr_push_ptr $cast_int f $cast_int son
+}
+
+fn dup(f ^fexpr) ^fexpr {
+  return (cast_fexpr (cffi internal_fexpr_dup_ptr $cast_int f))
+}
+
+macro static(body ^fexpr) ^fexpr {
+  retf := fblock
+  sym := gensym
+
+  rettyp := fseq
+  push rettyp $fident "fexpr"
+  push rettyp $fident "type"
+
+  macrobody := fblock
+  push macrobody $fident "fblock"
+  push macrobody body
+  
+  macrof := fseq
+  push macrof macrobody
+  push macrof rettyp
+  push macrof flist
+  push macrof $dup sym
+  push macrof $fident "macro"
+
+  push retf sym
+  push retf macrof
+  
+  return retf
+}
+
+# macro static(body ^fexpr) ^fexpr {
+#   sym := gensym
+#   quote {
+#     macro `sym() ^fexpr {
+#       `body
+#       return fseq
+#     }
+#     `sym
+#   }
+# }

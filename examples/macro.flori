@@ -2,6 +2,14 @@ macro mac45() ^fexpr {
   return $fintlit (4 + 5)
 }
 
+static {
+  print "!"
+}
+
+static {
+  print "@"
+}
+
 fn main() {
   mac45
 }

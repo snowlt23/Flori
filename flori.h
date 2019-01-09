@@ -265,6 +265,7 @@ typedef struct _FExprObj {
   bool istyp;
   FExpr srcf;
   bool evaluated;
+  bool codegened;
   bool istoplevel;
   int priority;
   union {

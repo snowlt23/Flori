@@ -21,3 +21,7 @@ fn copy(dstp ^cstring, srcp ^cstring) {
 fn print(s ^cstring) {
   sys_print s $len s
 }
+
+fn eprint(s ^cstring) {
+  sys_eprint s $len s
+}

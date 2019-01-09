@@ -12,6 +12,7 @@ FExpr new_fexpr(FExprKind kind) {
   fe(f)->typ = nil_FType();
   fe(f)->srcf = nil_FExpr();
   fe(f)->evaluated = false;
+  fe(f)->codegened = false;
   return f;
 }
 
