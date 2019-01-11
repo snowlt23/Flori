@@ -303,6 +303,9 @@ FExpr split_infixseq_priority(FExpr f) {
     outstack[outpos++] = sq;
   }
   consume_infix_stack(outstack, opstack, &outpos, &oppos, 20);
+  if (fe(f)->istoplevel) {
+    fe(outstack[0])->istoplevel = true;
+  }
   return outstack[0];
 }
 
@@ -717,6 +720,7 @@ void boot_codegen(FExpr f) {
       if (decl.codegenfn != NULL) {
         (decl.codegenfn)(f);
       }
+      fe(f)->codegened = true;
       return;
     }
   }
@@ -789,6 +793,7 @@ void boot_codegen(FExpr f) {
   } else {
     assert(false);
   }
+  fe(f)->codegened = true;
 }
 
 void boot_eval_toplevel(FExpr f) {
@@ -985,7 +990,6 @@ void semantic_macro(FExpr f) {
   assert(fe(fnsym)->kind == FEXPR_SYMBOL);
   fp(FSymbol, fe(fnsym)->sym)->ismacro = true;
   boot_codegen(f);
-  fe(f)->codegened = true;
 }
 
 void semantic_def(FExpr f) {
@@ -996,6 +1000,11 @@ void semantic_def(FExpr f) {
   boot_semantic(value);
   fseq(vdecl, fident("var"), copy_fexpr(name), new_ftypesym(fe(value)->typ));
   fseq(vinit, fident("="), copy_fexpr(name), value);
+  if (fe(f)->istoplevel) {
+    fe(vdecl)->istoplevel = true;
+    fseq(staticinit, fident("static"), vinit);
+    vinit = staticinit;
+  }
   fblock(blk, vdecl, vinit);
   boot_semantic(blk);
   *fe(f) = *fe(blk);
@@ -1011,10 +1020,12 @@ void semantic_var(FExpr f) {
   fe(name)->kind = FEXPR_SYMBOL;
   fe(name)->sym = alloc_FSymbol();
   fp(FSymbol, fe(name)->sym)->name = namestr;
+  fp(FSymbol, fe(name)->sym)->istoplevel = fe(f)->istoplevel;
   boot_semantic(typ);
   add_decl((Decl){namestr, fe(name)->sym, fe(typ)->typsym});
   fnstacksize += get_type_size(fe(typ)->typsym);
   fe(f)->typ = type_void();
+  boot_codegen(f);
 }
 
 void semantic_set(FExpr f) {
@@ -1145,9 +1156,15 @@ void codegen_var(FExpr f) {
   fnext(it);
   FExpr name = fnext(it);
   FExpr typ = fnext(it);
-  curroffset += get_type_size(fe(typ)->typsym);
-  int offset = curroffset;
-  fp(FSymbol, fe(name)->sym)->varoffset = offset;
+  
+  if (fe(f)->istoplevel) {
+    size_t dataidx = data_alloc(get_type_size(fe(typ)->typsym));
+    fp(FSymbol, fe(name)->sym)->vardataidx = dataidx;
+  } else {
+    curroffset += get_type_size(fe(typ)->typsym);
+    int offset = curroffset;
+    fp(FSymbol, fe(name)->sym)->varoffset = offset;
+  }
 }
 
 void codegen_set(FExpr f) {

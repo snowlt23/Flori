@@ -1,0 +1,18 @@
+fn brk(addr ^int) ^int {
+  syscall 12 addr
+}
+
+sbrk_curaddr := 0
+fn sbrk(inc ^int) ^ptr int {
+  if (sbrk_curaddr == 0) {
+    sbrk_curaddr = brk 0
+  }
+  oldaddr := sbrk_curaddr
+  sbrk_curaddr = sbrk_curaddr + inc
+  brk sbrk_curaddr
+  return oldaddr
+}
+
+fn malloc(size ^int) ^pointer {
+  sbrk size
+}

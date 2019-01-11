@@ -176,25 +176,6 @@ fn sys_eprint(s ^cstring, len ^int) ^int {
   syscall 1 2 (cast_int s) len
 }
 
-fn brk(addr ^int) ^int {
-  syscall 12 addr
-}
-
-sbrk_curaddr := 0
-fn sbrk(inc ^int) ^ptr int {
-  if (sbrk_curaddr == 0) {
-    sbrk_curaddr = brk 0
-  }
-  oldaddr := sbrk_curaddr
-  sbrk_curaddr = sbrk_curaddr + inc
-  brk sbrk_curaddr
-  return oldaddr
-}
-
-fn malloc(size ^int) ^pointer {
-  sbrk size
-}
-
 internal_init_defs
 
 fn internal_print(x ^int) {
@@ -231,6 +212,16 @@ fn dup(f ^fexpr) ^fexpr {
   return (cast_fexpr (cffi internal_fexpr_dup_ptr $cast_int f))
 }
 
+# macro static(body ^fexpr) ^fexpr {
+#   sym := gensym
+#   quote {
+#     macro `sym() ^fexpr {
+#       `body
+#       return fseq
+#     }
+#     `sym
+#   }
+# }
 macro static(body ^fexpr) ^fexpr {
   retf := fblock
   sym := gensym
@@ -255,14 +246,3 @@ macro static(body ^fexpr) ^fexpr {
   
   return retf
 }
-
-# macro static(body ^fexpr) ^fexpr {
-#   sym := gensym
-#   quote {
-#     macro `sym() ^fexpr {
-#       `body
-#       return fseq
-#     }
-#     `sym
-#   }
-# }
