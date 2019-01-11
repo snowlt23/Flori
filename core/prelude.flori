@@ -72,6 +72,34 @@ jit ==(^int, ^int) ^int {
   X 0x50
 }
 
+jit and(^int, ^int) ^int {
+  X 0x59
+  X 0x58
+  X 0x48; X 0x21; X 0xC8
+  X 0x50
+}
+
+jit or(^int, ^int) ^int {
+  X 0x59
+  X 0x58
+  X 0x48; X 0x09; X 0xC8
+  X 0x50
+}
+
+jit shl(^int, ^int) ^int {
+  X 0x59
+  X 0x58
+  X 0x48; X 0xd3; X 0xe0
+  X 0x50
+}
+
+jit shr(^int, ^int) ^int {
+  X 0x59
+  X 0x58
+  X 0x48; X 0xd3; X 0xe8
+  X 0x50
+}
+
 jit deref(^ptr int) ^int {
   X 0x58
   X 0x48; X 0x8b; X 0x00
@@ -182,6 +210,10 @@ fn internal_print(x ^int) {
   cffi internal_print_ptr x
 }
 
+fn opcode(op ^int) {
+  cffi internal_opcode_ptr op
+}
+
 fn fintlit(x ^int) ^fexpr {
   return (cast_fexpr $cffi internal_fintlit_ptr x)
 }
@@ -210,6 +242,10 @@ fn push(f ^fexpr, son ^fexpr) {
 
 fn dup(f ^fexpr) ^fexpr {
   return (cast_fexpr (cffi internal_fexpr_dup_ptr $cast_int f))
+}
+
+fn createdef(f ^fexpr) {
+  cffi internal_createdef_ptr $cast_int f
 }
 
 # macro static(body ^fexpr) ^fexpr {

@@ -1,0 +1,54 @@
+defprimitive register 8
+jit cast_register(^int) ^register {}
+jit cast_int(^register) ^int {}
+
+rax := cast_register 0
+rcx := cast_register 1
+rdx := cast_register 2
+rbx := cast_register 3
+rsp := cast_register 4
+rbp := cast_register 5
+rdi := cast_register 7
+
+mod_reg := 3
+
+fn asmop(op ^int) {
+  # internal_print op
+  opcode op
+}
+
+fn modrm(rm ^register, reg ^register, mod ^int) ^int {
+  shl mod 6 + shl (cast_int reg) 3 + cast_int rm
+}
+
+fn lendian32(imm ^int) {
+  asmop (and imm 0xFF)
+  asmop (and $shr imm 8 $0xFF)
+  asmop (and $shr imm 16 $0xFF)
+  asmop (and $shr imm 24 $0xFF)
+}
+
+fn mov(reg ^register, imm ^int) {
+  asmop 0x48; asmop 0xc7; asmop (0xc0 + $cast_int reg)
+  lendian32 imm
+}
+
+fn mov(rm ^register, reg ^register) {
+  asmop 0x48; asmop 0x89
+  asmop $modrm rm reg mod_reg
+}
+
+fn push(reg ^register) {
+  asmop $0x50 + (cast_int reg)
+}
+fn pop(reg ^register) {
+  asmop $0x58 + (cast_int reg)
+}
+
+fn syscall() {
+  asmop 0x0f; asmop 0x05
+}
+
+fn ret() {
+  asmop 0xc3
+}

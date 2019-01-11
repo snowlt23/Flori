@@ -473,6 +473,33 @@ size_t call_macro_prim1(void* fnaddr, size_t arg1) {
   return ret;
 }
 
+size_t call_macro_prim2(void* fnaddr, size_t arg1, size_t arg2) {
+  size_t ret;
+  asm volatile(".intel_syntax noprefix;"
+               "mov rax, %1;"
+               "push %3;"
+               "push %2;"
+               "call rax;"
+               "add rsp, 16;"
+               "mov %0, rax;"
+               ".att_syntax;" : "=r"(ret) : "r"(fnaddr), "r"(arg1), "r"(arg2) : "rax", "rsp");
+  return ret;
+}
+
+size_t call_macro_prim3(void* fnaddr, size_t arg1, size_t arg2, size_t arg3) {
+  size_t ret;
+  asm volatile(".intel_syntax noprefix;"
+               "mov rax, %1;"
+               "push %4;"
+               "push %3;"
+               "push %2;"
+               "call rax;"
+               "add rsp, 24;"
+               "mov %0, rax;"
+               ".att_syntax;" : "=r"(ret) : "r"(fnaddr), "r"(arg1), "r"(arg2), "r"(arg3) : "rax", "rsp");
+  return ret;
+}
+
 FExpr call_macro(FSymbol sym, IListFExpr args) {
   void* fnaddr = jit_toptr(fp(FSymbol, sym)->fnidx);
   size_t argn = IListFExpr_len(args);
@@ -482,6 +509,12 @@ FExpr call_macro(FSymbol sym, IListFExpr args) {
   } else if (argn == 1) {
     fiter(it, args);
     fidx = call_macro_prim1(fnaddr, fnext(it).index);
+  } else if (argn == 2) {
+    fiter(it, args);
+    fidx = call_macro_prim2(fnaddr, fnext(it).index, fnext(it).index);
+  } else if (argn == 3) {
+    fiter(it, args);
+    fidx = call_macro_prim3(fnaddr, fnext(it).index, fnext(it).index, fnext(it).index);
   } else {
     assert(false);
   }
@@ -523,6 +556,7 @@ void boot_semantic(FExpr f) {
     FTypeVec* argtypes = gen_fexpr_argtypes(IListFExpr_len(fe(f)->sons)-1);
     if (has_ident(first) && search_fndecl(fe(first)->ident, argtypes, &fndecl) && fp(FSymbol, fndecl.sym)->ismacro) {
       FExpr expanded = call_macro(fndecl.sym, IListFExpr_next(fe(f)->sons));
+      // debug("%s", fexpr_tostring(expanded));
       *fe(f) = *fe(expanded);
       boot_semantic(f);
       return;
@@ -1361,6 +1395,20 @@ size_t internal_fexpr_dup(size_t f) {
   return copy_fexpr((FExpr){f}).index;
 }
 
+void internal_opcode(size_t op) {
+  write_hex(op);
+}
+
+void internal_createdef(size_t fidx) {
+  FExpr f = (FExpr){fidx};
+  boot_semantic(f);
+  fiter(it, fe(f)->sons);
+  fnext(it);
+  FExpr sym = fnext(it);
+  fp(FSymbol, fe(sym)->sym)->fnidx = jit_getidx();
+  *fe(f) = *fe(new_fcontainer(FEXPR_BLOCK));
+}
+
 void internal_init_defs(FExpr f) {
   init_def("internal_print_ptr", internal_print);
   init_def("internal_fintlit_ptr", internal_fintlit);
@@ -1371,6 +1419,8 @@ void internal_init_defs(FExpr f) {
   init_def("internal_gensym_ptr", internal_gensym);
   init_def("internal_fexpr_push_ptr", internal_fexpr_push);
   init_def("internal_fexpr_dup_ptr", internal_fexpr_dup);
+  init_def("internal_opcode_ptr", internal_opcode);
+  init_def("internal_createdef_ptr", internal_createdef);
 }
 
 void boot_def_internals() {

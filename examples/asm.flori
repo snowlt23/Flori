@@ -1,0 +1,46 @@
+fn asmexit(retcode ^int) {
+  mov rax 60
+  mov rdi retcode
+  syscall
+}
+
+fn fn_prologue() {
+  push rbp
+  mov rbp rsp
+}
+fn fn_epilogue() {
+  mov rsp rbp
+  pop rbp
+  ret
+}
+
+fn create_dummy_fn() ^fexpr {
+  dummyf := fseq
+  push dummyf fblock
+  push dummyf flist
+  push dummyf $fident "main"
+  push dummyf $fident "fn"
+  return dummyf
+}
+
+macro defn(name ^fexpr, argdecls ^fexpr, body ^fexpr) ^fexpr {
+  macrobody := fblock
+  push macrobody $fident "fn_epilogue"
+  push macrobody body
+  push macrobody $fident "fn_prologue"
+
+  createcall := fseq
+  push createcall $fident "create_dummy_fn"
+  push createcall $fident "createdef"
+  push macrobody createcall
+  
+  staticbody := fseq
+  push staticbody macrobody
+  push staticbody $fident "static"
+
+  return staticbody
+}
+
+defn main() {
+  mov rax 55
+}

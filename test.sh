@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CORELIBS="core/prelude.flori core/allocator.flori core/cstring.flori core/string.flori"
+CORELIBS="core/prelude.flori core/allocator.flori core/cstring.flori core/string.flori core/asm.flori"
 # CORELIBS="core/prelude.flori"
 
 read-coresrc() {
@@ -94,6 +94,7 @@ filetest "examples/while.flori" "aaaaaaaaaa0"
 filetest "examples/cstring.flori" "akari0"
 filetest "examples/string.flori" 3
 filetest "examples/macro.flori" "!@9"
+filetest "examples/asm.flori" "55"
 
 exectest "examples/fib.flori" 0
 exectest "examples/exitfib.flori" 34
