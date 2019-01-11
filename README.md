@@ -10,7 +10,7 @@ Flori is statically typed programming language without GC for system/application
 - Statically typed.
 - Blazing fast and easy memory management by **Explicit Region**.
 - Flexible meta syntax, It's **F Expression**.
-- Native compile via C. (It's so fast and portable!)
+- Standalone native-compiler. (including assembler, linker, optimizer)
 - Ultimate power for Metaprogramming.
 - Interactive development environment. (Common Lisp SLIME like)
 
@@ -28,71 +28,55 @@ Flori is statically typed programming language without GC for system/application
 
 ### Hello World
 ```
-import "core"
-
-println("Hello World!")
+fn main() {
+  print "Hello World!"
+}
 ```
 
 ### Fibonacci
 ```
-import "core"
-
-fn fib(n Int) Int {
+fn fib(n ^int) ^int {
   if (n < 2) {
     n
   } else {
-    fib(n-1) + fib(n-2)
+    (fib(n-1)) + (fib(n-2))
   }
 }
 
-println(fib(38))
+fn main() {
+  fib 9
+}
 ```
-
-Other examples, please reference [/examples](https://github.com/snowlt23/Flori/tree/master/examples) or [/tests/floritests](https://github.com/snowlt23/Flori/tree/master/tests/floritests).
 
 # Usage
 
-```sh
-$ flori c <filename>
-```
+<TODO>
 
 # Prebuilt Binaries
 
-[Releases](https://github.com/snowlt23/Flori/releases)
+<TODO>
 
 # Compiler Instructions
 
 **Requirements**
 
-- Nim (0.18.0)
-  - nimble
 - GCC (GNU C Compiler)
-- TCC (Tiny C Compiler)
+- Make
+- Adhocc (<https://github.com/snowlt23/adhocc>)
 
 ```sh
-# Build
-$ nimble install nake
-$ nimble install docopt
-$ nake build
-$ export PATH="$PATH:<flori-dir>/bin"
-```
-
-```sh
-# Test
-$ nake test
+$ make
+$ make test
 ```
 
 # TODO
 
+- **Rewrite compiler** (high priority!)
 - Documentation
 - Error Handling System
-- LiveReload
-- ImageDump
 - Concurrency
 - Standard Library
-- Reduction Build Times
 - Disassembler, Debugger, Profiler
-- Region Profiler
 - Package Manager
-- IDE tool (Rabbit)
+- IDE tool
 - Self Hosting
