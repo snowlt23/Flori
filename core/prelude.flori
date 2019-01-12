@@ -19,6 +19,13 @@ jit return(^fexpr) ^fexpr {
   X 0xC3                 # ret
 }
 
+jit return(^cstring) ^cstring {
+  X 0x58                 # pop rax
+  X 0x48; X 0x89; X 0xEC # mov rsp, rbp
+  X 0x5D                 # pop rbp
+  X 0xC3                 # ret
+}
+
 jit add(^int, ^int) ^int {
   X 0x59
   X 0x58
@@ -67,9 +74,22 @@ jit ==(^int, ^int) ^int {
   X 0x59
   X 0x58
   X 0x48; X 0x39; X 0xC8
+  X 0x48; X 0xc7; X 0xc0; X 0x00; X 0x00; X 0x00; X 0x00
   X 0x0F; X 0x94; X 0xC0
-  X 0x0F; X 0xB6; X 0xC0
   X 0x50
+}
+
+jit ==(^char, ^char) ^int {
+  X 0x59
+  X 0x58
+  X 0x48; X 0x39; X 0xC8
+  X 0x48; X 0xc7; X 0xc0; X 0x00; X 0x00; X 0x00; X 0x00
+  X 0x0F; X 0x94; X 0xC0
+  X 0x50
+}
+
+fn not(b ^int) ^int {
+  if b {return 0} else {return 1}
 }
 
 jit and(^int, ^int) ^int {
@@ -126,10 +146,13 @@ jit cast_ptr(^cstring) ^ptr char {}
 jit cast_ptr_int(^pointer) ^ptr int {}
 jit cast_pointer(^cstring) ^pointer {}
 jit cstring(^pointer) ^cstring {}
+jit cast_cstring(^int) ^cstring {}
 jit cast_int(^cstring) ^int {}
+jit cast_int(^char) ^int {}
 jit cast_int(^ptr int) ^int {}
 jit cast_int(^fexpr) ^int {}
 jit cast_fexpr(^int) ^fexpr {}
+jit cast_char(^int) ^char {}
 jit char_ptr(^pointer) ^ptr char {}
 
 fn copy(p ^ptr int, v ^int) {
@@ -208,77 +231,4 @@ internal_init_defs
 
 fn internal_print(x ^int) {
   cffi internal_print_ptr x
-}
-
-fn opcode(op ^int) {
-  cffi internal_opcode_ptr op
-}
-
-fn fintlit(x ^int) ^fexpr {
-  return (cast_fexpr $cffi internal_fintlit_ptr x)
-}
-
-fn fident(s ^cstring) ^fexpr {
-  return (cast_fexpr $cffi internal_fident_ptr (cast_int s))
-}
-
-fn fseq() ^fexpr {
-  return (cast_fexpr $cffi internal_fseq_ptr)
-}
-fn flist() ^fexpr {
-  return (cast_fexpr $cffi internal_flist_ptr)
-}
-fn fblock() ^fexpr {
-  return (cast_fexpr $cffi internal_fblock_ptr)
-}
-
-fn gensym() ^fexpr {
-  return (cast_fexpr $cffi internal_gensym_ptr)
-}
-
-fn push(f ^fexpr, son ^fexpr) {
-  cffi internal_fexpr_push_ptr $cast_int f $cast_int son
-}
-
-fn dup(f ^fexpr) ^fexpr {
-  return (cast_fexpr (cffi internal_fexpr_dup_ptr $cast_int f))
-}
-
-fn createdef(f ^fexpr) {
-  cffi internal_createdef_ptr $cast_int f
-}
-
-# macro static(body ^fexpr) ^fexpr {
-#   sym := gensym
-#   quote {
-#     macro `sym() ^fexpr {
-#       `body
-#       return fseq
-#     }
-#     `sym
-#   }
-# }
-macro static(body ^fexpr) ^fexpr {
-  retf := fblock
-  sym := gensym
-
-  rettyp := fseq
-  push rettyp $fident "fexpr"
-  push rettyp $fident "type"
-
-  macrobody := fblock
-  push macrobody $fident "fblock"
-  push macrobody body
-  
-  macrof := fseq
-  push macrof macrobody
-  push macrof rettyp
-  push macrof flist
-  push macrof $dup sym
-  push macrof $fident "macro"
-
-  push retf sym
-  push retf macrof
-  
-  return retf
 }

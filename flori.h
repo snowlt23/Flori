@@ -378,6 +378,7 @@ char* fexpr_tostring(FExpr f);
 // parser.c
 bool stream_isend(Stream* s);
 Stream* new_stream(char* buf);
+FExpr parse_element(Stream* s);
 FExpr parse(Stream* s);
 
 // boot.c

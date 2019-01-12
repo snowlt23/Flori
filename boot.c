@@ -556,7 +556,7 @@ void boot_semantic(FExpr f) {
     FTypeVec* argtypes = gen_fexpr_argtypes(IListFExpr_len(fe(f)->sons)-1);
     if (has_ident(first) && search_fndecl(fe(first)->ident, argtypes, &fndecl) && fp(FSymbol, fndecl.sym)->ismacro) {
       FExpr expanded = call_macro(fndecl.sym, IListFExpr_next(fe(f)->sons));
-      // debug("%s", fexpr_tostring(expanded));
+      // debug("expand: %s", fexpr_tostring(expanded));
       *fe(f) = *fe(expanded);
       boot_semantic(f);
       return;
@@ -1266,8 +1266,8 @@ void codegen_if(FExpr f) {
       boot_codegen(cond);
 
       // cond if branching (need fixup)
-      write_hex(0x58) // pop rax
-        write_hex(0x48, 0x83, 0xf8, 0x00); // cmp rax, 0
+      write_hex(0x58); // pop rax
+      write_hex(0x48, 0x83, 0xf8, 0x00); // cmp rax, 0
       write_hex(0x0f, 0x84); // je rel
       fixup = jit_getidx();
       write_lendian(0); // fixup
@@ -1317,10 +1317,19 @@ void codegen_if(FExpr f) {
         int fixuprel = jit_getidx() - relocs[i] - 4;
         jit_fixup_lendian(relocs[i], fixuprel);
       }
-      break;
+      return;
     } else {
       error("unexpected token in if expression.");
     }
+  }
+  
+  int fixuprel = jit_getidx() - fixup - 4;
+  jit_fixup_lendian(fixup, fixuprel);
+
+  // fixup relocations of if-expression.
+  for (int i=0; i<relocnum; i++) {
+    int fixuprel = jit_getidx() - relocs[i] - 4;
+    jit_fixup_lendian(relocs[i], fixuprel);
   }
 }
 
@@ -1394,6 +1403,9 @@ void internal_fexpr_push(size_t fidx, size_t sonidx) {
 size_t internal_fexpr_dup(size_t f) {
   return copy_fexpr((FExpr){f}).index;
 }
+size_t internal_fexpr_ddup(size_t f) {
+  return deepcopy_fexpr((FExpr){f}).index;
+}
 
 void internal_opcode(size_t op) {
   write_hex(op);
@@ -1409,6 +1421,37 @@ void internal_createdef(size_t fidx) {
   *fe(f) = *fe(new_fcontainer(FEXPR_BLOCK));
 }
 
+size_t internal_fexpr_get(size_t fidx, size_t index) {
+  FExpr f = (FExpr){fidx};
+  fiter(it, fe(f)->sons);
+  FExpr ret = fnext(it);
+  for (int i=0; i<index; i++) {
+    ret = fnext(it);
+  }
+  return ret.index;
+}
+
+size_t internal_fexpr_kind(size_t fidx) {
+  FExpr f = (FExpr){fidx};
+  return (size_t)fe(f)->kind;
+}
+
+size_t internal_fexpr_len(size_t fidx) {
+  FExpr f = (FExpr){fidx};
+  return IListFExpr_len(fe(f)->sons);
+}
+
+size_t internal_fexpr_to_cstring(size_t fidx) {
+  FExpr f = (FExpr){fidx};
+  return (size_t)fexpr_tostring(f);
+}
+
+void internal_fexpr_replace(size_t didx, size_t sidx) {
+  FExpr d = (FExpr){didx};
+  FExpr s = (FExpr){sidx};
+  *fe(d) = *fe(s);
+}
+
 void internal_init_defs(FExpr f) {
   init_def("internal_print_ptr", internal_print);
   init_def("internal_fintlit_ptr", internal_fintlit);
@@ -1419,8 +1462,15 @@ void internal_init_defs(FExpr f) {
   init_def("internal_gensym_ptr", internal_gensym);
   init_def("internal_fexpr_push_ptr", internal_fexpr_push);
   init_def("internal_fexpr_dup_ptr", internal_fexpr_dup);
+  init_def("internal_fexpr_ddup_ptr", internal_fexpr_ddup);
   init_def("internal_opcode_ptr", internal_opcode);
   init_def("internal_createdef_ptr", internal_createdef);
+  init_def("internal_fexpr_get_ptr", internal_fexpr_get);
+  init_def("internal_fexpr_kind_ptr", internal_fexpr_kind);
+  init_def("internal_fexpr_len_ptr", internal_fexpr_len);
+  init_def("internal_fexpr_to_cstring_ptr", internal_fexpr_to_cstring);
+  
+  init_def("internal_fexpr_replace_ptr", internal_fexpr_replace);
 }
 
 void boot_def_internals() {

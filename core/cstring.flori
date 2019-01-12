@@ -18,6 +18,25 @@ fn copy(dstp ^cstring, srcp ^cstring) {
   memcpy $cast_pointer dstp $cast_pointer srcp $len srcp + 1
 }
 
+fn strcmp(a ^cstring, b ^cstring) ^int {
+  ap := cast_ptr a
+  bp := cast_ptr b
+  alen := len a
+  blen := len b
+  if (alen == blen) {
+    i := 0
+    while (i < alen) {
+      if (deref $ap+i == deref $bp+i) {
+        i = i+1
+      } else {
+        return 0
+      }
+    }
+    return 1
+  }
+  return 0
+}
+
 fn print(s ^cstring) {
   sys_print s $len s
 }

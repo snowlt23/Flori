@@ -204,6 +204,13 @@ FExpr parse_reader_type(Stream* s) {
   }
 }
 
+FExpr parse_reader_unquote(Stream* s) {
+  if (stream_next(s) != '`') error("expect ` reader token.");
+  FExpr e = parse_element(s);
+  fseq(f, fident("unquote"), e);
+  return f;
+}
+
 FExpr parse_reader_dollar(Stream* s) {
   if (stream_next(s) != '$') error("expect `$ reader token.");
   char buf[1024*1024] = {};
@@ -236,6 +243,8 @@ FExpr parse_element(Stream* s) {
     return parse_fblock(s);
   } else if (stream_get(s) == '^') {
     return parse_reader_type(s);
+  } else if (stream_get(s) == '`') {
+    return parse_reader_unquote(s);
   } else if (stream_get(s) == '$') {
     return parse_reader_dollar(s);
   } else {

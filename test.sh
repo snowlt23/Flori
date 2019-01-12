@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CORELIBS="core/prelude.flori core/allocator.flori core/cstring.flori core/string.flori core/asm.flori"
+CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/allocator.flori core/string.flori core/asm.flori"
 # CORELIBS="core/prelude.flori"
 
 read-coresrc() {
@@ -48,7 +48,7 @@ exectest() {
   PR=`./fa.out`
   OUT=$?
   if [ "$2" != "$PR$OUT" ] ; then
-    echo "[ERROR] $1: expect $2, but got $PR$OUT"
+    echo "[ERROR] exec $1: expect $2, but got $PR$OUT"
     exit 1
   fi
 }
@@ -80,6 +80,10 @@ runtest "gx := 555; fn main() {gx}" 555
 runtest "fn main() {s := \"yukayuka\"; len s}" 8
 runtest "fn main() {internal_print 5454; 0}" "54540"
 runtest "struct myint {a ^int; b ^int}; fn main() {5}" 5
+runtest "fn main() {5 == 5}" 1
+runtest "fn main() {4 == 5}" 0
+runtest "fn main() {strcmp \"abcdgogo\" \"abcdgogo\"}" 1
+runtest "fn main() {strcmp \"abcdgogo\" \"abcdgog\"}" 0
 
 filetest "examples/fib.flori" 34
 filetest "examples/sizeof.flori" 24
@@ -93,12 +97,12 @@ filetest "examples/sysprint.flori" "yukarisan0"
 filetest "examples/while.flori" "aaaaaaaaaa0"
 filetest "examples/cstring.flori" "akari0"
 filetest "examples/string.flori" 3
-filetest "examples/macro.flori" "!@9"
+filetest "examples/macro.flori" "!@DDHello Yukari!9"
 filetest "examples/asm.flori" "55"
 
-exectest "examples/fib.flori" 0
-exectest "examples/exitfib.flori" 34
-exectest "examples/sysprint.flori" "yukarisan0"
-exectest "examples/globalvar.flori" 45
-exectest "examples/memory_allocate.flori" 123
-exectest "examples/while.flori" "aaaaaaaaaa0"
+# exectest "examples/fib.flori" 0
+# exectest "examples/exitfib.flori" 34
+# exectest "examples/sysprint.flori" "yukarisan0"
+# exectest "examples/globalvar.flori" 45
+# exectest "examples/memory_allocate.flori" 123
+# exectest "examples/while.flori" "aaaaaaaaaa0"

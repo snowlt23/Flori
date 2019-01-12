@@ -1,0 +1,219 @@
+fn opcode(op ^int) {
+  cffi internal_opcode_ptr op
+}
+
+fn fintlit(x ^int) ^fexpr {
+  return (cast_fexpr $cffi internal_fintlit_ptr x)
+}
+
+fn fident(s ^cstring) ^fexpr {
+  return (cast_fexpr $cffi internal_fident_ptr (cast_int s))
+}
+
+fn fseq() ^fexpr {
+  return (cast_fexpr $cffi internal_fseq_ptr)
+}
+fn flist() ^fexpr {
+  return (cast_fexpr $cffi internal_flist_ptr)
+}
+fn fblock() ^fexpr {
+  return (cast_fexpr $cffi internal_fblock_ptr)
+}
+
+fn gensym() ^fexpr {
+  return (cast_fexpr $cffi internal_gensym_ptr)
+}
+
+fn push(f ^fexpr, son ^fexpr) {
+  cffi internal_fexpr_push_ptr $cast_int f $cast_int son
+}
+
+fn dup(f ^fexpr) ^fexpr {
+  return (cast_fexpr (cffi internal_fexpr_dup_ptr $cast_int f))
+}
+
+fn ddup(f ^fexpr) ^fexpr {
+  return (cast_fexpr (cffi internal_fexpr_ddup_ptr $cast_int f))
+}
+
+fn createdef(f ^fexpr) {
+  cffi internal_createdef_ptr $cast_int f
+}
+
+fn get(f ^fexpr, i ^int) ^fexpr {
+  return (cast_fexpr (cffi internal_fexpr_get_ptr $cast_int f $i))
+}
+fn kind(f ^fexpr) ^int {
+  return (cffi internal_fexpr_kind_ptr $cast_int f)
+}
+fn len(f ^fexpr) ^int {
+  return (cffi internal_fexpr_len_ptr $cast_int f)
+}
+fn to_cstring(f ^fexpr) ^cstring {
+  return (cast_cstring (cffi internal_fexpr_to_cstring_ptr $cast_int f))
+}
+fn replace(d ^fexpr, s ^fexpr) {
+  cffi internal_fexpr_replace_ptr $cast_int d $cast_int s
+}
+
+fn print(f ^fexpr) {
+  s := to_cstring f
+  sys_print s $len s
+}
+fn eprint(f ^fexpr) {
+  s := to_cstring f
+  sys_eprint s $len s
+}
+
+# macro static(body ^fexpr) ^fexpr {
+#   sym := gensym
+#   quote {
+#     macro `sym() ^fexpr {
+#       `body
+#       return fseq
+#     }
+#     `sym
+#   }
+# }
+macro static(body ^fexpr) ^fexpr {
+  retf := fblock
+  sym := gensym
+
+  rettyp := fseq
+  push rettyp $fident "fexpr"
+  push rettyp $fident "type"
+
+  macrobody := fblock
+  push macrobody $fident "fblock"
+  push macrobody body
+  
+  macrof := fseq
+  push macrof macrobody
+  push macrof rettyp
+  push macrof flist
+  push macrof $dup sym
+  push macrof $fident "macro"
+
+  push retf sym
+  push retf macrof
+  
+  return retf
+}
+
+FEXPR_IDENT := 0
+FEXPR_OP := 1
+FEXPR_SYMBOL := 2
+FEXPR_INTLIT := 3
+FEXPR_FLOATLIT := 4
+FEXPR_STRLIT := 5
+FEXPR_SEQ := 6
+FEXPR_ARRAY := 7
+FEXPR_LIST := 8
+FEXPR_BLOCK := 9
+
+fn is_fcontainer(f ^fexpr) ^int {
+  if (kind f == FEXPR_SEQ) {return 1}
+  if (kind f == FEXPR_ARRAY) {return 1}
+  if (kind f == FEXPR_LIST) {return 1}
+  if (kind f == FEXPR_BLOCK) {return 1}
+  return 0
+}
+
+fn is_fembed(f ^fexpr) ^int {
+  if (kind f == FEXPR_IDENT) {
+    return (strcmp (to_cstring f) "fembed")
+  }
+  return 0;
+}
+
+fn expand_fembed(f ^fexpr, args ^fexpr, argidx ^ptr int) {
+  if (is_fcontainer f) {
+    i := 0
+    while (i < len f) {
+      son := get f i
+      if (is_fembed son) {
+        replace son (get args (deref argidx))
+        deref argidx = deref argidx + 1
+      } else {
+        expand_fembed son args argidx
+      }
+      i = i+1
+    }
+  }
+}
+
+fn is_unquote(f ^fexpr) ^int {
+  if (kind f == FEXPR_SEQ) {
+    if (len f == 2) {
+      return (strcmp (to_cstring (get f 0)) "unquote")
+    }
+  }
+  return 0
+}
+
+fn collect_unquote(f ^fexpr, args ^fexpr) {
+  if (is_fcontainer f) {
+    i := 0
+    while (i < len f) {
+      son := get f i
+      if (is_unquote son) {
+        push args $get son 1
+        replace son $fident "fembed"
+      } else {
+        collect_unquote son args
+      }
+      i = i+1
+    }
+  }
+}
+
+macro quote(f ^fexpr) ^fexpr {
+  quotedargs := fseq
+  collect_unquote f quotedargs
+
+  idxsym := gensym
+  argsym := gensym
+  retf := fblock
+
+  fidx := fseq
+  push fidx (fintlit $cast_int f)
+  push fidx $fident "cast_fexpr"
+  push retf $ddup fidx
+  
+  idxref := fseq
+  push idxref $dup idxsym
+  push idxref $fident "getref"
+
+  expandcall := fseq
+  push expandcall idxref
+  push expandcall $dup argsym
+  push expandcall $ddup fidx
+  push expandcall $fident "expand_fembed"
+  push retf expandcall
+
+  idxdecl := fseq
+  push idxdecl $fintlit 0
+  push idxdecl $dup idxsym
+  push idxdecl (fident ":=")
+  push retf idxdecl
+  
+  i := 0
+  while (i < len quotedargs) {
+    pushcall := fseq
+    push pushcall $get quotedargs i
+    push pushcall $dup argsym
+    push pushcall $fident "push"
+    push retf pushcall
+    i = i+1
+  }
+
+  argdecl := fseq
+  push argdecl $fident "fseq"
+  push argdecl $dup argsym
+  push argdecl (fident ":=")
+  push retf argdecl
+
+  # eprint retf
+  
+  return retf
+}
