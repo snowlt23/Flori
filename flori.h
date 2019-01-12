@@ -18,7 +18,7 @@
 
 #define fiter(itr, f) IListFExpr itr = f
 #define fcurr(itr) IListFExpr_value(itr)
-#define fnext(itr) fnext_impl(&itr)
+#define fnext(itr) fnext_impl(&itr, __LINE__)
 
 #define ppcat1(a, b) a ## b
 #define ppcat(a, b) ppcat1(a, b)

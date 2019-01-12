@@ -26,8 +26,8 @@ FExpr gen_tmpid() {
   return fident(buf);
 }
 
-FExpr fnext_impl(IListFExpr* il) {
-  check_next(*il, "require more token");
+FExpr fnext_impl(IListFExpr* il, int line) {
+  check_next(*il, "%d: require more token", line);
   FExpr ret = IListFExpr_value(*il);
   *il = IListFExpr_next(*il);
   return ret;

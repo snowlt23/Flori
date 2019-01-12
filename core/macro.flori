@@ -111,6 +111,37 @@ FEXPR_ARRAY := 7
 FEXPR_LIST := 8
 FEXPR_BLOCK := 9
 
+fn reverse(f ^fexpr) ^fexpr {
+  if (kind f == FEXPR_SEQ) {
+    revf := fseq
+    i := 0
+    while (i < len f) {
+      push revf $get f i
+      i = i+1
+    }
+    return revf
+  }
+  # TOOD: ARRAY
+  if (kind f == FEXPR_LIST) {
+    revf := flist
+    i := 0
+    while (i < len f) {
+      push revf $get f i
+      i = i+1
+    }
+    return revf
+  }
+  if (kind f == FEXPR_BLOCK) {
+    revf := fblock
+    i := 0
+    while (i < len f) {
+      push revf $get f i
+      i = i+1
+    }
+    return revf
+  }
+}
+
 fn is_fcontainer(f ^fexpr) ^int {
   if (kind f == FEXPR_SEQ) {return 1}
   if (kind f == FEXPR_ARRAY) {return 1}
@@ -170,6 +201,7 @@ fn collect_unquote(f ^fexpr, args ^fexpr) {
 macro quote(f ^fexpr) ^fexpr {
   quotedargs := fseq
   collect_unquote f quotedargs
+  quotedargs = reverse quotedargs
 
   idxsym := gensym
   argsym := gensym
@@ -216,4 +248,11 @@ macro quote(f ^fexpr) ^fexpr {
   # eprint retf
   
   return retf
+}
+
+macro fexpr_as_value(f ^fexpr) ^fexpr {
+  retf := fseq
+  push retf (fintlit $cast_int f)
+  push retf $fident "cast_fexpr"
+  retf
 }
