@@ -500,6 +500,21 @@ size_t call_macro_prim3(void* fnaddr, size_t arg1, size_t arg2, size_t arg3) {
   return ret;
 }
 
+size_t call_macro_prim4(void* fnaddr, size_t arg1, size_t arg2, size_t arg3, size_t arg4) {
+  size_t ret;
+  asm volatile(".intel_syntax noprefix;"
+               "mov rax, %1;"
+               "push %5;"
+               "push %4;"
+               "push %3;"
+               "push %2;"
+               "call rax;"
+               "add rsp, 32;"
+               "mov %0, rax;"
+               ".att_syntax;" : "=r"(ret) : "r"(fnaddr), "r"(arg1), "r"(arg2), "r"(arg3), "r"(arg4) : "rax", "rsp");
+  return ret;
+}
+
 FExpr call_macro(FSymbol sym, IListFExpr args) {
   void* fnaddr = jit_toptr(fp(FSymbol, sym)->fnidx);
   size_t argn = IListFExpr_len(args);
@@ -515,6 +530,9 @@ FExpr call_macro(FSymbol sym, IListFExpr args) {
   } else if (argn == 3) {
     fiter(it, args);
     fidx = call_macro_prim3(fnaddr, fnext(it).index, fnext(it).index, fnext(it).index);
+  } else if (argn == 4) {
+    fiter(it, args);
+    fidx = call_macro_prim4(fnaddr, fnext(it).index, fnext(it).index, fnext(it).index, fnext(it).index);
   } else {
     assert(false);
   }

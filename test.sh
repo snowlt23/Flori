@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/allocator.flori core/string.flori core/asm.flori"
+CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/syntax.flori core/allocator.flori core/string.flori core/asm.flori"
 # CORELIBS="core/prelude.flori"
 
 read-coresrc() {
@@ -99,6 +99,7 @@ filetest "examples/cstring.flori" "akari0"
 filetest "examples/string.flori" 3
 filetest "examples/macro.flori" "!@DDHello Yukari!9"
 filetest "examples/asm.flori" "55"
+filetest "examples/syntax.flori" "123456789100"
 
 # exectest "examples/fib.flori" 0
 # exectest "examples/exitfib.flori" 34

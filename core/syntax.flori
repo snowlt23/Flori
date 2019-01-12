@@ -1,0 +1,28 @@
+macro for(elem ^fexpr, iter ^fexpr, body ^fexpr) ^fexpr {
+  if (kind iter == FEXPR_LIST) {
+    iter = get iter 0
+  }
+  
+  first := get iter 0
+  maccall := fseq
+  push maccall first
+  push maccall elem
+  push maccall body
+  i := 1
+  while (i < len iter) {
+    push maccall $get iter i
+    i = i+1
+  }
+  return $reverse maccall
+}
+
+macro range(i ^fexpr, body ^fexpr, s ^fexpr, e ^fexpr) ^fexpr {
+  retf := quote {
+    `(dup i) := `s
+    while (`(dup i) < `e+1) {
+      `body
+      `$dup i = `(dup i) + 1
+    }
+  }
+  return retf
+}

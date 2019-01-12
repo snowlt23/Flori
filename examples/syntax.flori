@@ -1,0 +1,6 @@
+fn main() {
+  for i (range 1 10) {
+    internal_print i
+  }
+  0
+}
