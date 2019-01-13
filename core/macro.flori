@@ -142,19 +142,19 @@ fn reverse(f ^fexpr) ^fexpr {
   }
 }
 
-fn is_fcontainer(f ^fexpr) ^int {
-  if (kind f == FEXPR_SEQ) {return 1}
-  if (kind f == FEXPR_ARRAY) {return 1}
-  if (kind f == FEXPR_LIST) {return 1}
-  if (kind f == FEXPR_BLOCK) {return 1}
-  return 0
+fn is_fcontainer(f ^fexpr) ^bool {
+  if (kind f == FEXPR_SEQ) {return true}
+  if (kind f == FEXPR_ARRAY) {return true}
+  if (kind f == FEXPR_LIST) {return true}
+  if (kind f == FEXPR_BLOCK) {return true}
+  return false
 }
 
-fn is_fembed(f ^fexpr) ^int {
+fn is_fembed(f ^fexpr) ^bool {
   if (kind f == FEXPR_IDENT) {
     return (strcmp (to_cstring f) "fembed")
   }
-  return 0;
+  return false;
 }
 
 fn expand_fembed(f ^fexpr, args ^fexpr, argidx ^ptr int) {
@@ -173,13 +173,13 @@ fn expand_fembed(f ^fexpr, args ^fexpr, argidx ^ptr int) {
   }
 }
 
-fn is_unquote(f ^fexpr) ^int {
+fn is_unquote(f ^fexpr) ^bool {
   if (kind f == FEXPR_SEQ) {
     if (len f == 2) {
       return (strcmp (to_cstring (get f 0)) "unquote")
     }
   }
-  return 0
+  return false
 }
 
 fn collect_unquote(f ^fexpr, args ^fexpr) {

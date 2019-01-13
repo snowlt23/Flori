@@ -4,141 +4,147 @@ defprimitive cstring 8
 defprimitive char 1
 defprimitive pointer 8
 defprimitive fexpr 8
+defprimitive bool 8
 
-jit return(^int) ^int {
-  X 0x58                 # pop rax
+jit push_rax() ^void {
+  X 0x50
+}
+
+jit pop_rax() ^void {
+  X 0x58
+}
+jit pop_rcx() ^void {
+  X 0x59
+}
+jit pop_rdi() ^void {
+  X 0x5f
+}
+jit pop_rsi() ^void {
+  X 0x5e
+}
+jit pop_rdx() ^void {
+  X 0x5a
+}
+jit pop_rbp() ^void {
+  X 0x5d
+}
+
+jit opret() ^void {
+  X 0xC3
+}
+
+jit genret() ^void {
+  pop_rax
   X 0x48; X 0x89; X 0xEC # mov rsp, rbp
-  X 0x5D                 # pop rbp
-  X 0xC3                 # ret
+  pop_rbp
+  opret
 }
+jit return(^int) ^int genret
+jit return(^fexpr) ^fexpr genret
+jit return(^cstring) ^cstring genret
+jit return(^bool) ^bool genret
 
-jit return(^fexpr) ^fexpr {
-  X 0x58                 # pop rax
-  X 0x48; X 0x89; X 0xEC # mov rsp, rbp
-  X 0x5D                 # pop rbp
-  X 0xC3                 # ret
+jit genadd() ^void {
+  pop_rcx
+  pop_rax
+  X 0x48; X 0x01; X 0xC8 # add rax, rcx
+  push_rax
 }
+jit +(^int, ^int) ^int genadd
+jit +(^ptr int, ^ptr int) ^ptr int genadd
+jit +(^ptr char, ^int) ^ptr char genadd
 
-jit return(^cstring) ^cstring {
-  X 0x58                 # pop rax
-  X 0x48; X 0x89; X 0xEC # mov rsp, rbp
-  X 0x5D                 # pop rbp
-  X 0xC3                 # ret
+jit gensub() ^void {
+  pop_rcx
+  pop_rax
+  X 0x48; X 0x29; X 0xC8 # sub rax, rcx
+  push_rax
 }
+jit -(^int, ^int) ^int gensub
 
-jit add(^int, ^int) ^int {
-  X 0x59
-  X 0x58
-  X 0x48; X 0x01; X 0xC8
-  X 0x50
-}
-
-jit +(^int, ^int) ^int {
-  X 0x59
-  X 0x58
-  X 0x48; X 0x01; X 0xC8
-  X 0x50
-}
-
-jit +(^ptr int, ^ptr int) ^ptr int {
-  X 0x59
-  X 0x58
-  X 0x48; X 0x01; X 0xC8
-  X 0x50
-}
-
-jit +(^ptr char, ^int) ^ptr char {
-  X 0x59
-  X 0x58
-  X 0x48; X 0x01; X 0xC8
-  X 0x50
-}
-
-jit -(^int, ^int) ^int {
-  X 0x59
-  X 0x58
-  X 0x48; X 0x29; X 0xC8
-  X 0x50
-}
-
-jit <(^int, ^int) ^int {
-  X 0x59
-  X 0x58
+jit cmp_rax_rcx() ^void {
   X 0x48; X 0x39; X 0xC8
-  X 0x0F; X 0x9C; X 0xC0
-  X 0x0F; X 0xB6; X 0xC0
-  X 0x50
 }
 
-jit ==(^int, ^int) ^int {
-  X 0x59
-  X 0x58
-  X 0x48; X 0x39; X 0xC8
-  X 0x48; X 0xc7; X 0xc0; X 0x00; X 0x00; X 0x00; X 0x00
-  X 0x0F; X 0x94; X 0xC0
-  X 0x50
+jit genlesser() ^void {
+  pop_rcx
+  pop_rax
+  cmp_rax_rcx
+  X 0x48; X 0xc7; X 0xc0; X 0x00; X 0x00; X 0x00; X 0x00 # mov rax, 0
+  X 0x0F; X 0x9C; X 0xC0 # # setl al
+  push_rax
+}
+jit <(^int, ^int) ^bool genlesser
+
+jit geneq() ^void {
+  pop_rcx
+  pop_rax
+  cmp_rax_rcx
+  X 0x48; X 0xc7; X 0xc0; X 0x00; X 0x00; X 0x00; X 0x00 # mov rax, 0
+  X 0x0F; X 0x94; X 0xC0 # sete al
+  push_rax
+}
+jit ==(^int, ^int) ^bool geneq
+jit ==(^char, ^char) ^bool geneq
+
+fn true() ^bool 1
+fn false() ^bool 0
+
+fn not(b ^bool) ^bool {
+  if b {return true} else {return false}
 }
 
-jit ==(^char, ^char) ^int {
-  X 0x59
-  X 0x58
-  X 0x48; X 0x39; X 0xC8
-  X 0x48; X 0xc7; X 0xc0; X 0x00; X 0x00; X 0x00; X 0x00
-  X 0x0F; X 0x94; X 0xC0
-  X 0x50
+jit genand() ^void {
+  pop_rcx
+  pop_rax
+  X 0x48; X 0x21; X 0xC8 # and rax, rcx
+  push_rax
 }
+jit and(^int, ^int) ^int genand
 
-fn not(b ^int) ^int {
-  if b {return 0} else {return 1}
+jit genor() ^void {
+  pop_rcx
+  pop_rax
+  X 0x48; X 0x09; X 0xC8 # or rax, rcx
+  push_rax
 }
+jit or(^int, ^int) ^int genor
 
-jit and(^int, ^int) ^int {
-  X 0x59
-  X 0x58
-  X 0x48; X 0x21; X 0xC8
-  X 0x50
+jit genshl() ^void {
+  pop_rcx
+  pop_rax
+  X 0x48; X 0xd3; X 0xe0 # shl rax, rcx
+  push_rax
 }
+jit shl(^int, ^int) ^int genshl
 
-jit or(^int, ^int) ^int {
-  X 0x59
-  X 0x58
-  X 0x48; X 0x09; X 0xC8
-  X 0x50
+jit genshr() ^void {
+  pop_rcx
+  pop_rax
+  X 0x48; X 0xd3; X 0xe8 # shr rax, rcx
+  push_rax
 }
-
-jit shl(^int, ^int) ^int {
-  X 0x59
-  X 0x58
-  X 0x48; X 0xd3; X 0xe0
-  X 0x50
-}
-
-jit shr(^int, ^int) ^int {
-  X 0x59
-  X 0x58
-  X 0x48; X 0xd3; X 0xe8
-  X 0x50
-}
+jit shr(^int, ^int) ^int genshl
 
 jit deref(^ptr int) ^int {
-  X 0x58
+  pop_rax
   X 0x48; X 0x8b; X 0x00
-  X 0x50
+  push_rax
 }
 jit deref_lvalue(^ptr int) ^ptr int {}
 
 jit deref(^ptr cstring) ^cstring {
-  X 0x58
+  pop_rax
   X 0x48; X 0x8b; X 0x00
-  X 0x50
+  push_rax
 }
 jit deref_lvalue(^ptr cstring) ^ptr cstring {}
 
 jit deref(^ptr char) ^char {
-  X 0x58
+  pop_rax
   X 0x8a; X 0x00
   X 0x48; X 0x0f; X 0xb6; X 0xc0
-  X 0x50
+  push_rax
 }
 jit deref_lvalue(^ptr char) ^ptr char {}
 
@@ -160,26 +166,6 @@ fn copy(p ^ptr int, v ^int) {
 }
 fn copy(p ^ptr cstring, v ^cstring) {
   (deref p) = v
-}
-
-jit push_rax() ^void {
-  X 0x50
-}
-
-jit pop_rax() ^void {
-  X 0x58
-}
-jit pop_rcx() ^void {
-  X 0x59
-}
-jit pop_rdi() ^void {
-  X 0x5f
-}
-jit pop_rsi() ^void {
-  X 0x5e
-}
-jit pop_rdx() ^void {
-  X 0x5a
 }
 
 jit op_syscall() ^void {
