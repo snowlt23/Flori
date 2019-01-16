@@ -10,29 +10,24 @@
 
 #define debug(...) {fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n");}
 #define error(...) { fprintf(stderr, __VA_ARGS__); exit(1); }
-#define check_next(l, ...) if (IListFExpr_isnil(l)) { error(__VA_ARGS__); }
-#define isfnil(l) IListFExpr_isnil(l)
+#define check_next(l, ...) if (IListFMap_isnil(l)) { error(__VA_ARGS__); }
 
 #define fp(t, f) (assert(0 <= f.index && f.index < linmem_getidx()), t ## _ptr(f))
-#define fe(f) fp(FExpr, f)
+#define fm(f) fp(FMap, f)
 
-#define fiter(itr, f) IListFExpr itr = f
-#define fcurr(itr) IListFExpr_value(itr)
+#define def_fmap(name, k, body)              \
+  FMap name = fmap();               \
+  fm(name)->kind = new_istring(#k);          \
+  {                                             \
+    FMap tmpf = name;                           \
+    body;                                       \
+  }
+#define def_field(key, value) fmap_push(tmpf, new_istring(#key), value);
+
+#define fiter(itr, f) IListFMap itr = f
+#define fcurr(itr) IListFMap_value(itr)
 #define fnext(itr) fnext_impl(&itr, __LINE__)
-
-#define ppcat1(a, b) a ## b
-#define ppcat(a, b) ppcat1(a, b)
-#define fcont1(sons, sonstmp, v, kind, ...)      \
-  FExpr sons[] = {__VA_ARGS__}; \
-  FExpr v = new_fcontainer(kind); \
-  for (int sonstmp=0; sonstmp<sizeof(sons)/sizeof(FExpr); sonstmp++) { \
-    push_son(v, sons[sonstmp]);                             \
-  } \
-  reverse_sons(v);
-#define fcont(v, kind, ...) fcont1(ppcat(_sons, __LINE__), ppcat(_sonstmp, __LINE__), v, kind, __VA_ARGS__)
-#define fseq(v, ...) fcont(v, FEXPR_SEQ, __VA_ARGS__)
-#define flist(v, ...) fcont(v, FEXPR_LIST, __VA_ARGS__)
-#define fblock(v, ...) fcont(v, FEXPR_BLOCK, __VA_ARGS__)
+#define isfnil(l) IListFMap_isnil(l)
 
 #define with_reloc(addr, body) \
   { \
@@ -58,23 +53,8 @@ typedef struct {
   int index;
 } IString;
 
-%%enum FExprKind {
-  FEXPR_IDENT,
-  FEXPR_OP,
-  FEXPR_SYMBOL,
-
-  FEXPR_INTLIT,
-  FEXPR_FLOATLIT,
-  FEXPR_STRLIT,
-
-  FEXPR_SEQ,
-  FEXPR_ARRAY,
-  FEXPR_LIST,
-  FEXPR_BLOCK
-};
-
 typedef struct {
-  // IString filename;
+  IString filename;
   int line;
   int linepos;
   int pos;
@@ -219,12 +199,12 @@ typedef struct {
   }
 }
 
-%%expand fstruct(FExpr, struct _FExprObj);
-%%expand ilist(IListFExpr, FExpr);
+%%expand fstruct(FMap, struct _FMapObj);
+%%expand ilist(IListFMap, FMap);
 
 %%expand fstruct(FSymbol, struct _FSymbolObj);
 typedef struct _FSymbolObj {
-  FExpr f;
+  FMap f;
   bool isjit;
   bool ismacro;
   bool isprim;
@@ -259,25 +239,25 @@ typedef struct _FTypeObj {
 %%expand ilist(IListFType, FType);
 %%expand vector(FTypeVec, FType);
 
-typedef struct _FExprObj {
-  FExprKind kind;
-  FType typ;
-  bool istyp;
-  FExpr srcf;
-  bool evaluated;
-  bool codegened;
-  bool istoplevel;
-  int priority;
+typedef struct {
+  IString key;
+  FMap value;
+} Field;
+%%expand ilist(IListField, Field);
+
+typedef struct _FMapObj {
+  IString parentkind;
+  IString kind;
   union {
+    IListField fields;
+    IListFMap lst;
     IString ident;
     FSymbol sym;
-    FType typsym;
-    int intval;
-    float floatval;
+    int64_t intval;
+    double floatval;
     IString strval;
-    IListFExpr sons;
   };
-} FExprObj;
+} FMapObj;
 
 typedef struct {
   IString name;
@@ -289,11 +269,16 @@ typedef struct {
   IString name;
   IListFType argtypes;
   FType returntype;
-  bool isjit;
   FSymbol sym;
-  bool isinternal;
-  void (*internalfn)(FExpr);
+  void (*internalfn)(FMap);
 } FnDecl;
+
+typedef struct {
+  IString hook;
+  FMap (*internalfn)(Stream* s);
+  FSymbol sym;
+} ParserDecl;
+%%expand ilist(ParserDeclMap, ParserDecl);
 
 %%expand ilist(DeclMap, Decl);
 %%expand ilist(IListFnDecl, FnDecl);
@@ -307,9 +292,9 @@ typedef struct {
 typedef struct {
   IString name;
   bool issyntax;
-  void (*semanticfn)(FExpr);
-  void (*codegenfn)(FExpr);
-  void (*lvaluegenfn)(FExpr);
+  void (*semanticfn)(FMap);
+  void (*codegenfn)(FMap);
+  void (*lvaluegenfn)(FMap);
 } InternalDecl;
 %%expand ilist(InternalDeclMap, InternalDecl);
 
@@ -363,32 +348,55 @@ IString new_istring(char* s);
 char* istring_cstr(IString s);
 bool istring_eq(IString a, IString b);
 
-// fexpr.c
-FExpr new_fexpr(FExprKind kind);
-FExpr fident(char* id);
-FExpr fop(char* id);
-bool cmp_ident(FExpr f, char* id);
-FExpr new_fcontainer(FExprKind kind);
-void push_son(FExpr f, FExpr son);
-void reverse_sons(FExpr f);
-FExpr copy_fexpr(FExpr f);
-FExpr deepcopy_fexpr(FExpr f);
-char* fexpr_tostring(FExpr f);
+// fmap.c
+extern IString FMAP_MAP;
+extern IString FMAP_LIST;
+extern IString FMAP_IDENT;
+extern IString FMAP_SYMBOL;
+extern IString FMAP_INTLIT;
+extern IString FMAP_STRLIT;
+extern IString FMAP_CALL;
+void fmap_init();
+FMap new_fmap(IString kind);
+bool eq_kind(FMap map, IString s);
+FMap fmap();
+FMap flist();
+FMap fident(IString id);
+FMap fsymbol(FSymbol sym);
+FMap fintlit(int64_t x);
+FMap fstrlit(IString s);
+FMap fcall(FMap call, FMap args);
+// operators
+void fmap_push(FMap fmap, IString k, FMap v);
+FMap fmap_get(FMap fmap, IString k);
+void flist_push(FMap fmap, FMap val);
+FMap flist_reverse(FMap fmap);
+FMap first(IListFMap lst);
+IListFMap rest(IListFMap lst);
+void write_indent(char* buf, int indent);
+char* fmap_tostring_inside(FMap fmap, int indent);
+char* fmap_tostring(FMap fmap);
 
 // parser.c
 bool stream_isend(Stream* s);
 Stream* new_stream(char* buf);
-FExpr parse_element(Stream* s);
-FExpr parse(Stream* s);
+void parser_init_internal();
+FMap parse(Stream* s);
+
+// decls.c
+void decls_init();
+bool search_fndecl(IString name, FTypeVec* argtypes, FnDecl* fndecl);
+ParserDecl new_internal_parserdecl(IString hook, FMap (*internalfn)(Stream* s));
+void add_parser_decl(ParserDecl decl);
+bool search_parser_decl(IString id, ParserDecl* retdecl);
 
 // boot.c
-bool search_fndecl(IString name, FTypeVec* argtypes, FnDecl* fndecl);
-void boot_semantic(FExpr f);
-void boot_codegen(FExpr f);
-void boot_eval_toplevel(FExpr f);
-void boot_init();
-void boot_def_internals();
-int boot_call_main();
+/* void boot_semantic(FExpr f); */
+/* void boot_codegen(FExpr f); */
+/* void boot_eval_toplevel(FExpr f); */
+/* void boot_init(); */
+/* void boot_def_internals(); */
+/* int boot_call_main(); */
 
 // elfgen.c
 void write_elf_executable(FILE* fp, uint8_t* codeptr, size_t codesize, uint8_t* dataptr, size_t datasize, size_t entryoffset);

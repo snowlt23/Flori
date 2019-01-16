@@ -19,36 +19,39 @@ char* read_stdin() {
   return s;
 }
 
-void define_entrypoint() {
-  Stream* s = new_stream("fn __start() {\nmain; exit 0\n}\n");
-  if (linmem_need_extend()) linmem_extend();
-  FExpr f = parse(s);
-  if (f.index == -1) assert(false);
-  boot_eval_toplevel(f);
-}
+/* void define_entrypoint() { */
+/*   Stream* s = new_stream("fn __start() {\nmain; exit 0\n}\n"); */
+/*   if (linmem_need_extend()) linmem_extend(); */
+/*   FExpr f = parse(s); */
+/*   if (f.index == -1) assert(false); */
+/*   boot_eval_toplevel(f); */
+/* } */
 
-size_t get_entrypoint_offset() {
-  FnDecl fndecl;
-  if (!search_fndecl(new_istring("__start"), new_FTypeVec(), &fndecl)) {
-    error("undefined reference to `__start");
-  }
-  return fp(FSymbol, fndecl.sym)->fnidx;
-}
+/* size_t get_entrypoint_offset() { */
+/*   FnDecl fndecl; */
+/*   if (!search_fndecl(new_istring("__start"), new_FTypeVec(), &fndecl)) { */
+/*     error("undefined reference to `__start"); */
+/*   } */
+/*   return fp(FSymbol, fndecl.sym)->fnidx; */
+/* } */
 
-void generate_executable(char* filename) {
-  FILE* fp = fopen(filename, "wb");
-  write_elf_executable(fp, jit_codeptr(), jit_codesize(), data_memptr(), data_memsize(), get_entrypoint_offset());
-  fclose(fp);
-  chmod(filename, S_IRUSR | S_IWUSR|S_IXUSR);
-}
+/* void generate_executable(char* filename) { */
+/*   FILE* fp = fopen(filename, "wb"); */
+/*   write_elf_executable(fp, jit_codeptr(), jit_codesize(), data_memptr(), data_memsize(), get_entrypoint_offset()); */
+/*   fclose(fp); */
+/*   chmod(filename, S_IRUSR | S_IWUSR|S_IXUSR); */
+/* } */
 
 int main(int argc, char** argv) {
   linmem_init(1024*1024);
   jit_init(1024);
   data_init(1024);
   reloc_init();
-  boot_init();
-  boot_def_internals();
+  fmap_init();
+  decls_init();
+  parser_init_internal();
+  // boot_init();
+  // boot_def_internals();
   Stream* s = new_stream(read_stdin());
   while (!stream_isend(s)) {
     if (linmem_need_extend()) linmem_extend();
@@ -57,21 +60,21 @@ int main(int argc, char** argv) {
       data_extend(1024);
       reloc_execute();
     }
-    FExpr f = parse(s);
-    if (f.index == -1) continue;
-    boot_eval_toplevel(f);
+    FMap f = parse(s);
+    if (FMap_isnil(f)) continue;
+    // boot_eval_toplevel(f);
   }
 
-  if (argc == 3) {
-    if (strcmp(argv[1], "-o") == 0) {
-      char* outname = argv[2];
-      define_entrypoint();
-      generate_executable(outname);
-    } else {
-      error("unknown %s command-line option.", argv[1]);
-    }
-  } else {
-    jit_write_to_file("buffer.jit");
-    printf("%d", boot_call_main());
-  }
+  /* if (argc == 3) { */
+  /*   if (strcmp(argv[1], "-o") == 0) { */
+  /*     char* outname = argv[2]; */
+  /*     define_entrypoint(); */
+  /*     generate_executable(outname); */
+  /*   } else { */
+  /*     error("unknown %s command-line option.", argv[1]); */
+  /*   } */
+  /* } else { */
+  /*   jit_write_to_file("buffer.jit"); */
+  /*   printf("%d", boot_call_main()); */
+  /* } */
 }

@@ -29,6 +29,10 @@ bool stream_isend(Stream* s) {
   return s->pos >= s->len;
 }
 
+void stream_back(Stream* s, IString id) {
+  s->pos -= strlen(istring_cstr(id));
+}
+
 //
 // parse
 //
@@ -38,7 +42,11 @@ bool isident(char c) {
 }
 
 bool isspaces(char c) {
-  return c == ' ' || c == '\t' || c == '\r';
+  return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+}
+
+bool is_end_delim(char c) {
+  return c == ' ' || c == ',' || c == '\r' || c == '\n' || c == '\0';
 }
 
 bool isoperator(char c) {
@@ -55,8 +63,12 @@ bool isoperator(char c) {
   return false;
 }
 
+bool ishex(char c) {
+  return isalpha(c) || c == 'x';
+}
+
 void skip_spaces(Stream* s) {
-  for (;;) {
+  streamrep(i, s) {
     if (isspaces(stream_get(s))) {
       stream_next(s);
     } else if (stream_get(s) == '#') {
@@ -72,18 +84,13 @@ void skip_spaces(Stream* s) {
   }
 }
 
-FExpr parse_ident(Stream* s) {
-  char litbuf[1024] = {};
-  streamrep(i, s) {
-    assert(i < 1024);
-    char c = stream_get(s);
-    if (!isident(c)) break;
-    stream_next(s);
-    litbuf[i] = c;
+bool is_opid(IString id) {
+  char* s = istring_cstr(id);
+  while (*s) {
+    if (!isoperator(*s)) return false;
+    s++;
   }
-  FExpr f = new_fexpr(FEXPR_IDENT);
-  fe(f)->ident = new_istring(strdup(litbuf));
-  return f;
+  return true;
 }
 
 int calc_op_priority(char* opident) {
@@ -109,26 +116,36 @@ int calc_op_priority(char* opident) {
   }
 }
 
-FExpr parse_operator(Stream* s) {
+//
+// primitive parser
+//
+
+IString lex_ident(Stream* s) {
   char litbuf[1024] = {};
   streamrep(i, s) {
     assert(i < 1024);
     char c = stream_get(s);
-    if (!isoperator(c)) break;
+    if (is_end_delim(c)) break;
+    stream_next(s);
+    litbuf[i] = c;
+    if (c == '(' || c == '[' || c == '{') break;
+  }
+  return new_istring(strdup(litbuf));
+}
+
+FMap parse_fident(Stream* s) {
+  char litbuf[1024] = {};
+  streamrep(i, s) {
+    assert(i < 1024);
+    char c = stream_get(s);
+    if (!isident(c)) break;
     stream_next(s);
     litbuf[i] = c;
   }
-  FExpr f = new_fexpr(FEXPR_OP);
-  fe(f)->ident = new_istring(strdup(litbuf));
-  fe(f)->priority = calc_op_priority(litbuf);
-  return f;
+  return fident(new_istring(strdup(litbuf)));
 }
 
-bool ishex(char c) {
-  return isalpha(c) || c == 'x';
-}
-
-FExpr parse_intlit(Stream* s) {
+FMap parse_fintlit(Stream* s) {
   char litbuf[1024] = {};
   streamrep(i, s) {
     assert(i < 1024);
@@ -137,12 +154,10 @@ FExpr parse_intlit(Stream* s) {
     stream_next(s);
     litbuf[i] = c;
   }
-  FExpr f = new_fexpr(FEXPR_INTLIT);
-  fe(f)->intval = strtol(litbuf, NULL, 0);
-  return f;
+  return fintlit(strtol(litbuf, NULL, 0));
 }
 
-FExpr parse_strlit(Stream* s) {
+FMap parse_fstrlit(Stream* s) {
   char litbuf[1024*1024] = {};
   streamrep(i, s) {
     assert(i < 1024*1024);
@@ -151,126 +166,127 @@ FExpr parse_strlit(Stream* s) {
     if (c == '"') break;
     litbuf[i] = c;
   }
-  FExpr f = new_fexpr(FEXPR_STRLIT);
-  fe(f)->strval = new_istring(strdup(litbuf));
+  return fstrlit(new_istring(strdup(litbuf)));
+}
+
+FMap void_typef() {
+  def_fmap(f, type, {
+      def_field(t, fstrlit(new_istring("void")));
+    });
   return f;
 }
 
-FExpr parse_flist(Stream* s) {
-  if (stream_next(s) != '(') error("expect `( token");
-  IListFExpr sons = nil_IListFExpr();
+//
+// internal parser
+//
+
+FMap parse_list(Stream* s) {
+  FMap f = flist();
   streamrep(i, s) {
     skip_spaces(s);
-    if (stream_get(s) == ')') break;
-    FExpr son = parse(s);
-    if (son.index == -1) continue;
-    sons = new_IListFExpr(son, sons);
-  }
-  if (stream_next(s) != ')') error("expect `) token");
-  FExpr f = new_fexpr(FEXPR_LIST);
-  fe(f)->sons = IListFExpr_reverse(sons);
-  return f;
-}
-
-FExpr parse_fblock(Stream* s) {
-  if (stream_next(s) != '{') error("expect `{ token");
-  IListFExpr sons = nil_IListFExpr();
-  streamrep(i, s) {
-    skip_spaces(s);
-    if (stream_get(s) == '}') break;
-    FExpr son = parse(s);
-    if (son.index == -1) continue;
-    sons = new_IListFExpr(son, sons);
-  }
-  if (stream_next(s) != '}') error("expect `} token");
-  FExpr f = new_fexpr(FEXPR_BLOCK);
-  fe(f)->sons = IListFExpr_reverse(sons);
-  return f;
-}
-
-FExpr parse_reader_type(Stream* s) {
-  if (stream_next(s) != '^') error("expect `^ reader token.");
-  FExpr typeid = parse_ident(s);
-  if (cmp_ident(typeid, "ptr")) {
-    skip_spaces(s);
-    FExpr f = new_fcontainer(FEXPR_SEQ);
-    push_son(f, parse_ident(s));
-    push_son(f, fident("type"));
-    fseq(retf, fident("type_ptr"), f);
-    return retf;
-  } else {
-    fseq(f, fident("type"), typeid);
-    return f;
-  }
-}
-
-FExpr parse_reader_unquote(Stream* s) {
-  if (stream_next(s) != '`') error("expect ` reader token.");
-  FExpr e = parse_element(s);
-  fseq(f, fident("unquote"), e);
-  return f;
-}
-
-FExpr parse_reader_dollar(Stream* s) {
-  if (stream_next(s) != '$') error("expect `$ reader token.");
-  char buf[1024*1024] = {};
-  int parencnt = 0;
-  for (int i=0; i<1024*1024; i++) {
-    if (stream_get(s) == '(') parencnt++;
-    if (stream_get(s) == ')' && parencnt == 0) break;
-    if (stream_get(s) == ')') parencnt--;
-    if (stream_get(s) == '$' || stream_get(s) == '}' || stream_get(s) == '=') break;
-    if (stream_get(s) == '\n' || stream_get(s) == ';' || stream_get(s) == ',') break;
-    buf[i] = stream_next(s);
-  }
-  Stream* newstrm = new_stream(strdup(buf));
-  return parse(newstrm);
-}
-
-FExpr parse_element(Stream* s) {
-  if (isdigit(stream_get(s))) {
-    return parse_intlit(s);
-  } else if (stream_get(s) == '"') {
-    stream_next(s);
-    return parse_strlit(s);
-  } else if (isident(stream_get(s))) {
-    return parse_ident(s);
-  } else if (isoperator(stream_get(s))) {
-    return parse_operator(s);
-  } else if (stream_get(s) == '(') {
-    return parse_flist(s);
-  } else if (stream_get(s) == '{') {
-    return parse_fblock(s);
-  } else if (stream_get(s) == '^') {
-    return parse_reader_type(s);
-  } else if (stream_get(s) == '`') {
-    return parse_reader_unquote(s);
-  } else if (stream_get(s) == '$') {
-    return parse_reader_dollar(s);
-  } else {
-    error("unexpected %c:%d char", stream_get(s), stream_get(s));
-  }
-}
-
-FExpr parse(Stream* s) {
-  IListFExpr sons = nil_IListFExpr();
-  streamrep(i, s) {
-    skip_spaces(s);
-    if (stream_get(s) == '\n' || stream_get(s) == ';' || stream_get(s) == ',' || stream_get(s) == '\0') {
+    if (stream_get(s) == ',') stream_next(s);
+    if (stream_get(s) == ')') {
       stream_next(s);
       break;
-    } else if (stream_get(s) == '}' || stream_get(s) == ')') {
+    }
+    flist_push(f, parse(s));
+  }
+  *fm(f) = *fm(flist_reverse(f));
+  return f;
+}
+
+FMap parse_block(Stream* s) {
+  FMap f = flist();
+  streamrep(i, s) {
+    skip_spaces(s);
+    if (stream_get(s) == '}') {
+      stream_next(s);
       break;
     }
-    sons = new_IListFExpr(parse_element(s), sons);
+    flist_push(f, parse(s));
   }
-  if (IListFExpr_len(sons) == 0) {
-    return (FExpr){-1};
-  }
-  if (IListFExpr_len(sons) == 1) {
-    return IListFExpr_value(sons);
-  }
-  FExpr f = new_fexpr(FEXPR_SEQ);
-  fe(f)->sons = IListFExpr_reverse(sons);
+  *fm(f) = *fm(flist_reverse(f));
+  fm(f)->kind = new_istring("block");
   return f;
+}
+
+FMap parse_fn(Stream* s) {
+  def_fmap(f, fn, {
+      skip_spaces(s);
+      def_field(name, parse_fident(s));
+      def_field(args, parse(s));
+      FMap rettype = parse(s);
+      FMap body;
+      if (eq_kind(rettype, new_istring("block"))) {
+        body = rettype;
+        rettype = void_typef();
+      } else {
+        body = parse(s);
+      }
+      def_field(returntype, rettype);
+      def_field(body, body);
+    });
+  return f;
+}
+
+void def_parser(char* name, FMap (*internalfn)(Stream* s)) {
+  add_parser_decl(new_internal_parserdecl(new_istring(name), internalfn));
+}
+
+void parser_init_internal() {
+  def_parser("(", parse_list);
+  def_parser("{", parse_block);
+  def_parser("fn", parse_fn);
+}
+
+//
+//
+//
+
+FMap parse_prim(Stream* s) {
+  skip_spaces(s);
+  IString id = lex_ident(s);
+  if (isdigit(*istring_cstr(id))) {
+    stream_back(s, id);
+    return parse_fintlit(s);
+  } else if (*istring_cstr(id) == '"') {
+    stream_back(s, id);
+    s->pos++;
+    return parse_fstrlit(s);
+  } else {
+    return fident(id);
+  }
+}
+
+FMap parse_infix5(Stream* s) {
+  FMap left = parse_prim(s);
+  streamrep(i, s) {
+    skip_spaces(s);
+    IString id = lex_ident(s);
+    if (!is_opid(id) || calc_op_priority(istring_cstr(id)) != 5) {
+      stream_back(s, id);
+      break;
+    }
+    FMap args = flist();
+    flist_push(args, parse_prim(s));
+    flist_push(args, left);
+    left = fcall(fident(id), args);
+  }
+  return left;
+}
+
+FMap parse(Stream* s) {
+  skip_spaces(s);
+  IString id = lex_ident(s);
+  ParserDecl pdecl;
+  if (search_parser_decl(id, &pdecl)) {
+    if (pdecl.internalfn != NULL) {
+      return (pdecl.internalfn)(s);
+    } else {
+      assert(false); // TODO:
+    }
+  }
+
+  stream_back(s, id);
+  return parse_infix5(s);
 }

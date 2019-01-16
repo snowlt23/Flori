@@ -12,6 +12,7 @@ fn fn_epilogue() {
   mov rsp rbp
   pop rbp
   ret
+  write_opstore
 }
 
 fn create_dummy_fn(name ^fexpr, argdecls ^fexpr) ^fexpr {

@@ -28,6 +28,12 @@ jit pop_rdx() ^void {
 jit pop_rbp() ^void {
   X 0x5d
 }
+jit pop_r8() ^void {
+  X 0x41; X 0x58
+}
+jit pop_r9() ^void {
+  X 0x41; X 0x59
+}
 
 jit opret() ^void {
   X 0xC3
@@ -150,6 +156,7 @@ jit deref_lvalue(^ptr char) ^ptr char {}
 
 jit cast_ptr(^cstring) ^ptr char {}
 jit cast_ptr_int(^pointer) ^ptr int {}
+jit cast_ptr_char(^pointer) ^ptr char {}
 jit cast_pointer(^cstring) ^pointer {}
 jit cstring(^pointer) ^cstring {}
 jit cast_cstring(^int) ^cstring {}
@@ -186,6 +193,10 @@ jit syscall(^int, ^int, ^int) ^int {
 }
 jit syscall(^int, ^int, ^int, ^int) ^int {
   pop_rdx; pop_rsi; pop_rdi; pop_rax
+  op_syscall; push_rax
+}
+jit syscall(^int, ^int, ^int, ^int, ^int, ^int, ^int) ^int {
+  pop_r9; pop_r8; pop_rcx; pop_rdx; pop_rsi; pop_rdi; pop_rax
   op_syscall; push_rax
 }
 

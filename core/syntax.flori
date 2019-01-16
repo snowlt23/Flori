@@ -26,3 +26,20 @@ macro range(i ^fexpr, body ^fexpr, s ^fexpr, e ^fexpr) ^fexpr {
   }
   return retf
 }
+
+macro range0(i ^fexpr, body ^fexpr, s ^fexpr, e ^fexpr) ^fexpr {
+  retf := quote {
+    `(dup i) := `s
+    while (`(dup i) < `e) {
+      `body
+      `$dup i = `(dup i) + 1
+    }
+  }
+  return retf
+}
+
+macro +=(i ^fexpr, x ^fexpr) ^fexpr {
+  quote {
+    `$dup i = `(dup i) + `x
+  }
+}

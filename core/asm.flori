@@ -12,10 +12,22 @@ rdi := cast_register 7
 
 mod_reg := 3
 
+# opstore := cast_ptr_char $malloc 1024
+# op_i := 0
+
 fn asmop(op ^int) {
   # internal_print op
-  opcode op
+  # opcode op
+  # deref $opstore + op_i = cast_char op
+  # op_i += 1
 }
+
+# fn write_opstore() {
+#   for i (range0 0 op_i) {
+#     opcode (cast_int (deref (opstore + op_i)))
+#   }
+#   op_i = 0
+# }
 
 fn modrm(rm ^register, reg ^register, mod ^int) ^int {
   shl mod 6 + shl (cast_int reg) 3 + cast_int rm

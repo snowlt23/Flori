@@ -5,6 +5,7 @@
 DeclMap declmap;
 FnDeclMap fndeclmap;
 InternalDeclMap internaldeclmap;
+ParserDeclMap parserdeclmap;
 int fnstacksize;
 int tmpcnt = 0;
 
@@ -910,7 +911,7 @@ void semantic_fn(FExpr f) {
   fnext(it);
   FExpr name = fnext(it);
   IString nameid;
-  if (fe(name)->kind == FEXPR_IDENT) {
+  if (fe(name)->kind == FEXPR_IDENT || fe(name)->kind == FEXPR_OP) {
     nameid = fe(name)->ident;
     fe(name)->kind = FEXPR_SYMBOL;
     fe(name)->sym = alloc_FSymbol();
