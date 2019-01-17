@@ -15,3 +15,7 @@ char* istring_cstr(IString s) {
 bool istring_eq(IString a, IString b) {
   return strcmp(istring_cstr(a), istring_cstr(b)) == 0;
 }
+
+bool istring_ceq(IString a, char* b) {
+  return strcmp(istring_cstr(a), b) == 0;
+}

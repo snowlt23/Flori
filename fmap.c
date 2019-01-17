@@ -24,6 +24,7 @@ FMap new_fmap(IString kind) {
   FMap fmap = alloc_FMap();
   fm(fmap)->parentkind = kind;
   fm(fmap)->kind = kind;
+  fm(fmap)->fields = nil_IListField();
   return fmap;
 }
 
@@ -33,7 +34,6 @@ bool eq_kind(FMap map, IString s) {
 
 FMap fmap() {
   FMap fmap = new_fmap(FMAP_MAP);
-  fm(fmap)->fields = nil_IListField();
   return fmap;
 }
 
@@ -79,28 +79,34 @@ FMap fcall(FMap call, FMap args) {
 // operations
 //
 
-void fmap_push(FMap fmap, IString k, FMap v) {
-  assert(eq_kind(fmap, FMAP_MAP));
-  fm(fmap)->fields = new_IListField((Field){k, v}, fm(fmap)->fields);
+void fmap_push(FMap f, IString k, FMap v) {
+  fm(f)->fields = new_IListField((Field){k, v}, fm(f)->fields);
 }
 
-FMap fmap_get(FMap fmap, IString k) {
-  assert(eq_kind(fmap, FMAP_MAP));
-  forlist (IListField, Field, field, fm(fmap)->fields) {
-    if (istring_eq(field.key, k)) return field.value;
+void fmap_cpush(FMap f, char* k, FMap v) {
+  fmap_push(f, new_istring(k), v);
+}
+
+FMap fmap_cget(FMap f, char* k) {
+  forlist (IListField, Field, field, fm(f)->fields) {
+    if (istring_ceq(field.key, k)) return field.value;
   }
   return nil_FMap();
 }
 
-void flist_push(FMap fmap, FMap val) {
-  assert(eq_kind(fmap, FMAP_LIST));
-  fm(fmap)->lst = new_IListFMap(val, fm(fmap)->lst);
+FMap fmap_get(FMap f, IString k) {
+  return fmap_cget(f, istring_cstr(k));
 }
 
-FMap flist_reverse(FMap fmap) {
+void flist_push(FMap f, FMap val) {
+  assert(eq_kind(f, FMAP_LIST));
+  fm(f)->lst = new_IListFMap(val, fm(f)->lst);
+}
+
+FMap flist_reverse(FMap f) {
   FMap newf = flist();
-  forlist (IListFMap, FMap, f, fm(fmap)->lst) {
-    flist_push(newf, f);
+  forlist (IListFMap, FMap, e, fm(f)->lst) {
+    flist_push(newf, e);
   }
   return newf;
 }
@@ -119,40 +125,42 @@ void write_indent(char* buf, int indent) {
   }
 }
 
-char* fmap_tostring_inside(FMap fmap, int indent) {
+char* fmap_tostring_inside(FMap f, int indent) {
+  if (FMap_isnil(f)) return "nil";
+  
   char buf[1024*1024] = {};
   int bufpos = 0;
-  if (eq_kind(fmap, FMAP_MAP)) {
-    if (IListField_len(fm(fmap)->fields) == 0) {
-      snprintf(buf, 1024*1024-bufpos, "%%h{kind: %s}", istring_cstr(fm(fmap)->kind));
+  if (eq_kind(f, FMAP_MAP)) {
+    if (IListField_len(fm(f)->fields) == 0) {
+      snprintf(buf, 1024*1024-bufpos, "%%m{kind: %s}", istring_cstr(fm(f)->kind));
       return strdup(buf);
     }
-    strcpy(buf + bufpos, "%h{\n");
-    bufpos += strlen("%h{\n");
+    strcpy(buf + bufpos, "%m{\n");
+    bufpos += strlen("%m{\n");
     indent += 2;
     write_indent(buf + bufpos, indent); bufpos += indent;
-    bufpos += snprintf(buf + bufpos, 1024*1024-bufpos, "kind: %s,\n", istring_cstr(fm(fmap)->kind));
-    forlist (IListField, Field, field, fm(fmap)->fields) {
+    bufpos += snprintf(buf + bufpos, 1024*1024-bufpos, "kind: %s,\n", istring_cstr(fm(f)->kind));
+    forlist (IListField, Field, field, fm(f)->fields) {
       write_indent(buf + bufpos, indent); bufpos += indent;
       bufpos += snprintf(buf + bufpos, 1024*1024-bufpos, "%s: %s,\n", istring_cstr(field.key), fmap_tostring_inside(field.value, indent));
     }
     indent -= 2;
     write_indent(buf + bufpos, indent); bufpos += indent;
     bufpos += snprintf(buf + bufpos, 1024*1024-bufpos, "}");
-  } else if (eq_kind(fmap, FMAP_LIST)) {
+  } else if (eq_kind(f, FMAP_LIST)) {
     bufpos += snprintf(buf + bufpos, 1024*1024-bufpos, "( ");
-    forlist (IListFMap, FMap, f, fm(fmap)->lst) {
-      bufpos += snprintf(buf + bufpos, 1024*1024-bufpos, "%s ", fmap_tostring_inside(f, indent));
+    forlist (IListFMap, FMap, e, fm(f)->lst) {
+      bufpos += snprintf(buf + bufpos, 1024*1024-bufpos, "%s ", fmap_tostring_inside(e, indent));
     }
     bufpos += snprintf(buf + bufpos, 1024*1024-bufpos, ")");
-  } else if (eq_kind(fmap, FMAP_IDENT)) {
-    snprintf(buf, 1024*1024, "%s", istring_cstr(fm(fmap)->ident));
-  } else if (eq_kind(fmap, FMAP_SYMBOL)) {
-    assert(false); // TODO:
-  } else if (eq_kind(fmap, FMAP_INTLIT)) {
-    snprintf(buf, 1024*1024, "%" PRId64, fm(fmap)->intval);
-  } else if (eq_kind(fmap, FMAP_STRLIT)) {
-    snprintf(buf, 1024*1024, "\"%s\"", istring_cstr(fm(fmap)->strval));
+  } else if (eq_kind(f, FMAP_IDENT)) {
+    snprintf(buf, 1024*1024, "%s", istring_cstr(fm(f)->ident));
+  } else if (eq_kind(f, FMAP_SYMBOL)) {
+    snprintf(buf, 1024*1024, "%s", istring_cstr(fp(FSymbol, fm(f)->sym)->name));
+  } else if (eq_kind(f, FMAP_INTLIT)) {
+    snprintf(buf, 1024*1024, "%" PRId64, fm(f)->intval);
+  } else if (eq_kind(f, FMAP_STRLIT)) {
+    snprintf(buf, 1024*1024, "\"%s\"", istring_cstr(fm(f)->strval));
   } else {
     assert(false);
   }
@@ -160,6 +168,6 @@ char* fmap_tostring_inside(FMap fmap, int indent) {
 }
 
 
-char* fmap_tostring(FMap fmap) {
-  return fmap_tostring_inside(fmap, 0);
+char* fmap_tostring(FMap f) {
+  return fmap_tostring_inside(f, 0);
 }

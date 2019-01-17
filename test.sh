@@ -1,7 +1,8 @@
 #!/bin/bash
 
-CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/syntax.flori core/allocator.flori core/string.flori core/asm.flori"
+# CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/syntax.flori core/allocator.flori core/string.flori core/asm.flori"
 # CORELIBS="core/prelude.flori"
+CORELIBS="core/new_prelude.flori"
 
 read-coresrc() {
   for f in $CORELIBS ; do
@@ -57,7 +58,7 @@ unittest "linmem_test"
 unittest "jit_test"
 unittest "fmap_test"
 
-# runtest "fn main() {9}" 9
+runtest "fn main() { 9 }" 9
 # runtest "fn main() {4}" 4
 # runtest "fn main() {5}" 5
 # runtest "fn main() {555}" 555

@@ -1,8 +1,7 @@
 CC = gcc
 CFLAGS = -Wall
 
-# FLORI_LIBS = linmem.o jit.o data.o reloc.o istring.o fexpr.o parser.o boot.o flori.h.o elfgen.o
-FLORI_LIBS = linmem.o jit.o data.o reloc.o istring.o decls.o fmap.o parser.o flori.h.o elfgen.o
+FLORI_LIBS = linmem.o jit.o data.o reloc.o istring.o decls.o fmap.o parser.o boot.o flori.h.o elfgen.o
 
 build: flori ;
 

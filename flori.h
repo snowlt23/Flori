@@ -10,7 +10,6 @@
 
 #define debug(...) {fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n");}
 #define error(...) { fprintf(stderr, __VA_ARGS__); exit(1); }
-#define check_next(l, ...) if (IListFMap_isnil(l)) { error(__VA_ARGS__); }
 
 #define fp(t, f) (assert(0 <= f.index && f.index < linmem_getidx()), t ## _ptr(f))
 #define fm(f) fp(FMap, f)
@@ -201,16 +200,16 @@ typedef struct {
 
 %%expand fstruct(FMap, struct _FMapObj);
 %%expand ilist(IListFMap, FMap);
-
+%%expand fstruct(FType, struct _FTypeObj);
+%%expand ilist(IListFType, FType);
+%%expand vector(FTypeVec, FType);
 %%expand fstruct(FSymbol, struct _FSymbolObj);
+
 typedef struct _FSymbolObj {
   FMap f;
-  bool isjit;
-  bool ismacro;
-  bool isprim;
   IString name;
-  bool istoplevel;
-  bool isinternal;
+  FType t;
+  bool isprim;
   union {
     int vardataidx;
     int varoffset;
@@ -230,14 +229,11 @@ typedef enum {
   FTYPE_SYM,
 } FTypeKind;
 
-%%expand fstruct(FType, struct _FTypeObj);
 typedef struct _FTypeObj {
   FTypeKind kind;
   FSymbol sym;
   FType ptrof;
 } FTypeObj;
-%%expand ilist(IListFType, FType);
-%%expand vector(FTypeVec, FType);
 
 typedef struct {
   IString key;
@@ -248,8 +244,8 @@ typedef struct {
 typedef struct _FMapObj {
   IString parentkind;
   IString kind;
+  IListField fields;
   union {
-    IListField fields;
     IListFMap lst;
     IString ident;
     FSymbol sym;
@@ -347,6 +343,7 @@ void reloc_execute_addr(uint8_t* addr);
 IString new_istring(char* s);
 char* istring_cstr(IString s);
 bool istring_eq(IString a, IString b);
+bool istring_ceq(IString a, char* b);
 
 // fmap.c
 extern IString FMAP_MAP;
@@ -367,15 +364,17 @@ FMap fintlit(int64_t x);
 FMap fstrlit(IString s);
 FMap fcall(FMap call, FMap args);
 // operators
-void fmap_push(FMap fmap, IString k, FMap v);
-FMap fmap_get(FMap fmap, IString k);
-void flist_push(FMap fmap, FMap val);
-FMap flist_reverse(FMap fmap);
+void fmap_push(FMap f, IString k, FMap v);
+void fmap_cpush(FMap f, char* k, FMap v);
+FMap fmap_get(FMap f, IString k);
+FMap fmap_cget(FMap f, char* k);
+void flist_push(FMap f, FMap val);
+FMap flist_reverse(FMap f);
 FMap first(IListFMap lst);
 IListFMap rest(IListFMap lst);
 void write_indent(char* buf, int indent);
-char* fmap_tostring_inside(FMap fmap, int indent);
-char* fmap_tostring(FMap fmap);
+char* fmap_tostring_inside(FMap f, int indent);
+char* fmap_tostring(FMap f);
 
 // parser.c
 bool stream_isend(Stream* s);
@@ -385,18 +384,27 @@ FMap parse(Stream* s);
 
 // decls.c
 void decls_init();
+// decl
+void add_decl(Decl decl);
+bool search_decl(IString name, Decl* retdecl);
+// fndecl
+void add_fndecl(FnDecl decl);
 bool search_fndecl(IString name, FTypeVec* argtypes, FnDecl* fndecl);
+// internaldecl
+void add_internal_decl(InternalDecl decl);
+bool search_internal_decl(IString name, InternalDecl* retdecl);
+// parserdecl
 ParserDecl new_internal_parserdecl(IString hook, FMap (*internalfn)(Stream* s));
 void add_parser_decl(ParserDecl decl);
 bool search_parser_decl(IString id, ParserDecl* retdecl);
 
 // boot.c
-/* void boot_semantic(FExpr f); */
-/* void boot_codegen(FExpr f); */
-/* void boot_eval_toplevel(FExpr f); */
-/* void boot_init(); */
-/* void boot_def_internals(); */
-/* int boot_call_main(); */
+// void boot_init();
+void boot_init_internals();
+void boot_semantic(FMap f);
+void boot_codegen(FMap f);
+void boot_eval_toplevel(FMap f);
+int boot_call_main();
 
 // elfgen.c
 void write_elf_executable(FILE* fp, uint8_t* codeptr, size_t codesize, uint8_t* dataptr, size_t datasize, size_t entryoffset);

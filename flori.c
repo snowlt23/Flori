@@ -50,8 +50,7 @@ int main(int argc, char** argv) {
   fmap_init();
   decls_init();
   parser_init_internal();
-  // boot_init();
-  // boot_def_internals();
+  boot_init_internals();
   Stream* s = new_stream(read_stdin());
   while (!stream_isend(s)) {
     if (linmem_need_extend()) linmem_extend();
@@ -62,8 +61,11 @@ int main(int argc, char** argv) {
     }
     FMap f = parse(s);
     if (FMap_isnil(f)) continue;
-    // boot_eval_toplevel(f);
+    boot_eval_toplevel(f);
   }
+  
+  jit_write_to_file("buffer.jit");
+  printf("%d", boot_call_main());
 
   /* if (argc == 3) { */
   /*   if (strcmp(argv[1], "-o") == 0) { */
