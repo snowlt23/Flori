@@ -20,8 +20,8 @@ int main() {
   cmptest("{}", "( )");
   cmptest("{ aaa bb c }", "( aaa bb c )");
   cmptest("{ \naaa\nbb\nc\n }", "( aaa bb c )");
-  cmptest("fn main() {}", "%m{\n  kind: fn,\n  body: ( ),\n  returntype: %m{\n    kind: type,\n    t: void,\n  },\n  args: ( ),\n  name: main,\n}");
+  cmptest("fn main() {}", "%m{\n  kind: fn,\n  body: ( ),\n  returntype: %m{\n    kind: type,\n    t: void,\n  },\n  argdecls: ( ),\n  name: main,\n}");
   cmptest("1 + 2", "%m{\n  kind: call,\n  args: ( 1 2 ),\n  call: +,\n}");
-  cmptest("jit return(int) int {}", "%m{\n  kind: jit,\n  body: ( ),\n  returntype: int,\n  args: ( int ),\n  name: return,\n}");
+  // cmptest("inline fn return(r int) int {}", "%m{\n  kind: jit,\n  body: ( ),\n  returntype: int,\n  argdecls: ( ),\n  name: return,\n}");
   cmptest("add(1, 2)", "%m{\n  kind: call,\n  args: ( 1 2 ),\n  call: add,\n}");
 }

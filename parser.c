@@ -139,7 +139,7 @@ FMap parse_fident(Stream* s) {
   streamrep(i, s) {
     assert(i < 1024);
     char c = stream_get(s);
-    if (!isident(c)) break;
+    if (!isident(c) && !isoperator(c)) break;
     stream_next(s);
     litbuf[i] = c;
   }
@@ -211,11 +211,34 @@ FMap parse_block(Stream* s) {
   return f;
 }
 
-FMap parse_jit(Stream* s) {
-  def_fmap(f, jit, {
+FMap parse_fn(Stream* s) {
+  def_fmap(f, fn, {
       skip_spaces(s);
       def_field(name, parse_fident(s));
-      def_field(args, parse(s));
+
+      if (!stream_next(s)) error("expect function argdecls");
+      FMap argdecls = flist();
+      streamrep(i, s) {
+        skip_spaces(s);
+        if (stream_get(s) == ',') stream_next(s);
+        if (stream_get(s) == ')') {
+          stream_next(s);
+          break;
+        }
+        
+        FMap n = parse(s);
+        def_fmap(t, type, {
+            def_field(t, parse(s));
+          });
+        def_fmap(ad, argdecl, {
+            def_field(name, n);
+            def_field(type, t);
+          });
+        flist_push(argdecls, ad);
+      }
+      *fm(argdecls) = *fm(flist_reverse(argdecls));
+      def_field(argdecls, argdecls);
+      
       FMap rettype = parse(s);
       FMap body;
       if (eq_kind(rettype, new_istring("block"))) {
@@ -223,6 +246,8 @@ FMap parse_jit(Stream* s) {
         rettype = void_typef();
       } else {
         body = parse(s);
+        def_fmap(typef, type, def_field(t, rettype));
+        rettype = typef;
       }
       def_field(returntype, rettype);
       def_field(body, body);
@@ -230,22 +255,9 @@ FMap parse_jit(Stream* s) {
   return f;
 }
 
-FMap parse_fn(Stream* s) {
-  def_fmap(f, fn, {
-      skip_spaces(s);
-      def_field(name, parse_fident(s));
-      def_field(args, parse(s));
-      FMap rettype = parse(s);
-      FMap body;
-      if (eq_kind(rettype, new_istring("block"))) {
-        body = rettype;
-        rettype = void_typef();
-      } else {
-        body = parse(s);
-      }
-      def_field(returntype, rettype);
-      def_field(body, body);
-    });
+FMap parse_inline(Stream* s) {
+  FMap f = parse(s);
+  fmap_cpush(f, "inline", fintlit(1));
   return f;
 }
 
@@ -258,6 +270,12 @@ FMap parse_defprimitive(Stream* s) {
   return f;
 }
 
+FMap parse_return(Stream* s) {
+  FMap args = flist();
+  flist_push(args, parse(s));
+  return fcall(fident(new_istring("return")), args);
+}
+
 void def_parser(char* name, FMap (*internalfn)(Stream* s)) {
   add_parser_decl(new_internal_parserdecl(new_istring(name), internalfn));
 }
@@ -266,8 +284,9 @@ void parser_init_internal() {
   def_parser("(", parse_list);
   def_parser("{", parse_block);
   def_parser("fn", parse_fn);
-  def_parser("jit", parse_jit);
+  def_parser("inline", parse_inline);
   def_parser("defprimitive", parse_defprimitive);
+  def_parser("return", parse_return);
 }
 
 //

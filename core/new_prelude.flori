@@ -1,2 +1,34 @@
 defprimitive void 0
 defprimitive int 8
+
+inline fn push_rax() {
+  X(0x50)
+}
+
+inline fn pop_rax() {
+  X(0x58)
+}
+inline fn pop_rcx() {
+  X(0x59)
+}
+inline fn pop_rbp() {
+  X(0x5d)
+}
+
+inline fn opret() {
+  X(0xc3)
+}
+
+inline fn genret() {
+  pop_rax()
+  X(0x48) X(0x89) X(0xec)
+  pop_rbp()
+  opret()
+}
+inline fn return(r int) {genret()}
+
+inline fn +(a int, b int) int {
+  pop_rcx() pop_rax()
+  X(0x48) X(0x01) X(0xC8)
+  push_rax()
+}

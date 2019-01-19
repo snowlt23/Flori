@@ -28,6 +28,12 @@ FMap new_fmap(IString kind) {
   return fmap;
 }
 
+FMap copy_fmap(FMap f) {
+  FMap newf = alloc_FMap();
+  *fm(newf) = *fm(f);
+  return newf;
+}
+
 bool eq_kind(FMap map, IString s) {
   return istring_eq(fm(map)->parentkind, s) || istring_eq(fm(map)->kind, s);
 }

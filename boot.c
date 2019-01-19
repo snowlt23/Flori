@@ -1,5 +1,6 @@
 #include "flori.h"
 #include <string.h>
+#include <inttypes.h>
 
 // semantic globals
 int tmpcnt = 0;
@@ -165,12 +166,19 @@ void codegen_fintlit(FMap f) {
   gen_push_int(fm(f)->intval);
 }
 
+void semantic_fident(FMap f) {
+  Decl decl;
+  if (!search_decl(fm(f)->ident, &decl)) error("undeclared %s ident", fmap_tostring(f));
+  *fm(f) = *fm(fsymbol(decl.sym));
+  fmap_cpush(f, "type", new_ftypesym(decl.typ));
+}
+
 void semantic_fsymbol(FMap f) {
-  // discard
 }
 
 void codegen_fsymbol(FMap f) {
-  assert(false);
+  write_hex(0xff, 0xb5);
+  write_lendian(-fp(FSymbol, fm(f)->sym)->varoffset);
 }
 
 void semantic_block(FMap f) {
@@ -193,7 +201,7 @@ void semantic_fn(FMap f) {
   FMap fsym = fsymbol(sym);
   fmap_cpush(f, "sym", fsym);
   
-  // FMap args = fmap_cget(f, "args");
+  FMap argdecls = fmap_cget(f, "argdecls");
   FMap rettype = fmap_cget(f, "returntype");
   FMap body = fmap_cget(f, "body");
   boot_semantic(rettype);
@@ -201,30 +209,48 @@ void semantic_fn(FMap f) {
   fnstacksize = 0;
 
   IListFType argtypes = nil_IListFType();
-  /* forlist(IListFMap, FMap, arg, fm(args)->lst) { */
-  /*   assert(false); */
-  /* } */
+  forlist(IListFMap, FMap, argdecl, fm(argdecls)->lst) {
+    FMap name = fmap_cget(argdecl, "name");
+    FMap type = fmap_cget(argdecl, "type");
+    IString nameid = fm(name)->ident;
+    boot_semantic(type);
+    argtypes = new_IListFType(get_ftype(type), argtypes);
+    FSymbol sym = new_symbol(fm(name)->ident);
+    *fm(name) = *fm(fsymbol(sym));
+    add_decl((Decl){nameid, sym, get_ftype(type)});
+  }
   argtypes = IListFType_reverse(argtypes);
   
   add_fndecl((FnDecl){fm(name)->ident, argtypes, get_ftype(rettype), sym, NULL});
-  boot_semantic(body);
-  fp(FSymbol, sym)->stacksize = fnstacksize;
+  
+  bool isinline = !FMap_isnil(fmap_cget(f, "inline"));
+  if (!isinline) {
+    boot_semantic(body);
+    fp(FSymbol, sym)->stacksize = fnstacksize;
+  }
 }
 
 void codegen_fn(FMap f) {
+  bool isinline = !FMap_isnil(fmap_cget(f, "inline"));
+  if (isinline) return;
+  
   FMap fnsym = fmap_cget(f, "sym");
-  // FMap fnargs = fmap_cget(f, "sym");
-  FMap fnbody = fmap_cget(f, "body");
+  FMap argdecls = fmap_cget(f, "argdecls");
+  FMap body = fmap_cget(f, "body");
 
   int fnidx = jit_getidx();
   fp(FSymbol, fm(fnsym)->sym)->fnidx = fnidx;
   curroffset = 0;
   gen_prologue(fp(FSymbol, fm(fnsym)->sym)->stacksize);
-  // int argoffset = 16;
-  /* forlist (IListFMap, FMap, arg, IListFMap_reverse(fm(fnargs)->lst)) { */
-  /*   assert(false); */
-  /* } */
-  boot_codegen(fnbody);
+
+  int argoffset = 16;
+  forlist(IListFMap, FMap, argdecl, fm(argdecls)->lst) {
+    FMap name = fmap_cget(argdecl, "name");
+    fp(FSymbol, fm(name)->sym)->varoffset = -argoffset;
+    argoffset += 8;
+  }
+  
+  boot_codegen(body);
   write_hex(0x58); // pop rax ; for return value
   gen_epilogue();
 }
@@ -261,6 +287,82 @@ void semantic_defprimitive(FMap f) {
   add_decl((Decl){fm(name)->ident, sym});
 }
 
+void semantic_call(FMap f) {
+  FMap call = fmap_cget(f, "call");
+  FMap args = fmap_cget(f, "args");
+  if (!eq_kind(call, FMAP_IDENT)) error("%s isn't function.", fmap_tostring(call));
+  InternalDecl decl;
+  FnDecl fndecl;
+  if (search_internal_decl(fm(call)->ident, &decl)) {
+    (decl.semanticfn)(f);
+    return;
+  }
+
+  FTypeVec* argtypes = new_FTypeVec();
+  forlist (IListFMap, FMap, arg, fm(args)->lst) {
+    boot_semantic(arg);
+    FTypeVec_push(argtypes, get_ftype(fmap_cget(arg, "type")));
+  }
+  if (search_fndecl(fm(call)->ident, argtypes, &fndecl)) {
+    bool isinline = !FMap_isnil(fmap_cget(fp(FSymbol, fndecl.sym)->f, "inline"));
+    *fm(call) = *fm(fsymbol(fndecl.sym));
+    if (isinline) {
+      FMap body = fmap_cget(fp(FSymbol, fndecl.sym)->f, "body");
+      boot_semantic(body);
+      FMap callf = copy_fmap(f);
+      FMap blk = flist();
+      fm(blk)->kind = new_istring("block");
+      flist_push(blk, body);
+      flist_push(blk, callf);
+      *fm(f) = *fm(blk);
+      fmap_cpush(f, "type", new_ftypesym(fndecl.returntype));
+    } else {
+      fmap_cpush(f, "type", new_ftypesym(fndecl.returntype));
+    }
+  } else {
+    error("undeclared %s function", fmap_tostring(call));
+  }
+}
+
+void codegen_call(FMap f) {
+  FMap call = fmap_cget(f, "call");
+  FMap args = fmap_cget(f, "args");
+  InternalDecl decl;
+  if (eq_kind(call, FMAP_IDENT) && search_internal_decl(fm(call)->ident, &decl)) {
+    (decl.codegenfn)(f);
+    return;
+  }
+  
+  forlist (IListFMap, FMap, arg, fm(args)->lst) {
+    boot_codegen(arg);
+  }
+  
+  bool isinline = !FMap_isnil(fmap_cget(fp(FSymbol, fm(call)->sym)->f, "inline"));
+  if (isinline) return;
+  
+  int callstacksize = IListFMap_len(fm(args)->lst)*8;
+  int rel = fp(FSymbol, fm(call)->sym)->fnidx - jit_getidx() - 5;
+  write_hex(0xE8); // call
+  write_lendian(rel);
+  write_hex(0x48, 0x81, 0xc4); // add rsp, ..
+  write_lendian(callstacksize);
+  if (!ftype_is(get_ftype(fmap_cget(f, "type")), "void")) {
+    write_hex(0x50); // push rax
+  }
+}
+
+void semantic_X(FMap f) {
+  FMap x = IListFMap_value(fm(fmap_cget(f, "args"))->lst);
+  if (!eq_kind(x, FMAP_INTLIT)) error("X argument should be fintlit");
+  boot_semantic(x);
+  fmap_cpush(f, "type", new_ftypesym(type_void()));
+}
+
+void codegen_X(FMap f) {
+  FMap x = IListFMap_value(fm(fmap_cget(f, "args"))->lst);
+  write_hex(fm(x)->intval);
+}
+
 void def_internal(char* name, void* semfn, void* genfn, void* lvaluefn) {
   IString nameid = new_istring(name);
   InternalDecl decl;
@@ -273,11 +375,14 @@ void def_internal(char* name, void* semfn, void* genfn, void* lvaluefn) {
 
 void boot_init_internals() {
   def_internal("fintlit", semantic_fintlit, codegen_fintlit, NULL);
+  def_internal("fident", semantic_fident, NULL, NULL);
   def_internal("fsymbol", semantic_fsymbol, codegen_fsymbol, NULL);
   def_internal("block", semantic_block, codegen_block, NULL);
   def_internal("fn", semantic_fn, codegen_fn, NULL);
   def_internal("type", semantic_type, NULL, NULL);
   def_internal("defprimitive", semantic_defprimitive, NULL, NULL);
+  def_internal("call", semantic_call, codegen_call, NULL);
+  def_internal("X", semantic_X, codegen_X, NULL);
 }
 
 //
