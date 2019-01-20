@@ -366,6 +366,7 @@ extern IString FMAP_CALL;
 void fmap_init();
 FMap new_fmap(IString kind);
 FMap copy_fmap(FMap f);
+FMap deepcopy_fmap(FMap f);
 bool eq_kind(FMap map, IString s);
 FMap fmap();
 FMap flist();

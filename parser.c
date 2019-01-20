@@ -134,12 +134,24 @@ IString lex_ident(Stream* s) {
   return new_istring(strdup(litbuf));
 }
 
-FMap parse_fident(Stream* s) {
+FMap parse_declident(Stream* s) {
   char litbuf[1024] = {};
   streamrep(i, s) {
     assert(i < 1024);
     char c = stream_get(s);
     if (!isident(c) && !isoperator(c)) break;
+    stream_next(s);
+    litbuf[i] = c;
+  }
+  return fident(new_istring(strdup(litbuf)));
+}
+
+FMap parse_fident(Stream* s) {
+  char litbuf[1024] = {};
+  streamrep(i, s) {
+    assert(i < 1024);
+    char c = stream_get(s);
+    if (!isident(c)) break;
     stream_next(s);
     litbuf[i] = c;
   }
@@ -221,7 +233,7 @@ FMap parse_block(Stream* s) {
 FMap parse_fn(Stream* s) {
   def_fmap(f, fn, {
       skip_spaces(s);
-      def_field(name, parse_fident(s));
+      def_field(name, parse_declident(s));
 
       if (!stream_next(s)) error("expect function argdecls");
       FMap argdecls = flist();
@@ -299,6 +311,7 @@ FMap parse_if(Stream* s) {
   flist_push(elifs, elf);
   
   streamrep (i, s) {
+    skip_spaces(s);
     IString id = lex_ident(s);
     if (istring_ceq(id, "elif")) {
       def_fmap(elf, elif, {
@@ -388,7 +401,8 @@ FMap parse_call(Stream* s) {
   }
 
 def_infix_parser(parse_infix15, parse_call, 15);
-def_infix_parser(parse_infix5, parse_infix15, 5);
+def_infix_parser(parse_infix7, parse_infix15, 7);
+def_infix_parser(parse_infix5, parse_infix7, 5);
 
 FMap parse(Stream* s) {
   skip_spaces(s);

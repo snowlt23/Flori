@@ -15,6 +15,10 @@ inline fn pop_rbp() {
   X(0x5d)
 }
 
+inline fn cmp_rax_rcx() {
+  X(0x48) X(0x39) X(0xC8)
+}
+
 inline fn opret() {
   X(0xc3)
 }
@@ -30,5 +34,19 @@ inline fn return(r int) {genret()}
 inline fn +(a int, b int) int {
   pop_rcx() pop_rax()
   X(0x48) X(0x01) X(0xC8)
+  push_rax()
+}
+
+inline fn -(a int, b int) int {
+  pop_rcx() pop_rax()
+  X(0x48) X(0x29) X(0xC8)
+  push_rax()
+}
+
+inline fn <(a int, b int) int {
+  pop_rcx() pop_rax()
+  cmp_rax_rcx()
+  X(0x48) X(0xc7) X(0xc0) X(0x00) X(0x00) X(0x00) X(0x00)
+  X(0x0F) X(0x9C) X(0xC0)
   push_rax()
 }

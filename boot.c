@@ -349,7 +349,7 @@ void semantic_call(FMap f) {
     bool isinline = !FMap_isnil(fmap_cget(fp(FSymbol, fndecl.sym)->f, "inline"));
     *fm(call) = *fm(fsymbol(fndecl.sym));
     if (isinline) {
-      FMap body = fmap_cget(fp(FSymbol, fndecl.sym)->f, "body");
+      FMap body = deepcopy_fmap(fmap_cget(fp(FSymbol, fndecl.sym)->f, "body"));
       boot_semantic(body);
       FMap callf = copy_fmap(f);
       FMap blk = flist();

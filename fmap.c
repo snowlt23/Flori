@@ -34,6 +34,24 @@ FMap copy_fmap(FMap f) {
   return newf;
 }
 
+FMap deepcopy_fmap(FMap f) {
+  FMap newf = copy_fmap(f);
+  fm(newf)->fields = nil_IListField();
+  forlist (IListField, Field, field, fm(f)->fields) {
+    fmap_push(newf, field.key, deepcopy_fmap(field.value));
+  }
+    
+  if (eq_kind(f, FMAP_LIST)) {
+    fm(newf)->lst = nil_IListFMap();
+    forlist (IListFMap, FMap, e, fm(f)->lst) {
+      flist_push(newf, deepcopy_fmap(e));
+    }
+    *fm(newf) = *fm(flist_reverse(newf));
+  }
+  
+  return newf;
+}
+
 bool eq_kind(FMap map, IString s) {
   return istring_eq(fm(map)->parentkind, s) || istring_eq(fm(map)->kind, s);
 }
@@ -110,7 +128,8 @@ void flist_push(FMap f, FMap val) {
 }
 
 FMap flist_reverse(FMap f) {
-  FMap newf = flist();
+  FMap newf = copy_fmap(f);
+  fm(newf)->lst = nil_IListFMap();
   forlist (IListFMap, FMap, e, fm(f)->lst) {
     flist_push(newf, e);
   }
