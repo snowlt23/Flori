@@ -289,6 +289,37 @@ FMap parse_var(Stream* s) {
   return f;
 }
 
+FMap parse_if(Stream* s) {
+  FMap elifs = flist();
+  fblockseq(els);
+  def_fmap(elf, elif, {
+      def_field(cond, parse(s));
+      def_field(body, parse(s));
+    });
+  flist_push(elifs, elf);
+  
+  streamrep (i, s) {
+    IString id = lex_ident(s);
+    if (istring_ceq(id, "elif")) {
+      def_fmap(elf, elif, {
+          def_field(cond, parse(s));
+          def_field(body, parse(s));
+        });
+      flist_push(elifs, elf);
+    } else if (istring_ceq(id, "else")) {
+      els = parse(s);
+    } else {
+      stream_back(s, id);
+      break;
+    }
+  }
+  def_fmap(f, if, {
+      def_field(elifs, elifs);
+      def_field(else, els);
+    });
+  return f;
+}
+
 void def_parser(char* name, FMap (*internalfn)(Stream* s)) {
   add_parser_decl(new_internal_parserdecl(new_istring(name), internalfn));
 }
@@ -301,6 +332,7 @@ void parser_init_internal() {
   def_parser("defprimitive", parse_defprimitive);
   def_parser("return", parse_return);
   def_parser("var", parse_var);
+  def_parser("if", parse_if);
 }
 
 //

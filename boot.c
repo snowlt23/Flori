@@ -458,6 +458,66 @@ void semantic_def(FMap f) {
   *fm(f) = *fm(blk);
 }
 
+void semantic_if(FMap f) {
+  FMap elifs = fmap_cget(f, "elifs");
+  forlist (IListFMap, FMap, elif, fm(elifs)->lst) {
+    FMap cond = fmap_cget(elif, "cond");
+    FMap body = fmap_cget(elif, "body");
+    boot_semantic(cond);
+    boot_semantic(body);
+  }
+  boot_semantic(fmap_cget(f, "else"));
+  fmap_cpush(f, "type", new_ftypesym(type_void()));
+}
+
+void codegen_if(FMap f) {
+  int relocnum = 0;
+  int relocs[1024];
+  int fixup = -1;
+  FMap elifs = fmap_cget(f, "elifs");
+  forlist (IListFMap, FMap, elif, fm(elifs)->lst) {
+    FMap cond = fmap_cget(elif, "cond");
+    FMap body = fmap_cget(elif, "body");
+    
+    if (fixup != -1) {
+      int fixuprel = jit_getidx() - fixup - 4;
+      jit_fixup_lendian(fixup, fixuprel);
+    }
+
+    boot_codegen(cond);
+
+    // cond if branching (need fixup)
+    write_hex(0x58); // pop rax
+    write_hex(0x48, 0x83, 0xf8, 0x00); // cmp rax, 0
+    write_hex(0x0f, 0x84); // je rel
+    fixup = jit_getidx();
+    write_lendian(0); // fixup
+
+    boot_codegen(body);
+
+    // jmp end of if after body.
+    write_hex(0xe9);
+    relocs[relocnum] = jit_getidx();
+    relocnum++;
+    write_lendian(0); // fixup
+  }
+
+  // else codegen (with fixup elifs)
+  {
+    int fixuprel = jit_getidx() - fixup - 4;
+    jit_fixup_lendian(fixup, fixuprel);
+
+    FMap body = fmap_cget(f, "else");
+    boot_codegen(body);
+
+    // fixup relocations of if-expression.
+    for (int i=0; i<relocnum; i++) {
+      int fixuprel = jit_getidx() - relocs[i] - 4;
+      jit_fixup_lendian(relocs[i], fixuprel);
+    }
+  }
+}
+
 void def_internal(char* name, void* semfn, void* genfn, void* lvaluefn) {
   IString nameid = new_istring(name);
   InternalDecl decl;
@@ -481,6 +541,7 @@ void boot_init_internals() {
   def_internal("var", semantic_var, codegen_var, NULL);
   def_internal("=", semantic_set, codegen_set, NULL);
   def_internal(":=", semantic_def, NULL, NULL);
+  def_internal("if", semantic_if, codegen_if, NULL);
 }
 
 //

@@ -71,9 +71,9 @@ runtest "fn add5(x int) int {x + 5}; fn main() {add5(7)}" 12
 runtest "fn main() {return 555}" 555
 runtest "fn main() { var yyy int yyy = 1515 yyy }" 1515
 runtest "fn main() {ott := 123; ott}" 123
-# runtest "fn main() { if 1 4 }" 4
-# runtest "fn main() { if 1 2 else 3 }" 2
-# runtest "fn main() { if 0 2 else 3 }" 3
+runtest "fn main() { if 1 4 }" 4
+runtest "fn main() { if 1 2 else 3 }" 2
+runtest "fn main() { if 0 2 else 3 }" 3
 # runtest "fn main() {s := \"yukarisan\"; 9}" 9
 # runtest "fn main() {s := \"ia\"; deref (cast_ptr s)}" 105
 # runtest "gx := 555; fn main() {gx}" 555
