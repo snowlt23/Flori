@@ -14,22 +14,6 @@ void decls_init() {
 }
 
 //
-// ftype
-//
-
-bool ftype_eq(FType a, FType b) {
-  if (fp(FType, a)->kind == FTYPE_PRIM && fp(FType, b)->kind == FTYPE_PRIM) {
-    return istring_eq(fp(FSymbol, fp(FType, a)->sym)->name, fp(FSymbol, fp(FType, b)->sym)->name);
-  } else if (fp(FType, a)->kind == FTYPE_PTR && fp(FType, b)->kind == FTYPE_PTR) {
-    return ftype_eq(fp(FType, a)->ptrof, fp(FType, b)->ptrof);
-  } else if (fp(FType, a)->kind == FTYPE_SYM && fp(FType, b)->kind == FTYPE_SYM) {
-    return istring_eq(fp(FSymbol, fp(FType, a)->sym)->name, fp(FSymbol, fp(FType, b)->sym)->name);
-  } else {
-    return false;
-  }
-}
-
-//
 // decls
 //
 

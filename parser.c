@@ -177,6 +177,13 @@ FMap void_typef() {
   return f;
 }
 
+FMap parse_type(Stream* s) {
+  def_fmap(f, type, {
+      def_field(t, parse_fident(s));
+    });
+  return f;
+}
+
 //
 // internal parser
 //
@@ -226,13 +233,9 @@ FMap parse_fn(Stream* s) {
           break;
         }
         
-        FMap n = parse(s);
-        def_fmap(t, type, {
-            def_field(t, parse(s));
-          });
         def_fmap(ad, argdecl, {
-            def_field(name, n);
-            def_field(type, t);
+            def_field(name, parse(s));
+            def_field(type, parse_type(s));
           });
         flist_push(argdecls, ad);
       }
@@ -276,6 +279,16 @@ FMap parse_return(Stream* s) {
   return fcall(fident(new_istring("return")), args);
 }
 
+FMap parse_var(Stream* s) {
+  def_fmap(f, var, {
+      skip_spaces(s);
+      def_field(name, parse_fident(s));
+      skip_spaces(s);
+      def_field(vartype, parse_type(s));
+    });
+  return f;
+}
+
 void def_parser(char* name, FMap (*internalfn)(Stream* s)) {
   add_parser_decl(new_internal_parserdecl(new_istring(name), internalfn));
 }
@@ -287,6 +300,7 @@ void parser_init_internal() {
   def_parser("inline", parse_inline);
   def_parser("defprimitive", parse_defprimitive);
   def_parser("return", parse_return);
+  def_parser("var", parse_var);
 }
 
 //
@@ -341,7 +355,8 @@ FMap parse_call(Stream* s) {
     return left;                                                        \
   }
 
-def_infix_parser(parse_infix5, parse_call, 5);
+def_infix_parser(parse_infix15, parse_call, 15);
+def_infix_parser(parse_infix5, parse_infix15, 5);
 
 FMap parse(Stream* s) {
   skip_spaces(s);

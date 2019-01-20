@@ -69,8 +69,8 @@ runtest "fn main() {45; X(0x58); X(0x48); X(0x89); X(0xEC); X(0x5D); X(0xC3)}" 4
 runtest "fn main() {4 + 5}" 9
 runtest "fn add5(x int) int {x + 5}; fn main() {add5(7)}" 12
 runtest "fn main() {return 555}" 555
+runtest "fn main() { var yyy int yyy = 1515 yyy }" 1515
 # runtest "fn main() {ott := 123; ott}" 123
-# runtest "fn main() {var yyy ^int; yyy = 1515; yyy}" 1515
 # runtest "fn main() { if 1 4 }" 4
 # runtest "fn main() { if 1 2 else 3 }" 2
 # runtest "fn main() { if 0 2 else 3 }" 3

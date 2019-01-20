@@ -400,9 +400,11 @@ void add_parser_decl(ParserDecl decl);
 bool search_parser_decl(IString id, ParserDecl* retdecl);
 
 // boot.c
+bool ftype_eq(FType a, FType b);
 // void boot_init();
 void boot_init_internals();
 void boot_semantic(FMap f);
+void boot_codegen_lvalue(FMap f);
 void boot_codegen(FMap f);
 void boot_eval_toplevel(FMap f);
 int boot_call_main();
