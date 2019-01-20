@@ -14,26 +14,36 @@
 #define fp(t, f) (assert(0 <= f.index && f.index < linmem_getidx()), t ## _ptr(f))
 #define fm(f) fp(FMap, f)
 
-#define def_fmap(name, k, body)              \
-  FMap name = fmap();               \
-  fm(name)->kind = new_istring(#k);          \
+#define def_fmap(name, k, body)                 \
+  FMap name = fmap();                           \
+  fm(name)->kind = new_istring(#k);             \
   {                                             \
     FMap tmpf = name;                           \
     body;                                       \
   }
 #define def_field(key, value) fmap_push(tmpf, new_istring(#key), value);
+#define ppcat1(a, b) a ## b
+#define ppcat(a, b) ppcat1(a, b)
+#define flistseq1(n, ntmp, ...)                                         \
+  FMap ntmp[] = {__VA_ARGS__};                                          \
+  FMap n = flist();                                                     \
+  for (int i=0; i<sizeof(ntmp)/sizeof(FMap); i++) flist_push(n, ntmp[i]); \
+  *fm(n) = *fm(flist_reverse(n));
+#define flistseq(n, ...) flistseq1(n, ppcat(n, __LINE__), __VA_ARGS__)
+#define fblockseq(n, ...)                       \
+  flistseq(n, __VA_ARGS__);                     \
+  fm(n)->kind = new_istring("block");
+#define fcallseq1(n, c, as, ...)                                \
+  flistseq(as, __VA_ARGS__);                                    \
+  def_fmap(n, call, {def_field(call, c); def_field(args, as)});
+#define fcallseq(n, c, ...) fcallseq1(n, c, ppcat(n, __LINE__), __VA_ARGS__);
 
-#define fiter(itr, f) IListFMap itr = f
-#define fcurr(itr) IListFMap_value(itr)
-#define fnext(itr) fnext_impl(&itr, __LINE__)
-#define isfnil(l) IListFMap_isnil(l)
-
-#define with_reloc(addr, body) \
-  { \
-    uint8_t* __tmpaddr = data_memptr(); \
-    reloc_execute_addr(addr); \
-    body \
-    reloc_execute_addr(__tmpaddr); \
+#define with_reloc(addr, body)                  \
+  {                                             \
+    uint8_t* __tmpaddr = data_memptr();         \
+    reloc_execute_addr(addr);                   \
+    body                                        \
+      reloc_execute_addr(__tmpaddr);            \
   }
 
 typedef struct {

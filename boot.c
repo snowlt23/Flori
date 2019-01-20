@@ -444,6 +444,20 @@ void codegen_set(FMap f) {
   write_hex(0x48, 0x89, 0x08); // mov [rax], rcx
 }
 
+void semantic_def(FMap f) {
+  FMap left = infix_left(f);
+  FMap right = infix_right(f);
+  boot_semantic(right);
+  def_fmap(varf, var, {
+      def_field(name, left);
+      def_field(vartype, new_ftypesym(get_ftype(fmap_cget(right, "type"))));
+    });
+  fcallseq(initf, fident(new_istring("=")), copy_fmap(left), right);
+  fblockseq(blk, varf, initf);
+  boot_semantic(blk);
+  *fm(f) = *fm(blk);
+}
+
 void def_internal(char* name, void* semfn, void* genfn, void* lvaluefn) {
   IString nameid = new_istring(name);
   InternalDecl decl;
@@ -466,6 +480,7 @@ void boot_init_internals() {
   def_internal("X", semantic_X, codegen_X, NULL);
   def_internal("var", semantic_var, codegen_var, NULL);
   def_internal("=", semantic_set, codegen_set, NULL);
+  def_internal(":=", semantic_def, NULL, NULL);
 }
 
 //
