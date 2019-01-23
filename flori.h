@@ -300,7 +300,6 @@ typedef struct {
   bool issyntax;
   void (*semanticfn)(FMap);
   void (*codegenfn)(FMap);
-  void (*lvaluegenfn)(FMap);
 } InternalDecl;
 %%expand ilist(InternalDeclMap, InternalDecl);
 

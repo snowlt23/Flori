@@ -242,12 +242,6 @@ void codegen_fsymbol(FMap f) {
   write_lendian(-fp(FSymbol, fm(f)->sym)->varoffset);
 }
 
-void codegen_lvalue_fsymbol(FMap f) {
-  write_hex(0x48, 0x8d, 0x85); // lea rax, [rbp-..]
-  write_lendian(-fp(FSymbol, fm(f)->sym)->varoffset);
-  write_hex(0x50); // push rax
-}
-
 void semantic_flist(FMap f) {
   forlist (IListFMap, FMap, e, fm(f)->lst) {
     boot_semantic(e);
@@ -588,35 +582,40 @@ void semantic_addr(FMap f) {
 
 void codegen_addr(FMap f) {
   FMap lvalue = call_firstarg(f);
-  boot_codegen_lvalue(lvalue);
+  if (eq_kind(lvalue, FMAP_SYMBOL)) {
+    write_hex(0x48, 0x8d, 0x85); // lea rax, [rbp-..]
+    write_lendian(-fp(FSymbol, fm(lvalue)->sym)->varoffset);
+    write_hex(0x50); // push rax
+  } else {
+    error("%s should be lvalue in &", fmap_tostring(lvalue));
+  }
 }
 
-void def_internal(char* name, void* semfn, void* genfn, void* lvaluefn) {
+void def_internal(char* name, void* semfn, void* genfn) {
   IString nameid = new_istring(name);
   InternalDecl decl;
   decl.name = nameid;
   decl.semanticfn = semfn;
   decl.codegenfn = genfn;
-  decl.lvaluegenfn = lvaluefn;
   add_internal_decl(decl);
 }
 
 void boot_init_internals() {
-  def_internal("fintlit", semantic_fintlit, codegen_fintlit, NULL);
-  def_internal("fident", semantic_fident, NULL, NULL);
-  def_internal("fsymbol", semantic_fsymbol, codegen_fsymbol, codegen_lvalue_fsymbol);
-  def_internal("flist", semantic_flist, codegen_flist, NULL);
-  def_internal("block", semantic_block, codegen_block, NULL);
-  def_internal("fn", semantic_fn, codegen_fn, NULL);
-  def_internal("type", semantic_type, NULL, NULL);
-  def_internal("defprimitive", semantic_defprimitive, NULL, NULL);
-  def_internal("call", semantic_call, codegen_call, NULL);
-  def_internal("X", semantic_X, codegen_X, NULL);
-  def_internal("var", semantic_var, codegen_var, NULL);
-  def_internal("=", semantic_set, codegen_set, NULL);
-  def_internal(":=", semantic_def, NULL, NULL);
-  def_internal("if", semantic_if, codegen_if, NULL);
-  def_internal("&", semantic_addr, codegen_addr, NULL);
+  def_internal("fintlit", semantic_fintlit, codegen_fintlit);
+  def_internal("fident", semantic_fident, NULL);
+  def_internal("fsymbol", semantic_fsymbol, codegen_fsymbol);
+  def_internal("flist", semantic_flist, codegen_flist);
+  def_internal("block", semantic_block, codegen_block);
+  def_internal("fn", semantic_fn, codegen_fn);
+  def_internal("type", semantic_type, NULL);
+  def_internal("defprimitive", semantic_defprimitive, NULL);
+  def_internal("call", semantic_call, codegen_call);
+  def_internal("X", semantic_X, codegen_X);
+  def_internal("var", semantic_var, codegen_var);
+  def_internal("=", semantic_set, codegen_set);
+  def_internal(":=", semantic_def, NULL);
+  def_internal("if", semantic_if, codegen_if);
+  def_internal("&", semantic_addr, codegen_addr);
 }
 
 //
@@ -629,14 +628,6 @@ void boot_semantic(FMap f) {
   if (!search_internal_decl(kind, &decl)) error("unknown %s fmap kind: %s", istring_cstr(kind), fmap_tostring(f));
   (decl.semanticfn)(f);
   fmap_cpush(f, "evaluated", fintlit(1));
-}
-
-void boot_codegen_lvalue(FMap f) {
-  IString kind = fm(f)->kind;
-  InternalDecl decl;
-  if (!search_internal_decl(kind, &decl)) error("unknown %s fmap kind: %s", istring_cstr(kind), fmap_tostring(f));
-  if (decl.lvaluegenfn == NULL) error("%s should be lvalue", fmap_tostring(f));
-  (decl.lvaluegenfn)(f);
 }
 
 void boot_codegen(FMap f) {
