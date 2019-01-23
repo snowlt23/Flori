@@ -265,7 +265,7 @@ FMap parse_fn(Stream* s) {
       skip_spaces(s);
       def_field(name, parse_declident(s));
 
-      if (!stream_next(s)) error("expect function argdecls");
+      if (stream_next(s) != '(') error("expect function argdecls");
       FMap argdecls = flist();
       streamrep(i, s) {
         skip_spaces(s);
@@ -362,6 +362,38 @@ FMap parse_if(Stream* s) {
   return f;
 }
 
+FMap parse_struct(Stream* s) {
+  def_fmap(f, struct, {
+      skip_spaces(s);
+      def_field(name, parse_declident(s));
+
+      skip_spaces(s);
+      if (stream_next(s) != '{') error("expect struct body");
+      FMap fields = flist();
+      streamrep(i, s) {
+        skip_spaces(s);
+        if (stream_get(s) == '\n' || stream_get(s) == ';') {
+          stream_next(s);
+          continue;
+        }
+        if (stream_get(s) == '}') {
+          stream_next(s);
+          break;
+        }
+        
+        def_fmap(field, field, {
+            skip_spaces(s);
+            def_field(name, parse_fident(s));
+            def_field(type, parse(s));
+          });
+        flist_push(fields, field);
+      }
+      *fm(fields) = *fm(flist_reverse(fields));
+      def_field(fields, fields);
+    });
+  return f;
+}
+
 void def_parser(char* name, FMap (*internalfn)(Stream* s)) {
   add_parser_decl(new_internal_parserdecl(new_istring(name), internalfn));
 }
@@ -376,6 +408,7 @@ void parser_init_internal() {
   def_parser("var", parse_var);
   def_parser("if", parse_if);
   def_parser("^", parse_type);
+  def_parser("struct", parse_struct);
 }
 
 //

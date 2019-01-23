@@ -591,6 +591,42 @@ void codegen_addr(FMap f) {
   }
 }
 
+void decide_struct_size(FSymbol sym, FMap fields) {
+  int curoffset = 0;
+  forlist (IListFMap, FMap, field, fm(fields)->lst) {
+    FMap fieldsym = fmap_cget(field, "sym");
+    FMap fieldtype = fmap_cget(field, "type");
+    fp(FSymbol, fm(fieldsym)->sym)->varoffset = curoffset;
+    curoffset += get_type_size(get_ftype(fieldtype));
+  }
+  fp(FSymbol, sym)->size = curoffset;
+}
+
+void semantic_struct(FMap f) {
+  FMap name = fmap_cget(f, "name");
+  FMap fields = fmap_cget(f, "fields");
+  FSymbol sym = new_symbol(fm(name)->ident);
+  fmap_cpush(f, "sym", fsymbol(sym));
+  fp(FSymbol, sym)->f = f;
+  add_decl((Decl){fm(name)->ident, sym});
+  forlist (IListFMap, FMap, field, fm(fields)->lst) {
+    FMap fieldname = fmap_cget(field, "name");
+    FMap fieldtype = fmap_cget(field, "type");
+    FSymbol fieldsym = new_symbol(fm(fieldname)->ident);
+    fmap_cpush(field, "sym", fsymbol(fieldsym));
+    fp(FSymbol, fieldsym)->f = field;
+    boot_semantic(fieldtype);
+  }
+  decide_struct_size(sym, fields);
+}
+
+void semantic_sizeof(FMap f) {
+  FMap t = call_firstarg(f);
+  boot_semantic(t);
+  *fm(f) = *fm(fintlit(get_type_size(get_ftype(t))));
+  boot_semantic(f);
+}
+
 void def_internal(char* name, void* semfn, void* genfn) {
   IString nameid = new_istring(name);
   InternalDecl decl;
@@ -616,6 +652,8 @@ void boot_init_internals() {
   def_internal(":=", semantic_def, NULL);
   def_internal("if", semantic_if, codegen_if);
   def_internal("&", semantic_addr, codegen_addr);
+  def_internal("struct", semantic_struct, NULL);
+  def_internal("sizeof", semantic_sizeof, NULL);
 }
 
 //
