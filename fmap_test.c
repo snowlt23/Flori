@@ -24,4 +24,5 @@ int main() {
   cmptest("1 + 2", "%m{\n  kind: call,\n  args: ( 1 2 ),\n  call: +,\n}");
   // cmptest("inline fn return(r int) int {}", "%m{\n  kind: jit,\n  body: ( ),\n  returntype: int,\n  argdecls: ( ),\n  name: return,\n}");
   cmptest("add(1, 2)", "%m{\n  kind: call,\n  args: ( 1 2 ),\n  call: add,\n}");
+  cmptest("&1", "%m{\n  kind: call,\n  args: ( 1 ),\n  call: &,\n}");
 }

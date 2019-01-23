@@ -11,7 +11,7 @@
 #define debug(...) {fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n");}
 #define error(...) { fprintf(stderr, __VA_ARGS__); exit(1); }
 
-#define fp(t, f) (assert(0 <= f.index && f.index < linmem_getidx()), t ## _ptr(f))
+#define fp(t, f) t ## _ptr(f)
 #define fm(f) fp(FMap, f)
 
 #define def_fmap(name, k, body)                 \
@@ -412,6 +412,7 @@ bool search_parser_decl(IString id, ParserDecl* retdecl);
 
 // boot.c
 bool ftype_eq(FType a, FType b);
+char* ftype_tostring(FType t);
 // void boot_init();
 void boot_init_internals();
 void boot_semantic(FMap f);

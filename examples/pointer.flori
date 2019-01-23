@@ -2,8 +2,8 @@ fn idptr(a ^ptr int) ^ptr int {}
 
 fn main() {
   a := 555
-  v := deref (getref a)
-  p := getref a
-  (deref p) = 445
+  v := *(&a)
+  p := &a
+  *p = 445
   v + a
 }

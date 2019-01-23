@@ -181,6 +181,9 @@ char* fmap_tostring_inside(FMap f, int indent) {
   } else if (eq_kind(f, FMAP_IDENT)) {
     snprintf(buf, 1024*1024, "%s", istring_cstr(fm(f)->ident));
   } else if (eq_kind(f, FMAP_SYMBOL)) {
+    if (!FType_isnil(fp(FSymbol, fm(f)->sym)->t)) {
+      return ftype_tostring(fp(FSymbol, fm(f)->sym)->t);
+    }
     snprintf(buf, 1024*1024, "%s", istring_cstr(fp(FSymbol, fm(f)->sym)->name));
   } else if (eq_kind(f, FMAP_INTLIT)) {
     snprintf(buf, 1024*1024, "%" PRId64, fm(f)->intval);

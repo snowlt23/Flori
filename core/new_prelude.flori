@@ -29,24 +29,31 @@ inline fn genret() {
   pop_rbp()
   opret()
 }
-inline fn return(r int) {genret()}
+inline fn return(r ^int) {genret()}
 
-inline fn +(a int, b int) int {
+inline fn +(a ^int, b ^int) ^int {
   pop_rcx() pop_rax()
   X(0x48) X(0x01) X(0xC8)
   push_rax()
 }
 
-inline fn -(a int, b int) int {
+inline fn -(a ^int, b ^int) ^int {
   pop_rcx() pop_rax()
   X(0x48) X(0x29) X(0xC8)
   push_rax()
 }
 
-inline fn <(a int, b int) int {
+inline fn <(a ^int, b ^int) ^int {
   pop_rcx() pop_rax()
   cmp_rax_rcx()
   X(0x48) X(0xc7) X(0xc0) X(0x00) X(0x00) X(0x00) X(0x00)
   X(0x0F) X(0x9C) X(0xC0)
   push_rax()
 }
+
+inline fn *(p ^ptr int) ^int {
+  pop_rax()
+  X(0x48) X(0x8b) X(0x00)
+  push_rax()
+}
+inline fn *lvalue(p ^ptr int) ^ptr int {}

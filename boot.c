@@ -31,8 +31,20 @@ FMap infix_right(FMap f) {
   return IListFMap_value(IListFMap_next(fm(fmap_cget(f, "args"))->lst));
 }
 
+FMap call_firstarg(FMap f) {
+  return IListFMap_value(fm(fmap_cget(f, "args"))->lst);
+}
+
 bool is_toplevel(FMap f) {
   return !FMap_isnil(fmap_cget(f, "toplevel"));
+}
+
+bool is_evaluated(FMap f) {
+  return !FMap_isnil(fmap_cget(f, "evaluated"));
+}
+
+bool is_ptrtype(FMap f) {
+  return !FMap_isnil(fmap_cget(f, "ptr"));
 }
 
 //
@@ -42,6 +54,7 @@ bool is_toplevel(FMap f) {
 FSymbol new_symbol(IString name) {
   FSymbol s = alloc_FSymbol();
   fp(FSymbol, s)->name = name;
+  fp(FSymbol, s)->t = nil_FType();
   return s;
 }
 
@@ -66,6 +79,18 @@ FMap new_ftypesym(FType t) {
 bool ftype_is(FType t, char* name) {
   if (fp(FType, t)->kind != FTYPE_PRIM && fp(FType, t)->kind != FTYPE_SYM) return false;
   return strcmp(istring_cstr(fp(FSymbol, fp(FType, t)->sym)->name), name) == 0;
+}
+
+char* ftype_tostring(FType t) {
+  if (fp(FType, t)->kind == FTYPE_PRIM || fp(FType, t)->kind == FTYPE_SYM) {
+    return istring_cstr(fp(FSymbol, fp(FType, t)->sym)->name);
+  } else if (fp(FType, t)->kind == FTYPE_PTR) {
+    char buf[1024] = {};
+    snprintf(buf, 1024, "ptr %s", ftype_tostring(fp(FType, t)->ptrof));
+    return strdup(buf);
+  } else {
+    assert(false);
+  }
 }
 
 FType type_void() {
@@ -223,6 +248,19 @@ void codegen_lvalue_fsymbol(FMap f) {
   write_hex(0x50); // push rax
 }
 
+void semantic_flist(FMap f) {
+  forlist (IListFMap, FMap, e, fm(f)->lst) {
+    boot_semantic(e);
+  }
+  fmap_cpush(f, "type", fmap_cget(IListFMap_value(fm(f)->lst), "type"));
+}
+
+void codegen_flist(FMap f) {
+  forlist (IListFMap, FMap, e, fm(f)->lst) {
+    boot_codegen(e);
+  }
+}
+
 void semantic_block(FMap f) {
   forlist (IListFMap, FMap, e, fm(f)->lst) {
     boot_semantic(e);
@@ -301,19 +339,24 @@ void semantic_type(FMap f) {
   FMap t = fmap_cget(f, "t");
   assert(eq_kind(t, FMAP_IDENT));
   Decl decl;
-  if (search_decl(fm(t)->ident, &decl)) {
-    if (fp(FSymbol, decl.sym)->isprim) {
-      FType ft = new_ftype(FTYPE_PRIM);
-      fp(FType, ft)->sym = decl.sym;
-      *fm(f) = *fm(new_ftypesym(ft));
-    } else {
-      FType ft = new_ftype(FTYPE_SYM);
-      fp(FType, ft)->sym = decl.sym;
-      *fm(f) = *fm(new_ftypesym(ft));
-    }
+  if (!search_decl(fm(t)->ident, &decl)) error("undeclared %s type", istring_cstr(fm(t)->ident));
+
+  FType ft;
+  if (fp(FSymbol, decl.sym)->isprim) {
+    ft = new_ftype(FTYPE_PRIM);
+    fp(FType, ft)->sym = decl.sym;
   } else {
-    error("undeclared %s type", istring_cstr(fm(t)->ident));
+    ft = new_ftype(FTYPE_SYM);
+    fp(FType, ft)->sym = decl.sym;
   }
+
+  if (is_ptrtype(f)) {
+    FType pt = new_ftype(FTYPE_PTR);
+    fp(FType, pt)->ptrof = ft;
+    ft = pt;
+  }
+  
+  *fm(f) = *fm(new_ftypesym(ft));
 }
 
 void semantic_defprimitive(FMap f) {
@@ -332,7 +375,7 @@ void semantic_defprimitive(FMap f) {
 void semantic_call(FMap f) {
   FMap call = fmap_cget(f, "call");
   FMap args = fmap_cget(f, "args");
-  if (!eq_kind(call, FMAP_IDENT)) error("%s isn't function.", fmap_tostring(call));
+  if (!eq_kind(call, FMAP_IDENT) && !eq_kind(call, FMAP_SYMBOL)) error("%s isn't function.", fmap_tostring(call));
   InternalDecl decl;
   FnDecl fndecl;
   if (search_internal_decl(fm(call)->ident, &decl)) {
@@ -345,6 +388,7 @@ void semantic_call(FMap f) {
     boot_semantic(arg);
     FTypeVec_push(argtypes, get_ftype(fmap_cget(arg, "type")));
   }
+  if (eq_kind(call, FMAP_SYMBOL)) return;
   if (search_fndecl(fm(call)->ident, argtypes, &fndecl)) {
     bool isinline = !FMap_isnil(fmap_cget(fp(FSymbol, fndecl.sym)->f, "inline"));
     *fm(call) = *fm(fsymbol(fndecl.sym));
@@ -394,14 +438,14 @@ void codegen_call(FMap f) {
 }
 
 void semantic_X(FMap f) {
-  FMap x = IListFMap_value(fm(fmap_cget(f, "args"))->lst);
+  FMap x = call_firstarg(f);
   if (!eq_kind(x, FMAP_INTLIT)) error("X argument should be fintlit");
   boot_semantic(x);
   fmap_cpush(f, "type", new_ftypesym(type_void()));
 }
 
 void codegen_X(FMap f) {
-  FMap x = IListFMap_value(fm(fmap_cget(f, "args"))->lst);
+  FMap x = call_firstarg(f);
   write_hex(fm(x)->intval);
 }
 
@@ -425,19 +469,35 @@ void codegen_var(FMap f) {
   fp(FSymbol, fm(sym)->sym)->varoffset = curroffset;
 }
 
+FMap fmap_lvaluegen(FMap f) {
+  if (istring_ceq(fm(f)->kind, "call")) {
+    FMap c = fmap_cget(f, "call");
+    char idbuf[1024] = {};
+    snprintf(idbuf, 1024, "%slvalue", istring_cstr(fm(c)->ident));
+    fm(c)->ident = new_istring(idbuf);
+    return f;
+  } else {
+    flistseq(args, deepcopy_fmap(f));
+    return fcall(fident(new_istring("&")), args);
+  }
+}
+
 void semantic_set(FMap f) {
   FMap left = infix_left(f);
   FMap right = infix_right(f);
+  *fm(left) = *fm(fmap_lvaluegen(left));
   boot_semantic(left);
   boot_semantic(right);
-  if (!ftype_eq(get_ftype(fmap_cget(left, "type")), get_ftype(fmap_cget(right, "type")))) error("type mismatch in `=");
+  FType lefttype = get_ftype(fmap_cget(left, "type"));
+  if (fp(FType, lefttype)->kind != FTYPE_PTR) error("%s isn't ptr type in `=", fmap_tostring(left));
+  if (!ftype_eq(fp(FType, lefttype)->ptrof, get_ftype(fmap_cget(right, "type")))) error("type mismatch %s, %s in =", ftype_tostring(fp(FType, lefttype)->ptrof), ftype_tostring(get_ftype(fmap_cget(right, "type"))));
   fmap_cpush(f, "type", new_ftypesym(type_void()));
 }
 
 void codegen_set(FMap f) {
   FMap left = infix_left(f);
   FMap right = infix_right(f);
-  boot_codegen_lvalue(left);
+  boot_codegen(left);
   boot_codegen(right);
   write_hex(0x59);// pop rcx
   write_hex(0x58); // pop rax
@@ -518,6 +578,19 @@ void codegen_if(FMap f) {
   }
 }
 
+void semantic_addr(FMap f) {
+  FMap lvalue = call_firstarg(f);
+  boot_semantic(lvalue);
+  FType pt = new_ftype(FTYPE_PTR);
+  fp(FType, pt)->ptrof = get_ftype(fmap_cget(lvalue, "type"));
+  fmap_cpush(f, "type", new_ftypesym(pt));
+}
+
+void codegen_addr(FMap f) {
+  FMap lvalue = call_firstarg(f);
+  boot_codegen_lvalue(lvalue);
+}
+
 void def_internal(char* name, void* semfn, void* genfn, void* lvaluefn) {
   IString nameid = new_istring(name);
   InternalDecl decl;
@@ -532,6 +605,7 @@ void boot_init_internals() {
   def_internal("fintlit", semantic_fintlit, codegen_fintlit, NULL);
   def_internal("fident", semantic_fident, NULL, NULL);
   def_internal("fsymbol", semantic_fsymbol, codegen_fsymbol, codegen_lvalue_fsymbol);
+  def_internal("flist", semantic_flist, codegen_flist, NULL);
   def_internal("block", semantic_block, codegen_block, NULL);
   def_internal("fn", semantic_fn, codegen_fn, NULL);
   def_internal("type", semantic_type, NULL, NULL);
@@ -542,6 +616,7 @@ void boot_init_internals() {
   def_internal("=", semantic_set, codegen_set, NULL);
   def_internal(":=", semantic_def, NULL, NULL);
   def_internal("if", semantic_if, codegen_if, NULL);
+  def_internal("&", semantic_addr, codegen_addr, NULL);
 }
 
 //
@@ -553,6 +628,7 @@ void boot_semantic(FMap f) {
   InternalDecl decl;
   if (!search_internal_decl(kind, &decl)) error("unknown %s fmap kind: %s", istring_cstr(kind), fmap_tostring(f));
   (decl.semanticfn)(f);
+  fmap_cpush(f, "evaluated", fintlit(1));
 }
 
 void boot_codegen_lvalue(FMap f) {
