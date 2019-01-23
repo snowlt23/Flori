@@ -99,6 +99,11 @@ FMap fcall(FMap call, FMap args) {
   return f;
 }
 
+FMap fprefix(FMap call, FMap arg) {
+  flistseq(args, arg);
+  return fcall(call, args);
+}
+
 //
 // operations
 //
@@ -153,7 +158,7 @@ void write_indent(char* buf, int indent) {
 char* fmap_tostring_inside(FMap f, int indent) {
   if (FMap_isnil(f)) return "nil";
   
-  char buf[1024*1024] = {};
+  char buf[1024*10] = {};
   int bufpos = 0;
   if (eq_kind(f, FMAP_MAP)) {
     if (IListField_len(fm(f)->fields) == 0) {

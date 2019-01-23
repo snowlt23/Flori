@@ -474,7 +474,8 @@ FMap parse_call(Stream* s) {
     return left;                                                        \
   }
 
-def_infix_parser(parse_infix4, parse_call, 4);
+def_infix_parser(parse_infix1, parse_call, 1);
+def_infix_parser(parse_infix4, parse_infix1, 4);
 def_infix_parser(parse_infix5, parse_infix4, 5);
 def_infix_parser(parse_infix7, parse_infix5, 7);
 def_infix_parser(parse_infix12, parse_infix7, 12);

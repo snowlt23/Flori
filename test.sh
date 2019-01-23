@@ -91,8 +91,8 @@ runtest "fn id(p ^ptr int) ^ptr int { p }; fn main() {9}" 9
 filetest "examples/fib.flori" 34
 filetest "examples/sizeof.flori" 24
 filetest "examples/pointer.flori" 1000
-# filetest "examples/struct_field.flori" 9
-# filetest "examples/struct_ptr.flori" 13
+filetest "examples/struct_field.flori" 9
+filetest "examples/struct_ptr.flori" 13
 # filetest "examples/struct_copy.flori" 9
 # filetest "examples/struct_value.flori" 9
 # filetest "examples/struct_result.flori" 9

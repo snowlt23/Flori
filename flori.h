@@ -374,6 +374,7 @@ FMap fsymbol(FSymbol sym);
 FMap fintlit(int64_t x);
 FMap fstrlit(IString s);
 FMap fcall(FMap call, FMap args);
+FMap fprefix(FMap call, FMap arg);
 // operators
 void fmap_push(FMap f, IString k, FMap v);
 void fmap_cpush(FMap f, char* k, FMap v);

@@ -10,10 +10,10 @@ fn init_myint(result ^ptr myint) {
 
 fn main() {
   var mi ^myint
-  mip := getref mi
+  mip := &mi
   mip.a = 1
   mip.b = 2
   x := mi.a + mi.b
-  init_myint(getref mi)
+  init_myint(&mi)
   mi.a + mi.b + x
 }

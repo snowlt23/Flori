@@ -35,6 +35,10 @@ FMap call_firstarg(FMap f) {
   return IListFMap_value(fm(fmap_cget(f, "args"))->lst);
 }
 
+bool call_is(FMap f, char* s) {
+  return istring_ceq(fm(f)->kind, "call") && istring_ceq(fm(fmap_cget(f, "call"))->ident, s);
+}
+
 bool is_toplevel(FMap f) {
   return !FMap_isnil(fmap_cget(f, "toplevel"));
 }
@@ -400,7 +404,7 @@ void semantic_call(FMap f) {
       fmap_cpush(f, "type", new_ftypesym(fndecl.returntype));
     }
   } else {
-    error("undeclared %s function", fmap_tostring(call));
+    error("undeclared %s function: %s", fmap_tostring(call), fmap_tostring(f));
   }
 }
 
@@ -464,15 +468,16 @@ void codegen_var(FMap f) {
 }
 
 FMap fmap_lvaluegen(FMap f) {
-  if (istring_ceq(fm(f)->kind, "call")) {
+  if (call_is(f, ".")) {
+    return fcall(fident(new_istring(".lvalue")), fmap_cget(f, "args"));
+  } else if (istring_ceq(fm(f)->kind, "call")) {
     FMap c = fmap_cget(f, "call");
     char idbuf[1024] = {};
     snprintf(idbuf, 1024, "%slvalue", istring_cstr(fm(c)->ident));
     fm(c)->ident = new_istring(idbuf);
     return f;
   } else {
-    flistseq(args, deepcopy_fmap(f));
-    return fcall(fident(new_istring("&")), args);
+    return fprefix(fident(new_istring("&")), deepcopy_fmap(f));
   }
 }
 
@@ -586,6 +591,12 @@ void codegen_addr(FMap f) {
     write_hex(0x48, 0x8d, 0x85); // lea rax, [rbp-..]
     write_lendian(-fp(FSymbol, fm(lvalue)->sym)->varoffset);
     write_hex(0x50); // push rax
+  } else if (call_is(lvalue, ".")) {
+    boot_codegen(infix_left(lvalue));
+    write_hex(0x58); // pop rax
+    write_hex(0x48, 0x05); // add rax, ..
+    write_lendian(fp(FSymbol, fm(fmap_cget(lvalue, "sym"))->sym)->varoffset);
+    write_hex(0x50); // push rax
   } else {
     error("%s should be lvalue in &", fmap_tostring(lvalue));
   }
@@ -627,6 +638,60 @@ void semantic_sizeof(FMap f) {
   boot_semantic(f);
 }
 
+bool search_field(FSymbol structsym, IString name, FMap* retfield) {
+  FMap fields = fmap_cget(fp(FSymbol, structsym)->f, "fields");
+  forlist (IListFMap, FMap, field, fm(fields)->lst) {
+    FMap fieldsym = fmap_cget(field, "sym");
+    if (istring_eq(fp(FSymbol, fm(fieldsym)->sym)->name, name)) {
+      *retfield = field;
+      return true;
+    }
+  }
+  return false;
+}
+
+void semantic_field(FMap f) {
+  FMap left = infix_left(f);
+  FMap right = infix_right(f);
+  boot_semantic(left);
+  FType lefttype = get_ftype(fmap_cget(left, "type"));
+  if (fp(FType, lefttype)->kind != FTYPE_PTR) {
+    *fm(left) = *fm(fmap_lvaluegen(left));
+    boot_semantic(left);
+  }
+  FMap field;
+  if (!search_field(fp(FType, lefttype)->sym, fm(right)->ident, &field)) error("undeclared %s field in %s struct", fmap_tostring(right), ftype_tostring(lefttype));
+  fmap_cpush(f, "type", fmap_cget(field, "type"));
+  fmap_cpush(f, "sym", fmap_cget(field, "sym"));
+  fmap_cpush(f, "evaluated", fintlit(1));
+  FMap addrf = fprefix(fident(new_istring("&")), deepcopy_fmap(f));
+  FMap deref = fprefix(fident(new_istring("*")), addrf);
+  *fm(f) = *fm(deref);
+  boot_semantic(f);
+}
+
+void semantic_field_lvalue(FMap f) {
+  fm(fmap_cget(f, "call"))->ident = new_istring(".");
+  FMap left = infix_left(f);
+  FMap right = infix_right(f);
+  boot_semantic(left);
+  FType lefttype = get_ftype(fmap_cget(left, "type"));
+  if (fp(FType, lefttype)->kind == FTYPE_PTR) {
+    lefttype = fp(FType, lefttype)->ptrof;
+  } else {
+    *fm(left) = *fm(fmap_lvaluegen(left));
+    boot_semantic(left);
+  }
+  FMap field;
+  if (!search_field(fp(FType, lefttype)->sym, fm(right)->ident, &field)) error("undeclared %s field in %s struct", fmap_tostring(right), ftype_tostring(lefttype));
+  fmap_cpush(f, "type", fmap_cget(field, "type"));
+  fmap_cpush(f, "sym", fmap_cget(field, "sym"));
+  fmap_cpush(f, "evaluated", fintlit(1));
+  FMap addrf = fprefix(fident(new_istring("&")), deepcopy_fmap(f));
+  *fm(f) = *fm(addrf);
+  boot_semantic(f);
+}
+
 void def_internal(char* name, void* semfn, void* genfn) {
   IString nameid = new_istring(name);
   InternalDecl decl;
@@ -654,6 +719,8 @@ void boot_init_internals() {
   def_internal("&", semantic_addr, codegen_addr);
   def_internal("struct", semantic_struct, NULL);
   def_internal("sizeof", semantic_sizeof, NULL);
+  def_internal(".", semantic_field, NULL);
+  def_internal(".lvalue", semantic_field_lvalue, NULL);
 }
 
 //
@@ -661,6 +728,7 @@ void boot_init_internals() {
 //
 
 void boot_semantic(FMap f) {
+  if (is_evaluated(f)) return;
   IString kind = fm(f)->kind;
   InternalDecl decl;
   if (!search_internal_decl(kind, &decl)) error("unknown %s fmap kind: %s", istring_cstr(kind), fmap_tostring(f));
@@ -676,7 +744,6 @@ void boot_codegen(FMap f) {
 }
 
 void boot_eval_toplevel(FMap f) {
-  // debug("%s", fmap_tostring(f));
   fmap_cpush(f, "toplevel", fintlit(1));
   boot_semantic(f);
   boot_codegen(f);
