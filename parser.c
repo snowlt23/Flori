@@ -362,6 +362,14 @@ FMap parse_if(Stream* s) {
   return f;
 }
 
+FMap parse_while(Stream* s) {
+  def_fmap(f, while, {
+      def_field(cond, parse(s));
+      def_field(body, parse(s));
+    });
+  return f;
+}
+
 FMap parse_struct(Stream* s) {
   def_fmap(f, struct, {
       skip_spaces(s);
@@ -407,6 +415,7 @@ void parser_init_internal() {
   def_parser("return", parse_return);
   def_parser("var", parse_var);
   def_parser("if", parse_if);
+  def_parser("while", parse_while);
   def_parser("^", parse_type);
   def_parser("struct", parse_struct);
 }

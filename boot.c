@@ -585,6 +585,36 @@ void codegen_if(FMap f) {
   }
 }
 
+void semantic_while(FMap f) {
+  FMap cond = fmap_cget(f, "cond");
+  FMap body = fmap_cget(f, "body");
+  boot_semantic(cond);
+  boot_semantic(body);
+  fmap_cpush(f, "type", new_ftypesym(type_void()));
+}
+
+void codegen_while(FMap f) {
+  FMap cond = fmap_cget(f, "cond");
+  FMap body = fmap_cget(f, "body");
+
+  int startL = jit_getidx();
+  boot_codegen(cond);
+    
+  write_hex(0x58); // pop rax
+  write_hex(0x48, 0x83, 0xf8, 0x00); // cmp rax, 0
+  write_hex(0x0f, 0x84); // je rel
+  int fixup = jit_getidx();
+  write_lendian(0); // fixup
+
+  boot_codegen(body);
+  write_hex(0xe9); // jmp ..
+  int jmprel = startL - jit_getidx() - 4;
+  write_lendian(jmprel);
+    
+  int fixuprel = jit_getidx() - fixup - 4;
+  jit_fixup_lendian(fixup, fixuprel);
+}
+
 void semantic_addr(FMap f) {
   FMap lvalue = call_firstarg(f);
   boot_semantic(lvalue);
@@ -725,6 +755,7 @@ void boot_init_internals() {
   def_internal("=", semantic_set, codegen_set);
   def_internal(":=", semantic_def, NULL);
   def_internal("if", semantic_if, codegen_if);
+  def_internal("while", semantic_while, codegen_while);
   def_internal("&", semantic_addr, codegen_addr);
   def_internal("struct", semantic_struct, NULL);
   def_internal("sizeof", semantic_sizeof, NULL);

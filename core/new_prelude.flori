@@ -6,8 +6,13 @@ defprimitive pointer 8
 defprimitive fexpr 8
 defprimitive bool 8
 
-inline fn cast_int(^cstring) ^int {}
-inline fn cast_ptr(^cstring) ^ptr char {}
+inline fn cast_int(p ^cstring) ^int {}
+inline fn cast_ptr(p ^cstring) ^ptr char {}
+inline fn cast_pointer(p ^cstring) ^pointer {}
+
+inline fn cast_int(p ^pointer) ^int {}
+inline fn cast_ptr_char(p ^pointer) ^ptr char {}
+inline fn cast_cstring(p ^pointer) ^cstring {}
 
 inline fn push_rax() {
   X(0x50)
@@ -40,6 +45,10 @@ inline fn pop_r9() {
 
 inline fn cmp_rax_rcx() {
   X(0x48) X(0x39) X(0xC8)
+}
+
+inline fn op_call_rax() {
+  X(0xff) X(0xd0)
 }
 
 inline fn opret() {
@@ -126,6 +135,19 @@ inline fn syscall(n ^int, a1 ^int, a2 ^int, a3 ^int) ^int {
 inline fn syscall(n ^int, a1 ^int, a2 ^int, a3 ^int, a4 ^int, a5 ^int, a6 ^int) ^int {
   pop_r9() pop_r8() pop_rcx() pop_rdx() pop_rsi() pop_rdi() pop_rax()
   op_syscall() push_rax()
+}
+
+inline fn cffi(p ^pointer) ^int {
+  pop_rax()
+  op_call_rax() push_rax()
+}
+inline fn cffi(p ^pointer, a1 ^int) ^int {
+  pop_rdi() pop_rax()
+  op_call_rax() push_rax()
+}
+inline fn cffi(p ^pointer, a1 ^int, a2 ^int) ^int {
+  pop_rsi() pop_rdi() pop_rax()
+  op_call_rax() push_rax()
 }
 
 fn exit(retcode ^int) {
