@@ -231,6 +231,14 @@ void codegen_fintlit(FMap f) {
   gen_push_int(fm(f)->intval);
 }
 
+void semantic_fstrlit(FMap f) {
+  fmap_cpush(f, "type", new_ftypesym(type_cstring()));
+}
+
+void codegen_fstrlit(FMap f) {
+  gen_cstring(istring_cstr(fm(f)->strval));
+}
+
 void semantic_fident(FMap f) {
   Decl decl;
   if (!search_decl(fm(f)->ident, &decl)) error("undeclared %s ident", fmap_tostring(f));
@@ -322,7 +330,7 @@ void codegen_fn(FMap f) {
   gen_prologue(fp(FSymbol, fm(fnsym)->sym)->stacksize);
 
   int argoffset = 16;
-  forlist(IListFMap, FMap, argdecl, fm(argdecls)->lst) {
+  forlist(IListFMap, FMap, argdecl, fm(flist_reverse(argdecls))->lst) {
     FMap name = fmap_cget(argdecl, "name");
     fp(FSymbol, fm(name)->sym)->varoffset = -argoffset;
     argoffset += 8;
@@ -703,6 +711,7 @@ void def_internal(char* name, void* semfn, void* genfn) {
 
 void boot_init_internals() {
   def_internal("fintlit", semantic_fintlit, codegen_fintlit);
+  def_internal("fstrlit", semantic_fstrlit, codegen_fstrlit);
   def_internal("fident", semantic_fident, NULL);
   def_internal("fsymbol", semantic_fsymbol, codegen_fsymbol);
   def_internal("flist", semantic_flist, codegen_flist);

@@ -58,8 +58,6 @@ unittest "linmem_test"
 unittest "jit_test"
 unittest "fmap_test"
 
-filetest "examples/pointer.flori" 1000
-
 runtest "fn main() { 9 }" 9
 runtest "fn main() {4}" 4
 runtest "fn main() {5}" 5
@@ -77,8 +75,8 @@ runtest "fn main() { if 1 4 }" 4
 runtest "fn main() { if 1 2 else 3 }" 2
 runtest "fn main() { if 0 2 else 3 }" 3
 runtest "fn id(p ^ptr int) ^ptr int { p }; fn main() {9}" 9
-# runtest "fn main() {s := \"yukarisan\"; 9}" 9
-# runtest "fn main() {s := \"ia\"; deref (cast_ptr s)}" 105
+runtest "fn main() {s := \"yukarisan\"; 9}" 9
+runtest "fn main() {s := \"ia\"; *cast_ptr(s)}" 105
 # runtest "gx := 555; fn main() {gx}" 555
 # runtest "fn main() {s := \"yukayuka\"; len s}" 8
 # runtest "fn main() {internal_print 5454; 0}" "54540"
@@ -96,12 +94,12 @@ filetest "examples/struct_ptr.flori" 13
 # filetest "examples/struct_copy.flori" 9
 # filetest "examples/struct_value.flori" 9
 # filetest "examples/struct_result.flori" 9
-# filetest "examples/sysprint.flori" "yukarisan0"
+filetest "examples/sysprint.flori" "yukarisan0"
 # filetest "examples/while.flori" "aaaaaaaaaa0"
 # filetest "examples/cstring.flori" "akari0"
 # filetest "examples/string.flori" 3
 # filetest "examples/macro.flori" "!@DDHello Yukari!9"
-# # filetest "examples/asm.flori" "55"
+# filetest "examples/asm.flori" "55"
 # filetest "examples/syntax.flori" "123456789100"
 
 # exectest "examples/fib.flori" 0
