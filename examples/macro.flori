@@ -10,6 +10,15 @@ static {
   print("@")
 }
 
+macro hello(s ^fmap) ^fmap {
+  quote {
+    print("Hello ")
+    print(`s)
+    print("!")
+  }
+}
+
 fn main() {
+  hello("Yukari")
   mac45()
 }

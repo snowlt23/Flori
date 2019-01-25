@@ -48,7 +48,7 @@ fn push(f ^fmap, value ^fmap) {
 fn len(f ^fmap) ^int {
   return cffi(internal_flist_len_ptr, cast_int(f))
 }
-fn !(f ^fmap, i ^int) ^fmap {
+fn get(f ^fmap, i ^int) ^fmap {
   return cast_fmap(cffi(internal_flist_get_ptr, cast_int(f), i))
 }
 
@@ -58,6 +58,10 @@ fn replace(dst ^fmap, src ^fmap) {
 
 fn to_cstring(f ^fmap) ^cstring {
   return cast_cstring(cffi(internal_fmap_to_cstring_ptr, cast_int(f)))
+}
+
+fn to_flist(f ^fmap) ^fmap {
+  return cast_fmap(cffi(internal_fmap_to_flist_ptr, cast_int(f)))
 }
 
 fn semeval(f ^fmap) {
@@ -96,6 +100,12 @@ fn fblock() ^fmap {
   return flist("block")
 }
 
+fn farg(f ^fmap) ^fmap {
+  lst := flist()
+  push(lst, f)
+  return lst
+}
+
 fn parse() ^fmap {
   return cast_fmap(cffi(internal_parse_ptr))
 }
@@ -118,9 +128,146 @@ macro static_macro(body ^fmap) ^fmap {
   return blk
 }
 
+fn is(f ^fmap, k ^cstring) ^bool {
+  return strcmp(rootkind(f), k)
+}
+
+fn reverse(f ^fmap) ^fmap {
+  revf := flist(kind(f))
+  l := len(f)
+  i := 0
+  while i < l {
+    push(revf, get(f, i))
+    i = i+1
+  }
+  return revf
+}
+
 syntax static() ^fmap {
   body := parse()
   args := flist()
   push(args, body)
   return fcall(fident("static_macro"), args)
+}
+
+FMAP_IDENT := "fident"
+FMAP_MAP := "fmap"
+FMAP_LIST := "flist"
+FMAP_CALL := "call"
+
+#
+# quote
+#
+
+fn is_fembed(f ^fmap) ^bool {
+  if is(f, FMAP_IDENT) {
+    return strcmp(to_cstring(f), "fembed")
+  }
+  return false();
+}
+
+fn expand_fembed(f ^fmap, args ^fmap, argidx ^ptr int) {
+  if is_fembed(f) {
+    replace(f, get(args, *argidx))
+    *argidx = *argidx + 1
+  } elif is(f, FMAP_MAP) {
+    flst := to_flist(f)
+    i := 0
+    while i < len(flst) {
+      expand_fembed(get(get(flst, i), "value"), args, argidx)
+      i = i+1
+    }
+  } elif is(f, FMAP_LIST) {
+    i := 0
+    while i < len(f) {
+      expand_fembed(get(f, i), args, argidx)
+      i = i+1
+    }
+  }
+}
+
+fn is_unquote(f ^fmap) ^bool {
+  if strcmp(kind(f), FMAP_CALL) {
+    return strcmp(to_cstring(get(f, "call")), "unquote")
+  }
+  return false()
+}
+
+fn collect_unquote(f ^fmap, args ^fmap) {
+  if is_unquote(f) {
+    push(args, get(get(f, "args"), 0))
+    replace(f, fident("fembed"))
+  } elif is(f, FMAP_MAP) {
+    flst := to_flist(f)
+    i := 0
+    while i < len(flst) {
+      collect_unquote(get(get(flst, i), "value"), args)
+      i = i+1
+    }
+  } elif is(f, FMAP_LIST) {
+    i := 0
+    while i < len(f) {
+      collect_unquote(get(f, i), args)
+      i = i+1
+    }
+  }
+}
+
+macro quote_macro(f ^fmap) ^fmap {
+  quotedargs := flist()
+  collect_unquote(f, quotedargs)
+  quotedargs = reverse(quotedargs)
+
+  idxsym := gensym()
+  argsym := gensym()
+  retf := fblock()
+
+  fidx := fcall(fident("cast_fmap"), farg(fintlit(cast_int(f))))
+  push(retf, dup(fidx))
+  
+  idxref := fcall(fident("&"), farg(dup(idxsym)))
+  excallargs := flist()
+  push(excallargs, idxref)
+  push(excallargs, dup(argsym))
+  push(excallargs, dup(fidx))
+  expandcall := fcall(fident("expand_fembed"), excallargs)
+  push(retf, expandcall)
+
+  idxargs := flist()
+  push(idxargs, fintlit(0))
+  push(idxargs, dup(idxsym))
+  idxdecl := fcall(fident(":="), idxargs)
+  push(retf, idxdecl)
+  
+  i := 0
+  while i < len(quotedargs) {
+    args := flist()
+    push(args, get(quotedargs, i))
+    push(args, dup(argsym))
+    pushcall := fcall(fident("push"), args)
+    push(retf, pushcall)
+    i = i+1
+  }
+
+  args := flist()
+  push(args, fcall(fident("flist")))
+  push(args, dup(argsym))
+  argdecl := fcall(fident(":="), args)
+  push(retf, argdecl)
+  
+  return retf
+}
+
+syntax `() ^fmap {
+  e := parse()
+  return fcall(fident("unquote"), farg(e))
+}
+
+syntax quote() ^fmap {
+  body := parse()
+  return fcall(fident("quote_macro"), farg(body))
+}
+
+macro fexpr_as_value(f ^fmap) ^fmap {
+  return fcall(fident("cast_fmap"), farg(fintlit(cast_int(f))))
 }

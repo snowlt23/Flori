@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/syntax.flori core/allocator.flori core/string.flori core/asm.flori"
-CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori"
+CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/allocator.flori"
 # CORELIBS="core/prelude.flori"
 
 read-coresrc() {
@@ -98,15 +98,15 @@ filetest "examples/struct_ptr.flori" 13
 # filetest "examples/struct_result.flori" 9
 filetest "examples/sysprint.flori" "yukarisan0"
 filetest "examples/while.flori" "aaaaaaaaaa0"
-# filetest "examples/cstring.flori" "akari0"
+filetest "examples/cstring.flori" "akari0"
 # filetest "examples/string.flori" 3
-filetest "examples/macro.flori" "!@9"
+filetest "examples/macro.flori" "!@Hello Yukari!9"
 # filetest "examples/asm.flori" "55"
 # filetest "examples/syntax.flori" "123456789100"
 
-# exectest "examples/fib.flori" 0
-# exectest "examples/exitfib.flori" 34
-# exectest "examples/sysprint.flori" "yukarisan0"
-# exectest "examples/globalvar.flori" 45
+exectest "examples/fib.flori" 0
+exectest "examples/exitfib.flori" 34
+exectest "examples/sysprint.flori" "yukarisan0"
+exectest "examples/globalvar.flori" 45
 # exectest "examples/memory_allocate.flori" 123
-# exectest "examples/while.flori" "aaaaaaaaaa0"
+exectest "examples/while.flori" "aaaaaaaaaa0"

@@ -55,7 +55,7 @@ bool isoperator(char c) {
   static char ifx[] = {
     '+', '-', '*', '/', '%',
     '<', '>', '.', '=', ':',
-    '!', '&', '|', '~', '^'
+    '!', '&', '|', '~', '^', '`'
   };
   for (int i=0; i<sizeof(ifx); i++) {
     if (c == ifx[i]) {
@@ -370,7 +370,7 @@ FMap parse_if(Stream* s) {
     }
   }
   def_fmap(f, if, {
-      def_field(elifs, elifs);
+      def_field(elifs, flist_reverse(elifs));
       def_field(else, els);
     });
   return f;

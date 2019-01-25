@@ -904,6 +904,19 @@ char* internal_fmap_to_cstring(size_t fidx) {
   return fmap_tostring(f);
 }
 
+size_t internal_fmap_to_flist(size_t fidx) {
+  FMap f = (FMap){fidx};
+  FMap retf = flist();
+  forlist (IListField, Field, field, fm(f)->fields) {
+    def_fmap(ff, field, {
+        def_field(key, fident(field.key));
+        def_field(value, field.value);
+      });
+    flist_push(retf, ff);
+  }
+  return retf.index;
+}
+
 void internal_semeval(size_t fidx) {
   FMap f = (FMap){fidx};
   boot_semantic(f);
@@ -940,6 +953,7 @@ void internal_init_defs(FMap f) {
   def_internal_ptr("internal_flist_get_ptr", internal_flist_get);
   def_internal_ptr("internal_fmap_replace_ptr", internal_fmap_replace);
   def_internal_ptr("internal_fmap_to_cstring_ptr", internal_fmap_to_cstring);
+  def_internal_ptr("internal_fmap_to_flist_ptr", internal_fmap_to_flist);
   def_internal_ptr("internal_semeval_ptr", internal_semeval);
   def_internal_ptr("internal_parse_ptr", internal_parse);
 }

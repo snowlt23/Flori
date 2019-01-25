@@ -8,20 +8,15 @@ MAP_PRIVATE := 0x02
 MAP_ANONYMOUS := 0x20
 
 fn brk(addr ^int) ^int {
-  syscall 12 addr
+  syscall(12, addr)
 }
 
 fn sbrk(inc ^int) ^ptr int {
-  oldaddr := brk 0
-  brk $oldaddr + inc
+  oldaddr := brk(0)
+  brk(oldaddr + inc)
   return oldaddr
 }
 
-fn mmap(addr ^int, length ^int, prot ^int, flags ^int, fd ^int, offset ^int) ^int {
-  syscall 9 addr length prot flags fd offset
-}
-
 fn malloc(size ^int) ^pointer {
-  # mmap 0 size (or PROT_READ PROT_WRITE) (or MAP_ANONYMOUS MAP_PRIVATE) 0 0
-  sbrk size
+  sbrk(size)
 }
