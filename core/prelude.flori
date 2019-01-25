@@ -12,6 +12,7 @@ inline fn cast_pointer(p ^cstring) ^pointer {}
 
 inline fn cast_int(p ^pointer) ^int {}
 inline fn cast_ptr_char(p ^pointer) ^ptr char {}
+inline fn cast_ptr_int(p ^pointer) ^ptr int {}
 inline fn cast_cstring(p ^pointer) ^cstring {}
 
 inline fn cast_int(f ^fmap) ^int {}

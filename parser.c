@@ -114,6 +114,8 @@ int calc_op_priority(char* opident) {
     return 1; 
   } else if (opident[0] == '=') {
     return 15;
+  } else if (opident[0] == '`') {
+    return 1;
   } else {
     debug("%s", opident);
     assert(false);
@@ -421,7 +423,7 @@ void def_parser(char* name, FMap (*internalfn)(Stream* s)) {
 }
 
 void parser_init_internal() {
-  def_parser("(", parse_list);
+  // def_parser("(", parse_list);
   def_parser("{", parse_block);
   def_parser("fn", parse_fn);
   def_parser("macro", parse_macro);
@@ -452,6 +454,12 @@ FMap parse_prim(Stream* s) {
     stream_back(s, id);
     s->pos++;
     return parse_fstrlit(s);
+  } else if (*istring_cstr(id) == '(') {
+    stream_back(s, id);
+    s->pos++;
+    FMap f = parse(s);
+    if (stream_next(s) != ')') error("expect )end of (paren");
+    return f;
   } else if (isident(*istring_cstr(id))) {
     stream_back(s, id);
     return parse_fident(s);
