@@ -299,6 +299,12 @@ FMap parse_fn(Stream* s) {
   return f;
 }
 
+FMap parse_macro(Stream* s) {
+  FMap fnmap = parse_fn(s);
+  fm(fnmap)->kind = new_istring("macro");
+  return fnmap;
+}
+
 FMap parse_inline(Stream* s) {
   FMap f = parse(s);
   fmap_cpush(f, "inline", fintlit(1));
@@ -410,6 +416,7 @@ void parser_init_internal() {
   def_parser("(", parse_list);
   def_parser("{", parse_block);
   def_parser("fn", parse_fn);
+  def_parser("macro", parse_macro);
   def_parser("inline", parse_inline);
   def_parser("defprimitive", parse_defprimitive);
   def_parser("return", parse_return);

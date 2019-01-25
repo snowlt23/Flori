@@ -222,6 +222,7 @@ typedef struct _FSymbolObj {
   IString name;
   FType t;
   bool isprim;
+  bool ismacro;
   void* internalptr;
   union {
     int vardataidx;
@@ -299,7 +300,7 @@ typedef struct {
 
 typedef struct {
   IString name;
-  bool issyntax;
+  bool isfn;
   void (*semanticfn)(FMap);
   void (*codegenfn)(FMap);
 } InternalDecl;
@@ -411,6 +412,9 @@ bool search_internal_decl(IString name, InternalDecl* retdecl);
 ParserDecl new_internal_parserdecl(IString hook, FMap (*internalfn)(Stream* s));
 void add_parser_decl(ParserDecl decl);
 bool search_parser_decl(IString id, ParserDecl* retdecl);
+
+// macrocaller.c
+FMap call_macro(FSymbol sym, IListFMap args);
 
 // boot.c
 bool ftype_eq(FType a, FType b);

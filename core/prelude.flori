@@ -3,229 +3,183 @@ defprimitive int 8
 defprimitive cstring 8
 defprimitive char 1
 defprimitive pointer 8
-defprimitive fexpr 8
+defprimitive fmap 8
 defprimitive bool 8
 
-jit push_rax() ^void {
-  X 0x50
+inline fn cast_int(p ^cstring) ^int {}
+inline fn cast_ptr(p ^cstring) ^ptr char {}
+inline fn cast_pointer(p ^cstring) ^pointer {}
+
+inline fn cast_int(p ^pointer) ^int {}
+inline fn cast_ptr_char(p ^pointer) ^ptr char {}
+inline fn cast_cstring(p ^pointer) ^cstring {}
+
+inline fn cast_int(f ^fmap) ^int {}
+
+inline fn cast_cstring(idx ^int) ^cstring {}
+inline fn cast_fmap(idx ^int) ^fmap {}
+
+inline fn push_rax() {
+  X(0x50)
 }
 
-jit pop_rax() ^void {
-  X 0x58
+inline fn pop_rax() {
+  X(0x58)
 }
-jit pop_rcx() ^void {
-  X 0x59
+inline fn pop_rcx() {
+  X(0x59)
 }
-jit pop_rdi() ^void {
-  X 0x5f
+inline fn pop_rdx() {
+  X(0x5a)
 }
-jit pop_rsi() ^void {
-  X 0x5e
+inline fn pop_rbp() {
+  X(0x5d)
 }
-jit pop_rdx() ^void {
-  X 0x5a
+inline fn pop_rsi() {
+  X(0x5e)
 }
-jit pop_rbp() ^void {
-  X 0x5d
+inline fn pop_rdi() {
+  X(0x5f)
 }
-jit pop_r8() ^void {
-  X 0x41; X 0x58
+inline fn pop_r8() {
+  X(0x41) X(0x58)
 }
-jit pop_r9() ^void {
-  X 0x41; X 0x59
-}
-
-jit opret() ^void {
-  X 0xC3
+inline fn pop_r9() {
+  X(0x41) X(0x59)
 }
 
-jit genret() ^void {
-  pop_rax
-  X 0x48; X 0x89; X 0xEC # mov rsp, rbp
-  pop_rbp
-  opret
-}
-jit return(^int) ^int genret
-jit return(^fexpr) ^fexpr genret
-jit return(^cstring) ^cstring genret
-jit return(^bool) ^bool genret
-
-jit genadd() ^void {
-  pop_rcx
-  pop_rax
-  X 0x48; X 0x01; X 0xC8 # add rax, rcx
-  push_rax
-}
-jit +(^int, ^int) ^int genadd
-jit +(^ptr int, ^ptr int) ^ptr int genadd
-jit +(^ptr char, ^int) ^ptr char genadd
-
-jit gensub() ^void {
-  pop_rcx
-  pop_rax
-  X 0x48; X 0x29; X 0xC8 # sub rax, rcx
-  push_rax
-}
-jit -(^int, ^int) ^int gensub
-
-jit cmp_rax_rcx() ^void {
-  X 0x48; X 0x39; X 0xC8
+inline fn cmp_rax_rcx() {
+  X(0x48) X(0x39) X(0xC8)
 }
 
-jit genlesser() ^void {
-  pop_rcx
-  pop_rax
-  cmp_rax_rcx
-  X 0x48; X 0xc7; X 0xc0; X 0x00; X 0x00; X 0x00; X 0x00 # mov rax, 0
-  X 0x0F; X 0x9C; X 0xC0 # # setl al
-  push_rax
-}
-jit <(^int, ^int) ^bool genlesser
-
-jit geneq() ^void {
-  pop_rcx
-  pop_rax
-  cmp_rax_rcx
-  X 0x48; X 0xc7; X 0xc0; X 0x00; X 0x00; X 0x00; X 0x00 # mov rax, 0
-  X 0x0F; X 0x94; X 0xC0 # sete al
-  push_rax
-}
-jit ==(^int, ^int) ^bool geneq
-jit ==(^char, ^char) ^bool geneq
-
-fn true() ^bool 1
-fn false() ^bool 0
-
-fn not(b ^bool) ^bool {
-  if b {return true} else {return false}
+inline fn op_call_rax() {
+  X(0xff) X(0xd0)
 }
 
-jit genand() ^void {
-  pop_rcx
-  pop_rax
-  X 0x48; X 0x21; X 0xC8 # and rax, rcx
-  push_rax
-}
-jit and(^int, ^int) ^int genand
-
-jit genor() ^void {
-  pop_rcx
-  pop_rax
-  X 0x48; X 0x09; X 0xC8 # or rax, rcx
-  push_rax
-}
-jit or(^int, ^int) ^int genor
-
-jit genshl() ^void {
-  pop_rcx
-  pop_rax
-  X 0x48; X 0xd3; X 0xe0 # shl rax, rcx
-  push_rax
-}
-jit shl(^int, ^int) ^int genshl
-
-jit genshr() ^void {
-  pop_rcx
-  pop_rax
-  X 0x48; X 0xd3; X 0xe8 # shr rax, rcx
-  push_rax
-}
-jit shr(^int, ^int) ^int genshl
-
-jit deref(^ptr int) ^int {
-  pop_rax
-  X 0x48; X 0x8b; X 0x00
-  push_rax
-}
-jit deref_lvalue(^ptr int) ^ptr int {}
-
-jit deref(^ptr cstring) ^cstring {
-  pop_rax
-  X 0x48; X 0x8b; X 0x00
-  push_rax
-}
-jit deref_lvalue(^ptr cstring) ^ptr cstring {}
-
-jit deref(^ptr char) ^char {
-  pop_rax
-  X 0x8a; X 0x00
-  X 0x48; X 0x0f; X 0xb6; X 0xc0
-  push_rax
-}
-jit deref_lvalue(^ptr char) ^ptr char {}
-
-jit cast_ptr(^cstring) ^ptr char {}
-jit cast_ptr_int(^pointer) ^ptr int {}
-jit cast_ptr_char(^pointer) ^ptr char {}
-jit cast_pointer(^cstring) ^pointer {}
-jit cstring(^pointer) ^cstring {}
-jit cast_cstring(^int) ^cstring {}
-jit cast_int(^cstring) ^int {}
-jit cast_int(^char) ^int {}
-jit cast_int(^ptr int) ^int {}
-jit cast_int(^fexpr) ^int {}
-jit cast_fexpr(^int) ^fexpr {}
-jit cast_char(^int) ^char {}
-jit char_ptr(^pointer) ^ptr char {}
-
-fn copy(p ^ptr int, v ^int) {
-  (deref p) = v
-}
-fn copy(p ^ptr cstring, v ^cstring) {
-  (deref p) = v
+inline fn opret() {
+  X(0xc3)
 }
 
-jit op_syscall() ^void {
-  X 0x0f; X 0x05
+inline fn genret() {
+  pop_rax()
+  X(0x48) X(0x89) X(0xec)
+  pop_rbp()
+  opret()
+}
+inline fn return(r ^int) {genret()}
+inline fn return(r ^cstring) {genret()}
+inline fn return(r ^bool) {genret()}
+inline fn return(r ^fmap) {genret()}
+
+inline fn genadd() {
+  pop_rcx() pop_rax()
+  X(0x48) X(0x01) X(0xC8)
+  push_rax()
+}
+inline fn +(a ^int, b ^int) ^int {genadd()}
+inline fn +(a ^ptr int, b ^int) ^ptr int {genadd()}
+inline fn +(a ^ptr char, b ^int) ^ptr char {genadd()}
+
+inline fn gensub() {
+  pop_rcx() pop_rax()
+  X(0x48) X(0x29) X(0xC8)
+  push_rax()
+}
+inline fn -(a ^int, b ^int) ^int {gensub()}
+inline fn -(a ^ptr int, b ^int) ^ptr int {gensub()}
+inline fn -(a ^ptr char, b ^int) ^ptr char {gensub()}
+
+inline fn <(a ^int, b ^int) ^bool {
+  pop_rcx() pop_rax()
+  cmp_rax_rcx()
+  X(0x48) X(0xc7) X(0xc0) X(0x00) X(0x00) X(0x00) X(0x00)
+  X(0x0F) X(0x9C) X(0xC0)
+  push_rax()
 }
 
-jit op_call_rax() ^void {
-  X 0xff; X 0xd0
+inline fn geneq() {
+  pop_rcx() pop_rax()
+  cmp_rax_rcx()
+  X(0x48) X(0xc7) X(0xc0) X(0x00) X(0x00) X(0x00) X(0x00) # mov rax, 0
+  X(0x0F) X(0x94) X(0xC0) # sete al
+  push_rax()
+}
+inline fn ==(^int, ^int) ^bool geneq()
+inline fn ==(^char, ^char) ^bool geneq()
+
+fn true() ^bool {
+  return 1
+}
+fn false() ^bool {
+  return 0
 }
 
-jit syscall(^int, ^int) ^int {
-  pop_rdi; pop_rax
-  op_syscall; push_rax
+inline fn *(p ^ptr int) ^int {
+  pop_rax()
+  X(0x48) X(0x8b) X(0x00)
+  push_rax()
 }
-jit syscall(^int, ^int, ^int) ^int {
-  pop_rsi; pop_rdi; pop_rax
-  op_syscall; push_rax
+inline fn *lvalue(p ^ptr int) ^ptr int {}
+
+inline fn *(^ptr char) ^char {
+  pop_rax()
+  X(0x8a) X(0x00)
+  X(0x48) X(0x0f) X(0xb6) X(0xc0)
+  push_rax()
 }
-jit syscall(^int, ^int, ^int, ^int) ^int {
-  pop_rdx; pop_rsi; pop_rdi; pop_rax
-  op_syscall; push_rax
-}
-jit syscall(^int, ^int, ^int, ^int, ^int, ^int, ^int) ^int {
-  pop_r9; pop_r8; pop_rcx; pop_rdx; pop_rsi; pop_rdi; pop_rax
-  op_syscall; push_rax
+inline fn *lvalue(^ptr char) ^ptr char {}
+
+inline fn op_syscall() {
+  X(0x0f) X(0x05)
 }
 
-jit cffi(^pointer) ^int {
-  pop_rax
-  op_call_rax; push_rax
+inline fn syscall(n ^int, a1 ^int) ^int {
+  pop_rdi() pop_rax()
+  op_syscall() push_rax()
 }
-jit cffi(^pointer, ^int) ^int {
-  pop_rdi; pop_rax
-  op_call_rax; push_rax
+inline fn syscall(n ^int, a1 ^int, a2 ^int) ^int {
+  pop_rsi() pop_rdi() pop_rax()
+  op_syscall() push_rax()
 }
-jit cffi(^pointer, ^int, ^int) ^int {
-  pop_rsi; pop_rdi; pop_rax
-  op_call_rax; push_rax
+inline fn syscall(n ^int, a1 ^int, a2 ^int, a3 ^int) ^int {
+  pop_rdx() pop_rsi() pop_rdi() pop_rax()
+  op_syscall() push_rax()
+}
+inline fn syscall(n ^int, a1 ^int, a2 ^int, a3 ^int, a4 ^int, a5 ^int, a6 ^int) ^int {
+  pop_r9() pop_r8() pop_rcx() pop_rdx() pop_rsi() pop_rdi() pop_rax()
+  op_syscall() push_rax()
+}
+
+inline fn cffi(p ^pointer) ^int {
+  pop_rax()
+  op_call_rax() push_rax()
+}
+inline fn cffi(p ^pointer, a1 ^int) ^int {
+  pop_rdi() pop_rax()
+  op_call_rax() push_rax()
+}
+inline fn cffi(p ^pointer, a1 ^int, a2 ^int) ^int {
+  pop_rsi() pop_rdi() pop_rax()
+  op_call_rax() push_rax()
+}
+inline fn cffi(p ^pointer, a1 ^int, a2 ^int, a3 ^int) ^int {
+  pop_rdx() pop_rsi() pop_rdi() pop_rax()
+  op_call_rax() push_rax()
 }
 
 fn exit(retcode ^int) {
-  syscall 60 retcode
+  syscall(60, retcode)
 }
 
 fn sys_print(s ^cstring, len ^int) ^int {
-  syscall 1 1 (cast_int s) len
+  syscall(1, 1, cast_int(s), len)
 }
-fn sys_eprint(s ^cstring, len ^int) ^int {
-  syscall 1 2 (cast_int s) len
+fn sys_error_print(s ^cstring, len ^int) ^int {
+  syscall(1, 2, cast_int(s), len)
 }
 
-internal_init_defs
+internal_init_defs()
 
 fn internal_print(x ^int) {
-  cffi internal_print_ptr x
+  cffi(internal_print_ptr, x)
 }

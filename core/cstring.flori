@@ -41,6 +41,6 @@ fn print(s ^cstring) {
   sys_print(s, len(s))
 }
 
-fn eprint(s ^cstring) {
-  sys_eprint(s, len(s))
+fn error_print(s ^cstring) {
+  sys_error_print(s, len(s))
 }

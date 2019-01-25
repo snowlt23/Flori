@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/syntax.flori core/allocator.flori core/string.flori core/asm.flori"
+CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori"
 # CORELIBS="core/prelude.flori"
-CORELIBS="core/new_prelude.flori core/cstring.flori"
 
 read-coresrc() {
   for f in $CORELIBS ; do
@@ -84,6 +84,8 @@ runtest "fn main() {4 == 5}" 0
 runtest "fn main() {strcmp(\"abcdgogo\", \"abcdgogo\")}" 1
 runtest "fn main() {strcmp(\"abcdgogo\", \"abcdgog\")}" 0
 runtest "fn main() {internal_print(5454) 0}" "54540"
+runtest "macro idmac(f ^fmap) ^fmap {f} fn main() {idmac(5)}" 5
+runtest "macro fiv() ^fmap {fintlit(5)} fn main() {fiv()}" 5
 # runtest "gx := 555; fn main() {gx}" 555
 
 filetest "examples/fib.flori" 34
