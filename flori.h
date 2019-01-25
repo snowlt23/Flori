@@ -222,6 +222,7 @@ typedef struct _FSymbolObj {
   IString name;
   FType t;
   bool isprim;
+  void* internalptr;
   union {
     int vardataidx;
     int varoffset;
@@ -231,7 +232,6 @@ typedef struct _FSymbolObj {
       int rewrited;
     };
     int size;
-    void* internalptr;
   };
 } FSymbolObj;
 

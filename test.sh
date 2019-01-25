@@ -83,8 +83,8 @@ runtest "fn main() {5 == 5}" 1
 runtest "fn main() {4 == 5}" 0
 runtest "fn main() {strcmp(\"abcdgogo\", \"abcdgogo\")}" 1
 runtest "fn main() {strcmp(\"abcdgogo\", \"abcdgog\")}" 0
+runtest "fn main() {internal_print(5454) 0}" "54540"
 # runtest "gx := 555; fn main() {gx}" 555
-# runtest "fn main() {internal_print 5454; 0}" "54540"
 
 filetest "examples/fib.flori" 34
 filetest "examples/sizeof.flori" 24

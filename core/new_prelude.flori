@@ -167,3 +167,9 @@ fn sys_print(s ^cstring, len ^int) ^int {
 fn sys_eprint(s ^cstring, len ^int) ^int {
   syscall(1, 2, cast_int(s), len)
 }
+
+internal_init_defs()
+
+fn internal_print(x ^int) {
+  cffi(internal_print_ptr, x)
+}

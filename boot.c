@@ -59,6 +59,7 @@ FSymbol new_symbol(IString name) {
   FSymbol s = alloc_FSymbol();
   fp(FSymbol, s)->name = name;
   fp(FSymbol, s)->t = nil_FType();
+  fp(FSymbol, s)->internalptr = NULL;
   return s;
 }
 
@@ -250,8 +251,16 @@ void semantic_fsymbol(FMap f) {
 }
 
 void codegen_fsymbol(FMap f) {
-  write_hex(0xff, 0xb5);
-  write_lendian(-fp(FSymbol, fm(f)->sym)->varoffset);
+  if (fp(FSymbol, fm(f)->sym)->internalptr != NULL) { // internal ptr
+    write_hex(0x48, 0xb8); // movabs rax, ..
+    size_t jitidx = jit_getidx();
+    write_hex(0, 0, 0, 0, 0, 0, 0, 0);
+    write_hex(0x50); // push rax
+    fixup_lendian64(jit_toptr(jitidx), (size_t)fp(FSymbol, fm(f)->sym)->internalptr);
+  } else {
+    write_hex(0xff, 0xb5);
+    write_lendian(-fp(FSymbol, fm(f)->sym)->varoffset);
+  }
 }
 
 void semantic_flist(FMap f) {
@@ -375,7 +384,7 @@ void semantic_defprimitive(FMap f) {
   fp(FSymbol, sym)->name = fm(name)->ident;
   fp(FSymbol, sym)->size = fm(size)->intval;
   fmap_cpush(f, "sym", fsymbol(sym));
-  add_decl((Decl){fm(name)->ident, sym});
+  add_decl((Decl){fm(name)->ident, sym, nil_FType()});
 }
 
 void semantic_call(FMap f) {
@@ -421,7 +430,7 @@ void codegen_call(FMap f) {
   get_field(args, f, "call");
   InternalDecl decl;
   if (eq_kind(call, FMAP_IDENT) && search_internal_decl(fm(call)->ident, &decl)) {
-    (decl.codegenfn)(f);
+    if (decl.codegenfn != NULL) (decl.codegenfn)(f);
     return;
   }
   
@@ -657,7 +666,7 @@ void semantic_struct(FMap f) {
   FSymbol sym = new_symbol(fm(name)->ident);
   fmap_cpush(f, "sym", fsymbol(sym));
   fp(FSymbol, sym)->f = f;
-  add_decl((Decl){fm(name)->ident, sym});
+  add_decl((Decl){fm(name)->ident, sym, nil_FType()});
   forlist (IListFMap, FMap, field, fm(fields)->lst) {
     FMap fieldname = fmap_cget(field, "name");
     FMap fieldtype = fmap_cget(field, "type");
@@ -730,6 +739,25 @@ void semantic_field_lvalue(FMap f) {
   boot_semantic(f);
 }
 
+//
+// internals
+//
+
+void internal_print(size_t x) {
+  printf("%zd", x);
+}
+
+void def_internal_ptr(char* name, void* p) {
+  IString nameid = new_istring(name);
+  FSymbol sym = new_symbol(nameid);
+  fp(FSymbol, sym)->internalptr = p;
+  add_decl((Decl){nameid, sym, type_pointer()});
+}
+
+void internal_init_defs(FMap f) {
+  def_internal_ptr("internal_print_ptr", internal_print);
+}
+
 void def_internal(char* name, void* semfn, void* genfn) {
   IString nameid = new_istring(name);
   InternalDecl decl;
@@ -761,6 +789,7 @@ void boot_init_internals() {
   def_internal("sizeof", semantic_sizeof, NULL);
   def_internal(".", semantic_field, NULL);
   def_internal(".lvalue", semantic_field_lvalue, NULL);
+  def_internal("internal_init_defs", internal_init_defs, NULL);
 }
 
 //
