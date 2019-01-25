@@ -278,12 +278,20 @@ void codegen_flist(FMap f) {
 }
 
 void semantic_block(FMap f) {
-  forlist (IListFMap, FMap, e, fm(f)->lst) {
-    boot_semantic(e);
+  if (is_toplevel(f)) {
+    forlist (IListFMap, FMap, e, fm(f)->lst) {
+      boot_semantic(e);
+      boot_codegen(e);
+    }
+  } else {
+    forlist (IListFMap, FMap, e, fm(f)->lst) {
+      boot_semantic(e);
+    } 
   }
 }
 
 void codegen_block(FMap f) {
+  if (is_toplevel(f)) return;
   forlist (IListFMap, FMap, e, fm(f)->lst) {
     boot_codegen(e);
   }
@@ -356,6 +364,14 @@ void semantic_macro(FMap f) {
   boot_semantic(f);
   get_field(sym, f, "macro");
   fp(FSymbol, fm(sym)->sym)->ismacro = true;
+}
+
+void semantic_syntax(FMap f) {
+  fm(f)->kind = new_istring("fn");
+  boot_semantic(f);
+  get_field(name, f, "syntax");
+  get_field(sym, f, "syntax");
+  add_parser_decl((ParserDecl){fm(name)->ident, NULL, fm(sym)->sym});
 }
 
 void semantic_type(FMap f) {
@@ -771,8 +787,18 @@ void internal_print(size_t x) {
   printf("%zd", x);
 }
 
+size_t internal_new_fmap(char* kind) {
+  FMap f = fmap();
+  fm(f)->kind = new_istring(kind);
+  return f.index;
+}
 size_t internal_fmap() {
   return fmap().index;
+}
+size_t internal_new_flist(char* kind) {
+  FMap f = flist();
+  fm(f)->kind = new_istring(kind);
+  return f.index;
 }
 size_t internal_flist() {
   return flist().index;
@@ -791,7 +817,7 @@ size_t internal_gensym() {
   return gen_tmpid().index;
 }
 
-void internal_fmap_push(size_t fidx, char* key, size_t vidx) {
+void internal_fmap_set(size_t fidx, char* key, size_t vidx) {
   FMap f = (FMap){fidx};
   FMap value = (FMap){vidx};
   fmap_cpush(f, key, value);
@@ -815,6 +841,11 @@ char* internal_fmap_rootkind(size_t fidx) {
   return istring_cstr(fm(f)->parentkind);
 }
 
+void internal_flist_push(size_t fidx, size_t vidx) {
+  FMap f = (FMap){fidx};
+  FMap value = (FMap){vidx};
+  flist_push(f, value);
+}
 size_t internal_flist_len(size_t fidx) {
   FMap f = (FMap){fidx};
   return IListFMap_len(fm(f)->lst);
@@ -837,6 +868,10 @@ char* internal_fmap_to_cstring(size_t fidx) {
   return fmap_tostring(f);
 }
 
+size_t internal_parse() {
+  return parse(gstrm).index;
+}
+
 void def_internal_ptr(char* name, void* p) {
   IString nameid = new_istring(name);
   FSymbol sym = new_symbol(nameid);
@@ -846,21 +881,25 @@ void def_internal_ptr(char* name, void* p) {
 
 void internal_init_defs(FMap f) {
   def_internal_ptr("internal_print_ptr", internal_print);
+  def_internal_ptr("internal_new_fmap_ptr", internal_new_fmap);
   def_internal_ptr("internal_fmap_ptr", internal_fmap);
+  def_internal_ptr("internal_new_flist_ptr", internal_new_flist);
   def_internal_ptr("internal_flist_ptr", internal_flist);
   def_internal_ptr("internal_fident_ptr", internal_fident);
   def_internal_ptr("internal_fintlit_ptr", internal_fintlit);
   def_internal_ptr("internal_fstrlit_ptr", internal_fstrlit);
   def_internal_ptr("internal_gensym_ptr", internal_gensym);
-  def_internal_ptr("internal_fmap_push_ptr", internal_fmap_push);
+  def_internal_ptr("internal_fmap_set_ptr", internal_fmap_set);
   def_internal_ptr("internal_fmap_get_ptr", internal_fmap_get);
   def_internal_ptr("internal_fmap_dup_ptr", internal_fmap_dup);
   def_internal_ptr("internal_fmap_kind_ptr", internal_fmap_kind);
   def_internal_ptr("internal_fmap_rootkind_ptr", internal_fmap_rootkind);
+  def_internal_ptr("internal_flist_push_ptr", internal_flist_push);
   def_internal_ptr("internal_flist_len_ptr", internal_flist_len);
   def_internal_ptr("internal_flist_get_ptr", internal_flist_get);
   def_internal_ptr("internal_fmap_replace_ptr", internal_fmap_replace);
   def_internal_ptr("internal_fmap_to_cstring_ptr", internal_fmap_to_cstring);
+  def_internal_ptr("internal_parse_ptr", internal_parse);
 }
 
 void def_internal(char* name, bool isfn, void* semfn, void* genfn) {
@@ -882,6 +921,7 @@ void boot_init_internals() {
   def_internal("block", false, semantic_block, codegen_block);
   def_internal("fn", false, semantic_fn, codegen_fn);
   def_internal("macro", false, semantic_macro, NULL);
+  def_internal("syntax", false, semantic_syntax, NULL);
   def_internal("type", false, semantic_type, NULL);
   def_internal("defprimitive", false, semantic_defprimitive, NULL);
   def_internal("call", false, semantic_call, codegen_call);

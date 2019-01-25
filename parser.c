@@ -6,6 +6,8 @@
 // stream
 //
 
+Stream* gstrm;
+
 #define streamrep(i, s) for (int i=0; !stream_isend(s); i++)
 
 Stream* new_stream(char* buf) {
@@ -305,6 +307,12 @@ FMap parse_macro(Stream* s) {
   return fnmap;
 }
 
+FMap parse_syntax(Stream* s) {
+  FMap fnmap = parse_fn(s);
+  fm(fnmap)->kind = new_istring("syntax");
+  return fnmap;
+}
+
 FMap parse_inline(Stream* s) {
   FMap f = parse(s);
   fmap_cpush(f, "inline", fintlit(1));
@@ -417,6 +425,7 @@ void parser_init_internal() {
   def_parser("{", parse_block);
   def_parser("fn", parse_fn);
   def_parser("macro", parse_macro);
+  def_parser("syntax", parse_syntax);
   def_parser("inline", parse_inline);
   def_parser("defprimitive", parse_defprimitive);
   def_parser("return", parse_return);
@@ -509,7 +518,8 @@ FMap parse(Stream* s) {
     if (pdecl.internalfn != NULL) {
       return (pdecl.internalfn)(s);
     } else {
-      assert(false); // TODO:
+      gstrm = s;
+      return call_macro(pdecl.sym, nil_IListFMap());
     }
   }
   stream_back(s, id);
@@ -519,7 +529,8 @@ FMap parse(Stream* s) {
     if (pdecl.internalfn != NULL) {
       return (pdecl.internalfn)(s);
     } else {
-      assert(false); // TODO:
+      gstrm = s;
+      return call_macro(pdecl.sym, nil_IListFMap());
     }
   }
   stream_back(s, id);

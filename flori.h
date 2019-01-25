@@ -392,6 +392,7 @@ char* fmap_tostring_inside(FMap f, int indent);
 char* fmap_tostring(FMap f);
 
 // parser.c
+extern Stream* gstrm;
 bool stream_isend(Stream* s);
 Stream* new_stream(char* buf);
 void parser_init_internal();

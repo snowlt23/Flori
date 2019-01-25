@@ -1,32 +1,15 @@
-macro mac45() ^fexpr {
-  return $fintlit (4 + 5)
+macro mac45() ^fmap {
+  return fintlit(4 + 5)
 }
 
 static {
-  print "!"
+  print("!")
 }
 
 static {
-  print "@"
-}
-
-macro dupexpr(f ^fexpr) ^fexpr {
-  quote {
-    `$ddup f
-    `$ddup f
-  }
-}
-
-macro hello(f ^fexpr) ^fexpr {
-  quote {
-    print "Hello "
-    print `f
-    print "!"
-  }
+  print("@")
 }
 
 fn main() {
-  dupexpr {print "D"}
-  hello "Yukari"
-  mac45
+  mac45()
 }

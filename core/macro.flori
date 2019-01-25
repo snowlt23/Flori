@@ -1,5 +1,11 @@
+fn fmap(kind ^cstring) ^fmap {
+  return cast_fmap(cffi(internal_new_fmap_ptr, cast_int(kind)))
+}
 fn fmap() ^fmap {
   return cast_fmap(cffi(internal_fmap_ptr))
+}
+fn flist(kind ^cstring) ^fmap {
+  return cast_fmap(cffi(internal_new_flist_ptr, cast_int(kind)))
 }
 fn flist() ^fmap {
   return cast_fmap(cffi(internal_flist_ptr))
@@ -21,8 +27,8 @@ fn gensym() ^fmap {
 fn !(f ^fmap, key ^cstring) ^fmap {
   return cast_fmap(cffi(internal_fmap_get_ptr, cast_int(f), cast_int(key)))
 }
-fn push(f ^fmap, key ^cstring, value ^fmap) {
-  cffi(internal_fmap_push_ptr, cast_int(f), cast_int(key), cast_int(value))
+fn set(f ^fmap, key ^cstring, value ^fmap) {
+  cffi(internal_fmap_set_ptr, cast_int(f), cast_int(key), cast_int(value))
 }
 
 fn dup(f ^fmap) ^fmap {
@@ -36,6 +42,9 @@ fn rootkind(f ^fmap) ^cstring {
   return cast_cstring(cffi(internal_fmap_rootkind_ptr, cast_int(f)))
 }
 
+fn push(f ^fmap, value ^fmap) {
+  cffi(internal_flist_push_ptr, cast_int(f), cast_int(value))
+}
 fn len(f ^fmap) ^int {
   return cffi(internal_flist_len_ptr, cast_int(f))
 }
@@ -58,4 +67,50 @@ fn print(f ^fmap) {
 fn error_print(f ^fmap) {
   s := to_cstring(f)
   error_print(s)
+}
+
+fn fcall(c ^fmap, args ^fmap) ^fmap {
+  f := fmap("call")
+  set(f, "call", c)
+  set(f, "args", args)
+  return f
+}
+fn fcall(c ^fmap) ^fmap {
+  return fcall(c, flist())
+}
+
+fn ftype(t ^fmap) ^fmap {
+  f := fmap("type")
+  set(f, "t", t)
+  return f
+}
+fn ftype(t ^cstring) ^fmap {
+  return ftype(fident(t))
+}
+
+fn fblock() ^fmap {
+  return flist("block")
+}
+
+fn parse() ^fmap {
+  return cast_fmap(cffi(internal_parse_ptr))
+}
+
+syntax static() ^fmap {
+  body := parse()
+  name := gensym()
+  macrobody := flist("block")
+  push(macrobody, fcall(fident("fblock")))
+  push(macrobody, body)
+  macrof := fmap("macro")
+  set(macrof, "name", dup(name))
+  set(macrof, "argdecls", flist())
+  set(macrof, "returntype", ftype("void"))
+  set(macrof, "body", macrobody)
+
+  blk := flist("block")
+  push(blk, fcall(dup(name)))
+  push(blk, macrof)
+  
+  return blk
 }

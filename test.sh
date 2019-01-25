@@ -100,7 +100,7 @@ filetest "examples/sysprint.flori" "yukarisan0"
 filetest "examples/while.flori" "aaaaaaaaaa0"
 # filetest "examples/cstring.flori" "akari0"
 # filetest "examples/string.flori" 3
-# filetest "examples/macro.flori" "!@DDHello Yukari!9"
+filetest "examples/macro.flori" "!@9"
 # filetest "examples/asm.flori" "55"
 # filetest "examples/syntax.flori" "123456789100"
 
