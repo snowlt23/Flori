@@ -96,10 +96,17 @@ inline fn geneq() {
   cmp_rax_rcx()
   X(0x48) X(0xc7) X(0xc0) X(0x00) X(0x00) X(0x00) X(0x00) # mov rax, 0
   X(0x0F) X(0x94) X(0xC0) # sete al
-  push_rax
+  push_rax()
 }
-inline fn ==(^int, ^int) ^bool geneq
-inline fn ==(^char, ^char) ^bool geneq
+inline fn ==(^int, ^int) ^bool geneq()
+inline fn ==(^char, ^char) ^bool geneq()
+
+fn true() ^bool {
+  return 1
+}
+fn false() ^bool {
+  return 0
+}
 
 inline fn *(p ^ptr int) ^int {
   pop_rax()

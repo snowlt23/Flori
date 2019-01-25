@@ -2,7 +2,7 @@
 
 # CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/syntax.flori core/allocator.flori core/string.flori core/asm.flori"
 # CORELIBS="core/prelude.flori"
-CORELIBS="core/new_prelude.flori"
+CORELIBS="core/new_prelude.flori core/cstring.flori"
 
 read-coresrc() {
   for f in $CORELIBS ; do
@@ -77,14 +77,14 @@ runtest "fn main() { if 0 2 else 3 }" 3
 runtest "fn id(p ^ptr int) ^ptr int { p }; fn main() {9}" 9
 runtest "fn main() {s := \"yukarisan\"; 9}" 9
 runtest "fn main() {s := \"ia\"; *cast_ptr(s)}" 105
+runtest "fn main() {s := \"yukayuka\"; len(s)}" 8
+runtest "struct myint {a ^int; b ^int}; fn main() {5}" 5
+runtest "fn main() {5 == 5}" 1
+runtest "fn main() {4 == 5}" 0
+runtest "fn main() {strcmp(\"abcdgogo\", \"abcdgogo\")}" 1
+runtest "fn main() {strcmp(\"abcdgogo\", \"abcdgog\")}" 0
 # runtest "gx := 555; fn main() {gx}" 555
-# runtest "fn main() {s := \"yukayuka\"; len s}" 8
 # runtest "fn main() {internal_print 5454; 0}" "54540"
-# runtest "struct myint {a ^int; b ^int}; fn main() {5}" 5
-# runtest "fn main() {5 == 5}" 1
-# runtest "fn main() {4 == 5}" 0
-# runtest "fn main() {strcmp \"abcdgogo\" \"abcdgogo\"}" 1
-# runtest "fn main() {strcmp \"abcdgogo\" \"abcdgog\"}" 0
 
 filetest "examples/fib.flori" 34
 filetest "examples/sizeof.flori" 24

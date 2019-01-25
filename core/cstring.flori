@@ -1,6 +1,6 @@
 fn len(s ^cstring) ^int {
   i := 0
-  while (deref $cast_ptr s + i) {
+  while *(cast_ptr(s)+i) {
     i = i+1
   }
   return i
@@ -8,39 +8,39 @@ fn len(s ^cstring) ^int {
 
 fn memcpy(dstp ^pointer, srcp ^pointer, size ^int) {
   i := 0
-  while (i < size) {
-    deref $char_ptr dstp + i = deref $char_ptr srcp + i
+  while i < size {
+    *(cast_ptr_char(dstp)+i) = *(cast_ptr_char(srcp)+i)
     i = i+1
   }
 }
 
 fn copy(dstp ^cstring, srcp ^cstring) {
-  memcpy $cast_pointer dstp $cast_pointer srcp $len srcp + 1
+  memcpy(cast_pointer(dstp), cast_pointer(srcp), len(srcp) + 1)
 }
 
 fn strcmp(a ^cstring, b ^cstring) ^bool {
-  ap := cast_ptr a
-  bp := cast_ptr b
-  alen := len a
-  blen := len b
-  if (alen == blen) {
+  ap := cast_ptr(a)
+  bp := cast_ptr(b)
+  alen := len(a)
+  blen := len(b)
+  if alen == blen {
     i := 0
-    while (i < alen) {
-      if (deref $ap+i == deref $bp+i) {
+    while i < alen {
+      if (*(ap+i) == *(bp+i)) {
         i = i+1
       } else {
-        return false
+        return false()
       }
     }
-    return true
+    return true()
   }
-  return false
+  return false()
 }
 
 fn print(s ^cstring) {
-  sys_print s $len s
+  sys_print(s, len(s))
 }
 
 fn eprint(s ^cstring) {
-  sys_eprint s $len s
+  sys_eprint(s, len(s))
 }

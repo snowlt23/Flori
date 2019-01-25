@@ -280,24 +280,24 @@ void codegen_block(FMap f) {
 }
 
 void semantic_fn(FMap f) {
-  FMap name = fmap_cget(f, "name");
+  get_field(name, f, "fn");
   assert(eq_kind(name, FMAP_IDENT));
   FSymbol sym = new_symbol(fm(name)->ident);
   fp(FSymbol, sym)->f = f;
   FMap fsym = fsymbol(sym);
   fmap_cpush(f, "sym", fsym);
   
-  FMap argdecls = fmap_cget(f, "argdecls");
-  FMap rettype = fmap_cget(f, "returntype");
-  FMap body = fmap_cget(f, "body");
-  boot_semantic(rettype);
+  get_field(argdecls, f, "fn");
+  get_field(returntype, f, "fn");
+  get_field(body, f, "fn");
+  boot_semantic(returntype);
 
   fnstacksize = 0;
 
   IListFType argtypes = nil_IListFType();
   forlist(IListFMap, FMap, argdecl, fm(argdecls)->lst) {
-    FMap name = fmap_cget(argdecl, "name");
-    FMap type = fmap_cget(argdecl, "type");
+    get_field(name, argdecl, "fn");
+    get_field(type, argdecl, "fn");
     IString nameid = fm(name)->ident;
     boot_semantic(type);
     argtypes = new_IListFType(get_ftype(type), argtypes);
@@ -307,7 +307,7 @@ void semantic_fn(FMap f) {
   }
   argtypes = IListFType_reverse(argtypes);
   
-  add_fndecl((FnDecl){fm(name)->ident, argtypes, get_ftype(rettype), sym, NULL});
+  add_fndecl((FnDecl){fm(name)->ident, argtypes, get_ftype(returntype), sym, NULL});
   
   bool isinline = !FMap_isnil(fmap_cget(f, "inline"));
   if (!isinline) {
@@ -320,14 +320,14 @@ void codegen_fn(FMap f) {
   bool isinline = !FMap_isnil(fmap_cget(f, "inline"));
   if (isinline) return;
   
-  FMap fnsym = fmap_cget(f, "sym");
-  FMap argdecls = fmap_cget(f, "argdecls");
-  FMap body = fmap_cget(f, "body");
+  get_field(sym, f, "fn");
+  get_field(argdecls, f, "fn");
+  get_field(body, f, "fn");
 
   int fnidx = jit_getidx();
-  fp(FSymbol, fm(fnsym)->sym)->fnidx = fnidx;
+  fp(FSymbol, fm(sym)->sym)->fnidx = fnidx;
   curroffset = 0;
-  gen_prologue(fp(FSymbol, fm(fnsym)->sym)->stacksize);
+  gen_prologue(fp(FSymbol, fm(sym)->sym)->stacksize);
 
   int argoffset = 16;
   forlist(IListFMap, FMap, argdecl, fm(flist_reverse(argdecls))->lst) {
@@ -342,7 +342,7 @@ void codegen_fn(FMap f) {
 }
 
 void semantic_type(FMap f) {
-  FMap t = fmap_cget(f, "t");
+  get_field(t, f, "type");
   assert(eq_kind(t, FMAP_IDENT));
   Decl decl;
   if (!search_decl(fm(t)->ident, &decl)) error("undeclared %s type", istring_cstr(fm(t)->ident));
@@ -366,8 +366,8 @@ void semantic_type(FMap f) {
 }
 
 void semantic_defprimitive(FMap f) {
-  FMap name = fmap_cget(f, "name");
-  FMap size = fmap_cget(f, "size");
+  get_field(name, f, "defprimitive");
+  get_field(size, f, "defprimitive");
   if (!eq_kind(name, FMAP_IDENT)) error("defprimitive should be specify type-name");
   if (!eq_kind(size, FMAP_INTLIT)) error("defprimitive should be specify type-size");
   FSymbol sym = new_symbol(fm(name)->ident);
@@ -417,8 +417,8 @@ void semantic_call(FMap f) {
 }
 
 void codegen_call(FMap f) {
-  FMap call = fmap_cget(f, "call");
-  FMap args = fmap_cget(f, "args");
+  get_field(call, f, "call");
+  get_field(args, f, "call");
   InternalDecl decl;
   if (eq_kind(call, FMAP_IDENT) && search_internal_decl(fm(call)->ident, &decl)) {
     (decl.codegenfn)(f);
@@ -456,13 +456,13 @@ void codegen_X(FMap f) {
 }
 
 void semantic_var(FMap f) {
-  FMap name = fmap_cget(f, "name");
-  FMap type = fmap_cget(f, "vartype");
+  get_field(name, f, "var");
+  get_field(vartype, f, "var");
   if (eq_kind(name, FMAP_SYMBOL)) return;
-  boot_semantic(type);
+  boot_semantic(vartype);
   FSymbol sym = new_symbol(fm(name)->ident);
-  add_decl((Decl){fm(name)->ident, sym, get_ftype(type)});
-  fnstacksize += get_type_size(get_ftype(type));
+  add_decl((Decl){fm(name)->ident, sym, get_ftype(vartype)});
+  fnstacksize += get_type_size(get_ftype(vartype));
   fmap_cpush(f, "sym", fsymbol(sym));
   fmap_cpush(f, "type", new_ftypesym(type_void()));
 }
@@ -526,10 +526,10 @@ void semantic_def(FMap f) {
 }
 
 void semantic_if(FMap f) {
-  FMap elifs = fmap_cget(f, "elifs");
+  get_field(elifs, f, "if");
   forlist (IListFMap, FMap, elif, fm(elifs)->lst) {
-    FMap cond = fmap_cget(elif, "cond");
-    FMap body = fmap_cget(elif, "body");
+    get_field(cond, elif, "if");
+    get_field(body, elif, "if");
     boot_semantic(cond);
     boot_semantic(body);
   }
@@ -541,10 +541,10 @@ void codegen_if(FMap f) {
   int relocnum = 0;
   int relocs[1024];
   int fixup = -1;
-  FMap elifs = fmap_cget(f, "elifs");
+  get_field(elifs, f, "if");
   forlist (IListFMap, FMap, elif, fm(elifs)->lst) {
-    FMap cond = fmap_cget(elif, "cond");
-    FMap body = fmap_cget(elif, "body");
+    get_field(cond, elif, "if");
+    get_field(body, elif, "if");
     
     if (fixup != -1) {
       int fixuprel = jit_getidx() - fixup - 4;
@@ -586,16 +586,16 @@ void codegen_if(FMap f) {
 }
 
 void semantic_while(FMap f) {
-  FMap cond = fmap_cget(f, "cond");
-  FMap body = fmap_cget(f, "body");
+  get_field(cond, f, "while");
+  get_field(body, f, "while");
   boot_semantic(cond);
   boot_semantic(body);
   fmap_cpush(f, "type", new_ftypesym(type_void()));
 }
 
 void codegen_while(FMap f) {
-  FMap cond = fmap_cget(f, "cond");
-  FMap body = fmap_cget(f, "body");
+  get_field(cond, f, "while");
+  get_field(body, f, "while");
 
   int startL = jit_getidx();
   boot_codegen(cond);

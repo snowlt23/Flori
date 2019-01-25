@@ -1,7 +1,7 @@
 fn main() {
   s := "akari"
-  p := cstring (malloc 6)
-  copy p s
-  print p
+  p := cast_cstring(malloc(6))
+  copy(p, s)
+  print(p)
   0
 }
