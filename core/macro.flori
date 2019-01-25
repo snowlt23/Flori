@@ -24,7 +24,7 @@ fn gensym() ^fmap {
   return cast_fmap(cffi(internal_gensym_ptr))
 }
 
-fn !(f ^fmap, key ^cstring) ^fmap {
+fn get(f ^fmap, key ^cstring) ^fmap {
   return cast_fmap(cffi(internal_fmap_get_ptr, cast_int(f), cast_int(key)))
 }
 fn set(f ^fmap, key ^cstring, value ^fmap) {
@@ -58,6 +58,10 @@ fn replace(dst ^fmap, src ^fmap) {
 
 fn to_cstring(f ^fmap) ^cstring {
   return cast_cstring(cffi(internal_fmap_to_cstring_ptr, cast_int(f)))
+}
+
+fn semeval(f ^fmap) {
+  cffi(internal_semeval_ptr, cast_int(f))
 }
 
 fn print(f ^fmap) {
@@ -96,8 +100,7 @@ fn parse() ^fmap {
   return cast_fmap(cffi(internal_parse_ptr))
 }
 
-syntax static() ^fmap {
-  body := parse()
+macro static_macro(body ^fmap) ^fmap {
   name := gensym()
   macrobody := flist("block")
   push(macrobody, fcall(fident("fblock")))
@@ -113,4 +116,11 @@ syntax static() ^fmap {
   push(blk, macrof)
   
   return blk
+}
+
+syntax static() ^fmap {
+  body := parse()
+  args := flist()
+  push(args, body)
+  return fcall(fident("static_macro"), args)
 }

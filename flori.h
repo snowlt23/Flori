@@ -223,6 +223,7 @@ typedef struct _FSymbolObj {
   FType t;
   bool isprim;
   bool ismacro;
+  bool istoplevel;
   void* internalptr;
   union {
     int vardataidx;

@@ -86,7 +86,7 @@ runtest "fn main() {strcmp(\"abcdgogo\", \"abcdgog\")}" 0
 runtest "fn main() {internal_print(5454) 0}" "54540"
 runtest "macro idmac(f ^fmap) ^fmap {f} fn main() {idmac(5)}" 5
 runtest "macro fiv() ^fmap {fintlit(5)} fn main() {fiv()}" 5
-# runtest "gx := 555; fn main() {gx}" 555
+runtest "gx := 555; fn main() {gx}" 555
 
 filetest "examples/fib.flori" 34
 filetest "examples/sizeof.flori" 24

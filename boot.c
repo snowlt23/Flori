@@ -61,6 +61,7 @@ FSymbol new_symbol(IString name) {
   fp(FSymbol, s)->t = nil_FType();
   fp(FSymbol, s)->internalptr = NULL;
   fp(FSymbol, s)->ismacro = false;
+  fp(FSymbol, s)->istoplevel = false;
   return s;
 }
 
@@ -258,6 +259,13 @@ void codegen_fsymbol(FMap f) {
     write_hex(0, 0, 0, 0, 0, 0, 0, 0);
     write_hex(0x50); // push rax
     fixup_lendian64(jit_toptr(jitidx), (size_t)fp(FSymbol, fm(f)->sym)->internalptr);
+  } else if (fp(FSymbol, fm(f)->sym)->istoplevel) { // toplevel var
+    write_hex(0x48, 0xb8); // movabs rax, ..
+    size_t jitidx = jit_getidx();
+    write_hex(0, 0, 0, 0, 0, 0, 0, 0);
+    write_hex(0xff, 0x30); // push [rax]
+    fixup_lendian64(jit_toptr(jitidx), (size_t)data_toptr(fp(FSymbol, fm(f)->sym)->vardataidx));
+    reloc_add_info(jitidx, fp(FSymbol, fm(f)->sym)->vardataidx);
   } else {
     write_hex(0xff, 0xb5);
     write_lendian(-fp(FSymbol, fm(f)->sym)->varoffset);
@@ -280,6 +288,7 @@ void codegen_flist(FMap f) {
 void semantic_block(FMap f) {
   if (is_toplevel(f)) {
     forlist (IListFMap, FMap, e, fm(f)->lst) {
+      fmap_cpush(e, "toplevel", fintlit(1));
       boot_semantic(e);
       boot_codegen(e);
     }
@@ -433,6 +442,9 @@ void semantic_call(FMap f) {
 
   if (search_fndecl(fm(call)->ident, gen_fmap_argtypes(IListFMap_len(fm(args)->lst)), &fndecl) && fp(FSymbol, fndecl.sym)->ismacro) {
     FMap expanded = call_macro(fndecl.sym, fm(args)->lst);
+    if (is_toplevel(f)) {
+      fmap_cpush(expanded, "toplevel", fintlit(1));
+    }
     *fm(f) = *fm(expanded);
     boot_semantic(f);
     return;
@@ -510,6 +522,9 @@ void semantic_var(FMap f) {
   if (eq_kind(name, FMAP_SYMBOL)) return;
   boot_semantic(vartype);
   FSymbol sym = new_symbol(fm(name)->ident);
+  if (is_toplevel(f)) {
+    fp(FSymbol, sym)->istoplevel = true;
+  }
   add_decl((Decl){fm(name)->ident, sym, get_ftype(vartype)});
   fnstacksize += get_type_size(get_ftype(vartype));
   fmap_cpush(f, "sym", fsymbol(sym));
@@ -520,8 +535,13 @@ void codegen_var(FMap f) {
   // FMap name = fmap_cget(f, "name");
   FMap type = fmap_cget(f, "vartype");
   FMap sym = fmap_cget(f, "sym");
-  curroffset += get_type_size(get_ftype(type));
-  fp(FSymbol, fm(sym)->sym)->varoffset = curroffset;
+  if (is_toplevel(f)) {
+    size_t dataidx = data_alloc(get_type_size(get_ftype(type)));
+    fp(FSymbol, fm(sym)->sym)->vardataidx = dataidx;
+  } else {
+    curroffset += get_type_size(get_ftype(type));
+    fp(FSymbol, fm(sym)->sym)->varoffset = curroffset;
+  }
 }
 
 FMap fmap_lvaluegen(FMap f) {
@@ -569,7 +589,14 @@ void semantic_def(FMap f) {
       def_field(vartype, new_ftypesym(get_ftype(fmap_cget(right, "type"))));
     });
   fcallseq(initf, fident(new_istring("=")), copy_fmap(left), right);
+  if (is_toplevel(f)) {
+    flistseq(args, initf);
+    initf = fcall(fident(new_istring("static_macro")), args);
+  }
   fblockseq(blk, varf, initf);
+  if (is_toplevel(f)) {
+    fmap_cpush(blk, "toplevel", fintlit(1));
+  }
   boot_semantic(blk);
   *fm(f) = *fm(blk);
 }
@@ -675,9 +702,18 @@ void semantic_addr(FMap f) {
 void codegen_addr(FMap f) {
   FMap lvalue = call_firstarg(f);
   if (eq_kind(lvalue, FMAP_SYMBOL)) {
-    write_hex(0x48, 0x8d, 0x85); // lea rax, [rbp-..]
-    write_lendian(-fp(FSymbol, fm(lvalue)->sym)->varoffset);
-    write_hex(0x50); // push rax
+    if (fp(FSymbol, fm(lvalue)->sym)->istoplevel) {
+      write_hex(0x48, 0xb8); // movabs rax, ..
+      size_t jitidx = jit_getidx();
+      write_hex(0, 0, 0, 0, 0, 0, 0, 0);
+      write_hex(0x50); // push rax
+      fixup_lendian64(jit_toptr(jitidx), (size_t)data_toptr(fp(FSymbol, fm(lvalue)->sym)->vardataidx));
+      reloc_add_info(jitidx, fp(FSymbol, fm(lvalue)->sym)->vardataidx);
+    } else {
+      write_hex(0x48, 0x8d, 0x85); // lea rax, [rbp-..]
+      write_lendian(-fp(FSymbol, fm(lvalue)->sym)->varoffset);
+      write_hex(0x50); // push rax
+    }
   } else if (call_is(lvalue, ".")) {
     boot_codegen(infix_left(lvalue));
     write_hex(0x58); // pop rax
@@ -868,6 +904,11 @@ char* internal_fmap_to_cstring(size_t fidx) {
   return fmap_tostring(f);
 }
 
+void internal_semeval(size_t fidx) {
+  FMap f = (FMap){fidx};
+  boot_semantic(f);
+}
+
 size_t internal_parse() {
   return parse(gstrm).index;
 }
@@ -899,6 +940,7 @@ void internal_init_defs(FMap f) {
   def_internal_ptr("internal_flist_get_ptr", internal_flist_get);
   def_internal_ptr("internal_fmap_replace_ptr", internal_fmap_replace);
   def_internal_ptr("internal_fmap_to_cstring_ptr", internal_fmap_to_cstring);
+  def_internal_ptr("internal_semeval_ptr", internal_semeval);
   def_internal_ptr("internal_parse_ptr", internal_parse);
 }
 
