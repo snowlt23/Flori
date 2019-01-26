@@ -13,10 +13,25 @@ fn brk(addr ^int) ^int {
 
 fn sbrk(inc ^int) ^ptr int {
   oldaddr := brk(0)
-  brk(oldaddr + inc)
+  newaddr := oldaddr + inc
+  newaddr = newaddr + 8 - mod(newaddr, 8)
+  brk(newaddr)
   return oldaddr
 }
 
+fn mmap(addr ^int, len ^int, prot ^int, flags ^int, fd ^int, offset ^int) ^pointer {
+  return cast_pointer(syscall(9, addr, len, prot, flags, fd, offset))
+}
+
+fn alloc_chunk(size ^int) ^pointer {
+  return mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0)
+}
+
+memchunk := alloc_chunk(4096)
+memchunkpos := 0
+
 fn malloc(size ^int) ^pointer {
-  sbrk(size)
+  retp := memchunk + memchunkpos
+  memchunkpos = memchunkpos + size
+  return retp
 }

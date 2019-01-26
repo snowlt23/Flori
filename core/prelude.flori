@@ -6,6 +6,8 @@ defprimitive pointer 8
 defprimitive fmap 8
 defprimitive bool 8
 
+inline fn cast_int(p ^char) ^int {}
+
 inline fn cast_int(p ^cstring) ^int {}
 inline fn cast_ptr(p ^cstring) ^ptr char {}
 inline fn cast_pointer(p ^cstring) ^pointer {}
@@ -15,13 +17,20 @@ inline fn cast_ptr_char(p ^pointer) ^ptr char {}
 inline fn cast_ptr_int(p ^pointer) ^ptr int {}
 inline fn cast_cstring(p ^pointer) ^cstring {}
 
+inline fn cast_cstring(p ^ptr char) ^cstring {}
+
 inline fn cast_int(f ^fmap) ^int {}
 
+inline fn cast_char(idx ^int) ^char {}
 inline fn cast_cstring(idx ^int) ^cstring {}
+inline fn cast_pointer(idx ^int) ^pointer {}
 inline fn cast_fmap(idx ^int) ^fmap {}
 
 inline fn push_rax() {
   X(0x50)
+}
+inline fn push_rdx() {
+  X(0x52)
 }
 
 inline fn pop_rax() {
@@ -48,6 +57,9 @@ inline fn pop_r8() {
 inline fn pop_r9() {
   X(0x41) X(0x59)
 }
+inline fn pop_r10() {
+  X(0x41) X(0x5a)
+}
 
 inline fn cmp_rax_rcx() {
   X(0x48) X(0x39) X(0xC8)
@@ -68,6 +80,8 @@ inline fn genret() {
   opret()
 }
 inline fn return(r ^int) {genret()}
+inline fn return(r ^pointer) {genret()}
+inline fn return(r ^char) {genret()}
 inline fn return(r ^cstring) {genret()}
 inline fn return(r ^bool) {genret()}
 inline fn return(r ^fmap) {genret()}
@@ -78,6 +92,7 @@ inline fn genadd() {
   push_rax()
 }
 inline fn +(a ^int, b ^int) ^int {genadd()}
+inline fn +(a ^pointer, b ^int) ^pointer {genadd()}
 inline fn +(a ^ptr int, b ^int) ^ptr int {genadd()}
 inline fn +(a ^ptr char, b ^int) ^ptr char {genadd()}
 
@@ -89,6 +104,20 @@ inline fn gensub() {
 inline fn -(a ^int, b ^int) ^int {gensub()}
 inline fn -(a ^ptr int, b ^int) ^ptr int {gensub()}
 inline fn -(a ^ptr char, b ^int) ^ptr char {gensub()}
+
+inline fn gendiv() {
+  pop_rcx() pop_rax()
+  X(0x48) X(0xf7) X(0xf9) # idiv rax
+  push_rdx()
+}
+inline fn mod(a ^int, b ^int) ^int {gendiv()}
+
+inline fn genor() {
+  pop_rcx() pop_rax()
+  X(0x48) X(0x09) X(0xc8) # or rax, rcx
+  push_rax()
+}
+inline fn |(a ^int, b ^int) ^int {genor()}
 
 inline fn <(a ^int, b ^int) ^bool {
   pop_rcx() pop_rax()
@@ -124,8 +153,8 @@ inline fn *lvalue(p ^ptr int) ^ptr int {}
 
 inline fn *(^ptr char) ^char {
   pop_rax()
-  X(0x8a) X(0x00)
-  X(0x48) X(0x0f) X(0xb6) X(0xc0)
+  X(0x8a) X(0x00) # mov al, [rax]
+  X(0x48) X(0x0f) X(0xb6) X(0xc0) # movzx rax, al
   push_rax()
 }
 inline fn *lvalue(^ptr char) ^ptr char {}
@@ -147,7 +176,7 @@ inline fn syscall(n ^int, a1 ^int, a2 ^int, a3 ^int) ^int {
   op_syscall() push_rax()
 }
 inline fn syscall(n ^int, a1 ^int, a2 ^int, a3 ^int, a4 ^int, a5 ^int, a6 ^int) ^int {
-  pop_r9() pop_r8() pop_rcx() pop_rdx() pop_rsi() pop_rdi() pop_rax()
+  pop_r9() pop_r8() pop_r10() pop_rdx() pop_rsi() pop_rdi() pop_rax()
   op_syscall() push_rax()
 }
 

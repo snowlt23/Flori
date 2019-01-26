@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/syntax.flori core/allocator.flori core/string.flori core/asm.flori"
-CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/allocator.flori core/syntax.flori"
+CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/allocator.flori core/quote.flori core/syntax.flori"
 # CORELIBS="core/prelude.flori"
 
 read-coresrc() {
@@ -108,5 +108,5 @@ exectest "examples/fib.flori" 0
 exectest "examples/exitfib.flori" 34
 exectest "examples/sysprint.flori" "yukarisan0"
 exectest "examples/globalvar.flori" 45
-exectest "examples/memory_allocate.flori" 123
+# exectest "examples/memory_allocate.flori" 123
 exectest "examples/while.flori" "aaaaaaaaaa0"

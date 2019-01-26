@@ -115,7 +115,7 @@ int calc_op_priority(char* opident) {
   } else if (opident[0] == '=') {
     return 15;
   } else if (opident[0] == '`') {
-    return 1;
+    return 0; // undefined
   } else {
     debug("%s", opident);
     assert(false);

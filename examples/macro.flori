@@ -13,7 +13,7 @@ static {
 macro hello(s ^fmap) ^fmap {
   quote {
     print("Hello ")
-    print(`s)
+    print(`s`)
     print("!")
   }
 }

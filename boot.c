@@ -926,6 +926,28 @@ size_t internal_parse() {
   return parse(gstrm).index;
 }
 
+size_t internal_parse_until(char c) {
+  char buf[1024*10] = {};
+  int bufpos = 0;
+  while (true) {
+    char n = stream_next(gstrm);
+    if (n == c) {
+      break;
+    }
+    buf[bufpos] = n;
+    bufpos++;
+  }
+  return parse(new_stream(strdup(buf))).index;
+}
+
+size_t internal_parse_cstring(char* s) {
+  return parse(new_stream(s)).index;
+}
+
+char internal_read_char() {
+  return stream_next(gstrm);
+}
+
 void def_internal_ptr(char* name, void* p) {
   IString nameid = new_istring(name);
   FSymbol sym = new_symbol(nameid);
@@ -956,6 +978,9 @@ void internal_init_defs(FMap f) {
   def_internal_ptr("internal_fmap_to_flist_ptr", internal_fmap_to_flist);
   def_internal_ptr("internal_semeval_ptr", internal_semeval);
   def_internal_ptr("internal_parse_ptr", internal_parse);
+  def_internal_ptr("internal_parse_until_ptr", internal_parse_until);
+  def_internal_ptr("internal_parse_cstring_ptr", internal_parse_cstring);
+  def_internal_ptr("internal_read_char_ptr", internal_read_char);
 }
 
 void def_internal(char* name, bool isfn, void* semfn, void* genfn) {

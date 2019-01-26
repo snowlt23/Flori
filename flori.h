@@ -394,8 +394,9 @@ char* fmap_tostring(FMap f);
 
 // parser.c
 extern Stream* gstrm;
-bool stream_isend(Stream* s);
 Stream* new_stream(char* buf);
+bool stream_isend(Stream* s);
+char stream_next(Stream* buf);
 void parser_init_internal();
 FMap parse(Stream* s);
 
