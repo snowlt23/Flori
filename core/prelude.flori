@@ -150,6 +150,12 @@ inline fn *(p ^ptr int) ^int {
   push_rax()
 }
 inline fn *lvalue(p ^ptr int) ^ptr int {}
+inline fn *(p ^ptr pointer) ^pointer {
+  pop_rax()
+  X(0x48) X(0x8b) X(0x00)
+  push_rax()
+}
+inline fn *lvalue(p ^ptr pointer) ^ptr pointer {}
 
 inline fn *(^ptr char) ^char {
   pop_rax()

@@ -4,19 +4,21 @@
 uint8_t* dataptr;
 size_t datapos;
 size_t datacap;
+size_t data_needcap;
 
 void data_init(size_t size) {
   dataptr = malloc(size);
   datapos = 0;
   datacap = size;
+  data_needcap = size;
 }
 
-bool data_need_extend(size_t size) {
-  return datapos + size >= datacap;
+bool data_need_extend() {
+  return datapos + data_needcap >= datacap;
 }
 
-void data_extend(size_t size) {
-  while (data_need_extend(size)) {
+void data_extend() {
+  while (data_need_extend()) {
     datacap *= 2;
   }
   dataptr = realloc(dataptr, datacap);

@@ -1,0 +1,31 @@
+syntax buffer:() ^fmap {
+  name := parse()
+  size := parse()
+  tsym := gensym()
+  vsym := gensym()
+  varf := fmap("var")
+  set(varf, "name", dup(vsym))
+  set(varf, "vartype", ftype(tsym))
+  quote {
+    defprimitive `dup(tsym)` `size`
+     inline fn cast_pointer(p ^ptr `dup(tsym)`) ^pointer {}
+    `varf`
+    (`name`) := cast_pointer(&(`dup(vsym)`))
+  }
+}
+
+macro <@(p ^fmap, v ^fmap) ^fmap {
+  quote {
+    buffer_at(&(`p`), `v`)
+  }
+}
+
+macro @(p ^fmap, t ^fmap) ^fmap {
+  quote {
+    *cast_ptr_int(`p`)
+  }
+}
+
+fn buffer_at(p ^ptr pointer, v ^int) {
+  *cast_ptr_int(*p) = v
+}

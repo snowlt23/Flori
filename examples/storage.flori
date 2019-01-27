@@ -1,0 +1,9 @@
+buffer: db 1024
+
+static {
+  db <@ 9
+}
+
+fn main() {
+  db @ int
+}

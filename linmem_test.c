@@ -1,7 +1,7 @@
 #include "flori.h"
 
 int main() {
-  linmem_init(1);
+  linmem_init(1024);
   if (linmem_need_extend()) linmem_extend();
   int idx1 = linmem_alloc(8);
   assert(idx1 == 0);

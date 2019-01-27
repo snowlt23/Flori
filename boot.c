@@ -295,7 +295,12 @@ void semantic_block(FMap f) {
   } else {
     forlist (IListFMap, FMap, e, fm(f)->lst) {
       boot_semantic(e);
-    } 
+    }
+  }
+  if (IListFMap_len(fm(f)->lst) == 0) {
+    fmap_cpush(f, "type", new_ftypesym(type_void()));
+  } else {
+    fmap_cpush(f, "type", fmap_cget(IListFMap_last(fm(f)->lst), "type"));
   }
 }
 
@@ -341,6 +346,8 @@ void semantic_fn(FMap f) {
     boot_semantic(body);
     fp(FSymbol, sym)->stacksize = fnstacksize;
   }
+  
+  fmap_cpush(f, "type", new_ftypesym(type_void()));
 }
 
 void codegen_fn(FMap f) {
@@ -463,6 +470,7 @@ void semantic_call(FMap f) {
       FMap body = deepcopy_fmap(fmap_cget(fp(FSymbol, fndecl.sym)->f, "body"));
       boot_semantic(body);
       FMap callf = copy_fmap(f);
+      fmap_cpush(callf, "type", new_ftypesym(fndecl.returntype));
       FMap blk = flist();
       fm(blk)->kind = new_istring("block");
       flist_push(blk, body);

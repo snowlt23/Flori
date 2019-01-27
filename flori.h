@@ -314,17 +314,17 @@ typedef struct {
 %%expand ilist(RelocList, RelocInfo);
 
 // linmem.c
+void linmem_init(int size);
 bool linmem_need_extend();
 void linmem_extend();
-void linmem_init(int size);
 int linmem_alloc(int size);
 void* linmem_toptr(int index);
 int linmem_getidx();
 
 // jit.c
 void jit_init(int size);
-bool jit_need_extend(int size);
-void jit_extend(int size);
+bool jit_need_extend();
+void jit_extend();
 int jit_getidx();
 int jit_alloc_write(uint8_t* buf, int n);
 void* jit_toptr(int index);
@@ -334,8 +334,8 @@ size_t jit_codesize();
 
 // data.c
 void data_init(size_t size);
-bool data_need_extend(size_t size);
-void data_extend(size_t size);
+bool data_need_extend();
+void data_extend();
 size_t data_alloc(size_t size);
 void* data_toptr(size_t idx);
 size_t data_cstring(char* s);

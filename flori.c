@@ -44,8 +44,8 @@ void generate_executable(char* filename) {
 
 int main(int argc, char** argv) {
   linmem_init(1024*1024);
-  jit_init(1024);
-  data_init(1024);
+  jit_init(1024*1024);
+  data_init(1024*1024);
   reloc_init();
   fmap_init();
   decls_init();
@@ -54,9 +54,9 @@ int main(int argc, char** argv) {
   Stream* s = new_stream(read_stdin());
   while (!stream_isend(s)) {
     if (linmem_need_extend()) linmem_extend();
-    if (jit_need_extend(1024)) jit_extend(1024);
-    if (data_need_extend(1024)) {
-      data_extend(1024);
+    if (jit_need_extend()) jit_extend();
+    if (data_need_extend()) {
+      data_extend();
       reloc_execute();
     }
     FMap f = parse(s);

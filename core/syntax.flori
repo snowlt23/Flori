@@ -12,19 +12,19 @@ syntax for() ^fmap {
 
 macro ..(i ^fmap, body ^fmap, s ^fmap, e ^fmap) ^fmap {
   quote {
-    (`dup(i)`) := `s`
-    while (`dup(i)`) < (`e`) + 1 {
+    `dup(i)` := `s`
+    while `dup(i)` < `e` + 1 {
       `body`
-      (`dup(i)`) = `dup(i)` + 1
+      `dup(i)` = `dup(i)` + 1
     }
   }
 }
 macro ..<(i ^fmap, body ^fmap, s ^fmap, e ^fmap) ^fmap {
   quote {
-    (`dup(i)`) := `s`
-    while (`dup(i)`) < `e` {
+    `dup(i)` := `s`
+    while `dup(i)` < `e` {
       `body`
-      (`dup(i)`) = `dup(i)` + 1
+      `dup(i)` = `dup(i)` + 1
     }
   }
 }

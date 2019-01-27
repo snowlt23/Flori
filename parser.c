@@ -55,7 +55,7 @@ bool isoperator(char c) {
   static char ifx[] = {
     '+', '-', '*', '/', '%',
     '<', '>', '.', '=', ':',
-    '!', '&', '|', '~', '^', '`'
+    '!', '&', '|', '~', '^', '`', '@'
   };
   for (int i=0; i<sizeof(ifx); i++) {
     if (c == ifx[i]) {
@@ -110,11 +110,11 @@ int calc_op_priority(char* opident) {
     return 5;
   } else if (opident[0] == '*' || opident[0] == '/' || opident[0] == '%') {
     return 4;
-  } else if (opident[0] == '.') {
+  } else if (opident[0] == '.' || opident[0] == '@') {
     return 1; 
   } else if (opident[0] == '=') {
     return 15;
-  } else if (opident[0] == '`') {
+  } else if (opident[0] == '`' || opident[0] == '^') {
     return 0; // undefined
   } else {
     debug("%s", opident);
@@ -214,13 +214,13 @@ FMap parse_type(Stream* s) {
     def_fmap(f, type, {
         def_field(ptr, fintlit(1));
         skip_spaces(s);
-        def_field(t, parse_fident(s));
+        def_field(t, parse(s));
       });
     return f;
   } else {
     stream_back(s, id);
     def_fmap(f, type, {
-        def_field(t, parse_fident(s));
+        def_field(t, parse(s));
       });
     return f;
   }
@@ -324,7 +324,7 @@ FMap parse_inline(Stream* s) {
 FMap parse_defprimitive(Stream* s) {
   def_fmap(f, defprimitive, {
       skip_spaces(s);
-      def_field(name, parse_fident(s));
+      def_field(name, parse(s));
       def_field(size, parse(s));
     });
   return f;
@@ -442,12 +442,48 @@ void parser_init_internal() {
 //
 //
 
+FMap parse_readersyntax(Stream* s) {
+  skip_spaces(s);
+  if (stream_get(s) == '\n' || stream_get(s) == ';') {
+    stream_next(s);
+    return nil_FMap();
+  }
+  IString id = lex_ident(s);
+  ParserDecl pdecl;
+  if (search_parser_decl(id, &pdecl)) {
+    if (pdecl.internalfn != NULL) {
+      return (pdecl.internalfn)(s);
+    } else {
+      gstrm = s;
+      return call_macro(pdecl.sym, nil_IListFMap());
+    }
+  }
+  stream_back(s, id);
+
+  id = lex_operator(s);
+  if (search_parser_decl(id, &pdecl)) {
+    if (pdecl.internalfn != NULL) {
+      return (pdecl.internalfn)(s);
+    } else {
+      gstrm = s;
+      return call_macro(pdecl.sym, nil_IListFMap());
+    }
+  }
+  stream_back(s, id);
+
+  id = lex_ident(s);
+  if (isident(*istring_cstr(id))) {
+    stream_back(s, id);
+    return parse_fident(s);
+  }
+  stream_back(s, id);
+  return parse(s);
+}
+
 FMap parse_prim(Stream* s) {
   skip_spaces(s);
   IString id = lex_ident(s);
-  if (strlen(istring_cstr(id)) == 0) {
-    return nil_FMap();
-  } else if (isdigit(*istring_cstr(id))) {
+  if (isdigit(*istring_cstr(id))) {
     stream_back(s, id);
     return parse_fintlit(s);
   } else if (*istring_cstr(id) == '"') {
@@ -460,12 +496,9 @@ FMap parse_prim(Stream* s) {
     FMap f = parse(s);
     if (stream_next(s) != ')') error("expect )end of (paren");
     return f;
-  } else if (isident(*istring_cstr(id))) {
-    stream_back(s, id);
-    return parse_fident(s);
   } else {
     stream_back(s, id);
-    return parse(s);
+    return parse_readersyntax(s);
   }
 }
 
@@ -515,33 +548,5 @@ def_infix_parser(parse_infix12, parse_infix7, 12);
 def_infix_parser(parse_infix15, parse_infix12, 15);
 
 FMap parse(Stream* s) {
-  skip_spaces(s);
-  if (stream_get(s) == '\n' || stream_get(s) == ';') {
-    stream_next(s);
-    return nil_FMap();
-  }
-  IString id = lex_ident(s);
-  ParserDecl pdecl;
-  if (search_parser_decl(id, &pdecl)) {
-    if (pdecl.internalfn != NULL) {
-      return (pdecl.internalfn)(s);
-    } else {
-      gstrm = s;
-      return call_macro(pdecl.sym, nil_IListFMap());
-    }
-  }
-  stream_back(s, id);
-
-  id = lex_operator(s);
-  if (search_parser_decl(id, &pdecl)) {
-    if (pdecl.internalfn != NULL) {
-      return (pdecl.internalfn)(s);
-    } else {
-      gstrm = s;
-      return call_macro(pdecl.sym, nil_IListFMap());
-    }
-  }
-  stream_back(s, id);
-  
   return parse_infix15(s);
 }

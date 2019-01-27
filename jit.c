@@ -15,20 +15,22 @@
 uint8_t* jitptr;
 int jitpos;
 int jitcap;
+int jit_needcap;
 
 void jit_init(int size) {
   jitptr = jit_memalloc(size);
   jitpos = 0;
   jitcap = size;
+  jit_needcap = size;
 }
 
-bool jit_need_extend(int size) {
-  return jitpos + size >= jitcap;
+bool jit_need_extend() {
+  return jitpos + jit_needcap >= jitcap;
 }
 
-void jit_extend(int size) {
+void jit_extend() {
   int prevcap = jitcap;
-  while (jit_need_extend(size)) {
+  while (jit_need_extend()) {
     jitcap *= 2;
   }
   uint8_t* newptr = jit_memalloc(jitcap);

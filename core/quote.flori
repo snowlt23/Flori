@@ -10,7 +10,7 @@ fn expand_fembed(f ^fmap, args ^fmap, argidx ^ptr int) {
     replace(f, get(args, *argidx))
     *argidx = *argidx + 1
   } elif is(f, FMAP_MAP) {
-    flst := to_flist(f)
+    flst := reverse(to_flist(f))
     i := 0
     while i < len(flst) {
       expand_fembed(get(get(flst, i), "value"), args, argidx)
@@ -23,6 +23,12 @@ fn expand_fembed(f ^fmap, args ^fmap, argidx ^ptr int) {
       i = i+1
     }
   }
+}
+fn expand_fembed(f ^fmap, args ^fmap) ^fmap {
+  retf := dup(f)
+  argidx := 0
+  expand_fembed(retf, args, &argidx)
+  return retf
 }
 
 fn is_unquote(f ^fmap) ^bool {
@@ -52,47 +58,55 @@ fn collect_unquote(f ^fmap, args ^fmap) {
   }
 }
 
+fn double_unquote(f ^fmap) {
+  if is_unquote(f) {
+    replace(f, fcall(fident("unquote"), farg(dup(f))))
+  } elif is(f, FMAP_MAP) {
+    flst := to_flist(f)
+    i := 0
+    while i < len(flst) {
+      double_unquote(get(get(flst, i), "value"))
+      i = i+1
+    }
+  } elif is(f, FMAP_LIST) {
+    i := 0
+    while i < len(f) {
+      double_unquote(get(f, i))
+      i = i+1
+    }
+  }
+}
+
 macro quote_macro(f ^fmap) ^fmap {
   quotedargs := flist()
   collect_unquote(f, quotedargs)
   quotedargs = reverse(quotedargs)
 
-  idxsym := gensym()
-  argsym := gensym()
+  qargsym := gensym()
   retf := fblock()
 
   fidx := fcall(fident("cast_fmap"), farg(fintlit(cast_int(f))))
-  push(retf, dup(fidx))
-  
-  idxref := fcall(fident("&"), farg(dup(idxsym)))
-  excallargs := flist()
-  push(excallargs, idxref)
-  push(excallargs, dup(argsym))
-  push(excallargs, dup(fidx))
-  expandcall := fcall(fident("expand_fembed"), excallargs)
-  push(retf, expandcall)
-
-  idxargs := flist()
-  push(idxargs, fintlit(0))
-  push(idxargs, dup(idxsym))
-  idxdecl := fcall(fident(":="), idxargs)
-  push(retf, idxdecl)
+  args := flist()
+  push(args, qargsym)
+  push(args, fidx)
+  excall := fcall(fident("expand_fembed"), args)
+  push(retf, excall)
   
   i := 0
   while i < len(quotedargs) {
     args := flist()
     push(args, get(quotedargs, i))
-    push(args, dup(argsym))
+    push(args, dup(qargsym))
     pushcall := fcall(fident("push"), args)
     push(retf, pushcall)
     i = i+1
   }
 
-  args := flist()
-  push(args, fcall(fident("flist")))
-  push(args, dup(argsym))
-  argdecl := fcall(fident(":="), args)
-  push(retf, argdecl)
+  qargs := flist()
+  push(qargs, fcall(fident("flist")))
+  push(qargs, dup(qargsym))
+  qargdecl := fcall(fident(":="), qargs)
+  push(retf, qargdecl)
   
   return retf
 }
@@ -107,7 +121,6 @@ fn read_until(c ^char) ^cstring {
     }
     *cast_ptr_char(p) = n
     p = p+1
-    error_print("a")
   }
 }
 

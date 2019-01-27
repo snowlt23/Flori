@@ -1,23 +1,19 @@
 #include "flori.h"
 
-#define LINMEM_TOPLEVEL_CAP (1024*1024)
-
 uint8_t* linmemptr;
 int linmempos;
 int linmemcap;
+int linmem_needcap;
 
 void linmem_init(int size) {
   linmemptr = malloc(size);
   linmempos = 0;
   linmemcap = size;
-}
-
-bool linmem_is_shortage(int size) {
-  return linmempos + size >= linmemcap;
+  linmem_needcap = size;
 }
 
 bool linmem_need_extend() {
-  return linmem_is_shortage(LINMEM_TOPLEVEL_CAP);
+  return linmempos + linmem_needcap >= linmemcap;
 }
 
 void linmem_extend() {
@@ -28,7 +24,7 @@ void linmem_extend() {
 }
 
 int linmem_alloc(int size) {
-  assert(!linmem_is_shortage(size));
+  assert(linmempos < linmemcap);
   int idx = linmempos;
   linmempos += size;
   return idx;
