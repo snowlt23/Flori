@@ -1,5 +1,13 @@
+fn posname(s ^cstring) ^fmap {
+  newcs := cast_cstring(malloc(len(s)+4))
+  copy(newcs, s)
+  copy(newcs + len(s), "pos")
+  return fident(newcs)
+}
+
 syntax buffer:() ^fmap {
   name := parse()
+  posname := posname(to_cstring(name))
   size := parse()
   tsym := gensym()
   vsym := gensym()
@@ -10,22 +18,25 @@ syntax buffer:() ^fmap {
     defprimitive `dup(tsym)` `size`
      inline fn cast_pointer(p ^ptr `dup(tsym)`) ^pointer {}
     `varf`
-    (`name`) := cast_pointer(&(`dup(vsym)`))
+    `name` := cast_pointer(&(`dup(vsym)`))
+    `posname` := 0
   }
 }
 
 macro <@(p ^fmap, v ^fmap) ^fmap {
+  posname := posname(to_cstring(p))
   quote {
-    buffer_at(&(`p`), `v`)
+    buffer_at(&(`p`), &(`posname`), `v`)
   }
 }
 
-macro @(p ^fmap, t ^fmap) ^fmap {
+macro at(p ^fmap, t ^fmap, i ^fmap) ^fmap {
   quote {
-    *cast_ptr_int(`p`)
+    *cast_ptr_int(`p` + sizeof(`t`) * `i`)
   }
 }
 
-fn buffer_at(p ^ptr pointer, v ^int) {
-  *cast_ptr_int(*p) = v
+fn buffer_at(p ^ptr pointer, i ^ptr int, v ^int) {
+  *(cast_ptr_int(*p)+ *i) = v
+  *i += sizeof(^int)
 }

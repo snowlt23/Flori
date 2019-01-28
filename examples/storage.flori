@@ -1,9 +1,10 @@
 buffer: db 1024
 
 static {
-  db <@ 9
+  db <@ 4
+  db <@ 5
 }
 
 fn main() {
-  db @ int
+  at(db, ^int, 0) + at(db, ^int, 1)
 }

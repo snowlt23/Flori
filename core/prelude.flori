@@ -93,6 +93,7 @@ inline fn genadd() {
 }
 inline fn +(a ^int, b ^int) ^int {genadd()}
 inline fn +(a ^pointer, b ^int) ^pointer {genadd()}
+inline fn +(a ^cstring, b ^int) ^cstring {genadd()}
 inline fn +(a ^ptr int, b ^int) ^ptr int {genadd()}
 inline fn +(a ^ptr char, b ^int) ^ptr char {genadd()}
 
@@ -104,6 +105,13 @@ inline fn gensub() {
 inline fn -(a ^int, b ^int) ^int {gensub()}
 inline fn -(a ^ptr int, b ^int) ^ptr int {gensub()}
 inline fn -(a ^ptr char, b ^int) ^ptr char {gensub()}
+
+inline fn genmul() {
+  pop_rcx() pop_rax()
+  X(0x48) X(0xf7) X(0xe1) # mul rcx
+  push_rax()
+}
+inline fn *(a ^int, b ^int) ^int {genmul()}
 
 inline fn gendiv() {
   pop_rcx() pop_rax()
@@ -149,19 +157,51 @@ inline fn *(p ^ptr int) ^int {
   X(0x48) X(0x8b) X(0x00)
   push_rax()
 }
+inline fn *=(p ^ptr int, v ^int) {
+  pop_rcx() pop_rax()
+  X(0x48) X(0x89) X(0x08)
+}
 inline fn *lvalue(p ^ptr int) ^ptr int {}
+
 inline fn *(p ^ptr pointer) ^pointer {
   pop_rax()
   X(0x48) X(0x8b) X(0x00)
   push_rax()
 }
+inline fn *=(p ^ptr pointer, v ^pointer) {
+  pop_rcx() pop_rax()
+  X(0x48) X(0x89) X(0x08)
+}
 inline fn *lvalue(p ^ptr pointer) ^ptr pointer {}
+
+inline fn *=(p ^ptr cstring, v ^cstring) {
+  pop_rcx() pop_rax()
+  X(0x48) X(0x89) X(0x08)
+}
+
+inline fn *=(p ^ptr fmap, v ^fmap) {
+  pop_rcx() pop_rax()
+  X(0x48) X(0x89) X(0x08)
+}
+
+inline fn *=(p ^ptr ptr int, v ^ptr int) {
+  pop_rcx() pop_rax()
+  X(0x48) X(0x89) X(0x08)
+}
+inline fn *=(p ^ptr ptr char, v ^ptr char) {
+  pop_rcx() pop_rax()
+  X(0x48) X(0x89) X(0x08)
+}
 
 inline fn *(^ptr char) ^char {
   pop_rax()
   X(0x8a) X(0x00) # mov al, [rax]
   X(0x48) X(0x0f) X(0xb6) X(0xc0) # movzx rax, al
   push_rax()
+}
+inline fn *=(p ^ptr char, v ^char) {
+  pop_rcx() pop_rax()
+  X(0x88) X(0x08)
 }
 inline fn *lvalue(^ptr char) ^ptr char {}
 

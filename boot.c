@@ -392,7 +392,15 @@ void semantic_syntax(FMap f) {
 
 void semantic_type(FMap f) {
   get_field(t, f, "type");
-  assert(eq_kind(t, FMAP_IDENT));
+
+  if (is_ptrtype(f)) {
+    boot_semantic(t);
+    FType pt = new_ftype(FTYPE_PTR);
+    fp(FType, pt)->ptrof = get_ftype(t);
+    *fm(f) = *fm(new_ftypesym(pt));
+    return;
+  }
+  
   Decl decl;
   if (!search_decl(fm(t)->ident, &decl)) error("undeclared %s type", istring_cstr(fm(t)->ident));
 
@@ -404,13 +412,6 @@ void semantic_type(FMap f) {
     ft = new_ftype(FTYPE_SYM);
     fp(FType, ft)->sym = decl.sym;
   }
-
-  if (is_ptrtype(f)) {
-    FType pt = new_ftype(FTYPE_PTR);
-    fp(FType, pt)->ptrof = ft;
-    ft = pt;
-  }
-  
   *fm(f) = *fm(new_ftypesym(ft));
 }
 
@@ -569,16 +570,30 @@ FMap fmap_lvaluegen(FMap f) {
 void semantic_set(FMap f) {
   FMap left = infix_left(f);
   FMap right = infix_right(f);
-  *fm(left) = *fm(fmap_lvaluegen(left));
-  boot_semantic(left);
-  boot_semantic(right);
-  FType lefttype = get_ftype(fmap_cget(left, "type"));
-  if (fp(FType, lefttype)->kind != FTYPE_PTR) error("%s isn't ptr type in `=", fmap_tostring(left));
-  if (!ftype_eq(fp(FType, lefttype)->ptrof, get_ftype(fmap_cget(right, "type")))) error("type mismatch %s, %s in =", ftype_tostring(fp(FType, lefttype)->ptrof), ftype_tostring(get_ftype(fmap_cget(right, "type"))));
-  fmap_cpush(f, "type", new_ftypesym(type_void()));
+  if (call_is(left, ".")) {
+    FMap addrf = fcall(fident(new_istring(".lvalue")), fmap_cget(left, "args"));
+    flistseq(args, addrf, right);
+    *fm(f) = *fm(fcall(fident(new_istring("*=")), args));
+  } else if (istring_ceq(fm(left)->kind, "call")) {
+    FMap c = fmap_cget(left, "call");
+    FMap args = fmap_cget(left, "args");
+    char idbuf[1024] = {};
+    snprintf(idbuf, 1024, "%s=", istring_cstr(fm(c)->ident));
+    fm(c)->ident = new_istring(idbuf);
+    *fm(args) = *fm(flist_reverse(args));
+    flist_push(args, right);
+    *fm(args) = *fm(flist_reverse(args));
+    *fm(f) = *fm(left);
+  } else {
+    FMap addrf = fprefix(fident(new_istring("&")), deepcopy_fmap(left));
+    flistseq(args, addrf, right);
+    *fm(f) = *fm(fcall(fident(new_istring("*=")), args));
+  }
+  boot_semantic(f);
 }
 
 void codegen_set(FMap f) {
+  assert(false);
   FMap left = infix_left(f);
   FMap right = infix_right(f);
   boot_codegen(left);

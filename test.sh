@@ -58,8 +58,6 @@ unittest "linmem_test"
 unittest "jit_test"
 unittest "fmap_test"
 
-filetest "examples/storage.flori" "9"
-
 runtest "fn main() { 9 }" 9
 runtest "fn main() {4}" 4
 runtest "fn main() {5}" 5

@@ -214,7 +214,7 @@ FMap parse_type(Stream* s) {
     def_fmap(f, type, {
         def_field(ptr, fintlit(1));
         skip_spaces(s);
-        def_field(t, parse(s));
+        def_field(t, parse_type(s));
       });
     return f;
   } else {
