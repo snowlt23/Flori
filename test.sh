@@ -105,6 +105,13 @@ filetest "examples/syntax.flori" "123456789100"
 
 # filetest "examples/asm.flori" "55"
 filetest "examples/storage.flori" "9"
+HTTP_REQ=`cat <<EOF
+GET /index.html HTTP/1.1
+Host: www.example.com
+Connection: close
+0
+EOF`
+filetest "examples/http.flori" "$HTTP_REQ"
 
 exectest "examples/fib.flori" 0
 exectest "examples/exitfib.flori" 34

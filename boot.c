@@ -801,7 +801,9 @@ void semantic_field(FMap f) {
   FMap right = infix_right(f);
   boot_semantic(left);
   FType lefttype = get_ftype(fmap_cget(left, "type"));
-  if (fp(FType, lefttype)->kind != FTYPE_PTR) {
+  if (fp(FType, lefttype)->kind == FTYPE_PTR) {
+    lefttype = fp(FType, lefttype)->ptrof;
+  } else {
     *fm(left) = *fm(fmap_lvaluegen(left));
     boot_semantic(left);
   }

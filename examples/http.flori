@@ -1,0 +1,17 @@
+lf := cast_char(10)
+
+buffer: reqbuf 1024
+fn httpreq(meth ^cstring, host ^cstring, dir ^cstring, conn ^cstring) ^cstring {
+  reqbuf <@ meth <@ " " <@ dir <@ " HTTP/1.1" <@  lf
+  reqbuf <@ "Host: " <@ host <@ lf
+  reqbuf <@ "Connection: " <@ conn <@ lf
+  cs := cast_cstring(reqbuf.p)
+  retcs := cast_cstring(malloc(len(cs) + 1))
+  copy(retcs, cs)
+  return retcs
+}
+
+fn main() {
+  print(httpreq("GET", "www.example.com", "/index.html", "close"))
+  0
+}
