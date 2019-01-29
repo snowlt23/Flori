@@ -1,0 +1,112 @@
+struct module {
+  name ^cstring
+  symbols ^ptr fmap
+  pos ^int
+}
+struct rootmod {
+  modules ^ptr module
+  pos ^int
+}
+inline fn return(r ^ptr module) {genret()}
+
+inline fn *(p ^ptr ptr module) ^ptr module {
+  pop_rax()
+  X(0x48) X(0x8b) X(0x00)
+  push_rax()
+}
+inline fn *=(p ^ptr ptr module, v ^ptr module) {
+  pop_rcx() pop_rax()
+  X(0x48) X(0x89) X(0x08)
+}
+inline fn *lvalue(p ^ptr ptr module) ^ptr ptr module {}
+
+inline fn cast_ptr_module(r ^pointer) ^ptr module {}
+inline fn +(a ^ptr module, b ^int) ^ptr module {genadd()}
+
+fn new_module(p ^ptr module, name ^cstring) {
+  p.name = name
+  p.symbols = cast_ptr_fmap(malloc(sizeof(^fmap)*10))
+  p.pos = 0
+}
+fn get(p ^ptr module, i ^int) ^fmap {
+  return *(p.symbols+sizeof(^fmap)*i)
+}
+fn push(p ^ptr module, f ^fmap) {
+  *(p.symbols+sizeof(^fmap)*p.pos) = f
+  p.pos += 1
+}
+fn search(p ^ptr module, name ^cstring) ^fmap {
+  for i in 0..<(p.pos) {
+    f := get(p, i)
+    if strcmp(to_cstring(f), name) {
+      return f
+    }
+  }
+  return 0
+}
+
+fn new_rootmod(p ^ptr rootmod) {
+  p.modules = cast_ptr_module(malloc(sizeof(^module)*10))
+  p.pos = 0
+}
+fn push(p ^ptr rootmod, name ^cstring) ^ptr module {
+  modptr := p.modules+sizeof(^module)*p.pos
+  new_module(modptr, name)
+  p.pos += 1
+  return modptr
+}
+fn get(p ^ptr rootmod, i ^int) ^ptr module {
+  p.modules+sizeof(^module)*i
+}
+fn search(p ^ptr rootmod, name ^cstring) ^ptr module {
+  for i in 0..<(p.pos) {
+    modptr := get(p, i)
+    if strcmp(modptr.name, name) {
+      return modptr
+    }
+  }
+  return 0
+}
+
+var root ^rootmod
+static {
+  new_rootmod(&root)
+}
+
+syntax module() ^fmap {
+  name := parse()
+  body := parse()
+  mod := push(&root, to_cstring(name))
+  for i in 0..<len(body) {
+    f := get(body, i)
+    semeval(f)
+    sym := get(f, "sym")
+    typ := get(f, "returntype")
+    if isnil(sym) {} else {
+      push(mod, sym)
+    }
+    if isnil(typ) {} else {
+      set(sym, "type", typ)
+    }
+  }
+  return body
+}
+
+macro @(m ^fmap, s ^fmap) ^fmap {
+  if iskind(s, "call") {} else {error_print("fmap isn't call in @")}
+  mod := search(&root, to_cstring(m))
+  sym := search(mod, to_cstring(get(s, "call")))
+  replace(get(s, "call"), sym)
+  set(s, "type", get(sym, "type"))
+  return s
+}
+
+module M {
+  fn add5(x ^int) ^int {
+    x + 5
+  }
+}
+
+fn main() {
+  M@add5(4)
+}

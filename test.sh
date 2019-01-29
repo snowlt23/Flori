@@ -112,6 +112,7 @@ Connection: close
 0
 EOF`
 filetest "examples/http.flori" "$HTTP_REQ"
+filetest "core/module.flori" "9"
 
 exectest "examples/fib.flori" 0
 exectest "examples/exitfib.flori" 34

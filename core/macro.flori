@@ -140,6 +140,13 @@ macro static_macro(body ^fmap) ^fmap {
 fn is(f ^fmap, k ^cstring) ^bool {
   return strcmp(rootkind(f), k)
 }
+fn iskind(f ^fmap, k ^cstring) ^bool {
+  return strcmp(kind(f), k)
+}
+
+fn isnil(f ^fmap) ^bool {
+  return cast_int(f) == 0 - 1
+}
 
 fn reverse(f ^fmap) ^fmap {
   revf := flist(kind(f))
