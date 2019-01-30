@@ -1,0 +1,68 @@
+fn is_fid(f ^fmap, id ^cstring) ^bool {
+  if is(f, FMAP_IDENT) {
+    return strcmp(to_cstring(f), id)
+  }
+  return false();
+}
+
+fn replace_fident(f ^fmap, id ^fmap, by ^fmap) {
+  if is_fid(f, to_cstring(id)) {
+    replace(f, dup(by))
+  } elif is(f, FMAP_MAP) {
+    flst := reverse(to_flist(f))
+    i := 0
+    while i < len(flst) {
+      replace_fident(get(get(flst, i), "value"), id, by)
+      i = i+1
+    }
+  } elif is(f, FMAP_LIST) {
+    i := 0
+    while i < len(f) {
+      replace_fident(get(f, i), id, by)
+      i = i+1
+    }
+  }
+}
+
+fn parse_functor_params() ^fmap {
+  argdecls := flist("argdecls")
+  argdecl := fmap("argdecl")
+  set(argdecl, "name", parse())
+  set(argdecl, "type", ftype(fident("fmap")))
+  push(argdecls, argdecl)
+  return argdecls
+}
+
+syntax functor() ^fmap {
+  read_char()
+  name := parse_until(*cast_ptr(" "))
+  argdecls := parse_functor_params()
+  replacers := fblock()
+  body := parse()
+  for i in 0..<len(argdecls) {
+    argdecl := get(argdecls, i)
+    n := get(argdecl, "name")
+    push(replacers, quote {
+        replace_fident(f, fmap_as_value(`n`), `n`)
+      })
+  }
+  macrobody := quote {
+    f := dup(fmap_as_value(`body`))
+    `replacers`
+    return f
+  }
+  f := fmap("macro")
+  set(f, "name", name)
+  set(f, "argdecls", argdecls)
+  set(f, "returntype", ftype(fident("fmap")))
+  set(f, "body", macrobody)
+  return f
+}
+
+macro <=(left ^fmap, fc ^fmap) ^fmap {
+  set(fc, "toplevel", fintlit(1))
+  semeval(fc)
+  quote {
+    module `left` `fc`
+  }
+}

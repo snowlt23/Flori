@@ -1,0 +1,9 @@
+module M {
+  fn add5(x ^int) ^int {
+    x + 5
+  }
+}
+
+fn main() {
+  M@add5(4)
+}

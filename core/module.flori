@@ -42,7 +42,7 @@ fn search(p ^ptr module, name ^cstring) ^fmap {
       return f
     }
   }
-  return 0
+  return 0 - 1
 }
 
 fn new_rootmod(p ^ptr rootmod) {
@@ -73,9 +73,7 @@ static {
   new_rootmod(&root)
 }
 
-syntax module() ^fmap {
-  name := parse()
-  body := parse()
+macro module_macro(name ^fmap, body ^fmap) ^fmap {
   mod := push(&root, to_cstring(name))
   for i in 0..<len(body) {
     f := get(body, i)
@@ -92,21 +90,20 @@ syntax module() ^fmap {
   return body
 }
 
+syntax module() ^fmap {
+  name := parse()
+  body := parse()
+  quote {
+    module_macro(`name`, `body`)
+  }
+}
+
 macro @(m ^fmap, s ^fmap) ^fmap {
   if iskind(s, "call") {} else {error_print("fmap isn't call in @")}
   mod := search(&root, to_cstring(m))
   sym := search(mod, to_cstring(get(s, "call")))
+  if (isnil(sym)) {error_print("undeclared module function")}
   replace(get(s, "call"), sym)
   set(s, "type", get(sym, "type"))
   return s
-}
-
-module M {
-  fn add5(x ^int) ^int {
-    x + 5
-  }
-}
-
-fn main() {
-  M@add5(4)
 }

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/syntax.flori core/allocator.flori core/string.flori core/asm.flori"
-CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/allocator.flori core/quote.flori core/syntax.flori core/storage.flori"
+CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/allocator.flori core/quote.flori core/syntax.flori core/storage.flori core/module.flori core/functor.flori"
 # CORELIBS="core/prelude.flori"
 
 read-coresrc() {
@@ -24,6 +24,7 @@ unittest() {
 
 # $1=input $2=expect
 runtest() {
+  echo "[TEST] $1"
   PRELUDE=`read-coresrc`
   OUT=`echo "$PRELUDE; $1" | ./bin/flori`
   if [ "$2" != "$OUT" ] ; then
@@ -33,6 +34,7 @@ runtest() {
 }
 
 filetest() {
+  echo "[TEST] $1"
   PRELUDE=`read-coresrc`
   FILE=`cat "$1"`
   OUT=`echo "$PRELUDE; $FILE" | ./bin/flori`
@@ -43,6 +45,7 @@ filetest() {
 }
 
 exectest() {
+  echo "[EXEC] $1"
   PRELUDE=`read-coresrc`
   FILE=`cat "$1"`
   echo "$PRELUDE; $FILE" | ./bin/flori -o fa.out
@@ -112,7 +115,8 @@ Connection: close
 0
 EOF`
 filetest "examples/http.flori" "$HTTP_REQ"
-filetest "core/module.flori" "9"
+filetest "examples/module.flori" "9"
+filetest "examples/functor.flori" "9"
 
 exectest "examples/fib.flori" 0
 exectest "examples/exitfib.flori" 34

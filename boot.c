@@ -287,6 +287,7 @@ void codegen_flist(FMap f) {
 
 void semantic_block(FMap f) {
   if (is_toplevel(f)) {
+    // debug("%s", fmap_tostring(f));
     forlist (IListFMap, FMap, e, fm(f)->lst) {
       fmap_cpush(e, "toplevel", fintlit(1));
       boot_semantic(e);
@@ -1066,6 +1067,7 @@ void boot_codegen(FMap f) {
 }
 
 void boot_eval_toplevel(FMap f) {
+  // debug("%s", fmap_tostring(f));
   fmap_cpush(f, "toplevel", fintlit(1));
   boot_semantic(f);
   boot_codegen(f);

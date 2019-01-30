@@ -1,0 +1,11 @@
+functor mathfc T {
+  fn add5(x T) T {
+    x + 5
+  }
+}
+
+math_int <= mathfc(^int)
+
+fn main() {
+  math_int@add5(4)
+}

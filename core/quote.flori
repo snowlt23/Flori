@@ -134,6 +134,6 @@ syntax quote() ^fmap {
   return fcall(fident("quote_macro"), farg(body))
 }
 
-macro fexpr_as_value(f ^fmap) ^fmap {
+macro fmap_as_value(f ^fmap) ^fmap {
   return fcall(fident("cast_fmap"), farg(fintlit(cast_int(f))))
 }
