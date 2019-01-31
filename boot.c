@@ -879,6 +879,11 @@ size_t internal_gensym() {
   return gen_tmpid().index;
 }
 
+size_t internal_intval(size_t fidx) {
+  FMap f = (FMap){fidx};
+  return fm(f)->intval;
+}
+
 void internal_fmap_set(size_t fidx, char* key, size_t vidx) {
   FMap f = (FMap){fidx};
   FMap value = (FMap){vidx};
@@ -991,6 +996,7 @@ void internal_init_defs(FMap f) {
   def_internal_ptr("internal_fintlit_ptr", internal_fintlit);
   def_internal_ptr("internal_fstrlit_ptr", internal_fstrlit);
   def_internal_ptr("internal_gensym_ptr", internal_gensym);
+  def_internal_ptr("internal_intval_ptr", internal_intval);
   def_internal_ptr("internal_fmap_set_ptr", internal_fmap_set);
   def_internal_ptr("internal_fmap_get_ptr", internal_fmap_get);
   def_internal_ptr("internal_fmap_dup_ptr", internal_fmap_dup);

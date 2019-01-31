@@ -27,7 +27,7 @@ fn alloc_chunk(size ^int) ^pointer {
   return mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0)
 }
 
-memchunk := alloc_chunk(4096)
+memchunk := alloc_chunk(4096 * 2)
 memchunkpos := 0
 
 fn malloc(size ^int) ^pointer {

@@ -24,6 +24,10 @@ fn gensym() ^fmap {
   return cast_fmap(cffi(internal_gensym_ptr))
 }
 
+fn intval(f ^fmap) ^int {
+  return cffi(internal_intval_ptr, cast_int(f))
+}
+
 fn get(f ^fmap, key ^cstring) ^fmap {
   return cast_fmap(cffi(internal_fmap_get_ptr, cast_int(f), cast_int(key)))
 }

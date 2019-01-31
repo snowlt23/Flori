@@ -6,6 +6,14 @@ fn len(s ^cstring) ^int {
   return i
 }
 
+fn memset(dstp ^pointer, x ^int, size ^int) {
+  i := 0
+  while i < size {
+    *(cast_ptr_char(dstp)+i) = cast_char(x)
+    i = i+1
+  }
+}
+
 fn memcpy(dstp ^pointer, srcp ^pointer, size ^int) {
   i := 0
   while i < size {

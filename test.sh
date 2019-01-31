@@ -13,6 +13,7 @@ read-coresrc() {
 
 # $1=testname
 unittest() {
+  echo "[UNIT] $1"
   M=`make $1.out`
   ./$1.out
   RETCODE=$?
@@ -57,6 +58,18 @@ exectest() {
   fi
 }
 
+httpcheck() {
+  for ((i=0; i < 5; i++)) ; do
+    STATUS=`curl -s $1 -o /dev/null -w '%{http_code}'`
+    if [ "$STATUS" = "$2" ] ; then
+      return
+    fi
+    sleep 1
+  done
+  echo "[ERROR] failed curlcheck to $1, expect $2"
+  exit 1
+}
+
 unittest "linmem_test"
 unittest "jit_test"
 unittest "fmap_test"
@@ -99,6 +112,11 @@ filetest "examples/struct_ptr.flori" 13
 # filetest "examples/struct_copy.flori" 9
 # filetest "examples/struct_value.flori" 9
 # filetest "examples/struct_result.flori" 9
+
+#
+# language library test
+#
+
 filetest "examples/sysprint.flori" "yukarisan0"
 filetest "examples/while.flori" "aaaaaaaaaa0"
 filetest "examples/cstring.flori" "akari0"
@@ -106,17 +124,28 @@ filetest "examples/cstring.flori" "akari0"
 filetest "examples/macro.flori" "!@Hello Yukari!9"
 filetest "examples/syntax.flori" "123456789100"
 
+#
+# extend library test
+#
+
 # filetest "examples/asm.flori" "55"
 filetest "examples/storage.flori" "9"
+
 HTTP_REQ=`cat <<EOF
 GET /index.html HTTP/1.1
 Host: www.example.com
 Connection: close
 0
 EOF`
-filetest "examples/http.flori" "$HTTP_REQ"
+filetest "examples/http.flori" "$HTTP_REQ" &
+httpcheck localhost:4545 200
+
 filetest "examples/module.flori" "9"
 filetest "examples/functor.flori" "9"
+
+#
+# executable test
+#
 
 exectest "examples/fib.flori" 0
 exectest "examples/exitfib.flori" 34

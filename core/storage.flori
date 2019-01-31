@@ -38,6 +38,18 @@ macro <@(p ^fmap, v ^fmap) ^fmap {
   }
 }
 
+macro <@@(p ^fmap, v ^fmap) ^fmap {
+  if is(p, FMAP_IDENT) {
+    quote {
+      buffer_at_s(& `p`, `v`)
+    }
+  } else {
+    quote {
+      buffer_at_s(`p`, `v`)
+    }
+  }
+}
+
 macro at(p ^fmap, t ^fmap, i ^fmap) ^fmap {
   quote {
     *cast_ptr_int(`p`.p + sizeof(`t`) * `i`)
@@ -59,5 +71,21 @@ fn buffer_at(p ^ptr storage, c ^char) ^ptr storage {
 fn buffer_at(p ^ptr storage, s ^cstring) ^ptr storage {
   copy(cast_cstring(p.p + p.pos), s)
   p.pos += len(s)
+  p
+}
+
+ibuf := malloc(12)
+fn buffer_at_s(p ^ptr storage, x ^int) ^ptr storage {
+  memset(ibuf, 0, 12)
+  pos := 0
+  while 0 < x {
+    c := cast_char(mod(x, 10) + 48)
+    *cast_ptr_char(ibuf+pos) = c
+    x = x / 10
+    pos += 1
+  }
+  for i in 0..<pos {
+    buffer_at(p, *cast_ptr_char(ibuf+(pos - i - 1)))
+  }
   p
 }

@@ -2,6 +2,9 @@ defprimitive void 0
 defprimitive int 8
 defprimitive cstring 8
 defprimitive char 1
+defprimitive u8 1
+defprimitive u16 2
+defprimitive u32 4
 defprimitive pointer 8
 defprimitive fmap 8
 defprimitive bool 8
@@ -22,10 +25,12 @@ inline fn cast_cstring(p ^ptr char) ^cstring {}
 
 inline fn cast_int(f ^fmap) ^int {}
 
-inline fn cast_char(idx ^int) ^char {}
-inline fn cast_cstring(idx ^int) ^cstring {}
-inline fn cast_pointer(idx ^int) ^pointer {}
-inline fn cast_fmap(idx ^int) ^fmap {}
+inline fn cast_int(f ^ptr int) ^int {}
+
+inline fn cast_char(x ^int) ^char {}
+inline fn cast_cstring(x ^int) ^cstring {}
+inline fn cast_pointer(x ^int) ^pointer {}
+inline fn cast_fmap(x ^int) ^fmap {}
 
 inline fn push_rax() {
   X(0x50)
@@ -86,6 +91,7 @@ inline fn return(r ^char) {genret()}
 inline fn return(r ^cstring) {genret()}
 inline fn return(r ^bool) {genret()}
 inline fn return(r ^fmap) {genret()}
+inline fn return(r ^u16) {genret()}
 
 inline fn genadd() {
   pop_rcx() pop_rax()
@@ -117,10 +123,45 @@ inline fn *(a ^int, b ^int) ^int {genmul()}
 
 inline fn gendiv() {
   pop_rcx() pop_rax()
-  X(0x48) X(0xf7) X(0xf9) # idiv rax
+  X(0x48) X(0xc7) X(0xc2) X(0x00) X(0x00) X(0x00) X(0x00) # mov rdx, 0
+  X(0x48) X(0xf7) X(0xf9) # idiv rcx
+  push_rax()
+}
+inline fn /(a ^int, b ^int) ^int {gendiv()}
+
+inline fn genmod() {
+  pop_rcx() pop_rax()
+  X(0x48) X(0xc7) X(0xc2) X(0x00) X(0x00) X(0x00) X(0x00) # mov rdx, 0
+  X(0x48) X(0xf7) X(0xf9) # idiv rcx
   push_rdx()
 }
-inline fn mod(a ^int, b ^int) ^int {gendiv()}
+inline fn mod(a ^int, b ^int) ^int {genmod()}
+
+inline fn genshl() {
+  pop_rcx() pop_rax()
+  X(0x48) X(0xd3) X(0xe0) # shl rax, cl
+  push_rax()
+}
+inline fn <<(a ^int, b ^int) ^int {genshl()}
+inline fn <<(a ^u16, b ^int) ^u16 {
+  pop_rcx() pop_rax()
+  X(0x66) X(0xd3) X(0xe0) # shl ax, cl
+  X(0x48) X(0x0f) X(0xb7) X(0xc0) # movzx rax, ax
+  push_rax()
+}
+
+inline fn genshr() {
+  pop_rcx() pop_rax()
+  X(0x48) X(0xd3) X(0xe8) # shr rax, cl
+  push_rax()
+}
+inline fn >>(a ^int, b ^int) ^int {genshr()}
+inline fn >>(a ^u16, b ^int) ^u16 {
+  pop_rcx() pop_rax()
+  X(0x66) X(0xd3) X(0xe8) # shr ax, cl
+  X(0x48) X(0x0f) X(0xb7) X(0xc0) # movzx rax, ax
+  push_rax()
+}
 
 inline fn genor() {
   pop_rcx() pop_rax()
@@ -128,6 +169,19 @@ inline fn genor() {
   push_rax()
 }
 inline fn |(a ^int, b ^int) ^int {genor()}
+inline fn |(a ^u16, b ^u16) ^u16 {
+  pop_rcx() pop_rax()
+  X(0x66) X(0x09) X(0xc8) # or ax, cx
+  push_rax()
+}
+
+inline fn genand() {
+  pop_rcx() pop_rax()
+  X(0x66) X(0x21) X(0xc8) # and ax, cx
+  push_rax()
+}
+inline fn and(a ^int, b ^int) ^int {genand()}
+inline fn and(a ^u16, b ^int) ^u16 {genand()}
 
 inline fn <(a ^int, b ^int) ^bool {
   pop_rcx() pop_rax()
@@ -228,6 +282,41 @@ inline fn *=(p ^ptr char, v ^char) {
 }
 inline fn *lvalue(^ptr char) ^ptr char {}
 
+inline fn *(^ptr u8) ^u8 {
+  pop_rax()
+  X(0x8a) X(0x00) # mov al, [rax]
+  X(0x48) X(0x0f) X(0xb6) X(0xc0) # movzx rax, al
+  push_rax()
+}
+inline fn *=(p ^ptr u8, v ^u8) {
+  pop_rcx() pop_rax()
+  X(0x88) X(0x08)
+}
+inline fn *lvalue(^ptr u8) ^ptr u8 {}
+
+inline fn *(^ptr u16) ^u16 {
+  pop_rax()
+  X(0x66) X(0x8b) X(0x00) # mov ax, [rax]
+  X(0x48) X(0x0f) X(0xb7) X(0xc0) # movzx rax, ax
+  push_rax()
+}
+inline fn *=(p ^ptr u16, v ^u16) {
+  pop_rcx() pop_rax()
+  X(0x66) X(0x89) X(0x08)
+}
+inline fn *lvalue(^ptr u16) ^ptr u16 {}
+
+inline fn *(p ^ptr u32) ^u32 {
+  pop_rax()
+  X(0x8b) X(0x00)
+  push_rax()
+}
+inline fn *=(p ^ptr u32, v ^u32) {
+  pop_rcx() pop_rax()
+  X(0x89) X(0x08)
+}
+inline fn *lvalue(p ^ptr u32) ^ptr u32 {}
+
 inline fn op_syscall() {
   X(0x0f) X(0x05)
 }
@@ -242,6 +331,10 @@ inline fn syscall(n ^int, a1 ^int, a2 ^int) ^int {
 }
 inline fn syscall(n ^int, a1 ^int, a2 ^int, a3 ^int) ^int {
   pop_rdx() pop_rsi() pop_rdi() pop_rax()
+  op_syscall() push_rax()
+}
+inline fn syscall(n ^int, a1 ^int, a2 ^int, a3 ^int, a4 ^int, a5 ^int) ^int {
+  pop_r8() pop_r10() pop_rdx() pop_rsi() pop_rdi() pop_rax()
   op_syscall() push_rax()
 }
 inline fn syscall(n ^int, a1 ^int, a2 ^int, a3 ^int, a4 ^int, a5 ^int, a6 ^int) ^int {
@@ -282,3 +375,14 @@ internal_init_defs()
 fn internal_print(x ^int) {
   cffi(internal_print_ptr, x)
 }
+
+inline fn cast_u8(x ^int) ^u8 {}
+inline fn cast_u16(x ^int) ^u16 {
+  
+}
+inline fn cast_u32(x ^int) ^u32 {}
+
+inline fn cast_int(p ^u8) ^int {}
+inline fn cast_int(p ^u16) ^int {}
+inline fn cast_int(p ^u32) ^int {}
+inline fn cast_int(p ^ptr u32) ^int {}

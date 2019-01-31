@@ -1,17 +1,164 @@
+#
+# system calls
+#
+
+fn st_sizeof(t ^fmap) ^int {
+  f := quote sizeof(`t`)
+  semeval(f)
+  return intval(f)
+}
+
+syntax ^array() ^fmap {
+  n := parse()
+  t := parse()
+  t = ftype(t)
+  arraysize := fintlit(st_sizeof(t) * intval(n))
+  sym := gensym()
+  prim := quote {
+    defprimitive `sym` `arraysize`
+  }
+  semeval(prim)
+  return ftype(sym)
+}
+
+struct sockaddr_in {
+  sin_family ^u16
+  sin_port ^u16
+  sin_addr ^u32
+  sin_zero ^array 8 u8
+}
+
 lf := cast_char(10)
 
+AF_INET := 2
+SOCK_STREAM := 1
+INADDR_ANY := 0
+IPPROTO_TCP := 6
+SOL_SOCKET := 1
+SO_REUSEADDR := 2
+
+inline fn cast_int(p ^ptr sockaddr_in) ^int {}
+inline fn cast_pointer(p ^ptr sockaddr_in) ^pointer {}
+
+fn htons(x ^int) ^u16 {
+  return (and(cast_u16(x), 0xff) << 8) | and(cast_u16(x) >> 8, 0xff)
+}
+
+fn socket(family ^int, typ ^int, protocol ^int) ^int {
+  return syscall(41, family, typ, protocol)
+}
+
+fn setsockopt(sockfd ^int, level ^int, optname ^int, optval ^int, optlen ^int) {
+  return syscall(54, sockfd, level, optname, optval, optlen)
+}
+
+fn bind(sockfd ^int, sockaddr ^ptr sockaddr_in, addrlen ^int) ^int {
+  return syscall(49, sockfd, cast_int(sockaddr), addrlen)
+}
+
+fn listen(sockfd ^int, backlog ^int) ^int {
+  return syscall(50, sockfd, backlog)
+}
+
+fn accept(sockfd ^int, sockaddr ^ptr sockaddr_in, addrlen ^ptr int) ^int {
+  return syscall(43, sockfd, cast_int(sockaddr), cast_int(addrlen))
+}
+
+fn write(fd ^int, buf ^cstring, len ^int) ^int {
+  return syscall(1, fd, cast_int(buf), len)
+}
+
+fn close(fd ^int) ^int {
+  return syscall(3, fd)
+}
+
+#
+# http
+#
+
 buffer: reqbuf 1024
-fn httpreq(meth ^cstring, host ^cstring, dir ^cstring, conn ^cstring) ^cstring {
-  reqbuf <@ meth <@ " " <@ dir <@ " HTTP/1.1" <@  lf
-  reqbuf <@ "Host: " <@ host <@ lf
-  reqbuf <@ "Connection: " <@ conn <@ lf
+
+fn httprecv(status ^cstring, html ^cstring) ^cstring {
+  reqbuf.pos = 0
+  reqbuf <@ "HTTP/1.1 " <@ status <@ lf
+  reqbuf <@ "Content-Type: text/html" <@ lf
+  reqbuf <@ "Content-Length: " <@@ len(html) <@ lf
+  reqbuf <@ "Connection: close" <@ lf
+  reqbuf <@ lf
+  reqbuf <@ html <@ lf
+  reqbuf <@ cast_char(0)
   cs := cast_cstring(reqbuf.p)
   retcs := cast_cstring(malloc(len(cs) + 1))
   copy(retcs, cs)
   return retcs
 }
 
+fn httpreq(meth ^cstring, host ^cstring, dir ^cstring, conn ^cstring) ^cstring {
+  reqbuf.pos = 0
+  reqbuf <@ meth <@ " " <@ dir <@ " HTTP/1.1" <@ lf
+  reqbuf <@ "Host: " <@ host <@ lf
+  reqbuf <@ "Connection: " <@ conn <@ lf
+  reqbuf <@ cast_char(0)
+  cs := cast_cstring(reqbuf.p)
+  retcs := cast_cstring(malloc(len(cs) + 1))
+  copy(retcs, cs)
+  return retcs
+}
+
+macro url(u ^fmap) ^fmap {
+  quote {
+    htmlbuf <@ "<img src='" <@ `u` <@ "' />"
+  }
+}
+
+buffer: htmlbuf 1024
+macro html_macro(name ^fmap, body ^fmap) ^fmap {
+  quote {
+    htmlbuf.pos = 0
+    htmlbuf <@ "<html><body>"
+    `body`
+    htmlbuf <@ "</body></html>"
+    `name` := cast_cstring(htmlbuf.p)
+  }
+}
+syntax html() ^fmap {
+  name := parse()
+  body := parse()
+  quote html_macro(`name`, `body`)
+}
+
 fn main() {
+  var addr ^sockaddr_in
+  memset(cast_pointer(&addr), 0, sizeof(^sockaddr_in))
+  rsock := socket(AF_INET, SOCK_STREAM, 0)
+  if rsock < 0 {
+    error_print("can't create socket")
+    exit(1)
+  }
+  on := cast_u32(1)
+  setsockopt(rsock, SOL_SOCKET, SO_REUSEADDR, cast_int(&on), sizeof(^u32))
+  addr.sin_family = cast_u16(AF_INET)
+  addr.sin_port = htons(4545)
+  addr.sin_addr = cast_u32(INADDR_ANY)
+  ret := bind(rsock, &addr, sizeof(^sockaddr_in))
+  if ret < 0 {
+    close(rsock)
+    error_print("can't bind socket")
+    exit(1)
+  }
+  listen(rsock, 5)
+  
+  var client ^sockaddr_in
+  len := sizeof(^sockaddr_in)
+  wsock := accept(rsock, &client, &len)
+  html htm {
+    htmlbuf <@ "Hello from Flori!"
+  }
+  recv := httprecv("200 OK", htm)
+  write(wsock, recv, len(recv))
+  close(wsock)
+  close(rsock)
+  
   print(httpreq("GET", "www.example.com", "/index.html", "close"))
   0
 }
