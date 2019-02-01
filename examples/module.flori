@@ -5,5 +5,5 @@ module M {
 }
 
 fn main() {
-  M@add5(4)
+  M::add5(4)
 }

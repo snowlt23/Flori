@@ -7,5 +7,5 @@ functor mathfc T {
 math_int <= mathfc(^int)
 
 fn main() {
-  math_int@add5(4)
+  math_int::add5(4)
 }

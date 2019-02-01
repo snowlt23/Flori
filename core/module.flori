@@ -98,7 +98,7 @@ syntax module() ^fmap {
   }
 }
 
-macro @(m ^fmap, s ^fmap) ^fmap {
+macro ::(m ^fmap, s ^fmap) ^fmap {
   if iskind(s, "call") {} else {error_print("fmap isn't call in @")}
   mod := search(&root, to_cstring(m))
   sym := search(mod, to_cstring(get(s, "call")))

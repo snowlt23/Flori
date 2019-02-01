@@ -1,0 +1,21 @@
+syntax struct() ^fmap {
+  name := parse()
+  read_until('{')
+  fields := flist();
+  while true() {
+    fieldname := parse()
+    fieldtype := parse()
+    field := fmap("field")
+    set(field, "name", fieldname)
+    set(field, "type", fieldtype)
+    push(fields, field)
+  }
+  structdef := fmap("struct")
+  set(structdef, "name", name)
+  set(structdef, "fields", fields)
+  f := quote {
+    `structdef`
+  }
+  error_print(f)
+  f
+}

@@ -1,0 +1,19 @@
+fn st_sizeof(t ^fmap) ^int {
+  f := quote sizeof(`t`)
+  semeval(f)
+  return intval(f)
+}
+
+syntax ^array() ^fmap {
+  n := parse()
+  t := parse()
+  t = ftype(t)
+  arraysize := fintlit(st_sizeof(t) * intval(n))
+  sym := gensym()
+  prim := quote {
+    defprimitive `sym` `arraysize`
+  }
+  semeval(prim)
+  return ftype(sym)
+}
+

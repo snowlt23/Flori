@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/syntax.flori core/allocator.flori core/string.flori core/asm.flori"
-CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/allocator.flori core/quote.flori core/syntax.flori core/storage.flori core/module.flori core/functor.flori"
+CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/allocator.flori core/quote.flori core/syntax.flori core/storage.flori core/stringbuffer.flori core/module.flori core/functor.flori core/array.flori"
 # CORELIBS="core/prelude.flori"
 
 read-coresrc() {

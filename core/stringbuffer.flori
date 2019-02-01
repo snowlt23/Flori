@@ -1,0 +1,24 @@
+buffer: stringbuf 1024
+
+fn @(c ^char) {
+  stringbuf <@ c
+}
+fn @(s ^cstring) {
+  stringbuf <@ s
+}
+fn @(x ^int) {
+  stringbuf <@@ x
+}
+
+fn stringbuffer_clear() {
+  stringbuf.pos = 0
+}
+
+fn stringbuffer_copy() ^cstring {
+  @cast_char(0)
+  l := len(cast_cstring(stringbuf.p))
+  s := cast_cstring(malloc(l+1))
+  copy(s, cast_cstring(stringbuf.p))
+  stringbuffer_clear()
+  return s
+}

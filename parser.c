@@ -114,6 +114,8 @@ int calc_op_priority(char* opident) {
     return 1; 
   } else if (opident[0] == '=') {
     return 15;
+  } else if (opident[0] == ':') {
+    return 15;
   } else if (opident[0] == '`' || opident[0] == '^') {
     return 0; // undefined
   } else {
@@ -519,7 +521,7 @@ FMap parse_call(Stream* s) {
     skip_spaces(s);                                                       \
     IString id = lex_operator(s);                                            \
     if (is_opid(id) && calc_op_priority(istring_cstr(id)) == pri) {      \
-      flistseq(args, name(s));                                          \
+      flistseq(args, next(s));                                          \
       return fcall(fident(id), args);                                  \
     }                                                                     \
     stream_back(s, id);                                                   \

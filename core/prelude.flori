@@ -9,6 +9,15 @@ defprimitive pointer 8
 defprimitive fmap 8
 defprimitive bool 8
 
+inline fn cast_u8(x ^int) ^u8 {}
+inline fn cast_u16(x ^int) ^u16 {}
+inline fn cast_u32(x ^int) ^u32 {}
+
+inline fn cast_int(p ^u8) ^int {}
+inline fn cast_int(p ^u16) ^int {}
+inline fn cast_int(p ^u32) ^int {}
+inline fn cast_int(p ^ptr u32) ^int {}
+
 inline fn cast_int(p ^char) ^int {}
 
 inline fn cast_int(p ^cstring) ^int {}
@@ -375,14 +384,3 @@ internal_init_defs()
 fn internal_print(x ^int) {
   cffi(internal_print_ptr, x)
 }
-
-inline fn cast_u8(x ^int) ^u8 {}
-inline fn cast_u16(x ^int) ^u16 {
-  
-}
-inline fn cast_u32(x ^int) ^u32 {}
-
-inline fn cast_int(p ^u8) ^int {}
-inline fn cast_int(p ^u16) ^int {}
-inline fn cast_int(p ^u32) ^int {}
-inline fn cast_int(p ^ptr u32) ^int {}
