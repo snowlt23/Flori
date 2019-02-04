@@ -1,50 +1,46 @@
-
 # Flori
 
-**Warning**: This project is work in progress. (very early stage)  
+**Warning**: This project is work in progress. (very early stage)
 
-Flori is statically typed programming language without GC for system/application programming.
+Flori is statically typed low fat programming language without GC for system/application programming.
 
 # Features
 
 - Statically typed.
 - Blazing fast and easy memory management by **Explicit Region**.
-- Flexible meta syntax, It's **F Expression**.
+- User can be defining original syntax.
 - Standalone native-compiler. (including assembler, linker, optimizer)
 - Ultimate power for Metaprogramming.
-- Interactive development environment. (Common Lisp SLIME like)
+- Interactive development environment. (Common Lisp and Forth like)
 
 # Inspired languages
 
-- Nim
 - Forth
-- bone-lisp
-- xtlang
-- REBOL
-- Clojure
-- Common Lisp
+- Lisp-family
+- C
+- Nim
 
 # Examples
 
 ### Hello World
 ```
 fn main() {
-  print "Hello World!"
+  print("Hello World!")
 }
 ```
 
 ### Fibonacci
 ```
 fn fib(n ^int) ^int {
-  if (n < 2) {
+  if n < 2 {
     n
   } else {
-    (fib(n-1)) + (fib(n-2))
+    fib(n - 1) + fib(n - 2)
   }
 }
 
 fn main() {
-  fib 9
+  fib(9)
 }
 ```
 
