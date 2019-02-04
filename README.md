@@ -6,6 +6,7 @@ Flori is statically typed low fat programming language without GC for system/app
 
 # Features
 
+- Low fat computing.
 - Statically typed.
 - Blazing fast and easy memory management by **Explicit Region**.
 - User can be defining original syntax.
