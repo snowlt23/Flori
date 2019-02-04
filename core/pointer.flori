@@ -1,0 +1,18 @@
+syntax ^ptr() ^fmap {
+  n := parse()
+  t := parse()
+  t = ftype(t)
+  sym := gensym()
+  prim := quote {
+    defprimitive `sym` 8
+    inline fn +(a ^ptr `t`, b ^int) ^ptr `t` {genadd()}
+    inline fn -(a ^ptr `t`, b ^int) ^ptr `t` {gensub()}
+    inline fn return(r ^ptr `t`) {genret()}
+    inline fn *(p ^ptr `t`) ^`t` {genderef()}
+    inline fn *=(p ^ptr `t`, v ^`t`) {genset()}
+    inline fn *lvalue(p ^ptr `t`) ^ptr `t` {genlvalue()}
+    
+  }
+  semeval(prim)
+  return ftype(sym)
+}

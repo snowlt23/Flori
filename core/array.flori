@@ -16,4 +16,3 @@ syntax ^array() ^fmap {
   semeval(prim)
   return ftype(sym)
 }
-
