@@ -1,18 +1,27 @@
+macro expand_ptr(t ^fmap) ^fmap {
+  pt := ftype(t)
+  set(pt, "ptr", fintlit(1))
+  quote {
+    inline fn +(a `pt`, b ^int) `pt` {genadd()}
+    inline fn -(a `pt`, b ^int) `pt` {gensub()}
+    inline fn return(r `pt`) {genret()}
+    inline fn *(p `pt`) `t` {genderef()}
+    inline fn *=(p `pt`, v `t`) {genset()}
+    inline fn *lvalue(p `pt`) `pt` {genlvalue()}
+    inline fn cast_int(p `pt`) ^int {}
+    inline fn cast_pointer(p `pt`) ^pointer {}
+  }
+}
+
 syntax ^ptr() ^fmap {
-  n := parse()
   t := parse()
   t = ftype(t)
-  sym := gensym()
+  pt := ftype(t)
+  set(pt, "ptr", fintlit(1))
   prim := quote {
-    defprimitive `sym` 8
-    inline fn +(a ^ptr `t`, b ^int) ^ptr `t` {genadd()}
-    inline fn -(a ^ptr `t`, b ^int) ^ptr `t` {gensub()}
-    inline fn return(r ^ptr `t`) {genret()}
-    inline fn *(p ^ptr `t`) ^`t` {genderef()}
-    inline fn *=(p ^ptr `t`, v ^`t`) {genset()}
-    inline fn *lvalue(p ^ptr `t`) ^ptr `t` {genlvalue()}
-    
+    expand_ptr(`t`)
+    expand_ptr(`pt`)
   }
   semeval(prim)
-  return ftype(sym)
+  return pt
 }

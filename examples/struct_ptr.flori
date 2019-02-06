@@ -3,11 +3,6 @@ struct myint {
   b ^int
 }
 
-inline fn *=(p ^ptr ptr myint, v ^ptr myint) {
-  pop_rcx() pop_rax()
-  X(0x48) X(0x89) X(0x08)
-}
-
 fn init_myint(result ^ptr myint) {
   result.a = 4
   result.b = 6

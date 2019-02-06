@@ -18,9 +18,6 @@ IPPROTO_TCP := 6
 SOL_SOCKET := 1
 SO_REUSEADDR := 2
 
-inline fn cast_int(p ^ptr sockaddr_in) ^int {}
-inline fn cast_pointer(p ^ptr sockaddr_in) ^pointer {}
-
 fn htons(x ^int) ^u16 {
   return (and(cast_u16(x), 0xff) << 8) | and(cast_u16(x) >> 8, 0xff)
 }
