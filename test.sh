@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/syntax.flori core/allocator.flori core/string.flori core/asm.flori"
-CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/allocator.flori core/quote.flori core/syntax.flori core/storage.flori core/stringbuffer.flori core/module.flori core/functor.flori core/array.flori core/pointer.flori"
+CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/allocator.flori core/quote.flori core/syntax.flori core/storage.flori core/stringbuffer.flori core/module.flori core/functor.flori core/array.flori core/pointer.flori core/exception.flori"
 # CORELIBS="core/prelude.flori"
 
 read-coresrc() {
@@ -142,6 +142,8 @@ httpcheck localhost:4545 200
 
 filetest "examples/module.flori" "9"
 filetest "examples/functor.flori" "9"
+
+filetest "examples/exception.flori" "Error5"
 
 #
 # executable test

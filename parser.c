@@ -323,6 +323,15 @@ FMap parse_inline(Stream* s) {
   return f;
 }
 
+FMap parse_codegen(Stream* s) {
+  FMap t = parse(s);
+  FMap f = parse(s);
+  boot_semantic(t);
+  fmap_cpush(f, "codegen_type", new_ftypesym(get_ftype(t)));
+  fmap_cpush(f, "codegen", fintlit(1));
+  return f;
+}
+
 FMap parse_defprimitive(Stream* s) {
   def_fmap(f, defprimitive, {
       skip_spaces(s);
@@ -431,6 +440,7 @@ void parser_init_internal() {
   def_parser("macro", parse_macro);
   def_parser("syntax", parse_syntax);
   def_parser("inline", parse_inline);
+  def_parser("codegen", parse_codegen);
   def_parser("defprimitive", parse_defprimitive);
   def_parser("return", parse_return);
   def_parser("var", parse_var);

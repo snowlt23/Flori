@@ -1,0 +1,26 @@
+deferror ERROR_IN_FN
+
+fn success_func() ^int {
+  return 5
+}
+
+fn error_func() {
+  throw(ERROR_IN_FN)
+  print("Unexpected")
+}
+
+fn main() {
+  try {
+    error_func()
+  } catch {
+    print("Error")
+  }
+  
+  ret := 0
+  try {
+    ret = success_func()
+  } catch {
+    ret = 4
+  }
+  ret
+}

@@ -39,6 +39,10 @@ bool call_is(FMap f, char* s) {
   return istring_ceq(fm(f)->kind, "call") && istring_ceq(fm(fmap_cget(f, "call"))->ident, s);
 }
 
+bool is_codegen(FMap f) {
+  return !FMap_isnil(fmap_cget(f, "codegen"));
+}
+
 bool is_toplevel(FMap f) {
   return !FMap_isnil(fmap_cget(f, "toplevel"));
 }
@@ -450,6 +454,12 @@ void semantic_call(FMap f) {
   }
 
   if (search_fndecl(fm(call)->ident, gen_fmap_argtypes(IListFMap_len(fm(args)->lst)), &fndecl) && fp(FSymbol, fndecl.sym)->ismacro) {
+    if (is_codegen(fp(FSymbol, fndecl.sym)->f)) {
+      *fm(call) = *fm(fsymbol(fndecl.sym));
+      fmap_cpush(f, "type", fmap_cget(fp(FSymbol, fndecl.sym)->f, "codegen_type"));
+      return;
+    }
+    
     FMap expanded = call_macro(fndecl.sym, fm(args)->lst);
     if (is_toplevel(f)) {
       fmap_cpush(expanded, "toplevel", fintlit(1));
@@ -493,6 +503,17 @@ void codegen_call(FMap f) {
   InternalDecl decl;
   if (eq_kind(call, FMAP_IDENT) && search_internal_decl(fm(call)->ident, &decl) && decl.isfn) {
     if (decl.codegenfn != NULL) (decl.codegenfn)(f);
+    return;
+  }
+
+  if (fp(FSymbol, fm(call)->sym)->ismacro) {
+    FMap expanded = call_macro(fm(call)->sym, fm(args)->lst);
+    if (is_toplevel(f)) {
+      fmap_cpush(expanded, "toplevel", fintlit(1));
+    }
+    *fm(f) = *fm(expanded);
+    boot_semantic(f);
+    boot_codegen(f);
     return;
   }
   
@@ -979,6 +1000,14 @@ char internal_read_char() {
   return stream_next(gstrm);
 }
 
+void* internal_codeptr() {
+  return jit_codeptr();
+}
+
+size_t internal_codeidx() {
+  return jit_getidx();
+}
+
 void def_internal_ptr(char* name, void* p) {
   IString nameid = new_istring(name);
   FSymbol sym = new_symbol(nameid);
@@ -1013,6 +1042,8 @@ void internal_init_defs(FMap f) {
   def_internal_ptr("internal_parse_until_ptr", internal_parse_until);
   def_internal_ptr("internal_parse_cstring_ptr", internal_parse_cstring);
   def_internal_ptr("internal_read_char_ptr", internal_read_char);
+  def_internal_ptr("internal_codeptr_ptr", internal_codeptr);
+  def_internal_ptr("internal_codeidx_ptr", internal_codeidx);
 }
 
 void def_internal(char* name, bool isfn, void* semfn, void* genfn) {

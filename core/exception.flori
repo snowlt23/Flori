@@ -1,0 +1,109 @@
+defprimitive error 8
+inline fn cast_int(e ^error) ^int {}
+inline fn cast_error(e ^int) ^error {}
+fn ==(a ^error, b ^error) ^bool {
+  return cast_int(a) == cast_int(b)
+}
+expand_ptr(^error)
+
+g_error_count := 0
+syntax deferror() ^fmap {
+  ename := parse()
+  en := fintlit(g_error_count)
+  g_error_count += 1
+  quote {
+    `ename` := cast_error(`en`)
+  }
+}
+
+deferror ERROR_SOUNDNESS
+
+except_error := ERROR_SOUNDNESS
+var except_return ^pointer
+var except_stacktop ^int
+var except_stackbot ^int
+
+fn codeptr() ^pointer {
+  return cast_pointer(cffi(internal_codeptr_ptr))
+}
+
+fn get_codeidx() ^int {
+  return cast_pointer(cffi(internal_codeidx_ptr))
+}
+
+var g_idx ^int
+codegen ^int macro mark_codeidx() ^fmap {
+  g_idx = get_codeidx() + 2
+  quote {
+    X(0x48) X(0xb8) # mov abs rax, ..
+    X(0) X(0) X(0) X(0) X(0) X(0) X(0) X(0)
+    push_rax()
+  }
+}
+codegen ^int macro fixup_codeidx() ^fmap {
+  *cast_ptr_int(codeptr() + g_idx) = get_codeidx()
+  fblock()
+}
+
+inline fn stacktop() ^int {
+  X(0x48) X(0x89) X(0xe0) # mov rax, rsp
+  push_rax()
+}
+inline fn inject_stacktop(p ^int) {
+  pop_rax()
+  X(0x48) X(0x89) X(0xc4) # mov rsp, rax
+}
+
+inline fn stackbot() ^int {
+  X(0x48) X(0x89) X(0xe8) # mov rax, rbp
+  push_rax()
+}
+inline fn inject_stackbot(p ^int) {
+  pop_rax()
+  X(0x48) X(0x89) X(0xc5) # mov rbp, rax
+}
+
+inline fn jmp_to_pointer(p ^pointer) {
+  pop_rax()
+  X(0xff) X(0xe0)
+}
+
+macro try_catch_macro(trybody ^fmap, catchbody ^fmap) ^fmap {
+  tmpret := gensym()
+  tmptop := gensym()
+  tmpbot := gensym()
+  quote {
+    `tmpret` := except_return
+    `tmptop` := except_stacktop
+    `tmpbot` := except_stackbot
+    except_stacktop = stacktop()
+    except_stackbot = stackbot()
+    except_return = codeptr() + mark_codeidx()
+    fixup_codeidx()
+    if except_error == ERROR_SOUNDNESS {
+      `trybody`
+    } else {
+      `catchbody`
+      except_error = ERROR_SOUNDNESS
+    }
+    except_return = `tmpret`
+    except_stacktop = `tmptop`
+    except_stackbot = `tmpbot`
+  }
+}
+
+syntax try() ^fmap {
+  t := parse()
+  cid := parse()
+  c := parse()
+  quote try_catch_macro(`t`, `c`)
+}
+
+macro throw(err ^fmap) ^fmap {
+  quote {
+    except_error = `err`
+    inject_stacktop(except_stacktop)
+    inject_stackbot(except_stackbot)
+    jmp_to_pointer(except_return)
+  }
+}

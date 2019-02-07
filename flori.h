@@ -422,6 +422,8 @@ FMap call_macro(FSymbol sym, IListFMap args);
 // boot.c
 bool ftype_eq(FType a, FType b);
 char* ftype_tostring(FType t);
+FType get_ftype(FMap f);
+FMap new_ftypesym(FType t);
 // void boot_init();
 void boot_init_internals();
 void boot_semantic(FMap f);
