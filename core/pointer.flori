@@ -13,9 +13,7 @@ macro expand_ptr(t ^fmap) ^fmap {
   }
 }
 
-syntax ^ptr() ^fmap {
-  t := parse()
-  t = ftype(t)
+macro ptr_macro(t ^fmap) ^fmap {
   pt := ftype(t)
   set(pt, "ptr", fintlit(1))
   prim := quote {
@@ -24,4 +22,10 @@ syntax ^ptr() ^fmap {
   }
   semeval(prim)
   return pt
+}
+
+syntax ^ptr() ^fmap {
+  t := parse()
+  t = ftype(t)
+  quote ptr_macro(`t`)
 }

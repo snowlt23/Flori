@@ -1,0 +1,255 @@
+enum register {
+  REG_RAX
+  REG_RCX
+  REG_RDX
+  REG_RBX
+  REG_RSP
+  REG_RBP
+  REG_RDI
+}
+
+enum modrm_addr {
+  modrm_disp_reg
+  modrm_disp8
+  modrm_disp32
+  modrm_reg
+}
+
+enum irkind {
+  IR_IMM
+  IR_REG
+  IR_TMP
+  IR_RET
+  IR_PUSH
+  IR_POP
+  IR_ADD
+  IR_MOV
+}
+
+struct irnode {
+  kind ^irkind
+
+  value ^ptr irnode
+  left ^ptr irnode
+  right ^ptr irnode
+
+  tmpid ^int
+  reg ^register
+  imm ^int
+}
+
+buffer: irbuffer 1024
+buffer: irlist 1024
+
+inline fn cast_ptr_irnode(p ^pointer) ^ptr irnode {}
+inline fn cast_ptr_irnode(p ^int) ^ptr irnode {}
+
+fn new_irnode(kind ^irkind) ^ptr irnode {
+  p := cast_ptr_irnode(irbuffer.p + irbuffer.pos)
+  irbuffer.pos += sizeof(^irnode)
+  p.kind = kind
+  return p
+}
+
+fn clear_ir() {
+  irbuffer.pos = 0
+  irlist.pos = 0
+}
+
+fn push_ir(ir ^ptr irnode) {
+  irlist <@ cast_int(ir)
+}
+
+fn immnode(imm ^int) ^ptr irnode {
+  ir := new_irnode(IR_IMM)
+  ir.imm = imm
+}
+
+fn regnode(reg ^register) ^ptr irnode {
+  ir := new_irnode(IR_REG)
+  ir.reg = reg
+  return ir
+}
+
+rax := regnode(REG_RAX)
+rcx := regnode(REG_RCX)
+rdx := regnode(REG_RDX)
+rbx := regnode(REG_RBX)
+rsp := regnode(REG_RSP)
+rbp := regnode(REG_RBP)
+rdi := regnode(REG_RDI)
+
+ir_tmpcount := 0
+fn tmpnode() ^ptr irnode {
+  ir := new_irnode(IR_TMP)
+  ir.tmpid = ir_tmpcount
+  ir_tmpcount += 1
+  return ir
+}
+
+macro expand_ir1(name ^fmap, kind ^fmap) {
+  quote {
+    fn (`name`)(value ^ptr irnode) {
+      ir := new_irnode(`kind`)
+      ir.value = value
+      push_ir(ir)
+    }
+  }
+}
+
+macro expand_ir2(name ^fmap, kind ^fmap) ^fmap {
+  quote {
+    fn (`name`)(left ^ptr irnode, right ^ptr irnode) {
+      ir := new_irnode(`kind`)
+      ir.left = left
+      ir.right = right
+      push_ir(ir)
+    }
+  }
+}
+
+fn ret() {
+  push_ir(new_irnode(IR_RET))
+}
+
+fn irvar(ir ^ptr irnode) {
+  push_ir(ir)
+}
+
+expand_ir1(push, IR_PUSH)
+expand_ir1(pop, IR_POP)
+expand_ir2(mov, IR_MOV)
+expand_ir2(add, IR_ADD)
+
+fn convert_fintlit_to_ir(f ^fmap) {
+  if strcmp(kind(f), FMAP_INTLIT) {
+    replace(f, quote immnode(`dup(f)`))
+  } elif is(f, FMAP_MAP) {
+    flst := to_flist(f)
+    i := 0
+    while i < len(flst) {
+      convert_fintlit_to_ir(get(get(flst, i), "value"))
+      i = i+1
+    }
+  } elif is(f, FMAP_LIST) {
+    i := 0
+    while i < len(f) {
+      convert_fintlit_to_ir(get(f, i))
+      i = i+1
+    }
+  }
+}
+
+fn inject_fnaddr(sym ^fmap, newidx ^int) {
+  cffi(internal_inject_fnaddr_ptr, cast_int(sym), newidx)
+}
+
+fn opcode(op ^int) {
+  cffi(internal_opcode_ptr, op)
+}
+
+macro defn_macro(name ^fmap, argdecls ^fmap, body ^fmap) ^fmap {
+  f := fmap("fn")
+  set(f, "name", name)
+  set(f, "argdecls", argdecls)
+  set(f, "returntype" quote ^void)
+  set(f, "body", fblock())
+  semeval(f)
+  sym := get(f, "sym")
+  convert_fintlit_to_ir(body)
+  quote {
+    static {
+      inject_fnaddr(fmap_as_value(`sym`), get_codeidx())
+      fn_prologue()
+      `body`
+      fn_epilogue()
+    }
+  }
+}
+
+syntax defn() ^fmap {
+  name := parse_until(*cast_ptr("("))
+  read_char()
+  argdecls := flist()
+  body := parse()
+  quote defn_macro(`name`, `argdecls`, `body`)
+}
+
+fn naive_regalloc() {
+  regi := 0
+  irlen := irlist.pos / sizeof(^int)
+  for i in 0..<irlen {
+    ir := cast_ptr_irnode(at(irlist, ^int, i))
+    if ir.kind == IR_TMP {
+      ir.kind = IR_REG
+      ir.reg = register(regi)
+      regi += 1
+    }
+  }
+}
+
+fn lendian32(imm ^int) {
+  opcode(and(imm, 0xFF))
+  opcode(and(imm >> 8, 0xFF))
+  opcode(and(imm >> 16, 0xFF))
+  opcode(and(imm >> 24, 0xFF))
+}
+
+fn modrm(rm ^register, reg ^register, md ^modrm_addr) ^int {
+  (cast_int(md) << 6) + (cast_int(reg) << 3) + cast_int(rm)
+}
+
+fn ir_codegen() {
+  naive_regalloc()
+  irlen := irlist.pos / sizeof(^int)
+  for i in 0..<irlen {
+    ir := cast_ptr_irnode(at(irlist, ^int, i))
+    if ir.kind == IR_RET {
+      opcode(0xc3)
+    } elif ir.kind == IR_PUSH {
+      opcode(0x50 + cast_int(ir.value.reg))
+    } elif ir.kind == IR_POP {
+      opcode(0x58 + cast_int(ir.value.reg))
+    } elif ir.kind == IR_ADD {
+      if ir.right.kind == IR_IMM {
+        opcode(0x48) opcode(0x81) opcode(0xc0 + cast_int(ir.left.reg))
+        lendian32(ir.right.imm)
+      } else {
+        opcode(0x48) opcode(0x01)
+        opcode(modrm(ir.left.reg, ir.right.reg, modrm_reg))
+      }
+    } elif ir.kind == IR_MOV {
+      if ir.right.kind == IR_IMM {
+        opcode(0x48) opcode(0xc7) opcode(0xc0 + cast_int(ir.left.reg))
+        lendian32(ir.right.imm)
+      } else {
+        opcode(0x48) opcode(0x89)
+        opcode(modrm(ir.left.reg, ir.right.reg, modrm_reg))
+      }
+    }
+  }
+  clear_ir()
+}
+
+fn fn_prologue() {
+  push(rbp)
+  mov(rbp, rsp)
+}
+fn fn_epilogue() {
+  mov(rsp, rbp)
+  pop(rbp)
+  ret()
+  ir_codegen()
+}
+
+fn +(air ^ptr irnode, bir ^ptr irnode) ^ptr irnode {
+  t := tmpnode()
+  irvar(t)
+  mov(t, air)
+  add(t, bir)
+  return t
+}
+
+fn ret(x ^ptr irnode) {
+  mov(rax, x)
+}

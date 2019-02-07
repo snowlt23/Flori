@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/syntax.flori core/allocator.flori core/string.flori core/asm.flori"
-CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/allocator.flori core/quote.flori core/syntax.flori core/storage.flori core/stringbuffer.flori core/module.flori core/functor.flori core/array.flori core/pointer.flori core/exception.flori core/asm.flori"
+CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/allocator.flori core/quote.flori core/syntax.flori core/storage.flori core/stringbuffer.flori core/module.flori core/functor.flori core/array.flori core/pointer.flori core/exception.flori core/ir.flori"
 # CORELIBS="core/prelude.flori"
 
 read-coresrc() {
@@ -149,9 +149,9 @@ filetest "examples/exception.flori" "Error5"
 # executable test
 #
 
-exectest "examples/fib.flori" 0
-exectest "examples/exitfib.flori" 34
-exectest "examples/sysprint.flori" "yukarisan0"
-exectest "examples/globalvar.flori" 45
-# exectest "examples/memory_allocate.flori" 123
-exectest "examples/while.flori" "aaaaaaaaaa0"
+# exectest "examples/fib.flori" 0
+# exectest "examples/exitfib.flori" 34
+# exectest "examples/sysprint.flori" "yukarisan0"
+# exectest "examples/globalvar.flori" 45
+# # exectest "examples/memory_allocate.flori" 123
+# exectest "examples/while.flori" "aaaaaaaaaa0"

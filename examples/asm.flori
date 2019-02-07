@@ -1,9 +1,3 @@
-fn asmexit(retcode ^int) {
-  mov(rax, 60)
-  mov(rdi, retcode)
-  syscall()
-}
-
 defn main() {
-  mov(rax, 55)
+  ret(11 + 44)
 }

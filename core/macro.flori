@@ -170,6 +170,7 @@ syntax static() ^fmap {
   return fcall(fident("static_macro"), args)
 }
 
+FMAP_INTLIT := "fintlit"
 FMAP_IDENT := "fident"
 FMAP_MAP := "fmap"
 FMAP_LIST := "flist"
