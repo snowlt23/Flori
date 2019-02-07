@@ -155,6 +155,10 @@ IString lex_operator(Stream* s) {
 }
 
 FMap parse_declident(Stream* s) {
+  if (stream_get(s) == '(') {
+    return parse_prim(s);
+  }
+    
   char litbuf[1024] = {};
   streamrep(i, s) {
     assert(i < 1024);

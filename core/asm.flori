@@ -1,16 +1,19 @@
-defprimitive register 8
-jit cast_register(^int) ^register {}
-jit cast_int(^register) ^int {}
+enum register {
+  rax
+  rcx
+  rdx
+  rbx
+  rsp
+  rbp
+  rdi
+}
 
-rax := cast_register 0
-rcx := cast_register 1
-rdx := cast_register 2
-rbx := cast_register 3
-rsp := cast_register 4
-rbp := cast_register 5
-rdi := cast_register 7
-
-mod_reg := 3
+enum modrm_addr {
+  modrm_disp_reg
+  modrm_disp8
+  modrm_disp32
+  modrm_reg
+}
 
 # opstore := cast_ptr_char $malloc 1024
 # op_i := 0
@@ -29,38 +32,38 @@ fn asmop(op ^int) {
 #   op_i = 0
 # }
 
-fn modrm(rm ^register, reg ^register, mod ^int) ^int {
-  shl mod 6 + shl (cast_int reg) 3 + cast_int rm
+fn modrm(rm ^register, reg ^register, md ^modrm_addr) ^int {
+  cast_int(md) << 6 + cast_int(reg) << 3 + cast_int(rm)
 }
 
 fn lendian32(imm ^int) {
-  asmop (and imm 0xFF)
-  asmop (and $shr imm 8 $0xFF)
-  asmop (and $shr imm 16 $0xFF)
-  asmop (and $shr imm 24 $0xFF)
+  asmop(imm & 0xFF)
+  asmop((imm >> 8) & 0xFF)
+  asmop((imm >> 16) & 0xFF)
+  asmop((imm >> 24) & 0xFF)
 }
 
 fn mov(reg ^register, imm ^int) {
-  asmop 0x48; asmop 0xc7; asmop (0xc0 + $cast_int reg)
-  lendian32 imm
+  asmop(0x48) asmop(0xc7) asmop(0xc0 + cast_int(reg))
+  lendian32(imm)
 }
 
 fn mov(rm ^register, reg ^register) {
-  asmop 0x48; asmop 0x89
-  asmop $modrm rm reg mod_reg
+  asmop(0x48) asmop(0x89)
+  asmop(modrm(rm, reg, modrm_reg))
 }
 
 fn push(reg ^register) {
-  asmop $0x50 + (cast_int reg)
+  asmop(0x50 + cast_int(reg))
 }
 fn pop(reg ^register) {
-  asmop $0x58 + (cast_int reg)
+  asmop(0x58 + cast_int(reg))
 }
 
 fn syscall() {
-  asmop 0x0f; asmop 0x05
+  asmop(0x0f) asmop(0x05)
 }
 
 fn ret() {
-  asmop 0xc3
+  asmop(0xc3)
 }

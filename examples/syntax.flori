@@ -1,6 +1,15 @@
+enum voice {
+  YUKARI
+  MAKI
+  AKARI
+}
+
 fn main() {
   for i in 1..10 {
     internal_print(i)
   }
+  print(to_cstring(YUKARI))
+  print(to_cstring(MAKI))
+  print(to_cstring(AKARI))
   0
 }

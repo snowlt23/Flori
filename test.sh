@@ -122,7 +122,7 @@ filetest "examples/while.flori" "aaaaaaaaaa0"
 filetest "examples/cstring.flori" "akari0"
 # filetest "examples/string.flori" 3
 filetest "examples/macro.flori" "!@Hello Yukari!9"
-filetest "examples/syntax.flori" "123456789100"
+filetest "examples/syntax.flori" "YUKARIMAKIAKARI123456789100"
 
 #
 # extend library test

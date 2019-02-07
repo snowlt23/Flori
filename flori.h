@@ -398,6 +398,8 @@ Stream* new_stream(char* buf);
 bool stream_isend(Stream* s);
 char stream_next(Stream* buf);
 void parser_init_internal();
+FMap parse_readersyntax(Stream* s);
+FMap parse_prim(Stream* s);
 FMap parse(Stream* s);
 
 // decls.c

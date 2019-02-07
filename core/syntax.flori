@@ -34,3 +34,37 @@ macro +=(i ^fmap, x ^fmap) ^fmap {
     `dup(i)` = `dup(i)` + `x`
   }
 }
+
+macro enum_macro(name ^fmap, body ^fmap) ^fmap {
+  t := ftype(name)
+  blk := fblock()
+  tosbody := fblock()
+  for i in 0..<len(body) {
+    enumname := get(body, i)
+    enumi := fintlit(i)
+    push(blk, quote {
+        `enumname` := `dup(name)`(`enumi`)
+      })
+    enums := fstrlit(to_cstring(enumname))
+    push(tosbody, quote {
+        if x == `enumname` {
+          return `enums`
+        }
+      })
+  }
+  quote {
+    defprimitive `name` 8
+    inline fn (`name`)(x ^int) `t` {}
+    inline fn cast_int(x `t`) ^int {}
+    fn ==(a `t`, b `t`) ^bool {cast_int(a) == cast_int(b)}
+    expand_ptr(`t`)
+    `blk`
+    fn to_cstring(x `t`) ^cstring `tosbody`
+  }
+}
+
+syntax enum() ^fmap {
+  name := parse()
+  body := parse()
+  quote enum_macro(`name`, `body`)
+}
