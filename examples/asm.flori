@@ -1,37 +1,9 @@
 fn asmexit(retcode ^int) {
-  mov rax 60
-  mov rdi retcode
-  syscall
-}
-
-fn fn_prologue() {
-  push rbp
-  mov rbp rsp
-}
-fn fn_epilogue() {
-  mov rsp rbp
-  pop rbp
-  ret
-  write_opstore
-}
-
-fn create_dummy_fn(name ^fexpr, argdecls ^fexpr) ^fexpr {
-  get (quote {
-    fn `name `argdecls {}
-  }) 0
-}
-
-macro defn(name ^fexpr, argdecls ^fexpr, body ^fexpr) ^fexpr {
-  quote {
-    static {
-      createdef (create_dummy_fn (fexpr_as_value `name) (fexpr_as_value `argdecls))
-      fn_prologue
-      `body
-      fn_epilogue
-    }
-  }
+  mov(rax, 60)
+  mov(rdi, retcode)
+  syscall()
 }
 
 defn main() {
-  mov rax 55
+  mov(rax, 55)
 }

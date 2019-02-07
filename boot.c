@@ -1008,6 +1008,15 @@ size_t internal_codeidx() {
   return jit_getidx();
 }
 
+void internal_inject_fnaddr(size_t fidx, size_t newaddr) {
+  FMap f = (FMap){fidx};
+  fp(FSymbol, fm(f)->sym)->fnidx = newaddr;
+}
+
+void internal_opcode(size_t op) {
+  write_hex(op);
+}
+
 void def_internal_ptr(char* name, void* p) {
   IString nameid = new_istring(name);
   FSymbol sym = new_symbol(nameid);
@@ -1044,6 +1053,8 @@ void internal_init_defs(FMap f) {
   def_internal_ptr("internal_read_char_ptr", internal_read_char);
   def_internal_ptr("internal_codeptr_ptr", internal_codeptr);
   def_internal_ptr("internal_codeidx_ptr", internal_codeidx);
+  def_internal_ptr("internal_inject_fnaddr_ptr", internal_inject_fnaddr);
+  def_internal_ptr("internal_opcode_ptr", internal_opcode);
 }
 
 void def_internal(char* name, bool isfn, void* semfn, void* genfn) {

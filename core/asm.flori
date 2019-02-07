@@ -15,32 +15,27 @@ enum modrm_addr {
   modrm_reg
 }
 
-# opstore := cast_ptr_char $malloc 1024
-# op_i := 0
-
-fn asmop(op ^int) {
-  # internal_print op
-  # opcode op
-  # deref $opstore + op_i = cast_char op
-  # op_i += 1
+fn inject_fnaddr(sym ^fmap, newidx ^int) {
+  cffi(internal_inject_fnaddr_ptr, cast_int(sym), newidx)
 }
 
-# fn write_opstore() {
-#   for i (range0 0 op_i) {
-#     opcode (cast_int (deref (opstore + op_i)))
-#   }
-#   op_i = 0
-# }
+fn opcode(op ^int) {
+  cffi(internal_opcode_ptr, op)
+}
+
+fn asmop(op ^int) {
+  opcode(op)
+}
 
 fn modrm(rm ^register, reg ^register, md ^modrm_addr) ^int {
-  cast_int(md) << 6 + cast_int(reg) << 3 + cast_int(rm)
+  (cast_int(md) << 6) + (cast_int(reg) << 3) + cast_int(rm)
 }
 
 fn lendian32(imm ^int) {
-  asmop(imm & 0xFF)
-  asmop((imm >> 8) & 0xFF)
-  asmop((imm >> 16) & 0xFF)
-  asmop((imm >> 24) & 0xFF)
+  asmop(and(imm, 0xFF))
+  asmop(and(imm >> 8, 0xFF))
+  asmop(and(imm >> 16, 0xFF))
+  asmop(and(imm >> 24, 0xFF))
 }
 
 fn mov(reg ^register, imm ^int) {
@@ -66,4 +61,40 @@ fn syscall() {
 
 fn ret() {
   asmop(0xc3)
+}
+
+fn fn_prologue() {
+  push(rbp)
+  mov(rbp, rsp)
+}
+fn fn_epilogue() {
+  mov(rsp, rbp)
+  pop(rbp)
+  ret()
+}
+
+macro defn_macro(name ^fmap, argdecls ^fmap, body ^fmap) ^fmap {
+  f := fmap("fn")
+  set(f, "name", name)
+  set(f, "argdecls", argdecls)
+  set(f, "returntype" quote ^void)
+  set(f, "body", fblock())
+  semeval(f)
+  sym := get(f, "sym")
+  quote {
+    static {
+      inject_fnaddr(fmap_as_value(`sym`), get_codeidx())
+      fn_prologue()
+      `body`
+      fn_epilogue()
+    }
+  }
+}
+
+syntax defn() ^fmap {
+  name := parse_until(*cast_ptr("("))
+  read_char()
+  argdecls := flist()
+  body := parse()
+  quote defn_macro(`name`, `argdecls`, `body`)
 }
