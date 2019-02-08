@@ -3,5 +3,6 @@ fn main() {
   p := cast_cstring(malloc(6))
   copy(p, s)
   print(p)
+  free(cast_pointer(p))
   0
 }

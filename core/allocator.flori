@@ -23,15 +23,107 @@ fn mmap(addr ^int, len ^int, prot ^int, flags ^int, fd ^int, offset ^int) ^point
   return cast_pointer(syscall(9, addr, len, prot, flags, fd, offset))
 }
 
+#
+# K&R malloc
+#
+
+struct memheader {
+  ptr ^ptr memheader
+  size ^int
+}
+inline fn cast_pointer(p ^ptr memheader) ^pointer {}
+inline fn cast_int(p ^ptr memheader) ^int {}
+inline fn cast_ptr_memheader(p ^pointer) ^ptr memheader {}
+inline fn +(a ^ptr memheader, b ^int) ^ptr memheader {genadd()}
+inline fn *(p ^ptr ptr memheader) ^ptr memheader {genderef()}
+inline fn *=(p ^ptr ptr memheader, v ^ptr memheader) {genset()}
+inline fn *lvalue(p ^ptr ptr memheader) ^ptr ptr memheader {genlvalue()}
+
+BLOCK_SIZE := 32
+CHUNK_SIZE := 4096
+
+var base ^memheader
+var freeptr ^ptr memheader
+
 fn alloc_chunk(size ^int) ^pointer {
   return mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0)
 }
 
-memchunk := alloc_chunk(4096 * 2)
-memchunkpos := 0
+fn init_malloc() {
+  base.ptr = cast_ptr_memheader(alloc_chunk(CHUNK_SIZE))
+  base.size = 0
+  base.ptr.ptr = &base
+  base.ptr.size = CHUNK_SIZE / BLOCK_SIZE
+  freeptr = &base
+}
+static {
+  init_malloc()
+}
 
 fn malloc(size ^int) ^pointer {
-  retp := memchunk + memchunkpos
-  memchunkpos = memchunkpos + size
-  return retp
+  if size < CHUNK_SIZE {} else {
+    return alloc_chunk(size)
+  }
+  
+  blockn := (sizeof(^memheader) + size) / BLOCK_SIZE
+  if mod(sizeof(^memheader) + size, BLOCK_SIZE) == 0 {} else {blockn = blockn + 1}
+
+  prev := freeptr
+  while true() {
+    p := prev.ptr
+    if blockn == p.size {
+      prev.ptr = p.ptr
+      freeptr = prev
+      return cast_pointer(p) + sizeof(^memheader)
+    } elif blockn < p.size {
+      p.size = p.size - blockn
+      p = p + p.size*BLOCK_SIZE
+      freeptr = prev
+      return cast_pointer(p) + sizeof(^memheader)
+    }
+    if cast_int(cast_pointer(p)) == cast_int(cast_pointer(freeptr)) {
+      return cast_pointer(0)
+    }
+    prev = prev.ptr
+  }
+}
+
+fn relink_freelist(bp ^ptr memheader, p ^ptr memheader) {
+  if cast_int(bp + bp.size) == cast_int(p.ptr) {
+    bp.size = bp.size + p.ptr.size
+    bp.ptr = p.ptr.ptr
+  } else {
+    bp.ptr = p.ptr
+  }
+  if cast_int(p + p.size) == cast_int(bp) {
+    p.size = p.size + bp.size
+    p.ptr = bp.ptr
+  } else {
+    p.ptr = bp
+  }
+  freeptr = p
+}
+
+fn free(ap ^pointer) {
+  bp := cast_ptr_memheader(ap + (0 - sizeof(^memheader)))
+  p := freeptr
+  while true() {
+    if cast_int(p) < cast_int(bp) {
+      if cast_int(bp) < cast_int(p.ptr) {
+        relink_freelist(bp, p)
+        return 0
+      }
+    }
+    if (cast_int(p.ptr) < cast_int(p)-1) {
+      if cast_int(p) < cast_int(bp) {
+        relink_freelist(bp, p)
+        return 0
+      }
+      if cast_int(bp) < cast_int(p.ptr) {
+        relink_freelist(bp, p)
+        return 0
+      }
+    }
+    p = p.ptr
+  }
 }

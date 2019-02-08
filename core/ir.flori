@@ -19,11 +19,15 @@ enum irkind {
   IR_IMM
   IR_REG
   IR_TMP
+  IR_LABEL
   IR_RET
   IR_PUSH
   IR_POP
   IR_ADD
+  IR_SUB
+  IR_LESSER
   IR_MOV
+  IR_GOTO
 }
 
 struct irnode {
@@ -58,11 +62,6 @@ fn clear_ir() {
 
 fn push_ir(ir ^ptr irnode) {
   irlist <@ cast_int(ir)
-}
-
-fn immnode(imm ^int) ^ptr irnode {
-  ir := new_irnode(IR_IMM)
-  ir.imm = imm
 }
 
 fn regnode(reg ^register) ^ptr irnode {
@@ -242,14 +241,44 @@ fn fn_epilogue() {
   ir_codegen()
 }
 
-fn +(air ^ptr irnode, bir ^ptr irnode) ^ptr irnode {
-  t := tmpnode()
-  irvar(t)
-  mov(t, air)
-  add(t, bir)
-  return t
+buffer: irtypebuffer 1024
+macro irtype_macro(t ^fmap) ^fmap {
+  sym := gensym()
+  buflen := irtypebuffer.pos / sizeof(^int)
+  for i in 0..<buflen {
+    irt := cast_fmap(at(irtypebuffer, ^int, i))
+    if strcmp(to_cstring(get(irt, "irtype")), to_cstring(t)) {
+      return irt
+    }
+  }
+  tsym := ftype(sym)
+  set(tsym, "irtype", t)
+  irtypebuffer <@ cast_int(tsym)
+  semeval(quote {
+      defprimitive `sym` 8
+      inline fn irn(ir `tsym`) ^ptr irnode {}
+    })
+  return tsym
 }
 
-fn ret(x ^ptr irnode) {
-  mov(rax, x)
+syntax ^irtype() ^fmap {
+  t := parse()
+  quote irtype_macro(`t`)
+}
+
+fn immnode(imm ^int) ^irtype int {
+  ir := new_irnode(IR_IMM)
+  ir.imm = imm
+}
+
+fn +(air ^irtype int, bir ^irtype int) ^irtype int {
+  t := tmpnode()
+  irvar(t)
+  mov(t, irn(air))
+  add(t, irn(bir))
+  t
+}
+
+fn ret(x ^irtype int) {
+  mov(rax, irn(x))
 }

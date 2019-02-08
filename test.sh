@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/syntax.flori core/allocator.flori core/string.flori core/asm.flori"
-CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/allocator.flori core/quote.flori core/syntax.flori core/storage.flori core/stringbuffer.flori core/module.flori core/functor.flori core/array.flori core/pointer.flori core/exception.flori core/ir.flori"
+CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/allocator.flori core/quote.flori core/syntax.flori core/storage.flori core/stringbuffer.flori core/module.flori core/functor.flori core/array.flori core/pointer.flori core/exception.flori"
 # CORELIBS="core/prelude.flori"
 
 read-coresrc() {
@@ -37,7 +37,7 @@ runtest() {
 filetest() {
   echo "[TEST] $1"
   PRELUDE=`read-coresrc`
-  FILE=`cat "$1"`
+  FILE=`cat $1`
   OUT=`echo "$PRELUDE; $FILE" | ./bin/flori`
   if [ "$2" != "$OUT" ] ; then
     echo "[ERROR] $1: expect $2, but got $OUT"
@@ -128,7 +128,7 @@ filetest "examples/syntax.flori" "YUKARIMAKIAKARI123456789100"
 # extend library test
 #
 
-filetest "examples/asm.flori" "55"
+# filetest "examples/asm.flori" "55"
 filetest "examples/storage.flori" "9"
 
 HTTP_REQ=`cat <<EOF
