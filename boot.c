@@ -92,13 +92,13 @@ bool ftype_is(FType t, char* name) {
   return strcmp(istring_cstr(fp(FSymbol, fp(FType, t)->sym)->name), name) == 0;
 }
 
-char* ftype_tostring(FType t) {
+String* ftype_tostring(FType t) {
   if (fp(FType, t)->kind == FTYPE_PRIM || fp(FType, t)->kind == FTYPE_SYM) {
-    return istring_cstr(fp(FSymbol, fp(FType, t)->sym)->name);
+    return new_string_by(istring_cstr(fp(FSymbol, fp(FType, t)->sym)->name));
   } else if (fp(FType, t)->kind == FTYPE_PTR) {
-    char buf[1024] = {};
-    snprintf(buf, 1024, "ptr %s", ftype_tostring(fp(FType, t)->ptrof));
-    return strdup(buf);
+    String* s = new_string_by("ptr ");
+    string_push(s, ftype_tostring(fp(FType, t)->ptrof)->data);
+    return s;
   } else {
     assert(false);
   }
@@ -248,7 +248,7 @@ void codegen_fstrlit(FMap f) {
 
 void semantic_fident(FMap f) {
   Decl decl;
-  if (!search_decl(fm(f)->ident, &decl)) error("undeclared %s ident", fmap_tostring(f));
+  if (!search_decl(fm(f)->ident, &decl)) error("undeclared %s ident", fmap_repr(f)->data);
   *fm(f) = *fm(fsymbol(decl.sym));
   fmap_cpush(f, "type", new_ftypesym(decl.typ));
 }
@@ -291,7 +291,6 @@ void codegen_flist(FMap f) {
 
 void semantic_block(FMap f) {
   if (is_toplevel(f)) {
-    // debug("%s", fmap_tostring(f));
     forlist (IListFMap, FMap, e, fm(f)->lst) {
       fmap_cpush(e, "toplevel", fintlit(1));
       boot_semantic(e);
@@ -445,7 +444,7 @@ FTypeVec* gen_fmap_argtypes(int n) {
 void semantic_call(FMap f) {
   FMap call = fmap_cget(f, "call");
   FMap args = fmap_cget(f, "args");
-  if (!eq_kind(call, FMAP_IDENT) && !eq_kind(call, FMAP_SYMBOL)) error("%s isn't function.", fmap_tostring(call));
+  if (!eq_kind(call, FMAP_IDENT) && !eq_kind(call, FMAP_SYMBOL)) error("%s isn't function.", fmap_repr(call)->data);
   InternalDecl decl;
   FnDecl fndecl;
   if (search_internal_decl(fm(call)->ident, &decl) && decl.isfn) {
@@ -493,7 +492,7 @@ void semantic_call(FMap f) {
       fmap_cpush(f, "type", new_ftypesym(fndecl.returntype));
     }
   } else {
-    error("undeclared %s function: %s", fmap_tostring(call), fmap_tostring(f));
+    error("undeclared %s function: %s", fmap_repr(call)->data, fmap_repr(f)->data);
   }
 }
 
@@ -766,7 +765,7 @@ void codegen_addr(FMap f) {
     write_lendian(fp(FSymbol, fm(fmap_cget(lvalue, "sym"))->sym)->varoffset);
     write_hex(0x50); // push rax
   } else {
-    error("%s should be lvalue in &", fmap_tostring(lvalue));
+    error("%s should be lvalue in &", fmap_repr(lvalue)->data);
   }
 }
 
@@ -830,7 +829,7 @@ void semantic_field(FMap f) {
     boot_semantic(left);
   }
   FMap field;
-  if (!search_field(fp(FType, lefttype)->sym, fm(right)->ident, &field)) error("undeclared %s field in %s struct", fmap_tostring(right), ftype_tostring(lefttype));
+  if (!search_field(fp(FType, lefttype)->sym, fm(right)->ident, &field)) error("undeclared %s field in %s struct", fmap_repr(right)->data, ftype_tostring(lefttype)->data);
   fmap_cpush(f, "type", fmap_cget(field, "type"));
   fmap_cpush(f, "sym", fmap_cget(field, "sym"));
   fmap_cpush(f, "evaluated", fintlit(1));
@@ -853,7 +852,7 @@ void semantic_field_lvalue(FMap f) {
     boot_semantic(left);
   }
   FMap field;
-  if (!search_field(fp(FType, lefttype)->sym, fm(right)->ident, &field)) error("undeclared %s field in %s struct", fmap_tostring(right), ftype_tostring(lefttype));
+  if (!search_field(fp(FType, lefttype)->sym, fm(right)->ident, &field)) error("undeclared %s field in %s struct", fmap_repr(right)->data, ftype_tostring(lefttype)->data);
   fmap_cpush(f, "type", fmap_cget(field, "type"));
   fmap_cpush(f, "sym", fmap_cget(field, "sym"));
   fmap_cpush(f, "evaluated", fintlit(1));
@@ -953,7 +952,7 @@ void internal_fmap_replace(size_t idxa, size_t idxb) {
 
 char* internal_fmap_to_cstring(size_t fidx) {
   FMap f = (FMap){fidx};
-  return fmap_tostring(f);
+  return fmap_tostring(f)->data;
 }
 
 size_t internal_fmap_to_flist(size_t fidx) {
@@ -1102,7 +1101,7 @@ void boot_semantic(FMap f) {
   if (is_evaluated(f)) return;
   IString kind = fm(f)->kind;
   InternalDecl decl;
-  if (!search_internal_decl(kind, &decl)) error("unknown %s fmap kind: %s", istring_cstr(kind), fmap_tostring(f));
+  if (!search_internal_decl(kind, &decl)) error("unknown %s fmap kind: %s", istring_cstr(kind), fmap_tostring(f)->data);
   (decl.semanticfn)(f);
   fmap_cpush(f, "evaluated", fintlit(1));
 }
@@ -1110,13 +1109,13 @@ void boot_semantic(FMap f) {
 void boot_codegen(FMap f) {
   IString kind = fm(f)->kind;
   InternalDecl decl;
-  if (!search_internal_decl(kind, &decl)) error("unknown %s fmap kind: %s", istring_cstr(kind), fmap_tostring(f));
+  if (!search_internal_decl(kind, &decl)) error("unknown %s fmap kind: %s", istring_cstr(kind), fmap_tostring(f)->data);
   if (decl.codegenfn != NULL) (decl.codegenfn)(f);
 }
 
 void boot_eval_toplevel(FMap f) {
-  // debug("%s", fmap_tostring(f));
-  // debug("%s", fmap_repr(f));
+  // debug("%s", fmap_tostring(f)->data);
+  // debug("%s", fmap_repr(f)->data);
   fmap_cpush(f, "toplevel", fintlit(1));
   boot_semantic(f);
   boot_codegen(f);

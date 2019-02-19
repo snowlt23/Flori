@@ -49,12 +49,6 @@
   }
 
 typedef struct {
-  void** data;
-  int cap;
-  int len;
-} Vector;
-
-typedef struct {
   char* buf;
   int pos;
   int len;
@@ -63,6 +57,12 @@ typedef struct {
 typedef struct {
   int index;
 } IString;
+
+typedef struct {
+  char* data;
+  size_t cap;
+  size_t len;
+} String;
 
 typedef struct {
   IString filename;
@@ -313,6 +313,16 @@ typedef struct {
 } RelocInfo;
 %%expand ilist(RelocList, RelocInfo);
 
+// string.c
+String* new_string_cap(size_t cap);
+String* new_string();
+String* new_string_by(char* cs);
+void string_extend(String* s, size_t len);
+void string_push(String* s, char* cs);
+void string_push_int(String* s, int x);
+void string_push_int64(String* s, int64_t x);
+void string_indent(String* s, int indent);
+
 // linmem.c
 void linmem_init(int size);
 bool linmem_need_extend();
@@ -389,9 +399,10 @@ FMap flist_reverse(FMap f);
 FMap first(IListFMap lst);
 IListFMap rest(IListFMap lst);
 void write_indent(char* buf, int indent);
-char* fmap_tostring_inside(FMap f, int indent);
-char* fmap_tostring(FMap f);
-char* fmap_repr(FMap f);
+String* fmap_tostring_indent(FMap f, int indent);
+String* fmap_tostring(FMap f);
+String* fmap_repr_indent(FMap f, int indent);
+String* fmap_repr(FMap f);
 
 // parser.c
 extern Stream* gstrm;
@@ -424,7 +435,7 @@ FMap call_macro(FSymbol sym, IListFMap args);
 
 // boot.c
 bool ftype_eq(FType a, FType b);
-char* ftype_tostring(FType t);
+String* ftype_tostring(FType t);
 FType get_ftype(FMap f);
 FMap new_ftypesym(FType t);
 // void boot_init();

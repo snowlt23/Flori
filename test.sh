@@ -70,6 +70,7 @@ httpcheck() {
   exit 1
 }
 
+unittest "string_test"
 unittest "linmem_test"
 unittest "jit_test"
 unittest "fmap_test"
