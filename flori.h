@@ -391,6 +391,7 @@ IListFMap rest(IListFMap lst);
 void write_indent(char* buf, int indent);
 char* fmap_tostring_inside(FMap f, int indent);
 char* fmap_tostring(FMap f);
+char* fmap_repr(FMap f);
 
 // parser.c
 extern Stream* gstrm;

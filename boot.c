@@ -1116,6 +1116,7 @@ void boot_codegen(FMap f) {
 
 void boot_eval_toplevel(FMap f) {
   // debug("%s", fmap_tostring(f));
+  // debug("%s", fmap_repr(f));
   fmap_cpush(f, "toplevel", fintlit(1));
   boot_semantic(f);
   boot_codegen(f);

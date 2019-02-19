@@ -88,7 +88,7 @@ fn malloc(size ^int) ^pointer {
   }
 }
 
-fn relink_freelist(bp ^ptr memheader, p ^ptr memheader) {
+fn combine_freelist(bp ^ptr memheader, p ^ptr memheader) {
   if cast_int(bp + bp.size) == cast_int(p.ptr) {
     bp.size = bp.size + p.ptr.size
     bp.ptr = p.ptr.ptr
@@ -110,17 +110,17 @@ fn free(ap ^pointer) {
   while true() {
     if cast_int(p) < cast_int(bp) {
       if cast_int(bp) < cast_int(p.ptr) {
-        relink_freelist(bp, p)
+        combine_freelist(bp, p)
         return 0
       }
     }
     if (cast_int(p.ptr) < cast_int(p)-1) {
       if cast_int(p) < cast_int(bp) {
-        relink_freelist(bp, p)
+        combine_freelist(bp, p)
         return 0
       }
       if cast_int(bp) < cast_int(p.ptr) {
-        relink_freelist(bp, p)
+        combine_freelist(bp, p)
         return 0
       }
     }
