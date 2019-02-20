@@ -330,6 +330,8 @@ void semantic_fn(FMap f) {
 
   fnstacksize = 0;
 
+  DeclMap localcp = get_local_checkpoint();
+
   IListFType argtypes = nil_IListFType();
   forlist(IListFMap, FMap, argdecl, fm(argdecls)->lst) {
     get_field(name, argdecl, "fn");
@@ -339,7 +341,7 @@ void semantic_fn(FMap f) {
     argtypes = new_IListFType(get_ftype(type), argtypes);
     FSymbol sym = new_symbol(fm(name)->ident);
     *fm(name) = *fm(fsymbol(sym));
-    add_decl((Decl){nameid, sym, get_ftype(type)});
+    add_local((Decl){nameid, sym, get_ftype(type)});
   }
   argtypes = IListFType_reverse(argtypes);
   
@@ -350,6 +352,8 @@ void semantic_fn(FMap f) {
     boot_semantic(body);
     fp(FSymbol, sym)->stacksize = fnstacksize;
   }
+
+  rollback_local(localcp);
   
   fmap_cpush(f, "type", new_ftypesym(type_void()));
 }
@@ -555,7 +559,7 @@ void semantic_var(FMap f) {
   if (is_toplevel(f)) {
     fp(FSymbol, sym)->istoplevel = true;
   }
-  add_decl((Decl){fm(name)->ident, sym, get_ftype(vartype)});
+  add_local((Decl){fm(name)->ident, sym, get_ftype(vartype)});
   fnstacksize += get_type_size(get_ftype(vartype));
   fmap_cpush(f, "sym", fsymbol(sym));
   fmap_cpush(f, "type", new_ftypesym(type_void()));

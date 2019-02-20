@@ -2,12 +2,15 @@
 #include <string.h>
 
 DeclMap declmap;
+DeclMap localmap;
 FnDeclMap fndeclmap;
+//SyntaxDeclMap syntaxdeclmap;
 InternalDeclMap internaldeclmap;
 ParserDeclMap parserdeclmap;
 
 void decls_init() {
   declmap = nil_DeclMap();
+  localmap = nil_DeclMap();
   fndeclmap = nil_FnDeclMap();
   internaldeclmap = nil_InternalDeclMap();
   parserdeclmap = nil_ParserDeclMap();
@@ -21,11 +24,33 @@ void add_decl(Decl decl) {
   declmap = new_DeclMap(decl, declmap);
 }
 
+void add_local(Decl decl) {
+  localmap = new_DeclMap(decl, localmap);
+}
+
+DeclMap get_local_checkpoint() {
+  return localmap;
+}
+
+void rollback_local(DeclMap map) {
+  localmap = map;
+}
+
 bool search_decl(IString name, Decl* retdecl) {
-  forlist (DeclMap, Decl, decl, declmap) {
-    if (istring_eq(decl.name, name)) {
-      *retdecl = decl;
-      return true;
+  {
+    forlist (DeclMap, Decl, decl, declmap) {
+      if (istring_eq(decl.name, name)) {
+        *retdecl = decl;
+        return true;
+      }
+    }
+  }
+  {
+    forlist (DeclMap, Decl, decl, localmap) {
+      if (istring_eq(decl.name, name)) {
+        *retdecl = decl;
+        return true;
+      }
     }
   }
   return false;

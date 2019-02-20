@@ -1,10 +1,10 @@
-bin/
-tmp/
+bin/*
+!bin/empty.txt
+tmp/*
+!tmp/empty.txt
 adhocctmp/
-tmp.s
 *.out
 *.exe
-*.o
 *.swp
 buffer.jit
 *.log

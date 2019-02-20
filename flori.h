@@ -416,8 +416,11 @@ FMap parse(Stream* s);
 
 // decls.c
 void decls_init();
-// decl
+// decl and local
 void add_decl(Decl decl);
+void add_local(Decl decl);
+DeclMap get_local_checkpoint();
+void rollback_local(DeclMap map);
 bool search_decl(IString name, Decl* retdecl);
 // fndecl
 void add_fndecl(FnDecl decl);

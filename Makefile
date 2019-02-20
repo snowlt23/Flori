@@ -1,31 +1,30 @@
 CC = gcc
 CFLAGS = -Wall
 
-FLORI_LIBS = string.o linmem.o jit.o data.o reloc.o istring.o decls.o fmap.o parser.o macrocaller.o boot.o flori.h.o elfgen.o
+FLORI_SRCS = string linmem jit data reloc istring decls fmap parser macrocaller boot flori.h elfgen
+FLORI_OBJS = $(FLORI_SRCS:%=tmp/%.o)
 
-build: flori ;
+build: bin/flori ;
 
-bin:
-	@mkdir bin
-tmp:
-	@mkdir tmp
 adhocctmp/adhocc.out: adhoccfile.c
 	adhocc build adhoccfile.c
 
-flori-header: flori.h tmp adhocctmp/adhocc.out
+tmp/flori.h: flori.h adhocctmp/adhocc.out
 	cat flori.h | adhocc tmp/flori.h.c > tmp/flori.h
-flori.h.o: flori-header
-	$(CC) $(CFLAGS) -c tmp/flori.h.c
-%.o: %.c tmp flori-header
+tmp/flori.h.o: tmp/flori.h
+	$(CC) $(CFLAGS) -c tmp/flori.h.c -o tmp/flori.h.o
+tmp/%.o: %.c tmp/flori.h
 	cat $< | adhocc > tmp/$(notdir $<)
-	$(CC) $(CFLAGS) -c tmp/$(notdir $<)
+	$(CC) $(CFLAGS) -c tmp/$(notdir $<) -o $@
 
-flori: bin flori-header $(FLORI_LIBS) flori.o
-	$(CC) $(CFLAGS) -o bin/flori $(FLORI_LIBS) flori.o
-%.out: %.o flori-header $(FLORI_LIBS)
-	$(CC) $(CFLAGS) -o $(basename $<).out $(FLORI_LIBS) $(basename $<).o
-test: flori
+bin/flori: tmp/flori.h $(FLORI_OBJS) tmp/flori.o
+	$(CC) $(CFLAGS) -o bin/flori $(FLORI_OBJS) tmp/flori.o
+%.out: tmp/%.o tmp/flori.h $(FLORI_OBJS)
+	$(CC) $(CFLAGS) -o $(notdir $(basename $<)).out $(FLORI_OBJS) $<
+test: bin/flori
 	./test.sh
 
 clean:
-	@rm -rf bin/ *.out *.asm *.o adhocctmp/ tmp/ tostring.c
+	@rm -rf bin/ *.out adhocctmp/ tmp/
+	@mkdir bin tmp
+	@touch bin/empty.txt tmp/empty.txt
