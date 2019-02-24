@@ -1,10 +1,10 @@
-#!/bin/bash
+#!/bin/sh
 
 # CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/syntax.flori core/allocator.flori core/string.flori core/asm.flori"
 CORELIBS="core/prelude.flori core/cstring.flori core/macro.flori core/allocator.flori core/quote.flori core/syntax.flori core/storage.flori core/stringbuffer.flori core/module.flori core/functor.flori core/array.flori core/pointer.flori core/exception.flori"
 # CORELIBS="core/prelude.flori"
 
-read-coresrc() {
+read_coresrc() {
   for f in $CORELIBS ; do
     cat $f
     echo ""
@@ -26,7 +26,7 @@ unittest() {
 # $1=input $2=expect
 runtest() {
   echo "[TEST] $1"
-  PRELUDE=`read-coresrc`
+  PRELUDE=`read_coresrc`
   OUT=`echo "$PRELUDE; $1" | ./bin/flori`
   if [ "$2" != "$OUT" ] ; then
     echo "[ERROR] $1: expect $2, but got $OUT"
@@ -36,7 +36,7 @@ runtest() {
 
 filetest() {
   echo "[TEST] $1"
-  PRELUDE=`read-coresrc`
+  PRELUDE=`read_coresrc`
   FILE=`cat $1`
   OUT=`echo "$PRELUDE; $FILE" | ./bin/flori`
   if [ "$2" != "$OUT" ] ; then
@@ -47,7 +47,7 @@ filetest() {
 
 exectest() {
   echo "[EXEC] $1"
-  PRELUDE=`read-coresrc`
+  PRELUDE=`read_coresrc`
   FILE=`cat "$1"`
   echo "$PRELUDE; $FILE" | ./bin/flori -o fa.out
   PR=`./fa.out`
