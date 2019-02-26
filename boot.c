@@ -280,7 +280,8 @@ void semantic_flist(FMap f) {
   forlist (IListFMap, FMap, e, fm(f)->lst) {
     boot_semantic(e);
   }
-  fmap_cpush(f, "type", fmap_cget(IListFMap_value(fm(f)->lst), "type"));
+  get_field(type, IListFMap_value(fm(f)->lst), "flist");
+  fmap_cpush(f, "type", type);
 }
 
 void codegen_flist(FMap f) {
@@ -304,7 +305,8 @@ void semantic_block(FMap f) {
   if (IListFMap_len(fm(f)->lst) == 0) {
     fmap_cpush(f, "type", new_ftypesym(type_void()));
   } else {
-    fmap_cpush(f, "type", fmap_cget(IListFMap_last(fm(f)->lst), "type"));
+    get_field(type, IListFMap_last(fm(f)->lst), "block");
+    fmap_cpush(f, "type", type);
   }
 }
 
@@ -434,6 +436,7 @@ void semantic_defprimitive(FMap f) {
   fp(FSymbol, sym)->size = fm(size)->intval;
   fmap_cpush(f, "sym", fsymbol(sym));
   add_decl((Decl){fm(name)->ident, sym, nil_FType()});
+  fmap_cpush(f, "type", new_ftypesym(type_void()));
 }
 
 FTypeVec* gen_fmap_argtypes(int n) {
@@ -475,7 +478,8 @@ void semantic_call(FMap f) {
   FTypeVec* argtypes = new_FTypeVec();
   forlist (IListFMap, FMap, arg, fm(args)->lst) {
     boot_semantic(arg);
-    FTypeVec_push(argtypes, get_ftype(fmap_cget(arg, "type")));
+    get_field(type, arg, "call");
+    FTypeVec_push(argtypes, get_ftype(type));
   }
   if (eq_kind(call, FMAP_SYMBOL)) return;
   if (search_fndecl(fm(call)->ident, argtypes, &fndecl)) {

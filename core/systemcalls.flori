@@ -1,0 +1,33 @@
+macro def_syscall(name ^fmap, n ^fmap, args ^fmap) ^fmap {
+  fnargs := flist("argdecls")
+  callargs := flist()
+  for i in 0..<len(args) {
+    decl := fmap("argdecl")
+    set(decl, "name", get(args, i))
+    set(decl, "type", quote ^int)
+    push(fnargs, dup(decl))
+    push(callargs, dup(get(args, i)))
+  }
+  fnargs = reverse(fnargs)
+  callargs = reverse(callargs)
+  push(callargs, n)
+
+  callmap := quote syscall()
+  set(callmap, "args", callargs)
+  fnmap := quote fn (`name`)() ^int {
+    `callmap`
+  }
+  set(fnmap, "argdecls", fnargs)
+  return fnmap
+}
+
+def_syscall(socket, 41, {family; typ; protocol})
+def_syscall(setsockopt, 54, {sockfd; level; optname; optval; optlen})
+def_syscall(bind, 49, {sockfd; sockaddr; addrlen})
+def_syscall(listen, 50, {sockfd; backlog})
+def_syscall(accept, 43, {sockfd; sockaddr; addrlen})
+def_syscall(read, 0, {fd; buf; len})
+def_syscall(write, 1, {fd; buf; len})
+def_syscall(open, 2, {mode; flags; pathname})
+def_syscall(close, 3, {fd})
+

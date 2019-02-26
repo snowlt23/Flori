@@ -22,7 +22,7 @@
     body;                                       \
   }
 #define def_field(key, value) fmap_push(tmpf, new_istring(#key), value);
-#define get_field(key, f, errmsg) FMap key = fmap_cget(f, #key); if (FMap_isnil(key)) error("undeclared %s field: %s", #key, errmsg);
+#define get_field(key, f, errmsg) FMap key = fmap_cget(f, #key); if (FMap_isnil(key)) error("undeclared %s field: %s, %s", #key, errmsg, fmap_repr(f)->data);
 
 #define ppcat1(a, b) a ## b
 #define ppcat(a, b) ppcat1(a, b)

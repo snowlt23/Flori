@@ -22,32 +22,16 @@ fn htons(x ^int) ^u16 {
   return (and(cast_u16(x), 0xff) << 8) | and(cast_u16(x) >> 8, 0xff)
 }
 
-fn socket(family ^int, typ ^int, protocol ^int) ^int {
-  return syscall(41, family, typ, protocol)
-}
-
-fn setsockopt(sockfd ^int, level ^int, optname ^int, optval ^int, optlen ^int) {
-  return syscall(54, sockfd, level, optname, optval, optlen)
-}
-
 fn bind(sockfd ^int, sockaddr ^ptr sockaddr_in, addrlen ^int) ^int {
-  return syscall(49, sockfd, cast_int(sockaddr), addrlen)
-}
-
-fn listen(sockfd ^int, backlog ^int) ^int {
-  return syscall(50, sockfd, backlog)
+  return bind(sockfd, cast_int(sockaddr), addrlen)
 }
 
 fn accept(sockfd ^int, sockaddr ^ptr sockaddr_in, addrlen ^ptr int) ^int {
-  return syscall(43, sockfd, cast_int(sockaddr), cast_int(addrlen))
+  return accept(sockfd, cast_int(sockaddr), cast_int(addrlen))
 }
 
 fn write(fd ^int, buf ^cstring, len ^int) ^int {
-  return syscall(1, fd, cast_int(buf), len)
-}
-
-fn close(fd ^int) ^int {
-  return syscall(3, fd)
+  return write(fd, cast_int(buf), len)
 }
 
 #
