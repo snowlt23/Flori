@@ -3,8 +3,8 @@ macro def_syscall(name ^fmap, n ^fmap, args ^fmap) ^fmap {
   callargs := flist()
   for i in 0..<len(args) {
     decl := fmap("argdecl")
-    set(decl, "name", get(args, i))
-    set(decl, "type", quote ^int)
+    decl%"name" = args%i
+    decl%"type" = quote ^int
     push(fnargs, dup(decl))
     push(callargs, dup(get(args, i)))
   }
@@ -13,11 +13,11 @@ macro def_syscall(name ^fmap, n ^fmap, args ^fmap) ^fmap {
   push(callargs, n)
 
   callmap := quote syscall()
-  set(callmap, "args", callargs)
+  callmap%"args" = callargs
   fnmap := quote fn (`name`)() ^int {
     `callmap`
   }
-  set(fnmap, "argdecls", fnargs)
+  fnmap%"argdecls" = fnargs
   return fnmap
 }
 
@@ -30,4 +30,3 @@ def_syscall(read, 0, {fd; buf; len})
 def_syscall(write, 1, {fd; buf; len})
 def_syscall(open, 2, {mode; flags; pathname})
 def_syscall(close, 3, {fd})
-

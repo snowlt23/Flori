@@ -35,6 +35,13 @@ fn set(f ^fmap, key ^cstring, value ^fmap) {
   cffi(internal_fmap_set_ptr, cast_int(f), cast_int(key), cast_int(value))
 }
 
+fn %(f ^fmap, key ^cstring) ^fmap {
+  get(f, key)
+}
+fn %=(f ^fmap, key ^cstring, value ^fmap) {
+  set(f, key, value)
+}
+
 fn dup(f ^fmap) ^fmap {
   return cast_fmap(cffi(internal_fmap_dup_ptr, cast_int(f)))
 }
@@ -54,6 +61,9 @@ fn len(f ^fmap) ^int {
 }
 fn get(f ^fmap, i ^int) ^fmap {
   return cast_fmap(cffi(internal_flist_get_ptr, cast_int(f), i))
+}
+fn %(f ^fmap, i ^int) ^fmap {
+  get(f, i)
 }
 
 fn replace(dst ^fmap, src ^fmap) {
