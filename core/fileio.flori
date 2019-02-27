@@ -1,0 +1,42 @@
+struct timespec {
+  tv_sec ^int
+  tv_nsec ^int
+  pad1 ^int
+}
+
+struct stat {
+  st_dev ^int
+  st_ino ^int
+  st_mode ^int
+  st_nlink ^int
+  st_uid ^int
+  st_gid ^int
+  st_rdev ^int
+  st_size ^int
+  st_blksize ^int
+  st_blocks ^int
+  st_atim ^timespec
+  st_mtim ^timespec
+  st_ctim ^timespec
+}
+
+inline fn cast_int(st ^ptr stat) ^int {}
+
+O_RDONLY := 0x0000
+
+fn open(fname ^cstring, flags ^int, mode ^int) ^int {
+  return open(cast_int(fname), flags, mode)
+}
+
+fn fstat(fd ^int, st ^ptr stat) ^int {
+  return fstat(fd, cast_int(st))
+}
+
+fn read_file(fname ^cstring) ^cstring {
+  f := open(fname, O_RDONLY, 0)
+  var st ^stat
+  fstat(f, &st)
+  s := cast_cstring(malloc(st.st_size+1))
+  read(f, cast_int(s), st.st_size)
+  return s
+}

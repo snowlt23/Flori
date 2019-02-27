@@ -1,0 +1,5 @@
+fn main() {
+  s := read_file("examples/test.txt")
+  print(s)
+  0
+}
